@@ -1,0 +1,17 @@
+# Repository settings, applied by the Probot "Settings" app.
+# https://github.com/repository-settings/app
+
+repository:
+  name: homelab
+  description: "Declarative configuration for a home distributed infrastructure lab"
+  topics: homelab, infrastructure-as-code, opentofu, terraform, ansible, podman, quadlet, proxmox, ceph, oracle-cloud, oci, sops, self-hosted
+
+  private: false
+
+  has_issues: false
+  has_projects: false
+  has_wiki: false
+  has_downloads: false
+  has_discussions: false
+
+  default_branch: master
