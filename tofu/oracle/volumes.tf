@@ -2,8 +2,6 @@ resource "oci_core_boot_volume" "bailout" {
   display_name         = "bailout (Boot Volume)"
   compartment_id       = var.tenancy_ocid
   availability_domain  = var.availability_domains.ad_3
-  defined_tags         = var.creation_tags.boot_volumes_bailout
-  freeform_tags        = {}
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
 
@@ -24,8 +22,6 @@ resource "oci_core_boot_volume" "livekit" {
   display_name         = "livekit (Boot Volume)"
   compartment_id       = var.tenancy_ocid
   availability_domain  = var.availability_domains.ad_1
-  defined_tags         = var.creation_tags.boot_volumes_livekit
-  freeform_tags        = {}
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
 
@@ -46,8 +42,6 @@ resource "oci_core_boot_volume" "mail" {
   display_name         = "mail (Boot Volume)"
   compartment_id       = var.tenancy_ocid
   availability_domain  = var.availability_domains.ad_1
-  defined_tags         = var.creation_tags.boot_volumes_mail
-  freeform_tags        = {}
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
 
@@ -68,8 +62,6 @@ resource "oci_core_boot_volume" "router" {
   display_name         = "tailscalerouter (Boot Volume)"
   compartment_id       = var.tenancy_ocid
   availability_domain  = var.availability_domains.ad_3
-  defined_tags         = var.creation_tags.boot_volumes_router
-  freeform_tags        = {}
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
 
@@ -90,8 +82,6 @@ resource "oci_core_boot_volume" "web" {
   display_name         = "doppelgangerhq.com (Boot Volume)"
   compartment_id       = var.tenancy_ocid
   availability_domain  = var.availability_domains.ad_1
-  defined_tags         = var.creation_tags.boot_volumes_web
-  freeform_tags        = {}
   is_auto_tune_enabled = false
   size_in_gbs          = "100"
 

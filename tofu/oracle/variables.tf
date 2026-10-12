@@ -1,15 +1,3 @@
-variable "creation_tags" {
-  type      = map(map(string))
-  sensitive = true
-  nullable  = false
-}
-
-variable "import_ids" {
-  type      = map(string)
-  sensitive = true
-  nullable  = false
-}
-
 variable "tenancy_ocid" {
   type      = string
   sensitive = true

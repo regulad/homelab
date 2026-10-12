@@ -19,8 +19,8 @@ $destination = Join-Path $PSScriptRoot 'secrets.auto.tfvars.json'
 if ($LASTEXITCODE -ne 0) { throw 'Decrypted inputs must be gitignored.' }
 $plaintext = (& sops decrypt (Join-Path $PSScriptRoot 'secrets.sops.json') | Out-String)
 $values = $plaintext | ConvertFrom-Json -AsHashtable -DateKind String
-if (-not $values.tenancy_ocid -or $values.import_ids -isnot [System.Collections.IDictionary]) {
-    throw 'Unexpected OCI input file: expected tenancy_ocid and import_ids inputs.'
+if (-not $values.tenancy_ocid -or -not $values.state_encryption_passphrase) {
+    throw 'Unexpected OCI input file: expected tenancy_ocid and state_encryption_passphrase inputs.'
 }
 if (Test-Path -LiteralPath $destination) {
     # Compare data, not formatting. Preserve any differing local edits.

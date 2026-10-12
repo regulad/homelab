@@ -9,79 +9,12 @@ resource "oci_core_instance" "bailout" {
     is_management_disabled   = false
     is_monitoring_disabled   = false
 
-    plugins_config {
-      name          = "WebLogic Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Vulnerability Scanning"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Oracle Java Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "OS Management Hub Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Management Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Fleet Application Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Custom Logs Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute RDMA GPU Monitoring"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Run Command"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Auto-Configuration"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Authentication"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Cloud Guard Workload Protection"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Block Volume Management"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Bastion"
-      desired_state = "DISABLED"
+    dynamic "plugins_config" {
+      for_each = local.agent_plugins
+      content {
+        name          = plugins_config.value.name
+        desired_state = plugins_config.value.desired_state
+      }
     }
   }
 
@@ -96,18 +29,12 @@ resource "oci_core_instance" "bailout" {
     assign_ipv6ip             = false
     assign_private_dns_record = false
     assign_public_ip          = "true"
-    defined_tags              = var.creation_tags.instances_bailout
-    freeform_tags             = {}
     hostname_label            = "bailout"
     nsg_ids                   = [oci_core_network_security_group.bailout.id]
     private_ip                = var.ip_addresses.bailout_create_vnic_details_1_private_ip
-    security_attributes       = {}
     skip_source_dest_check    = false
   }
-  defined_tags      = var.creation_tags.instances_bailout_2
-  extended_metadata = {}
-  fault_domain      = "FAULT-DOMAIN-3"
-  freeform_tags     = {}
+  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = true
@@ -122,16 +49,7 @@ resource "oci_core_instance" "bailout" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata            = var.instance_metadata.bailout
-  security_attributes = {}
-
-  shape_config {
-    local_volume_size_in_gbs = 0
-    memory_in_gbs            = 1
-    nvmes                    = 0
-    ocpus                    = 1
-    vcpus                    = 2
-  }
+  metadata = var.instance_metadata.bailout
 
   source_details {
     is_preserve_boot_volume_enabled = false
@@ -162,79 +80,12 @@ resource "oci_core_instance" "livekit" {
     is_management_disabled   = false
     is_monitoring_disabled   = false
 
-    plugins_config {
-      name          = "WebLogic Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Vulnerability Scanning"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Oracle Java Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "OS Management Hub Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Management Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Fleet Application Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Custom Logs Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute RDMA GPU Monitoring"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Run Command"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Auto-Configuration"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Authentication"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Cloud Guard Workload Protection"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Block Volume Management"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Bastion"
-      desired_state = "DISABLED"
+    dynamic "plugins_config" {
+      for_each = local.agent_plugins
+      content {
+        name          = plugins_config.value.name
+        desired_state = plugins_config.value.desired_state
+      }
     }
   }
 
@@ -249,18 +100,12 @@ resource "oci_core_instance" "livekit" {
     assign_ipv6ip             = false
     assign_private_dns_record = false
     assign_public_ip          = "true"
-    defined_tags              = var.creation_tags.instances_livekit
-    freeform_tags             = {}
     hostname_label            = "livekit"
     nsg_ids                   = [oci_core_network_security_group.livekit.id]
     private_ip                = var.ip_addresses.livekit_create_vnic_details_1_private_ip
-    security_attributes       = {}
     skip_source_dest_check    = false
   }
-  defined_tags      = var.creation_tags.instances_livekit_2
-  extended_metadata = {}
-  fault_domain      = "FAULT-DOMAIN-3"
-  freeform_tags     = {}
+  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -275,16 +120,12 @@ resource "oci_core_instance" "livekit" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata            = var.instance_metadata.livekit
-  security_attributes = {}
+  metadata = var.instance_metadata.livekit
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
-    local_volume_size_in_gbs  = 0
     memory_in_gbs             = 6
-    nvmes                     = 0
     ocpus                     = 1
-    vcpus                     = 1
   }
 
   source_details {
@@ -316,79 +157,12 @@ resource "oci_core_instance" "mail" {
     is_management_disabled   = false
     is_monitoring_disabled   = false
 
-    plugins_config {
-      name          = "WebLogic Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Vulnerability Scanning"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Oracle Java Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "OS Management Hub Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Management Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Fleet Application Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Custom Logs Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute RDMA GPU Monitoring"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Run Command"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Auto-Configuration"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Authentication"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Cloud Guard Workload Protection"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Block Volume Management"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Bastion"
-      desired_state = "DISABLED"
+    dynamic "plugins_config" {
+      for_each = local.agent_plugins
+      content {
+        name          = plugins_config.value.name
+        desired_state = plugins_config.value.desired_state
+      }
     }
   }
 
@@ -403,18 +177,12 @@ resource "oci_core_instance" "mail" {
     assign_ipv6ip             = false
     assign_private_dns_record = false
     assign_public_ip          = "true"
-    defined_tags              = var.creation_tags.instances_mail
-    freeform_tags             = {}
     hostname_label            = "mail"
     nsg_ids                   = [oci_core_network_security_group.mail.id]
     private_ip                = var.ip_addresses.mail_create_vnic_details_1_private_ip
-    security_attributes       = {}
     skip_source_dest_check    = false
   }
-  defined_tags      = var.creation_tags.instances_mail_2
-  extended_metadata = {}
-  fault_domain      = "FAULT-DOMAIN-3"
-  freeform_tags     = {}
+  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -429,16 +197,12 @@ resource "oci_core_instance" "mail" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata            = var.instance_metadata.mail
-  security_attributes = {}
+  metadata = var.instance_metadata.mail
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
-    local_volume_size_in_gbs  = 0
     memory_in_gbs             = 6
-    nvmes                     = 0
     ocpus                     = 1
-    vcpus                     = 1
   }
 
   source_details {
@@ -470,79 +234,12 @@ resource "oci_core_instance" "router" {
     is_management_disabled   = false
     is_monitoring_disabled   = false
 
-    plugins_config {
-      name          = "WebLogic Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Vulnerability Scanning"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Oracle Java Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "OS Management Hub Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Management Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Fleet Application Management Service"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Custom Logs Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute RDMA GPU Monitoring"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Run Command"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Auto-Configuration"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Authentication"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Cloud Guard Workload Protection"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Block Volume Management"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Bastion"
-      desired_state = "DISABLED"
+    dynamic "plugins_config" {
+      for_each = local.agent_plugins
+      content {
+        name          = plugins_config.value.name
+        desired_state = plugins_config.value.desired_state
+      }
     }
   }
 
@@ -557,18 +254,12 @@ resource "oci_core_instance" "router" {
     assign_ipv6ip             = false
     assign_private_dns_record = false
     assign_public_ip          = "true"
-    defined_tags              = var.creation_tags.instances_router
-    freeform_tags             = {}
     hostname_label            = "tailscalerouter"
     nsg_ids                   = [oci_core_network_security_group.router.id]
     private_ip                = var.ip_addresses.router_create_vnic_details_1_private_ip
-    security_attributes       = {}
     skip_source_dest_check    = true
   }
-  defined_tags      = var.creation_tags.instances_router_2
-  extended_metadata = {}
-  fault_domain      = "FAULT-DOMAIN-1"
-  freeform_tags     = {}
+  fault_domain = "FAULT-DOMAIN-1"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -583,16 +274,7 @@ resource "oci_core_instance" "router" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata            = var.instance_metadata.router
-  security_attributes = {}
-
-  shape_config {
-    local_volume_size_in_gbs = 0
-    memory_in_gbs            = 1
-    nvmes                    = 0
-    ocpus                    = 1
-    vcpus                    = 2
-  }
+  metadata = var.instance_metadata.router
 
   source_details {
     is_preserve_boot_volume_enabled = false
@@ -623,54 +305,12 @@ resource "oci_core_instance" "web" {
     is_management_disabled   = false
     is_monitoring_disabled   = false
 
-    plugins_config {
-      name          = "Vulnerability Scanning"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Management Agent"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Custom Logs Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute RDMA GPU Monitoring"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute Instance Monitoring"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Auto-Configuration"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Compute HPC RDMA Authentication"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Cloud Guard Workload Protection"
-      desired_state = "ENABLED"
-    }
-
-    plugins_config {
-      name          = "Block Volume Management"
-      desired_state = "DISABLED"
-    }
-
-    plugins_config {
-      name          = "Bastion"
-      desired_state = "DISABLED"
+    dynamic "plugins_config" {
+      for_each = local.web_agent_plugins
+      content {
+        name          = plugins_config.value.name
+        desired_state = plugins_config.value.desired_state
+      }
     }
   }
 
@@ -685,18 +325,11 @@ resource "oci_core_instance" "web" {
     assign_ipv6ip             = false
     assign_private_dns_record = false
     assign_public_ip          = "true"
-    defined_tags              = var.creation_tags.instances_web
-    freeform_tags             = {}
     hostname_label            = "doppelgangerhq-com"
-    nsg_ids                   = []
     private_ip                = var.ip_addresses.web_create_vnic_details_1_private_ip
-    security_attributes       = {}
     skip_source_dest_check    = false
   }
-  defined_tags      = var.creation_tags.instances_web_2
-  extended_metadata = {}
-  fault_domain      = "FAULT-DOMAIN-3"
-  freeform_tags     = {}
+  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -711,16 +344,12 @@ resource "oci_core_instance" "web" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata            = var.instance_metadata.bailout
-  security_attributes = {}
+  metadata = var.instance_metadata.bailout
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
-    local_volume_size_in_gbs  = 0
     memory_in_gbs             = 6
-    nvmes                     = 0
     ocpus                     = 2
-    vcpus                     = 2
   }
 
   source_details {

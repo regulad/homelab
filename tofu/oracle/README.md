@@ -7,6 +7,7 @@ Edit these files to change the infrastructure definition.
 | File | Configuration |
 |---|---|
 | `instances.tf` | Five instances, shapes, CPU/memory, launch options, agent plugins and VNIC settings |
+| `locals.tf` | Shared Oracle Cloud Agent plugin policy, including the web host's smaller inventory |
 | `volumes.tf` | Boot volumes and backup-policy assignments |
 | `network.tf` | VCNs, subnets, DHCP options and internet gateways |
 | `routes.tf` | Route tables and routes |
@@ -17,7 +18,7 @@ Edit these files to change the infrastructure definition.
 | `state.tf` | Enforced encryption for local state and saved plans |
 
 `secrets.sops.json` stores input values only: OCI identifiers, account-specific
-availability-domain names, non-public network addresses/CIDRs, identity tags,
+availability-domain names, non-public network addresses/CIDRs,
 email addresses and instance metadata. It contains no HCL or resource definitions.
 `variables.tf` declares these inputs. `prepare.ps1` decrypts them into the ignored
 `secrets.auto.tfvars.json`; it does not generate `.tf` files.
@@ -41,8 +42,25 @@ On 2026-10-12, Parker authorized adoption. The exact verified plan applied
 successfully: **74 imported, 0 added, 0 changed, 0 destroyed**, using OpenTofu
 1.13.1 and oracle/oci 9.9.0. A fresh post-adoption plan reports **No changes**
 (exit code 0). Completed import blocks are archived locally in
-`docs/snapshot/oci/adopted-imports.tf`; encrypted import IDs remain available
-for recovery. No Oracle resource mutations were performed.
+`docs/snapshot/oci/adopted-imports.tf`. The original encrypted inputs, including
+import IDs, are archived in `docs/snapshot/oci/cleanup-1-5-before/secrets.sops.json`
+and the adoption backup outside the repository. Import IDs are no longer runtime
+inputs. No Oracle resource mutations were performed.
+
+The subsequent configuration cleanup removes historical creation tags, empty
+attributes, and redundant shape settings, and shares the existing plugin policy
+without changing plugin states or order. Oracle-created tags are left to the
+provider rather than asserted as desired configuration.
+
+**Cleanup applied (2026-10-12):** Parker authorized the sensitivity-metadata
+updates and the cleanup commit. A fresh saved plan matched the reviewed changes:
+34 resources retained their values but lost the sensitivity mark on historical
+tags; five dependent IPv6 resources had deferred VNIC lookups. The verified plan
+applied successfully: **0 added, 34 changed, 0 destroyed**. The IPv6 lookups
+resolved without resource changes. A fresh post-apply plan reports **No changes**
+(exit code 0). Formatting and validation pass. Local evidence is in
+`docs/snapshot/oci/cleanup-approved-apply.log` and
+`docs/snapshot/oci/cleanup-post-apply-plan.log`.
 
 State is currently **local**, in the ignored `terraform.tfstate`, with enforced
 AES-GCM encryption. The generated encryption passphrase is stored in

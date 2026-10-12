@@ -2,8 +2,6 @@ resource "oci_core_network_security_group" "bailout" {
   display_name   = "bailout"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.nsgs_bailout
-  freeform_tags  = {}
 
   lifecycle {
     prevent_destroy = true
@@ -14,8 +12,6 @@ resource "oci_core_network_security_group" "livekit" {
   display_name   = "livekit"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.nsgs_livekit
-  freeform_tags  = {}
 
   lifecycle {
     prevent_destroy = true
@@ -26,8 +22,6 @@ resource "oci_core_network_security_group" "mail" {
   display_name   = "mail"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.nsgs_mail
-  freeform_tags  = {}
 
   lifecycle {
     prevent_destroy = true
@@ -38,8 +32,6 @@ resource "oci_core_network_security_group" "router" {
   display_name   = "tailscalerouter"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.nsgs_router
-  freeform_tags  = {}
 
   lifecycle {
     prevent_destroy = true
@@ -734,7 +726,6 @@ resource "oci_core_security_list" "legacy_default" {
   display_name   = "Default Security List for vcn-20230331-2242"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.legacy.id
-  defined_tags   = var.creation_tags.security_lists_legacy_default
 
   egress_security_rules {
     destination      = "0.0.0.0/0"
@@ -742,8 +733,6 @@ resource "oci_core_security_list" "legacy_default" {
     protocol         = "all"
     stateless        = false
   }
-  freeform_tags = {}
-
   ingress_security_rules {
 
     icmp_options {
@@ -928,7 +917,6 @@ resource "oci_core_security_list" "services_default" {
   display_name   = "Default Security List for wahlecloud"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.security_lists_services_default
 
   egress_security_rules {
     destination      = "0.0.0.0/0"
@@ -943,8 +931,6 @@ resource "oci_core_security_list" "services_default" {
     protocol         = "all"
     stateless        = false
   }
-  freeform_tags = {}
-
   ingress_security_rules {
 
     icmp_options {
@@ -1030,9 +1016,6 @@ resource "oci_core_security_list" "services_public" {
   display_name   = "pubsub"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.security_lists_services_public
-  freeform_tags  = {}
-
   ingress_security_rules {
     description = "Peering"
     protocol    = "all"

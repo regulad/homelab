@@ -2,9 +2,6 @@ resource "oci_core_route_table" "legacy_default" {
   display_name   = "Default Route Table for vcn-20230331-2242"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.legacy.id
-  defined_tags   = var.creation_tags.route_tables_legacy_default
-  freeform_tags  = {}
-
   route_rules {
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
@@ -21,9 +18,6 @@ resource "oci_core_route_table" "services_default" {
   display_name   = "Default Route Table for wahlecloud"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.route_tables_services_default
-  freeform_tags  = {}
-
   route_rules {
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
@@ -47,9 +41,6 @@ resource "oci_core_route_table" "services_public" {
   display_name   = "pubsub"
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
-  defined_tags   = var.creation_tags.route_tables_services_public
-  freeform_tags  = {}
-
   route_rules {
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
