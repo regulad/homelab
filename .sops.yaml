@@ -1,0 +1,5 @@
+# Files named *.sops.<json|yaml|yml|env> are encrypted to these age recipients.
+# Decrypt with `sops decrypt <file>`; the matching identity lives in the sops age keys file, never in git.
+creation_rules:
+  - path_regex: \.sops\.(json|ya?ml|env)$
+    age: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep

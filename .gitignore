@@ -1,0 +1,69 @@
+# This repository is public. Anything sensitive is committed only as sops-encrypted *.sops.* files.
+
+# --- OpenTofu ---------------------------------------------------------------
+# Keep .terraform.lock.hcl (it is committed); ignore everything else tofu writes locally.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+*.plan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Variable files may hold secrets; commit only *.sops.json variants.
+*.tfvars
+*.tfvars.json
+# Raw `tofu plan -generate-config-out` output can contain plaintext secrets; refactor it before committing.
+generated*.tf
+# Output of the OCI resource-discovery exporter (reference only; its state file must never be committed).
+oci-export/
+
+# --- Secrets and keys -------------------------------------------------------
+*.pem
+*.key
+*.p12
+*.pfx
+*.agekey
+keys.txt
+id_rsa*
+id_ed25519*
+.env
+.env.*
+*.env
+.vault_pass*
+vault-password*
+# Conventional names for decrypted sops output.
+*.dec
+*.dec.*
+*.decrypted
+*.decrypted.*
+
+# --- Ansible ----------------------------------------------------------------
+ansible/collections/
+*.retry
+
+# --- Python / tooling -------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# --- Discovery snapshots stay local (AGENTS.md § 11) --------------------------
+docs/snapshot/
+
+# --- Local editor / OS ------------------------------------------------------
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+
+# --- Encrypted files are allowed (must stay last) ---------------------------
+!*.sops.json
+!*.sops.yaml
+!*.sops.yml
+!*.sops.env
