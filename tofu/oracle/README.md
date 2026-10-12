@@ -14,20 +14,54 @@ modules share the existing provider configuration and encrypted state.
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
 | `state.tf` | Enforced encryption for local state and saved plans |
 
-Each child module groups its resources into `instances.tf`, `volumes.tf`,
-`network.tf`, `routes.tf`, `firewall.tf`, and `ipv6.tf`. Its `data.tf` looks up
-VNICs, `locals.tf` declares its existing agent plugin policy, and `variables.tf`
-declares its inputs. Email resources live in `wahlecloud/email.tf`. Child modules
+Each host has an `instance-<name>.tf` file containing its instance, boot volume,
+backup-policy assignment where present, VNIC lookup, IPv6 assignment, and
+dedicated firewall resources. These files are `legacy/instance-web.tf` and
+`wahlecloud/instance-{bailout,livekit,mail,router}.tf`. The web-only agent policy
+is grouped with the web instance.
+
+Each module's `network.tf` contains its VCN, subnet, DHCP options, gateways, and
+routes and subnet security lists, regardless of how many hosts use them.
+Wahlecloud's shared agent plugin policy remains in `wahlecloud/locals.tf`. `variables.tf` declares
+each module's inputs. Email resources live in `wahlecloud/email.tf`. Child modules
 declare the OCI provider source but inherit the root's provider instance; version
 pins live only in the root `versions.tf`.
+
+Matching IPv4/IPv6 firewall rules and internet routes share the CIDR maps in
+`wahlecloud/network.tf`: `local.dual_stack_internet_cidrs` and
+`local.dual_stack_vcn_sources`. An NSG rule uses
+`for_each = local.dual_stack_internet_cidrs` and `source = each.value`, keeping
+its ports, protocol, and other settings together in its instance file. Nested
+security-list rules and internet routes use `dynamic` blocks with the same maps. The stable `ipv4`
+and `ipv6` keys preserve identities independently of ordering.
+`wahlecloud/moved.tf` maps the former separate NSG rules to those keyed instances
+and chains after the root's module moves. Only matching pairs are consolidated;
+bailout's different IPv4/IPv6 ports and the distinct ICMP rules remain explicit.
 
 The non-sensitive sender addresses are listed in `local.email_senders` at the top
 of `wahlecloud/email.tf`. One sender resource uses `for_each` over that list, keyed
 by email address so reordering the list does not change resource identities.
 
-`secrets.sops.json` stores input values only: OCI identifiers, account-specific
-availability-domain names, non-public network addresses/CIDRs,
-and instance metadata. It contains no HCL or resource definitions.
+IPv4 addresses/CIDRs, ULA and Tailscale ranges are plaintext HCL.
+`../shared/tailscale.tf` exports the common Tailscale IPv4/IPv6 ranges through a
+resource-free module that future provider roots can also call. Both OCI modules
+receive its `tailscale_cidrs` output. Wahlecloud also names its repeated home-LAN
+CIDR and router address in locals. GUA IPv6 `/64` prefixes remain encrypted in
+`ipv6_subnet_cidrs`; our router next-hop OCIDs remain encrypted in
+`router_next_hop_ids`. Each module receives its own sensitive
+`ipv6_subnet_cidr`; instance files combine that prefix with a plaintext 64-bit
+hexadecimal host suffix using `cidrhost` and `parseint`. The enclosing wahlecloud
+`/56` is derived from its `/64`, so no GUA network prefix is published in HCL.
+
+`secrets.sops.json` stores those prefixes and the other inputs that remain
+sensitive: tenancy/backup-policy/next-hop identifiers, account-specific
+availability-domain names, instance metadata, and the state encryption passphrase.
+`shared_ssh_metadata` holds the SSH metadata shared by web and bailout;
+`backup_policy_id` is the single policy shared by livekit, mail, and router.
+Verified stock image IDs are plaintext in each instance file, with the exact
+image name above `source_id`. These Oracle-owned regional images are shared
+across tenancies. Custom-image IDs owned by our compartments remain sensitive.
+It contains no HCL or resource definitions.
 `variables.tf` declares these inputs. `prepare.ps1` decrypts them into the ignored
 `secrets.auto.tfvars.json`; it does not generate `.tf` files.
 
@@ -70,26 +104,21 @@ resolved without resource changes. A fresh post-apply plan reports **No changes*
 `docs/snapshot/oci/cleanup-approved-apply.log` and
 `docs/snapshot/oci/cleanup-post-apply-plan.log`.
 
-**Module split prepared (2026-10-12):** all resources and VNIC lookups now live
-under `legacy/` or `wahlecloud/`. The root retains shared provider/state setup,
-input loading and module/migration wiring. Formatting and validation pass. A
-fresh plan reports **0 to add, 0 to change, 0 to destroy**, with all 74 managed
-resource IDs and values preserved. The plan exits with code 2 because address
-moves are pending; no apply or state mutation has been performed for this split.
-Keep `moved.tf` for migration of existing state and older backups. Local evidence
-is in `docs/snapshot/oci/module-split-plan.log`.
+**Reorganization and readability cleanup applied (2026-10-12):** Parker
+approved the module/address moves, host-centered files, dual-stack rule and route
+helpers, shared Tailscale constants, input naming, redundant network-argument
+removal, and sensitivity changes. Both VCNs use `cidr_blocks`; each subnet uses
+one IPv4 CIDR, an IPv6 CIDR list, and `prohibit_internet_ingress`.
 
-The subsequent sender-list change removes the email-address input from SOPS and
-maps the two original sender addresses to their new `for_each` addresses in
-`moved.tf`. After renewing the OCI DEFAULT session, the fresh live plan reports
-**0 to add, 2 to change, 0 to destroy**. Both updates only remove the sensitivity
-label from `email_address`; the addresses themselves are unchanged. All 74
-managed resources retain identical IDs and values, and all have mappings from
-their original root addresses. Refreshed values also match the saved state.
-Formatting and validation pass. Evidence is in
-`docs/snapshot/oci/sender-list-verified-plan.log` and
-`docs/snapshot/oci/sender-list-verification.json`. Nothing has been applied for
-either the module split or the sender-list change; the state file is unchanged.
+The verified saved plan had 0 additions, 18 updates, and 0 deletions: 13 resources
+had sensitivity-metadata changes only, and five IPv6 resources awaited VNIC
+lookups. Apply completed with **0 added, 13 changed, 0 destroyed**; the IPv6
+lookups resolved without changes. All 74 managed resource IDs and values match
+the pre-apply state exactly. The fresh live plan reports **No changes** (exit 0).
+Formatting, validation, encrypted-input consistency, and the public-file privacy
+audit pass. Keep both `moved.tf` files to support older states and backups.
+Local evidence is in `docs/snapshot/oci/readability-{plan,apply,post-apply-plan}.log`
+and `readability-{before,after}-verification.json`.
 
 State is currently **local**, in the ignored `terraform.tfstate`, with enforced
 AES-GCM encryption. The generated encryption passphrase is stored in
@@ -113,7 +142,7 @@ was created during adoption.
 - Standalone boot-volume and IPv6 resources own those settings. Instance
   lifecycle rules ignore only the overlapping launch-time volume capacity,
   volume performance and IPv6 assignment fields.
-- Router address IDs used as route next hops remain explicit encrypted inputs.
+- Router address IDs used as route next hops are explicit sensitive inputs.
   Referencing the router resources here would create a route/subnet/instance
   dependency cycle. Gateway routes use direct resource references.
 - Each discovered instance has one attached VNIC. `one()` deliberately fails if

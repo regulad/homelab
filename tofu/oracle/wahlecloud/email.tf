@@ -10,6 +10,7 @@ resource "oci_email_dkim" "primary" {
   description     = "recheck"
   email_domain_id = oci_email_email_domain.primary.id
 
+  # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
   }
@@ -19,6 +20,7 @@ resource "oci_email_email_domain" "primary" {
   name           = "regulad.xyz"
   compartment_id = var.tenancy_ocid
 
+  # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
   }
@@ -30,6 +32,7 @@ resource "oci_email_sender" "sender" {
   compartment_id = var.tenancy_ocid
   email_address  = each.value
 
+  # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
   }
@@ -41,6 +44,7 @@ resource "oci_identity_policy" "mail" {
   description    = "mail entitlement"
   statements     = ["allow group svc-mail to use email-family in tenancy"]
 
+  # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
   }

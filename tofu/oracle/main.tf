@@ -1,31 +1,36 @@
+module "shared" {
+  source = "../shared"
+}
+
 module "legacy" {
   source = "./legacy"
+
+  tailscale_cidrs     = module.shared.tailscale_cidrs
+  shared_ssh_metadata = var.shared_ssh_metadata
+  ipv6_subnet_cidr    = var.ipv6_subnet_cidrs.legacy
 
   providers = {
     oci = oci
   }
 
   availability_domains = var.availability_domains
-  image_ids            = var.image_ids
-  instance_metadata    = var.instance_metadata
-  ip_addresses         = var.ip_addresses
-  network_cidrs        = var.network_cidrs
   tenancy_ocid         = var.tenancy_ocid
 }
 
 module "wahlecloud" {
   source = "./wahlecloud"
 
+  tailscale_cidrs     = module.shared.tailscale_cidrs
+  shared_ssh_metadata = var.shared_ssh_metadata
+  ipv6_subnet_cidr    = var.ipv6_subnet_cidrs.wahlecloud
+
   providers = {
     oci = oci
   }
 
   availability_domains = var.availability_domains
-  backup_policy_ids    = var.backup_policy_ids
-  image_ids            = var.image_ids
+  router_next_hop_ids  = var.router_next_hop_ids
+  backup_policy_id     = var.backup_policy_id
   instance_metadata    = var.instance_metadata
-  ip_addresses         = var.ip_addresses
-  network_cidrs        = var.network_cidrs
-  route_next_hop_ids   = var.route_next_hop_ids
   tenancy_ocid         = var.tenancy_ocid
 }
