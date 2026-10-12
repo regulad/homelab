@@ -8,6 +8,7 @@ resource "oci_core_instance" "mail" {
   shape               = "VM.Standard.A1.Flex"
   metadata            = var.instance_metadata.mail
   state               = "RUNNING"
+  freeform_tags       = { "managed-by" = "opentofu" }
 
   agent_config {
     are_all_plugins_disabled = false
@@ -295,11 +296,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_80" {
 
   tcp_options {
     destination_port_range { # HTTP
-      max = 80
-      min = 80
-    }
-
-    source_port_range { # HTTP
       max = 80
       min = 80
     }

@@ -8,6 +8,7 @@ resource "oci_core_instance" "livekit" {
   shape               = "VM.Standard.A1.Flex"
   metadata            = var.instance_metadata.livekit
   state               = "RUNNING"
+  freeform_tags       = { "managed-by" = "opentofu" }
 
   agent_config {
     are_all_plugins_disabled = false

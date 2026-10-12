@@ -8,6 +8,7 @@ resource "oci_core_instance" "bailout" {
   shape               = "VM.Standard.E2.1.Micro"
   metadata            = var.shared_ssh_metadata
   state               = "RUNNING"
+  freeform_tags       = { "managed-by" = "opentofu" }
 
   agent_config {
     are_all_plugins_disabled = false
@@ -139,7 +140,7 @@ resource "oci_core_network_security_group_security_rule" "bailout_rule_01" {
   stateless                 = false
 
   udp_options {
-    destination_port_range {
+    destination_port_range { # WireGuard
       max = 51820
       min = 51820
     }
@@ -161,7 +162,7 @@ resource "oci_core_network_security_group_security_rule" "bailout_rule_02" {
   stateless                 = false
 
   udp_options {
-    destination_port_range {
+    destination_port_range { # WireGuard
       max = 51821
       min = 51821
     }

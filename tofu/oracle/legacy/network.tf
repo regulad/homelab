@@ -100,40 +100,6 @@ resource "oci_core_security_list" "legacy_default" {
   }
 
   ingress_security_rules {
-    protocol    = "17" # UDP
-    source      = "10.0.0.0/16"
-    source_type = "CIDR_BLOCK"
-    stateless   = false
-
-    udp_options { # DNS
-      max = 53
-      min = 53
-
-      source_port_range { # DNS
-        max = 53
-        min = 53
-      }
-    }
-  }
-
-  ingress_security_rules {
-    protocol    = "17" # UDP
-    source      = var.tailscale_cidrs.ipv4
-    source_type = "CIDR_BLOCK"
-    stateless   = false
-
-    udp_options { # DNS
-      max = 53
-      min = 53
-
-      source_port_range { # DNS
-        max = 53
-        min = 53
-      }
-    }
-  }
-
-  ingress_security_rules {
     protocol    = "6" # TCP
     source      = "0.0.0.0/0"
     source_type = "CIDR_BLOCK"
@@ -142,40 +108,6 @@ resource "oci_core_security_list" "legacy_default" {
     tcp_options { # SSH
       max = 22
       min = 22
-    }
-  }
-
-  ingress_security_rules {
-    protocol    = "6" # TCP
-    source      = "10.0.0.0/16"
-    source_type = "CIDR_BLOCK"
-    stateless   = false
-
-    tcp_options { # DNS
-      max = 53
-      min = 53
-
-      source_port_range { # DNS
-        max = 53
-        min = 53
-      }
-    }
-  }
-
-  ingress_security_rules {
-    protocol    = "6" # TCP
-    source      = var.tailscale_cidrs.ipv4
-    source_type = "CIDR_BLOCK"
-    stateless   = false
-
-    tcp_options { # DNS
-      max = 53
-      min = 53
-
-      source_port_range { # DNS
-        max = 53
-        min = 53
-      }
     }
   }
 
@@ -216,24 +148,6 @@ resource "oci_core_security_list" "legacy_default" {
     tcp_options {
       max = 443
       min = 443
-    }
-  }
-
-  ingress_security_rules {
-    description = "Minecraft Voice Chat"
-    protocol    = "17" # UDP
-    source      = "0.0.0.0/0"
-    source_type = "CIDR_BLOCK"
-    stateless   = false
-
-    udp_options {
-      max = 24454
-      min = 24454
-
-      source_port_range {
-        max = 24454
-        min = 24454
-      }
     }
   }
 

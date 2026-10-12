@@ -14,6 +14,7 @@ resource "oci_core_instance" "router" {
   shape               = "VM.Standard.E2.1.Micro"
   metadata            = var.instance_metadata.router
   state               = "RUNNING"
+  freeform_tags       = { "managed-by" = "opentofu" }
 
   agent_config {
     are_all_plugins_disabled = false

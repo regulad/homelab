@@ -24,6 +24,7 @@ resource "oci_core_instance" "web" {
   shape               = "VM.Standard.A1.Flex"
   metadata            = var.shared_ssh_metadata
   state               = "RUNNING"
+  freeform_tags       = { "managed-by" = "opentofu" }
 
   agent_config {
     are_all_plugins_disabled = false
