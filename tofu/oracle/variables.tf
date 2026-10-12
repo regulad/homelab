@@ -4,12 +4,6 @@ variable "tenancy_ocid" {
   nullable  = false
 }
 
-variable "email_addresses" {
-  type      = map(string)
-  sensitive = true
-  nullable  = false
-}
-
 variable "network_cidrs" {
   type      = map(string)
   sensitive = true

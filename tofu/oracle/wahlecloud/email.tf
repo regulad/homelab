@@ -1,3 +1,10 @@
+locals {
+  email_senders = [
+    "noreply@regulad.xyz",
+    "regulad@regulad.xyz",
+  ]
+}
+
 resource "oci_email_dkim" "primary" {
   name            = "regulad-iad-20260815"
   description     = "recheck"
@@ -17,18 +24,11 @@ resource "oci_email_email_domain" "primary" {
   }
 }
 
-resource "oci_email_sender" "noreply" {
-  compartment_id = var.tenancy_ocid
-  email_address  = var.email_addresses.noreply
+resource "oci_email_sender" "sender" {
+  for_each = toset(local.email_senders)
 
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "oci_email_sender" "personal" {
   compartment_id = var.tenancy_ocid
-  email_address  = var.email_addresses.personal
+  email_address  = each.value
 
   lifecycle {
     prevent_destroy = true

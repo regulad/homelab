@@ -1,5 +1,5 @@
 locals {
-  # Preserve the existing plugin policy and provider list order on all four service hosts.
+  # Preserve the existing plugin states and provider list order.
   agent_plugins = [
     { name = "WebLogic Management Service", desired_state = "DISABLED" },
     { name = "Vulnerability Scanning", desired_state = "DISABLED" },
@@ -16,17 +16,5 @@ locals {
     { name = "Cloud Guard Workload Protection", desired_state = "ENABLED" },
     { name = "Block Volume Management", desired_state = "DISABLED" },
     { name = "Bastion", desired_state = "DISABLED" },
-  ]
-
-  # The web host has a smaller existing plugin inventory. Do not enable additional plugins.
-  web_agent_plugins = [
-    for plugin in local.agent_plugins : plugin
-    if !contains([
-      "WebLogic Management Service",
-      "Oracle Java Management Service",
-      "OS Management Hub Agent",
-      "Fleet Application Management Service",
-      "Compute Instance Run Command",
-    ], plugin.name)
   ]
 }

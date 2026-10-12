@@ -78,26 +78,6 @@ resource "oci_core_boot_volume" "router" {
   }
 }
 
-resource "oci_core_boot_volume" "web" {
-  display_name         = "doppelgangerhq.com (Boot Volume)"
-  compartment_id       = var.tenancy_ocid
-  availability_domain  = var.availability_domains.ad_1
-  is_auto_tune_enabled = false
-  size_in_gbs          = "100"
-
-  source_details {
-    type = "bootVolume"
-  }
-  vpus_per_gb = "10"
-
-  lifecycle {
-    prevent_destroy = true
-    # Image-created volumes expose no clone/restore source. This required
-    # schema placeholder is ignored for adoption; it is not a creation recipe.
-    ignore_changes = [source_details]
-  }
-}
-
 resource "oci_core_volume_backup_policy_assignment" "livekit" {
   asset_id  = oci_core_boot_volume.livekit.id
   policy_id = var.backup_policy_ids.livekit
