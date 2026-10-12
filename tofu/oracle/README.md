@@ -38,6 +38,11 @@ and `ipv6` keys preserve identities independently of ordering.
 and chains after the root's module moves. Only matching pairs are consolidated;
 bailout's different IPv4/IPv6 ports and the distinct ICMP rules remain explicit.
 
+`local.dual_stack_homelab_cidrs` pairs `10.23.0.0/20` with the homelab IPv6 ULA
+`fd83:b84c:aa57:1::/64` (fourth hextet `0001`). Its routes select the router's
+next-hop ID by IP family. The existing homelab security-list ingress rule remains
+IPv4-only; the shared address pair does not implicitly add firewall permissions.
+
 The non-sensitive sender addresses are listed in `local.email_senders` at the top
 of `wahlecloud/email.tf`. One sender resource uses `for_each` over that list, keyed
 by email address so reordering the list does not change resource identities.

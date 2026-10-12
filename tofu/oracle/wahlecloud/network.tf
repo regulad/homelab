@@ -1,5 +1,8 @@
 locals {
-  homelab_ipv4_cidr = "10.23.0.0/20"
+  dual_stack_homelab_cidrs = {
+    ipv4 = "10.23.0.0/20"
+    ipv6 = "fd83:b84c:aa57:1::/64" # Homelab ULA; fourth hextet 0001.
+  }
 
   # Reuse these stable family keys for rules that are identical across IPv4 and IPv6.
   dual_stack_internet_cidrs = {
@@ -107,7 +110,8 @@ resource "oci_core_security_list" "services_public" {
   ingress_security_rules {
     description = "Peering"
     protocol    = "all" # All IP protocols
-    source      = local.homelab_ipv4_cidr
+    # The existing homelab ingress rule permits IPv4 only.
+    source      = local.dual_stack_homelab_cidrs.ipv4
     source_type = "CIDR_BLOCK"
     stateless   = false
   }
@@ -246,11 +250,15 @@ resource "oci_core_route_table" "services_public" {
     }
   }
 
-  route_rules {
-    destination       = local.homelab_ipv4_cidr
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = var.router_next_hop_ids.ipv4
-    route_type        = "STATIC"
+  dynamic "route_rules" {
+    for_each = local.dual_stack_homelab_cidrs
+    iterator = cidr
+    content {
+      destination       = cidr.value
+      destination_type  = "CIDR_BLOCK"
+      network_entity_id = var.router_next_hop_ids[cidr.key]
+      route_type        = "STATIC"
+    }
   }
 
   route_rules {
@@ -262,13 +270,6 @@ resource "oci_core_route_table" "services_public" {
 
   route_rules {
     destination       = var.tailscale_cidrs.ipv6
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = var.router_next_hop_ids.ipv6
-    route_type        = "STATIC"
-  }
-
-  route_rules {
-    destination       = "fd83:b84c:aa57:1::/64"
     destination_type  = "CIDR_BLOCK"
     network_entity_id = var.router_next_hop_ids.ipv6
     route_type        = "STATIC"
