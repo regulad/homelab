@@ -190,9 +190,42 @@ Record, under `docs/snapshot/`, what actually exists. Never modify anything.
 ## § 6 — Conventions
 - Guest names: lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
 - Tags: every guest carries `managed-by=opentofu`; tailnet tags map to ACL groups.
-- OpenTofu: one root per provider; `locals.tf` holds desired topology; modules take explicit inputs; no secrets in `locals`.
+- OpenTofu: one root per provider; modules take explicit inputs; no secrets in `locals`. See the HCL conventions below.
 - Ansible: roles expose knobs in `defaults/`, avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
 - Quadlets: one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.
+- File names: where `-` delimits parts of a file name (`instance-<name>.tf`, `subnet-<name>.tf`), write each `-` inside a part as `--`. For example, subnet `subnet-20230331-2242` lives in `subnet-subnet--20230331--2242.tf`.
+
+### OpenTofu HCL conventions (established in `tofu/oracle`)
+- **Files:** one `instance-<name>.tf` per host and one `subnet-<name>.tf` per subnet, each opening with a `# <name>: <contents>.` header. `network.tf` holds network-wide `locals`, the VCN, gateways, and the defaults the provider creates with the VCN. A distinct concern gets its own file (`email.tf`). `locals.tf` holds only values shared across files, and `variables.tf` declares inputs. `moved.tf` keeps every historical address move so old states and backups still plan cleanly.
+- **Order within a file:** file-local `locals` first, then the primary resource, then what depends on it.
+  - Host files: instance, boot volume, backup-policy assignment, VNIC lookup, IPv6 assignment, NSG, NSG rules.
+  - Subnet files: the subnet, then its own DHCP options, route table, and security lists.
+  - `network.tf`: VCN, internet gateway, DHCP options, route tables, security lists.
+- **Order within a resource:** meta-arguments (`for_each`) first, followed by a blank line. Then identity (`display_name`, `compartment_id`, parent IDs), placement (`availability_domain`, `fault_domain`), other scalar arguments, and nested blocks. Blank lines separate nested blocks; none directly inside an opening brace. Keep list order the provider or service treats as meaningful.
+- **Imperative leftovers:** every adopted resource ends with this footer:
+  ```hcl
+    # The following exists as an artifact of import from the imperative setup.
+    lifecycle {
+      prevent_destroy = true
+    }
+  ```
+  Schema placeholders that exist only for adoption, such as the boot-volume `source_details { type = "bootVolume" }`, sit between that comment and `lifecycle`. `ignore_changes` stays as narrow as possible and carries a comment explaining what owns the ignored field.
+- **Opaque values get a comment:** wherever possible, put a comment next to any value whose meaning is not self-evident:
+  - protocol numbers: `"1" # ICMP`, `"6" # TCP`, `"17" # UDP`, `"58" # ICMPv6`, `"all" # All IP protocols`
+  - ICMP `type`/`code` pairs: `type = 3 # Destination Unreachable`
+  - each plaintext stock-image OCID: the exact image name on the line above `source_id`
+
+  Use HCL comments for this, not new `description` arguments; adding a description changes infrastructure.
+- **IPv4/IPv6 pairs:** values that exist per IP family are objects keyed `ipv4`, then `ipv6`, named `dual_stack_<what>` when local (`local.dual_stack_internet_cidrs`, `var.tailscale_cidrs`, `var.router_next_hop_ids`).
+  - Rules or routes identical across families iterate over the pair: `for_each` with `each.value`, or a `dynamic` block with `iterator = cidr`. The stable family keys keep resource addresses independent of ordering.
+  - Rules that differ by family stay explicit.
+  - A shared address pair never implies a permission for both families. Comment any family-only exception, such as an IPv4-only peering rule.
+  - Constants that belong to one subnet or host live at the top of that file; network-wide pairs live in `network.tf`.
+- **Addresses:** IPv4, ULA, and Tailscale literals are plaintext. GUA host addresses are `cidrhost(var.ipv6_subnet_cidr, parseint("<64-bit hex suffix>", 16))`. Enclosing prefixes are derived from the encrypted `/64`, never written.
+- **Lookups:** read a host's VNIC through a `data "oci_core_vnic_attachments"` filtered to `ATTACHED` and `one()`, so a second VNIC fails loudly instead of being guessed.
+- **Inputs:** sensitive inputs are `sensitive = true` and `nullable = false` and come from `secrets.sops.json`. Non-sensitive values are inline HCL, not variables. Resource-free constants shared by several roots live in `tofu/shared`.
+- **Versions:** pins live only in each root's `versions.tf`. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
+- **Labels:** resource labels are stable identities; renaming one needs a `moved` block. NSG rules are labelled `<host>_<protocol>_<port or range>`; bailout's two family-specific rules keep their adopted `bailout_rule_NN` labels.
 
 ## § 7 — Verification checklist (run before every PR)
 ```bash
@@ -255,4 +288,8 @@ Decisions made by the human after this plan was written. Where they conflict wit
 - **Network input sensitivity:** Parker explicitly classified the listed network CIDRs, host IPs, and route next-hop IDs as non-sensitive except for the GUA IPv6 `/64` prefixes. Keep those two prefixes SOPS-encrypted; derive full GUA host addresses and the enclosing `/56` from them. IPv4, ULA/Tailscale ranges, host suffixes, and the listed next-hop OCIDs may be plaintext HCL. This classification does not change the treatment of other credentials or sensitive inputs, and does not authorize apply.
 - **OCID ownership classification (supersedes the next-hop exception above):** Parker approved plaintext OCIDs for verified stock images, with their exact image names in comments above `source_id`. OCIDs owned by our tenancy/compartments remain sensitive, including the router next-hop IDs; the shared backup-policy ID also remains SOPS-encrypted. The five current image lookups have null compartment IDs and platform-image names; four additionally match Oracle's public regional catalog exactly. Livekit's exact revision was not found in the catalog, so its classification relies on the image API metadata. IPv4, ULA/Tailscale ranges, and host suffixes remain plaintext; GUA `/64` prefixes remain encrypted.
 
-- **Readability cleanup applied (2026-10-12):** Parker authorized cleanup items 1�4, verification, apply, and commit. The saved plan preserved all known values; apply recorded module/rule address moves and 13 sensitivity-metadata updates, with 0 additions or deletions. All 74 managed resources retain identical IDs and values, and the fresh plan is a no-op. Shared Tailscale ranges live in the resource-free `tofu/shared` module. Item 5 (presentation/order cleanup) remains a proposal for review. Further infrastructure mutations require separate approval.
+- **Readability cleanup applied (2026-10-12):** Parker authorized cleanup items 1–4, verification, apply, and commit. The saved plan preserved all known values; apply recorded module/rule address moves and 13 sensitivity-metadata updates, with 0 additions or deletions. All 74 managed resources retain identical IDs and values, and the fresh plan is a no-op. Shared Tailscale ranges live in the resource-free `tofu/shared` module. Item 5 (presentation/order cleanup) remains a proposal for review. Further infrastructure mutations require separate approval.
+- **Tooling (2026-10-12):** `uv` is the Python/tool manager. Agents must not install anything themselves, including tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, and OpenTofu providers. Parker manages tools declaratively; ask him to install what is needed.
+- **Remote state deferred (2026-10-12):** OCI state stays local on Parker's backed-up laptop until the rest of the repository is ready. Remote-backend migration comes after that, not before.
+- **Presentation cleanup (2026-10-12):** Parker requested item 5, with each subnet in its own `subnet-<name>.tf` (subnet first, then the DHCP options, route table, and security list only it uses). The VCN-created defaults stay in `network.tf`. ICMP `type`/`code` values gained comments. Parker then approved applying the verified saved plan, plus one commit as the final OCI cleanup pass that also adds the pre-commit configuration. That plan was a no-op for all 74 resources. Apply recorded **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan is a no-op. Encrypted before/after state backups are under `%LOCALAPPDATA%/homelab/oracle-backups/final-cleanup-*`. This approval does not authorize further infrastructure mutations.
+- **Pre-commit (2026-10-12):** Parker approved `pre-commit install` and pinned `pre-commit/pre-commit-hooks`; gitleaks is not wanted. Other hooks use installed tools (`language: unsupported`) or `pygrep`.

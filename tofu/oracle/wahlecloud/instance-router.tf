@@ -1,16 +1,19 @@
+# router: instance, storage, addressing, and dedicated firewall resources.
+
 locals {
   # Reused by the address assignments and subnet DNS configuration.
   router_ipv4_address = "10.131.80.239"
   router_ipv6_address = cidrhost(var.ipv6_subnet_cidr, parseint("0000efc0c5471a01", 16))
 }
 
-# router: instance, storage, addressing, and dedicated firewall resources.
-
 resource "oci_core_instance" "router" {
   display_name        = "tailscalerouter"
   compartment_id      = var.tenancy_ocid
   availability_domain = var.availability_domains.ad_3
+  fault_domain        = "FAULT-DOMAIN-1"
   shape               = "VM.Standard.E2.1.Micro"
+  metadata            = var.instance_metadata.router
+  state               = "RUNNING"
 
   agent_config {
     are_all_plugins_disabled = false
@@ -42,7 +45,6 @@ resource "oci_core_instance" "router" {
     private_ip                = local.router_ipv4_address
     skip_source_dest_check    = true
   }
-  fault_domain = "FAULT-DOMAIN-1"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -57,7 +59,6 @@ resource "oci_core_instance" "router" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata = var.instance_metadata.router
 
   source_details {
     is_preserve_boot_volume_enabled = false
@@ -65,7 +66,6 @@ resource "oci_core_instance" "router" {
     source_id   = "ocid1.image.oc1.iad.aaaaaaaaglxne5nh73mxqppl3fkzkqdlda3k22y6oyxcvy6gcaxxsym54mca"
     source_type = "image"
   }
-  state = "RUNNING"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -85,8 +85,7 @@ resource "oci_core_boot_volume" "router" {
   availability_domain  = var.availability_domains.ad_3
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
-
-  vpus_per_gb = "10"
+  vpus_per_gb          = "10"
 
   # The following exists as an artifact of import from the imperative setup.
   source_details {
@@ -157,7 +156,6 @@ resource "oci_core_network_security_group_security_rule" "router_udp_39127" {
   stateless                 = true
 
   udp_options {
-
     destination_port_range {
       max = 39127
       min = 39127

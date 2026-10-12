@@ -14,14 +14,26 @@ modules share the existing provider configuration and encrypted state.
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
 | `state.tf` | Enforced encryption for local state and saved plans |
 
-Each host has an `instance-<name>.tf` file containing its instance, boot volume,
-backup-policy assignment where present, VNIC lookup, IPv6 assignment, and
-dedicated firewall resources. These files are `legacy/instance-web.tf` and
-`wahlecloud/instance-{bailout,livekit,mail,router}.tf`. The web-only agent policy
-is grouped with the web instance.
+Each host has an `instance-<name>.tf` file containing, in order, any host-local
+constants, its instance, boot volume, backup-policy assignment where present, VNIC
+lookup, IPv6 assignment, and dedicated firewall resources. These files are
+`legacy/instance-web.tf` and `wahlecloud/instance-{bailout,livekit,mail,router}.tf`.
+The web-only agent policy is grouped with the web instance.
 
-Each module's `network.tf` contains its VCN, subnet, DHCP options, gateways, and
-routes and subnet security lists, regardless of how many hosts use them.
+Each subnet has a `subnet-<name>.tf` file containing the subnet, followed by the
+DHCP options, route table, and security list that only it uses:
+`wahlecloud/subnet-public.tf` (`pubsub`) and
+`legacy/subnet-subnet--20230331--2242.tf`. A `-` inside a name is written as `--`
+because `-` already delimits the prefix. Each module's `network.tf` contains its
+network-wide locals, VCN, internet gateway, and the DHCP options, route table, and
+security list OCI created with the VCN, in that order. Legacy's subnet uses those
+VCN defaults; wahlecloud's `pubsub` attaches the default security list alongside
+its own.
+
+Within a resource, scalar arguments come before nested blocks, and the
+import-artifact `lifecycle` footer (with the boot-volume `source_details`
+placeholder) stays last.
+
 Wahlecloud's shared agent plugin policy remains in `wahlecloud/locals.tf`. `variables.tf` declares
 each module's inputs. Email resources live in `wahlecloud/email.tf`. Child modules
 declare the OCI provider source but inherit the root's provider instance; version
@@ -38,7 +50,8 @@ and `ipv6` keys preserve identities independently of ordering.
 and chains after the root's module moves. Only matching pairs are consolidated;
 bailout's different IPv4/IPv6 ports and the distinct ICMP rules remain explicit.
 
-`local.dual_stack_homelab_cidrs` pairs `10.23.0.0/20` with the homelab IPv6 ULA
+`local.dual_stack_homelab_cidrs`, at the top of `wahlecloud/subnet-public.tf`
+because the homelab is bridged to that subnet, pairs `10.23.0.0/20` with the homelab IPv6 ULA
 `fd83:b84c:aa57:1::/64` (fourth hextet `0001`). Its routes select the router's
 next-hop ID by IP family. The existing homelab security-list ingress rule remains
 IPv4-only; the shared address pair does not implicitly add firewall permissions.
@@ -124,6 +137,13 @@ Formatting, validation, encrypted-input consistency, and the public-file privacy
 audit pass. Keep both `moved.tf` files to support older states and backups.
 Local evidence is in `docs/snapshot/oci/readability-{plan,apply,post-apply-plan}.log`
 and `readability-{before,after}-verification.json`.
+
+**Final cleanup pass applied (2026-10-12):** per-subnet files, consistent
+resource and argument order, and ICMP type/code comments. Parker approved
+applying the verified saved plan, which was a no-op for all 74 resources. Apply
+completed with **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan
+reports **No changes**. Local evidence is in
+`docs/snapshot/oci/final-cleanup-{plan,apply,post-apply-plan}.log`.
 
 State is currently **local**, in the ignored `terraform.tfstate`, with enforced
 AES-GCM encryption. The generated encryption passphrase is stored in

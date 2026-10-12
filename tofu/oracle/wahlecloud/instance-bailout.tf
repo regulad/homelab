@@ -4,7 +4,10 @@ resource "oci_core_instance" "bailout" {
   display_name        = "bailout"
   compartment_id      = var.tenancy_ocid
   availability_domain = var.availability_domains.ad_3
+  fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.E2.1.Micro"
+  metadata            = var.shared_ssh_metadata
+  state               = "RUNNING"
 
   agent_config {
     are_all_plugins_disabled = false
@@ -36,7 +39,6 @@ resource "oci_core_instance" "bailout" {
     private_ip                = "10.131.80.201"
     skip_source_dest_check    = false
   }
-  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = true
@@ -51,7 +53,6 @@ resource "oci_core_instance" "bailout" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata = var.shared_ssh_metadata
 
   source_details {
     is_preserve_boot_volume_enabled = false
@@ -59,7 +60,6 @@ resource "oci_core_instance" "bailout" {
     source_id   = "ocid1.image.oc1.iad.aaaaaaaai4tjt6h3zmwiou6gppgnyjnm3twfqaezcynx6dp3uwr6i2be43cq"
     source_type = "image"
   }
-  state = "RUNNING"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -79,8 +79,7 @@ resource "oci_core_boot_volume" "bailout" {
   availability_domain  = var.availability_domains.ad_3
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
-
-  vpus_per_gb = "10"
+  vpus_per_gb          = "10"
 
   # The following exists as an artifact of import from the imperative setup.
   source_details {
@@ -140,7 +139,6 @@ resource "oci_core_network_security_group_security_rule" "bailout_rule_01" {
   stateless                 = false
 
   udp_options {
-
     destination_port_range {
       max = 51820
       min = 51820
@@ -163,7 +161,6 @@ resource "oci_core_network_security_group_security_rule" "bailout_rule_02" {
   stateless                 = false
 
   udp_options {
-
     destination_port_range {
       max = 51821
       min = 51821

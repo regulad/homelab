@@ -4,7 +4,10 @@ resource "oci_core_instance" "livekit" {
   display_name        = "livekit"
   compartment_id      = var.tenancy_ocid
   availability_domain = var.availability_domains.ad_1
+  fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
+  metadata            = var.instance_metadata.livekit
+  state               = "RUNNING"
 
   agent_config {
     are_all_plugins_disabled = false
@@ -36,7 +39,6 @@ resource "oci_core_instance" "livekit" {
     private_ip                = "10.131.80.10"
     skip_source_dest_check    = false
   }
-  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -51,7 +53,6 @@ resource "oci_core_instance" "livekit" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata = var.instance_metadata.livekit
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
@@ -65,7 +66,6 @@ resource "oci_core_instance" "livekit" {
     source_id   = "ocid1.image.oc1.iad.aaaaaaaaz3iia6dyo7qkwbkp4crbk6unkjkwg572v553l3rsf4dvsp2teugq"
     source_type = "image"
   }
-  state = "RUNNING"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -85,8 +85,7 @@ resource "oci_core_boot_volume" "livekit" {
   availability_domain  = var.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
-
-  vpus_per_gb = "10"
+  vpus_per_gb          = "10"
 
   # The following exists as an artifact of import from the imperative setup.
   source_details {
@@ -157,7 +156,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_80" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 80
       min = 80
@@ -181,7 +179,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_443" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 443
       min = 443
@@ -205,7 +202,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_7881" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 7881
       min = 7881
@@ -229,7 +225,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_5349" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 5349
       min = 5349
@@ -253,7 +248,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_udp_3478" {
   stateless                 = false
 
   udp_options {
-
     destination_port_range {
       max = 3478
       min = 3478
@@ -277,7 +271,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_udp_30000_4000
   stateless                 = false
 
   udp_options {
-
     destination_port_range {
       max = 40000
       min = 30000
@@ -301,7 +294,6 @@ resource "oci_core_network_security_group_security_rule" "livekit_udp_50000_6000
   stateless                 = false
 
   udp_options {
-
     destination_port_range {
       max = 60000
       min = 50000

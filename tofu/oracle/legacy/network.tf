@@ -1,3 +1,68 @@
+resource "oci_core_vcn" "legacy" {
+  display_name   = "vcn-20230331-2242"
+  compartment_id = var.tenancy_ocid
+  cidr_blocks    = ["10.0.0.0/16"]
+  dns_label      = "vcn03312242"
+  is_ipv6enabled = true
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "oci_core_internet_gateway" "legacy" {
+  display_name   = "Internet Gateway vcn-20230331-2242"
+  compartment_id = var.tenancy_ocid
+  vcn_id         = oci_core_vcn.legacy.id
+  enabled        = true
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "oci_core_dhcp_options" "legacy_default" {
+  display_name     = "Default DHCP Options for vcn-20230331-2242"
+  compartment_id   = var.tenancy_ocid
+  vcn_id           = oci_core_vcn.legacy.id
+  domain_name_type = "CUSTOM_DOMAIN"
+
+  options {
+    search_domain_names = ["vcn03312242.oraclevcn.com"]
+    type                = "SearchDomain"
+  }
+
+  options {
+    server_type = "VcnLocalPlusInternet"
+    type        = "DomainNameServer"
+  }
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "oci_core_route_table" "legacy_default" {
+  display_name   = "Default Route Table for vcn-20230331-2242"
+  compartment_id = var.tenancy_ocid
+  vcn_id         = oci_core_vcn.legacy.id
+
+  route_rules {
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+    network_entity_id = oci_core_internet_gateway.legacy.id
+    route_type        = "STATIC"
+  }
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 resource "oci_core_security_list" "legacy_default" {
   display_name   = "Default Security List for vcn-20230331-2242"
   compartment_id = var.tenancy_ocid
@@ -9,28 +74,29 @@ resource "oci_core_security_list" "legacy_default" {
     protocol         = "all" # All IP protocols
     stateless        = false
   }
-  ingress_security_rules {
 
-    icmp_options {
-      code = -1
-      type = 3
-    }
+  ingress_security_rules {
     protocol    = "1" # ICMP
     source      = "10.0.0.0/16"
     source_type = "CIDR_BLOCK"
     stateless   = false
+
+    icmp_options {
+      type = 3  # Destination Unreachable
+      code = -1 # All codes (unset in OCI)
+    }
   }
 
   ingress_security_rules {
-
-    icmp_options {
-      code = 4
-      type = 3
-    }
     protocol    = "1" # ICMP
     source      = "0.0.0.0/0"
     source_type = "CIDR_BLOCK"
     stateless   = false
+
+    icmp_options {
+      type = 3 # Destination Unreachable
+      code = 4 # Fragmentation Needed and DF set (path MTU discovery)
+    }
   }
 
   ingress_security_rules {
@@ -182,87 +248,6 @@ resource "oci_core_security_list" "legacy_default" {
       max = 41641
       min = 41641
     }
-  }
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "oci_core_dhcp_options" "legacy_default" {
-  display_name     = "Default DHCP Options for vcn-20230331-2242"
-  compartment_id   = var.tenancy_ocid
-  vcn_id           = oci_core_vcn.legacy.id
-  domain_name_type = "CUSTOM_DOMAIN"
-  options {
-    search_domain_names = ["vcn03312242.oraclevcn.com"]
-    type                = "SearchDomain"
-  }
-
-  options {
-    server_type = "VcnLocalPlusInternet"
-    type        = "DomainNameServer"
-  }
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "oci_core_internet_gateway" "legacy" {
-  display_name   = "Internet Gateway vcn-20230331-2242"
-  compartment_id = var.tenancy_ocid
-  vcn_id         = oci_core_vcn.legacy.id
-  enabled        = true
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "oci_core_subnet" "legacy" {
-  display_name              = "subnet-20230331-2242"
-  compartment_id            = var.tenancy_ocid
-  vcn_id                    = oci_core_vcn.legacy.id
-  cidr_block                = "10.0.0.0/24"
-  dhcp_options_id           = oci_core_dhcp_options.legacy_default.id
-  dns_label                 = "subnet03312242"
-  ipv6cidr_blocks           = [var.ipv6_subnet_cidr]
-  prohibit_internet_ingress = false
-  route_table_id            = oci_core_route_table.legacy_default.id
-  security_list_ids         = [oci_core_security_list.legacy_default.id]
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "oci_core_vcn" "legacy" {
-  display_name   = "vcn-20230331-2242"
-  compartment_id = var.tenancy_ocid
-  cidr_blocks    = ["10.0.0.0/16"]
-  dns_label      = "vcn03312242"
-  is_ipv6enabled = true
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "oci_core_route_table" "legacy_default" {
-  display_name   = "Default Route Table for vcn-20230331-2242"
-  compartment_id = var.tenancy_ocid
-  vcn_id         = oci_core_vcn.legacy.id
-  route_rules {
-    destination       = "0.0.0.0/0"
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_internet_gateway.legacy.id
-    route_type        = "STATIC"
   }
 
   # The following exists as an artifact of import from the imperative setup.

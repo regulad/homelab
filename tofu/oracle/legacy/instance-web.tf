@@ -1,10 +1,29 @@
 # web: instance, storage, addressing, and agent plugin policy.
 
+locals {
+  # Preserve the existing plugin states and provider list order.
+  agent_plugins = [
+    { name = "Vulnerability Scanning", desired_state = "DISABLED" },
+    { name = "Management Agent", desired_state = "DISABLED" },
+    { name = "Custom Logs Monitoring", desired_state = "ENABLED" },
+    { name = "Compute RDMA GPU Monitoring", desired_state = "DISABLED" },
+    { name = "Compute Instance Monitoring", desired_state = "ENABLED" },
+    { name = "Compute HPC RDMA Auto-Configuration", desired_state = "DISABLED" },
+    { name = "Compute HPC RDMA Authentication", desired_state = "DISABLED" },
+    { name = "Cloud Guard Workload Protection", desired_state = "ENABLED" },
+    { name = "Block Volume Management", desired_state = "DISABLED" },
+    { name = "Bastion", desired_state = "DISABLED" },
+  ]
+}
+
 resource "oci_core_instance" "web" {
   display_name        = "doppelgangerhq.com"
   compartment_id      = var.tenancy_ocid
   availability_domain = var.availability_domains.ad_1
+  fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
+  metadata            = var.shared_ssh_metadata
+  state               = "RUNNING"
 
   agent_config {
     are_all_plugins_disabled = false
@@ -35,7 +54,6 @@ resource "oci_core_instance" "web" {
     private_ip                = "10.0.0.233"
     skip_source_dest_check    = false
   }
-  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -50,7 +68,6 @@ resource "oci_core_instance" "web" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata = var.shared_ssh_metadata
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
@@ -64,7 +81,6 @@ resource "oci_core_instance" "web" {
     source_id   = "ocid1.image.oc1.iad.aaaaaaaaoxcb6yp3brpepe726ar3bsadhbs3mqrn6cyaeq2dneo75opgfija"
     source_type = "image"
   }
-  state = "RUNNING"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -84,8 +100,7 @@ resource "oci_core_boot_volume" "web" {
   availability_domain  = var.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "100"
-
-  vpus_per_gb = "10"
+  vpus_per_gb          = "10"
 
   # The following exists as an artifact of import from the imperative setup.
   source_details {
@@ -122,21 +137,4 @@ resource "oci_core_ipv6" "web" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-
-locals {
-  # Preserve the existing plugin states and provider list order.
-  agent_plugins = [
-    { name = "Vulnerability Scanning", desired_state = "DISABLED" },
-    { name = "Management Agent", desired_state = "DISABLED" },
-    { name = "Custom Logs Monitoring", desired_state = "ENABLED" },
-    { name = "Compute RDMA GPU Monitoring", desired_state = "DISABLED" },
-    { name = "Compute Instance Monitoring", desired_state = "ENABLED" },
-    { name = "Compute HPC RDMA Auto-Configuration", desired_state = "DISABLED" },
-    { name = "Compute HPC RDMA Authentication", desired_state = "DISABLED" },
-    { name = "Cloud Guard Workload Protection", desired_state = "ENABLED" },
-    { name = "Block Volume Management", desired_state = "DISABLED" },
-    { name = "Bastion", desired_state = "DISABLED" },
-  ]
 }

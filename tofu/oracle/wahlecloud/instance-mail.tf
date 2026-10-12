@@ -4,7 +4,10 @@ resource "oci_core_instance" "mail" {
   display_name        = "mail"
   compartment_id      = var.tenancy_ocid
   availability_domain = var.availability_domains.ad_1
+  fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
+  metadata            = var.instance_metadata.mail
+  state               = "RUNNING"
 
   agent_config {
     are_all_plugins_disabled = false
@@ -36,7 +39,6 @@ resource "oci_core_instance" "mail" {
     private_ip                = "10.131.80.15"
     skip_source_dest_check    = false
   }
-  fault_domain = "FAULT-DOMAIN-3"
 
   instance_options {
     are_legacy_imds_endpoints_disabled = false
@@ -51,7 +53,6 @@ resource "oci_core_instance" "mail" {
     network_type                        = "PARAVIRTUALIZED"
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
-  metadata = var.instance_metadata.mail
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
@@ -65,7 +66,6 @@ resource "oci_core_instance" "mail" {
     source_id   = "ocid1.image.oc1.iad.aaaaaaaaa53zducgjvcstvpe76ctctt6ddw5bloq2wvhvboggfs5usyd47za"
     source_type = "image"
   }
-  state = "RUNNING"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -85,8 +85,7 @@ resource "oci_core_boot_volume" "mail" {
   availability_domain  = var.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
-
-  vpus_per_gb = "10"
+  vpus_per_gb          = "10"
 
   # The following exists as an artifact of import from the imperative setup.
   source_details {
@@ -157,7 +156,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_25" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 25
       min = 25
@@ -181,7 +179,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_143" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 143
       min = 143
@@ -205,7 +202,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_465" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 465
       min = 465
@@ -229,7 +225,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_587" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 587
       min = 587
@@ -253,7 +248,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_993" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 993
       min = 993
@@ -277,7 +271,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_4190" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 4190
       min = 4190
@@ -301,7 +294,6 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_80" {
   stateless                 = false
 
   tcp_options {
-
     destination_port_range {
       max = 80
       min = 80
