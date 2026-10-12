@@ -137,7 +137,7 @@ resource "oci_core_security_list" "services_default" {
       source_type = "CIDR_BLOCK"
       stateless   = false
 
-      tcp_options {
+      tcp_options { # SSH
         max = 22
         min = 22
       }

@@ -105,11 +105,11 @@ resource "oci_core_security_list" "legacy_default" {
     source_type = "CIDR_BLOCK"
     stateless   = false
 
-    udp_options {
+    udp_options { # DNS
       max = 53
       min = 53
 
-      source_port_range {
+      source_port_range { # DNS
         max = 53
         min = 53
       }
@@ -122,11 +122,11 @@ resource "oci_core_security_list" "legacy_default" {
     source_type = "CIDR_BLOCK"
     stateless   = false
 
-    udp_options {
+    udp_options { # DNS
       max = 53
       min = 53
 
-      source_port_range {
+      source_port_range { # DNS
         max = 53
         min = 53
       }
@@ -139,7 +139,7 @@ resource "oci_core_security_list" "legacy_default" {
     source_type = "CIDR_BLOCK"
     stateless   = false
 
-    tcp_options {
+    tcp_options { # SSH
       max = 22
       min = 22
     }
@@ -151,11 +151,11 @@ resource "oci_core_security_list" "legacy_default" {
     source_type = "CIDR_BLOCK"
     stateless   = false
 
-    tcp_options {
+    tcp_options { # DNS
       max = 53
       min = 53
 
-      source_port_range {
+      source_port_range { # DNS
         max = 53
         min = 53
       }
@@ -168,11 +168,11 @@ resource "oci_core_security_list" "legacy_default" {
     source_type = "CIDR_BLOCK"
     stateless   = false
 
-    tcp_options {
+    tcp_options { # DNS
       max = 53
       min = 53
 
-      source_port_range {
+      source_port_range { # DNS
         max = 53
         min = 53
       }

@@ -139,7 +139,7 @@ Local evidence is in `docs/snapshot/oci/readability-{plan,apply,post-apply-plan}
 and `readability-{before,after}-verification.json`.
 
 **Final cleanup pass applied (2026-10-12):** per-subnet files, consistent
-resource and argument order, and ICMP type/code comments. Parker approved
+resource and argument order, and comments naming ICMP type/code values and ports. Parker approved
 applying the verified saved plan, which was a no-op for all 74 resources. Apply
 completed with **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan
 reports **No changes**. Local evidence is in

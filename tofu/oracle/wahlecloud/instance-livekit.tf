@@ -156,7 +156,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_80" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # HTTP (TLS certificate issuance)
       max = 80
       min = 80
     }
@@ -179,7 +179,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_443" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # HTTPS and TURN/TLS
       max = 443
       min = 443
     }
@@ -202,7 +202,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_7881" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # LiveKit WebRTC over TCP (ICE/TCP)
       max = 7881
       min = 7881
     }
@@ -225,7 +225,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_tcp_5349" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # TURN/TLS
       max = 5349
       min = 5349
     }
@@ -248,7 +248,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_udp_3478" {
   stateless                 = false
 
   udp_options {
-    destination_port_range {
+    destination_port_range { # TURN/UDP and STUN
       max = 3478
       min = 3478
     }
@@ -271,7 +271,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_udp_30000_4000
   stateless                 = false
 
   udp_options {
-    destination_port_range {
+    destination_port_range { # LiveKit TURN relay range
       max = 40000
       min = 30000
     }
@@ -294,7 +294,7 @@ resource "oci_core_network_security_group_security_rule" "livekit_udp_50000_6000
   stateless                 = false
 
   udp_options {
-    destination_port_range {
+    destination_port_range { # LiveKit WebRTC over UDP (ICE/UDP)
       max = 60000
       min = 50000
     }

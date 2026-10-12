@@ -156,7 +156,7 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_25" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # SMTP
       max = 25
       min = 25
     }
@@ -179,7 +179,7 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_143" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # IMAP
       max = 143
       min = 143
     }
@@ -202,7 +202,7 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_465" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # SMTP submission over implicit TLS
       max = 465
       min = 465
     }
@@ -225,7 +225,7 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_587" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # SMTP submission (STARTTLS)
       max = 587
       min = 587
     }
@@ -248,7 +248,7 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_993" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # IMAP over TLS
       max = 993
       min = 993
     }
@@ -271,7 +271,7 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_4190" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # ManageSieve
       max = 4190
       min = 4190
     }
@@ -294,12 +294,12 @@ resource "oci_core_network_security_group_security_rule" "mail_tcp_80" {
   stateless                 = false
 
   tcp_options {
-    destination_port_range {
+    destination_port_range { # HTTP
       max = 80
       min = 80
     }
 
-    source_port_range {
+    source_port_range { # HTTP
       max = 80
       min = 80
     }

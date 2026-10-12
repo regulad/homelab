@@ -156,7 +156,7 @@ resource "oci_core_network_security_group_security_rule" "router_udp_39127" {
   stateless                 = true
 
   udp_options {
-    destination_port_range {
+    destination_port_range { # Tailscale peer relay
       max = 39127
       min = 39127
     }
