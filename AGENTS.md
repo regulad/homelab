@@ -7,12 +7,13 @@ them. Parker supervises and approves.
 - **Plan and status:** [`.claude/PLAN.md`](.claude/PLAN.md) has the goals, phases, and each phase's current status.
 - **History:** [`.claude/HISTORY.md`](.claude/HISTORY.md) records past approvals, apply results, and superseded decisions. Append new history there and nowhere else.
 - **Directory detail:** each `README.md`, starting with [`tofu/oracle/README.md`](tofu/oracle/README.md).
+- **Managed elsewhere:** the tailnet's ACL policy and DNS live in [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles). Never add or change either from this repository.
 
 Where this file and the plan disagree, this file wins.
 
 ## Hard rules
 
-1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `podman rm|stop`, `oci ... delete|update`, and anything that edits Tailscale ACLs. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
+1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `pvesh set|create|delete`, `ceph config set` and other Ceph changes, `podman rm|stop`, and `oci ... delete|update`. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
 2. **Read-only discovery.** Use read-only credentials, such as a Proxmox `PVEAuditor` token. OCI is the exception: Parker's own read/write session token, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
 3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
 4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
@@ -40,7 +41,7 @@ homelab/
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
-│   ├── <provider>/              # one root per provider, own state (oracle, proxmox, tailnet)
+│   ├── <provider>/              # one root per provider, own state (oracle, proxmox)
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 └── ansible/
@@ -50,9 +51,9 @@ homelab/
     └── requirements.yml         # pinned collections
 ```
 
-- **OpenTofu** owns which machines exist. It never manages containers or in-guest files.
+- **OpenTofu** owns which machines exist, plus the Proxmox cluster-wide settings its provider supports. It never manages containers or in-guest files.
 - **cloud-init**, set by OpenTofu, does only minimal bootstrap: admin user, SSH key, and a tailnet join with a pre-authorized, tagged key.
-- **Ansible** owns everything inside a guest after bootstrap. Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
+- **Ansible** owns everything inside a guest after bootstrap, and the Proxmox and Ceph cluster-wide settings OpenTofu cannot manage, applied on the nodes. Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
 - **Separate roots per provider** limit blast radius. Cross-root sharing goes through explicit outputs, or through `tofu/shared` for constants.
 
 ## Everyday commands
@@ -94,7 +95,7 @@ unintended destroy or replace.
 
 - **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened (work done, approvals, apply results, superseded decisions) by appending to `.claude/HISTORY.md`.
 - **Guest names:** lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
-- **Tags:** every guest carries `managed-by=opentofu`; tailnet tags map to ACL groups.
+- **Tags:** every guest carries `managed-by=opentofu`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
 - **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
 - **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
 - **Quadlets:** one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.

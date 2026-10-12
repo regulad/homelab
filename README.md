@@ -1,5 +1,7 @@
 # homelab
 
+[![wakatime](https://wakatime.com/badge/github/regulad/homelab.svg)](https://wakatime.com/badge/github/regulad/homelab)
+
 Declarative infrastructure for a home Proxmox cluster and an OCI tenancy:
 OpenTofu for machines, Ansible and Podman Quadlets for what runs on them.
 
@@ -25,3 +27,10 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the migration plan and each phase's
 status, and [`AGENTS.md`](AGENTS.md) for the rules and conventions agents follow.
 
 Licensed under [GNU AGPLv3](LICENSE.md).
+
+## Adjacent IaC projects
+
+Tailnet ACL policy and DNS live in
+[`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls).
+
+Workstation configuration is at [`regulad/dotfiles`](https://github.com/regulad/dotfiles).

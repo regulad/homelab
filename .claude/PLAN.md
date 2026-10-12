@@ -5,6 +5,11 @@ across a home Proxmox cluster and an OCI tenancy. This file holds the goals, the
 phases, and each phase's current status. The rules agents follow, the model
 architecture, and the conventions are in [`AGENTS.md`](../AGENTS.md).
 
+Two neighbouring areas are already declarative in their own repositories and stay
+out of this one: the tailnet's ACL policy and DNS in
+[`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and
+workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles).
+
 ## Status
 
 | Phase | Status |
@@ -15,7 +20,7 @@ architecture, and the conventions are in [`AGENTS.md`](../AGENTS.md).
 | 3. Quadlet services | Not started. |
 | 4. Proxmox OpenTofu | Not started. |
 | 5. OCI OpenTofu | Done: the agreed scope (74 resources) is adopted in `tofu/oracle`, and its plan is a no-op. Remote state is deferred. |
-| 6. Tailnet | Not started. |
+| 6. Proxmox and Ceph cluster settings | Not started. |
 | 7. Inventory handoff | Not started. |
 | 8. Portability proof | Not started. |
 | 9. Drift and CI (optional) | Not started. |
@@ -26,14 +31,14 @@ not start the next phase without it. Commit, and open a PR, only when Parker ask
 ## Goal and non-goals
 
 **Goal**
-- Machines (Proxmox LXC/VM, OCI instances, tailnet keys/ACLs) are declared in **OpenTofu** and tracked in state.
-- Host configuration (podman, Tailscale, Avahi, service definitions) is applied by **Ansible**.
+- Machines (Proxmox LXC/VM, OCI instances) are declared in **OpenTofu** and tracked in state.
+- Proxmox cluster-wide and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
+- Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**.
 - Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a playbook run.
 - Existing infrastructure is **adopted** (imported), not recreated.
 
 **Non-goals (for now)**
 - Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
-- Managing Proxmox/Ceph cluster-level settings (not supported by the `bpg/proxmox` provider).
 - Migrating data inside containers automatically. Parker plans data movement per service.
 - CI/drift automation (optional Phase 9).
 
@@ -47,7 +52,8 @@ not start the next phase without it. Commit, and open a PR, only when Parker ask
 | Phase 1 | SSH access from the operator machine to Proxmox nodes and guests over the tailnet; a read-only Proxmox API token (`PVEAuditor`) | Needed |
 | Phase 4 | Remote state backend choice and credentials (S3-compatible, e.g. OCI Object Storage or MinIO); state-encryption passphrase handling | Deferred until the rest of the repository is ready |
 | Phase 4 | A scoped Proxmox API token/role for management (Parker creates it) | Needed |
-| Phase 6 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node before touching tailnet ACLs | Needed |
+| Phase 6 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node before any cluster firewall, network, or Ceph change | Needed |
+| Phase 6 | A Proxmox API token/role with the privileges cluster-wide settings need (Parker creates it) | Needed |
 | Phase 9 | A non-expiring OCI credential (API-key user or instance principal) | Needed |
 
 ## Phases
@@ -127,11 +133,12 @@ modify anything.
 - **Accept:** `tofu plan` is a no-op, and no plan showed a destroy or replace.
 - **Remaining:** the remote backend with locking, deferred until the rest of the repository is ready. The adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source.
 
-### Phase 6 — OpenTofu: tailnet (highest lockout risk)
-- Separate root `tofu/tailnet`. **Plan-only until Parker confirms** a LAN/console path to every Proxmox node.
-- Import the current ACL policy first (no changes). Add tagged, pre-authorized key generation for new guests only afterward.
-- Any ACL diff goes to Parker for line-by-line review before apply.
-- **Accept:** the current policy is imported with a no-op plan; key minting works for a test tag.
+### Phase 6 — Proxmox and Ceph cluster settings (highest outage risk)
+- Discover cluster-wide settings read-only and record them under `docs/snapshot/`. For Proxmox: datacenter options, cluster firewall, HA groups and resources, storage definitions, SDN, users/groups/roles/ACLs, and backup and replication jobs. For Ceph: `ceph config dump`, pools, CRUSH rules, and monitor/manager/MDS layout.
+- For each setting, verify whether `bpg/proxmox` manages it. If it does, adopt it in `tofu/proxmox` with `import {}` blocks; if not, manage it with idempotent Ansible tasks on the nodes. Record the choice per setting.
+- Adopt the current values first, with **no changes**: a no-op plan and a `changed=0` check run. Change settings only afterwards, each diff reviewed line by line by Parker.
+- **Plan-only and check-only until Parker confirms** a LAN/console path to every node. Firewall, network, and Ceph changes can lock out a node, interrupt the cluster, or start data movement.
+- **Accept:** every in-scope cluster and Ceph setting is captured as code; the plan is a no-op and the check run reports `changed=0`.
 
 ### Phase 7 — Inventory handoff
 - Each root exports the same output shape:
@@ -162,6 +169,7 @@ modify anything.
 
 ## Known uncertainties (verify, do not assume)
 - bpg/proxmox: current resource type names and the import ID format (believed `node/vmid`; resource naming has been shifting). The provider uses SSH for some actions; HA-managed guests can migrate without the provider knowing.
+- bpg/proxmox coverage of cluster-wide settings (datacenter options, firewall, HA, storage, SDN, access control, backup and replication jobs) and whether it covers any Ceph configuration; verify each before choosing between OpenTofu and Ansible.
 - `-generate-config-out`: documented as potentially changing output format between minor versions; no config generation for `for_each` imports; may emit plaintext secrets.
 - `cloud.terraform` inventory plugins: `terraform_state` supports only AWS/Azure/GCP per its docs; `terraform_provider` needs initialized project dirs; `tofu` binary support unconfirmed.
 - Podman-in-LXC: requires `nesting=1` (sometimes `keyctl=1`); rootless inside unprivileged LXC can be fiddly with subuid/subgid ranges.
@@ -174,12 +182,13 @@ modify anything.
 | State loss | Enforced state encryption with off-repo backups of state and key; a remote backend with locking once the repository is ready |
 | Import produces a plan that wants to replace a guest | Stop; adjust config (not the guest) until the plan is a no-op; ask Parker |
 | Bad Ansible change on a prod host | `--check --diff` first, `--limit` to one host, keep the old container until verified |
-| Tailnet ACL lockout | Separate root, plan-only without approval, retain the LAN/console path |
+| A cluster firewall, network, or Ceph change locks out a node, interrupts the cluster, or starts data movement | Adopt current values with no changes first; plan-only and check-only without approval; keep the LAN/console path; Parker reviews every diff line by line |
 | Secrets leak | `.gitignore` and privacy pre-commit hooks; SOPS only |
 | Quadlet migration data loss | Side-by-side migration; snapshot/backup before cutover; Parker approves old-container removal |
 
 ## Definition of done
-- Every in-scope guest is in OpenTofu state with a **no-op plan** in all three roots.
+- Every in-scope guest is in OpenTofu state with a **no-op plan** in both provider roots (`tofu/oracle`, `tofu/proxmox`).
+- Every in-scope Proxmox and Ceph cluster-wide setting is captured as code, with a no-op plan and a `changed=0` check run.
 - Every in-scope container runs as a pinned, Ansible-rendered Quadlet; a second playbook run reports no changes.
 - The dynamic inventory is built from OpenTofu outputs, with services defined only in `host_vars/`.
 - At least one service has been moved between hosts by changing data only, with a written runbook.

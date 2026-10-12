@@ -108,3 +108,24 @@ than annotated. These were exporter-based OCI discovery, committed discovery
 snapshots, a read-only OCI profile, and per-phase commits and PRs. The original
 wording is in Git history before this restructure and in the verbatim § 11 entries
 above.
+
+## Published to GitHub (2026-10-12)
+
+Before the first push, a scan of every commit found no OCIDs other than images, no
+GUA IPv6 literals, no private or age keys, no state, plan, tfvars or snapshot
+files, and only encrypted SOPS files. `phase-0-scaffold` was renamed to `master`;
+the old local `master` held only the initial commit, an ancestor. `gh repo create`
+made the public `regulad/homelab` with `origin` and pushed `master`. A follow-up
+commit added `.github/settings.yml` for the Probot Settings app (description,
+topics, and the disabled features used in `regulad/tailscale-acls`).
+
+## Scope change (2026-10-12)
+
+Parker moved two areas out of this repository because they are already
+declarative elsewhere: tailnet configuration (ACL policy and DNS) in
+`regulad/tailscale-acls`, and workstations in `regulad/dotfiles`. The plan's
+tailnet root (`tofu/tailnet`, ACL import, auth-key minting) was dropped. Parker
+also brought Proxmox cluster-wide and Ceph cluster-wide settings into scope; the
+plan previously listed them as a non-goal because `bpg/proxmox` does not cover
+them all. Phase 6 now covers those settings, using OpenTofu where the provider
+supports a setting and Ansible on the nodes otherwise.
