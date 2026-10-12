@@ -1,202 +1,108 @@
-# Plan: Migrate pet containers to IaC (`regulad/homelab`)
+# Agent cheat sheet: `regulad/homelab`
 
-Audience: an agent working in a fresh clone of `regulad/homelab`, supervised by a human (Parker).
-Goal: replace hand-configured "pet" containers with declarative, relocatable services across a home Proxmox cluster and an OCI tenancy.
+Read this first. This repository makes a home Proxmox cluster and an OCI tenancy
+declarative: OpenTofu for machines, Ansible and Podman Quadlets for what runs on
+them. Parker supervises and approves.
 
-## § 1 — Goal and non-goals
+- **Plan and status:** [`.claude/PLAN.md`](.claude/PLAN.md) has the goals, phases, and each phase's current status.
+- **History:** [`.claude/HISTORY.md`](.claude/HISTORY.md) records past approvals, apply results, and superseded decisions. Append new history there and nowhere else.
+- **Directory detail:** each `README.md`, starting with [`tofu/oracle/README.md`](tofu/oracle/README.md).
 
-**Goal**
-- Machines (Proxmox LXC/VM, OCI instances, tailnet keys/ACLs) are declared in **OpenTofu** and tracked in state.
-- Host configuration (podman, Tailscale, Avahi, service definitions) is applied by **Ansible**.
-- Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a playbook run.
-- Existing infrastructure is **adopted** (imported), not recreated.
+Where this file and the plan disagree, this file wins.
 
-**Non-goals (for now)**
-- Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
-- Managing Proxmox/Ceph cluster-level settings (not supported by the `bpg/proxmox` provider).
-- Migrating data inside containers automatically. Data movement is planned per service by the human.
-- CI/drift automation (optional Phase 9).
+## Hard rules
 
-## § 2 — Operating rules for the agent (hard constraints)
+1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `podman rm|stop`, `oci ... delete|update`, and anything that edits Tailscale ACLs. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
+2. **Read-only discovery.** Use read-only credentials, such as a Proxmox `PVEAuditor` token. OCI is the exception: Parker's own read/write session token, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
+3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
+4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
+   - OCIDs owned by our tenancy or compartments link resources to the tenancy, so they stay encrypted, including router next-hop and backup-policy IDs. Verified stock-image OCIDs may be plaintext, with the exact image name in a comment above `source_id`. Verify ownership before publishing an unfamiliar OCID.
+   - GUA IPv6 `/64` prefixes stay encrypted; derive host addresses and enclosing prefixes from them. IPv4, ULA and Tailscale ranges, and IPv6 host suffixes are plaintext.
+5. **Don't invent facts.** Discover with read-only commands, keep raw output in the gitignored `docs/snapshot/`, and ask about anything unknown. Verify provider and tool details (resource names, import ID formats, flags) against current docs.
+6. **Stop and ask** when a plan shows any destroy or replace, when an Ansible `--check` shows unexpected changes on a production host, or at an auth or permission wall.
+7. **Pin everything:** providers with a committed `.terraform.lock.hcl`, Ansible collections in `requirements.yml`, container image tags (never `latest`), and pre-commit hook revisions.
+8. **Commits only when Parker asks.** Keep each one small and single-purpose, with a conventional-commit message. Every commit carries the contributing agent's own `Co-authored-by` trailer. Never add `Signed-off-by` with Parker's identity unless he says so for those commits, and never bypass commit signing.
 
-1. **Never run mutating commands without explicit human approval in chat.** Forbidden unless approved per-action: `tofu apply`, `tofu destroy`, `tofu state rm|mv|push`, `tofu import` (CLI form), `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `podman rm|stop`, `oci ... delete|update`, anything that edits Tailscale ACLs.
-2. **Read-only first.** Use read-only credentials for discovery (Proxmox `PVEAuditor` token, OCI read-only policy). Do not create broader credentials yourself; ask the human.
-3. **No secrets in git.** Never commit tokens, keys, `*.tfvars` with secrets, state files, `.terraform/`, or generated state. Secrets live in `sops`+`age` files; the repo must contain only encrypted forms. Add ignore rules in Phase 0 before anything else.
-   **OCID privacy:** OCIDs owned by our tenancy or compartments are sensitive because they can link resources to the tenancy, even though they are not authentication credentials. Keep them SOPS-encrypted. Verified Oracle-owned/shared identifiers, such as stock platform-image OCIDs, may be plaintext; regional scope does not make a platform image tenancy-owned. Verify ownership before publishing an unfamiliar OCID. Put the image's exact human-readable name in a comment immediately above each plaintext `source_id`. Custom-image OCIDs, backup-policy IDs, and our network next-hop OCIDs remain sensitive.
-4. **Do not invent facts about the infrastructure.** Discover via read-only commands and record results in `docs/snapshot/`. If something is unknown, list it under "Open questions" and ask.
-5. **Verify provider/tool details against current docs before relying on them** (resource names, import ID formats, flags). Several are listed in § 8 as unverified.
-6. **Small, reviewable commits**, one logical change each, conventional-commit messages. One branch/PR per phase.
-7. **Pin everything**: provider versions (and commit `.terraform.lock.hcl`), Ansible collection versions in `requirements.yml`, container image tags (never `latest`).
-8. **Stop and ask** when a plan shows any destroy/replace, when an Ansible `--check` shows unexpected changes on a production host, or when you hit an auth/permission wall.
-9. **Commit attribution:** Every commit must include a `Co-authored-by: <agent name> <agent email>` trailer with the proper attribution for the LLM agent that contributed to the change. Use that agent's designated attribution identity; do not invent an identity or attribute one agent's work to another. An LLM agent must never add a `Signed-off-by` trailer using the user's name or email unless the user explicitly instructs it to do so.
+## Model architecture
 
-## § 3 — Target architecture
+This model guides where new work goes. The repository itself is the
+authoritative state: where they differ, the repository wins, and changing the
+model is Parker's decision.
 
 ```
 homelab/
-├── README.md
-├── AGENTS.md                      # this file
-├── ansible.cfg                  # inventory, roles_path, collections_path -> ansible/
-├── .sops.yaml                   # age recipients
-├── .gitignore                   # state, .terraform/, *.tfvars (unencrypted), vault pw, .env
-├── .pre-commit-config.yaml      # tofu fmt/validate, ansible-lint, yamllint, secret scan
+├── AGENTS.md, README.md
+├── .claude/                     # PLAN.md, HISTORY.md
+├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy, Ansible lint hooks
+├── .sops.yaml, .gitignore, ansible.cfg
 ├── docs/
-│   ├── snapshot/                # read-only discovery output (Phase 1)
+│   ├── snapshot/                # local-only discovery output (gitignored)
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
 ├── tofu/
-│   ├── modules/
-│   │   ├── lxc-guest/           # child module: one LXC with defaults
-│   │   └── vm-guest/
-│   ├── proxmox/                 # root module (own state)
-│   ├── oracle/                  # root module (own state)
-│   └── tailnet/                 # root module (own state; ACLs + tagged auth keys)
+│   ├── shared/                  # resource-free constants for every root
+│   ├── <provider>/              # one root per provider, own state (oracle, proxmox, tailnet)
+│   │   └── <child>/             # child modules split by network or concern
+│   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 └── ansible/
-    ├── inventory/
-    │   ├── inventory.py         # dynamic inventory: merges `tofu output` from each root
-    │   ├── group_vars/{all,podman_hosts,proxmox,oracle}/
-    │   └── host_vars/<host>/{main.yml,services.yml}
-    ├── playbooks/{site.yml,base.yml,services.yml}
-    ├── roles/{base,podman,tailscale,avahi,quadlet_services}/
-    └── requirements.yml         # collections: containers.podman, community.general
+    ├── inventory/               # inventory.py, group_vars/, host_vars/<host>/{main,services}.yml
+    ├── playbooks/               # site.yml, base.yml, services.yml
+    ├── roles/                   # base, podman, tailscale, avahi, quadlet_services
+    └── requirements.yml         # pinned collections
 ```
 
-**Layer boundaries**
-- OpenTofu owns *which machines exist*. It must not manage containers or in-guest files.
-- cloud-init (set by OpenTofu) does only minimal bootstrap: admin user, SSH key, tailnet join with a pre-authorized, tagged key.
-- Ansible owns everything inside a guest after bootstrap.
-- Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
+- **OpenTofu** owns which machines exist. It never manages containers or in-guest files.
+- **cloud-init**, set by OpenTofu, does only minimal bootstrap: admin user, SSH key, and a tailnet join with a pre-authorized, tagged key.
+- **Ansible** owns everything inside a guest after bootstrap. Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
+- **Separate roots per provider** limit blast radius. Cross-root sharing goes through explicit outputs, or through `tofu/shared` for constants.
 
-**Why multiple roots:** separate state per provider limits blast radius; an OCI API problem or bad plan can't touch Proxmox state. Cross-root sharing goes through explicit outputs only.
+## Everyday commands
 
-## § 4 — Inputs the human must supply (ask before the phase that needs them)
+From the repository root, in PowerShell 7.5 or newer:
 
-| Needed by | Input |
-|---|---|
-| Phase 0 | `age` public key(s) for `.sops.yaml`; preferred Python/tool manager (`uv`/`mise`) |
-| Phase 1 | SSH access from this machine to Proxmox nodes and guests (over tailnet); read-only Proxmox API token; OCI CLI config with a read-only profile; OCI compartment OCID(s) |
-| Phase 4 | Remote state backend choice and credentials (S3-compatible, e.g. OCI Object Storage or MinIO); state-encryption passphrase handling |
-| Phase 4 | A scoped Proxmox API token/role for management (human creates it) |
-| Phase 6 | Confirmation of an out-of-band path (LAN/console) to Proxmox nodes before touching tailnet ACLs |
+```powershell
+./tofu/oracle/prepare.ps1                         # decrypt inputs into the ignored secrets.auto.tfvars.json
+$env:OCI_CLI_AUTH = 'security_token'
+$env:OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = 'True'
+oci session validate --profile DEFAULT            # `oci session refresh` extends a still-valid token
+tofu '-chdir=tofu/oracle' init '-backend=false' '-input=false' '-lockfile=readonly'   # once per clone; downloads providers
+tofu '-chdir=tofu/oracle' plan '-input=false' '-detailed-exitcode'                    # 0 no changes, 2 diff, 1 error
+pre-commit run --all-files
+```
 
-## § 5 — Phases
+- Run plans from a root, never from a child module.
+- Write plaintext plan output and saved plans to `docs/snapshot/`. State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
+- Before an approved apply, copy the encrypted state, `secrets.sops.json`, and the lock file to `%LOCALAPPDATA%/homelab/oracle-backups/<label>-<timestamp>/`. Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op.
+- The OCI session token lasts 60 minutes, and refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate` himself.
 
-Each phase ends with its acceptance criteria met, a PR, and a human check-in. Do not start the next phase without it.
+## Verification before review
 
-### Phase 0 — Scaffold and tooling
-- Create the tree from § 3 with placeholder READMEs.
-- `.gitignore` first, then `.sops.yaml`, pre-commit config, `ansible.cfg` (inventory = `ansible/inventory`, `roles_path = ansible/roles`, `collections_path = ansible/collections`).
-- Tooling versions pinned (OpenTofu, Python deps for `ansible-core`, `ansible-lint`).
-- **Accept:** `pre-commit run --all-files` passes on the empty scaffold; `git status` shows no ignored-class files tracked.
+```bash
+pre-commit run --all-files
+tofu -chdir=tofu/<root> fmt -check -recursive
+tofu -chdir=tofu/<root> validate
+tofu -chdir=tofu/<root> plan -detailed-exitcode
+ansible-lint ansible/
+ansible-playbook ansible/playbooks/site.yml --check --diff --limit <host>
+ansible-inventory -i ansible/inventory/inventory.py --graph
+```
 
-### Phase 1 — Read-only discovery snapshot
-Record, under `docs/snapshot/`, what actually exists. Never modify anything.
-- Proxmox (run on a node, read-only):
-  ```bash
-  pvesh get /cluster/resources --type vm --output-format json
-  pct config <vmid>
-  qm config <vmid>
-  pvesh get /nodes/<node>/storage --output-format json
-  ```
-- Per guest (over SSH): OS release, `podman ps -a --format json`, `podman inspect` of each container, `podman network ls`/`inspect`, `systemctl list-units --state=running`, Avahi config (`/etc/avahi/avahi-daemon.conf`), `tailscale status --json`, listening ports, mounts/volumes.
-- Compose files / `podman run` histories where they exist.
-- OCI (read-only): list compartments, instances, VCNs, subnets, security lists/NSGs, volumes, reserved IPs.
-- Produce `docs/snapshot/SUMMARY.md`: one table per host (guest ID, role, containers, volumes, ports, networks, tailnet name) and an **Open questions** list.
-- **Accept:** snapshot committed (with secrets and tokens scrubbed); human has reviewed SUMMARY.md and answered open questions.
+Run the Ansible lines once Ansible exists. Also confirm that nothing secret is
+staged (`git diff --cached`), lock files are committed, and no plan shows an
+unintended destroy or replace.
 
-### Phase 2 — Ansible baseline (non-destructive)
-- Static inventory first (`inventory/hosts.yml`) matching the snapshot; groups: `podman_hosts`, `proxmox`, `oracle`.
-- Roles:
-  - `base`: packages, admin user, sshd hardening only if already the current policy, time sync.
-  - `podman`: install podman; configure registries; enable `podman.socket` only if currently used.
-  - `tailscale`: install and enable; join logic gated on a variable so existing members are untouched.
-  - `avahi`: template `avahi-daemon.conf` (`enable-reflector=yes`, `allow-interfaces=` the podman bridge + LAN interface, as discovered). Pin the podman network subnet/bridge name so this is deterministic.
-- Run against **one** low-risk host first: `ansible-playbook ansible/playbooks/base.yml --check --diff --limit <host>`.
-- **Accept:** `--check --diff` output reviewed by the human; after an approved real run, a **second run reports `changed=0`** (idempotency); no service restarts occurred unexpectedly.
+## Conventions
 
-### Phase 3 — Quadlet service model
-- Convert the first low-stakes service with `podlet` (compose or `podman run` input), then review/hand-edit the output.
-- Implement `quadlet_services` as a data-driven role. Schema (per host):
-  ```yaml
-  # ansible/inventory/host_vars/<host>/services.yml
-  quadlet_services:
-    - name: example
-      image: registry.example/app:1.2.3     # pinned tag, no :latest
-      ports: ["8080:8080"]
-      volumes: ["example-data:/data"]
-      networks: [svcnet]
-      env_file: example.env                 # secret file, sops-encrypted
-      state: present                        # present | absent
-  ```
-- The role templates `.container`, `.volume`, `.network` into `/etc/containers/systemd/`, notifies a `systemctl daemon-reload` handler, and enables/starts the generated unit. `state: absent` removes the unit.
-- Migrate one service **side by side**: stand up the Quadlet version on a spare port or host, verify, cut over, and only then retire the old container (human approves the removal).
-- **Accept:** service runs as a systemd-managed Quadlet; restart/reboot test passes; data persists; old container retired only after human sign-off; second playbook run is idempotent.
+- **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened (work done, approvals, apply results, superseded decisions) by appending to `.claude/HISTORY.md`.
+- **Guest names:** lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
+- **Tags:** every guest carries `managed-by=opentofu`; tailnet tags map to ACL groups.
+- **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
+- **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
+- **Quadlets:** one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.
+- **File names:** where `-` delimits parts of a file name (`instance-<name>.tf`, `subnet-<name>.tf`), write each `-` inside a part as `--`. For example, subnet `subnet-20230331-2242` lives in `subnet-subnet--20230331--2242.tf`.
 
-### Phase 4 — OpenTofu: adopt Proxmox guests
-- `tofu/proxmox`: `versions.tf` (pin `bpg/proxmox`), `providers.tf`, `backend.tf`, `variables.tf`, `locals.tf` (topology), `main.tf`, `outputs.tf`.
-- Remote backend with locking, plus OpenTofu state encryption. Back up the state and its key off-cluster. Do this **before** any import.
-- Auth: API token via environment variables only; SSH for the provider via ssh-agent.
-- Adoption:
-  1. Generate one `import {}` block per guest. Draft (verify ID format and resource names against the provider docs first):
-     ```bash
-     pvesh get /cluster/resources --type vm --output-format json | jq -r '.[] | select(.template==0) | "import {\n  to = proxmox_virtual_environment_\(if .type=="lxc" then "container" else "vm" end).g\(.vmid)\n  id = \"\(.node)/\(.vmid)\"\n}\n"' > tofu/proxmox/imports.tf
-     ```
-  2. `tofu -chdir=tofu/proxmox plan -generate-config-out=generated.tf` (target file must not already exist; the output format is not stable across versions).
-  3. Refactor `generated.tf` into `locals.tf` + the `lxc-guest`/`vm-guest` modules: remove computed attributes and plaintext secrets, parameterize repeated values, keep names stable.
-  4. Iterate until `tofu plan` shows **no changes**. Add `lifecycle { ignore_changes = [...] }` only where justified (e.g., HA-managed guests that may migrate between nodes) and comment why.
-  5. Remove the `import` blocks after the human-approved apply that records them.
-- **Accept:** `tofu plan` is a no-op; no `destroy`/`replace` ever appeared in any plan reviewed; lock file committed; state backed up.
-
-### Phase 5 — OpenTofu: adopt OCI resources
-- Prefer scoped discovery (specific compartment and `-services`) over tenancy-wide export:
-  ```bash
-  terraform-provider-oci -command=export -compartment_id=<OCID> -output_path=./oci-export -services=core
-  ```
-  The exporter shells out to a `terraform` binary (not confirmed to work with `tofu`). Use the output directory only as a **reference for HCL**; discard its state file.
-- Re-adopt through `import` blocks and `-generate-config-out` in `tofu/oracle`; refactor into modules as in Phase 4.
-- Missing attributes in the export are expected; reconcile via `tofu plan` until it is a no-op.
-- **Accept:** `tofu plan` no-op; any attribute the exporter omitted is documented in `docs/`.
-
-### Phase 6 — OpenTofu: tailnet (highest lockout risk)
-- Separate root `tofu/tailnet`. **Plan-only until the human confirms** a LAN/console path to every Proxmox node.
-- Import the current ACL policy first (no changes). Add tagged, pre-authorized key generation for new guests only afterward.
-- Any ACL diff goes to the human for line-by-line review before apply.
-- **Accept:** current policy imported with a no-op plan; key minting works for a test tag.
-
-### Phase 7 — Inventory handoff
-- Each root exports the same output shape:
-  ```hcl
-  output "ansible_hosts" {
-    value = {
-      for name, g in local.guests : name => {
-        address = g.tailnet_name   # MagicDNS name, so it works from the laptop
-        groups  = g.groups         # e.g. ["podman_hosts", "proxmox"]
-      }
-    }
-  }
-  ```
-- `ansible/inventory/inventory.py`: executable dynamic inventory. For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`. Cache nothing; fail loudly if a root is unreadable.
-- Keep inventory **minimal** (name, address, groups). Services and other variables stay in `host_vars/` in git.
-- Optional later: the Ansible Terraform provider (`ansible_host`/`ansible_group` resources) with the `cloud.terraform.terraform_provider` inventory plugin (requires initialized roots; shells out to a `terraform` binary, so verify `tofu` compatibility).
-- **Accept:** `ansible-inventory --graph` shows every guest in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
-
-### Phase 8 — Portability proof
-- Pick one stateless-ish service. Move it by deleting its entry from host A's `services.yml`, adding it to host B (including an OCI host), and running `services.yml` for both with `--check` first.
-- Document, per service, a data strategy (restic restore, shared mount, or stateless) in `docs/runbooks/move-a-service.md`.
-- **Accept:** the service runs on host B, is gone from host A, and the runbook reflects exactly what was done.
-
-### Phase 9 — Optional: drift and CI
-- Scheduled `tofu plan -detailed-exitcode` and `ansible-playbook --check` from a runner on the tailnet, alerting on drift. Plans only; never auto-apply.
-
-## § 6 — Conventions
-- Guest names: lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
-- Tags: every guest carries `managed-by=opentofu`; tailnet tags map to ACL groups.
-- OpenTofu: one root per provider; modules take explicit inputs; no secrets in `locals`. See the HCL conventions below.
-- Ansible: roles expose knobs in `defaults/`, avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
-- Quadlets: one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.
-- File names: where `-` delimits parts of a file name (`instance-<name>.tf`, `subnet-<name>.tf`), write each `-` inside a part as `--`. For example, subnet `subnet-20230331-2242` lives in `subnet-subnet--20230331--2242.tf`.
-
-### OpenTofu HCL conventions (established in `tofu/oracle`)
-- **Files:** one `instance-<name>.tf` per host and one `subnet-<name>.tf` per subnet, each opening with a `# <name>: <contents>.` header. `network.tf` holds network-wide `locals`, the VCN, gateways, and the defaults the provider creates with the VCN. A distinct concern gets its own file (`email.tf`). `locals.tf` holds only values shared across files, and `variables.tf` declares inputs. `moved.tf` keeps every historical address move so old states and backups still plan cleanly.
+### OpenTofu HCL (as practiced in `tofu/oracle`)
+- **HCL first:** ordinary, readable `.tf` resources with inline non-sensitive settings and direct references. SOPS holds sensitive input values only, never encrypted HCL, resource definitions, or a topology data model.
+- **Files:** one `instance-<name>.tf` per host and one `subnet-<name>.tf` per subnet, each opening with a `# <name>: <contents>.` header. `network.tf` holds network-wide `locals`, the VCN, gateways, and the defaults the provider creates with the VCN. A distinct concern gets its own file (`email.tf`). `locals.tf` holds only values shared across files, and `variables.tf` declares inputs. `moved.tf` keeps every past address move so old states and backups still plan cleanly.
 - **Order within a file:** file-local `locals` first, then the primary resource, then what depends on it.
   - Host files: instance, boot volume, backup-policy assignment, VNIC lookup, IPv6 assignment, NSG, NSG rules.
   - Subnet files: the subnet, then its own DHCP options, route table, and security lists.
@@ -209,7 +115,7 @@ Record, under `docs/snapshot/`, what actually exists. Never modify anything.
       prevent_destroy = true
     }
   ```
-  Schema placeholders that exist only for adoption, such as the boot-volume `source_details { type = "bootVolume" }`, sit between that comment and `lifecycle`. `ignore_changes` stays as narrow as possible and carries a comment explaining what owns the ignored field.
+  Schema placeholders that exist only for adoption, such as the boot-volume `source_details { type = "bootVolume" }`, sit between that comment and `lifecycle`. `ignore_changes` stays as narrow as possible and carries a comment explaining what owns the ignored field. Image-created boot volumes ignore only `source_details`; never fabricate a clone or restore source.
 - **Opaque values get a comment:** wherever possible, put a comment next to any value whose meaning is not self-evident:
   - protocol numbers: `"1" # ICMP`, `"6" # TCP`, `"17" # UDP`, `"58" # ICMPv6`, `"all" # All IP protocols`
   - ICMP `type`/`code` pairs: `type = 3 # Destination Unreachable`
@@ -222,75 +128,21 @@ Record, under `docs/snapshot/`, what actually exists. Never modify anything.
   - Rules that differ by family stay explicit.
   - A shared address pair never implies a permission for both families. Comment any family-only exception, such as an IPv4-only peering rule.
   - Constants that belong to one subnet or host live at the top of that file; network-wide pairs live in `network.tf`.
-- **Addresses:** IPv4, ULA, and Tailscale literals are plaintext. GUA host addresses are `cidrhost(var.ipv6_subnet_cidr, parseint("<64-bit hex suffix>", 16))`. Enclosing prefixes are derived from the encrypted `/64`, never written.
+- **Addresses:** GUA host addresses are `cidrhost(var.ipv6_subnet_cidr, parseint("<64-bit hex suffix>", 16))`. Enclosing prefixes are derived from the encrypted `/64`, never written.
 - **Lookups:** read a host's VNIC through a `data "oci_core_vnic_attachments"` filtered to `ATTACHED` and `one()`, so a second VNIC fails loudly instead of being guessed.
 - **Inputs:** sensitive inputs are `sensitive = true` and `nullable = false` and come from `secrets.sops.json`. Non-sensitive values are inline HCL, not variables. Resource-free constants shared by several roots live in `tofu/shared`.
 - **Versions:** pins live only in each root's `versions.tf`. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
+- **Tags:** every OCI instance sets `freeform_tags = { "managed-by" = "opentofu" }` as its last scalar argument.
+- **Deferred problems:** a setting known to be wrong but kept for now gets `# FIXME: <what is wrong>. Revisit <when>.` on the lines directly above it.
 - **Labels:** resource labels are stable identities; renaming one needs a `moved` block. NSG rules are labelled `<host>_<protocol>_<port or range>`; bailout's two family-specific rules keep their adopted `bailout_rule_NN` labels.
 
-## § 7 — Verification checklist (run before every PR)
-```bash
-pre-commit run --all-files
-tofu -chdir=tofu/<root> fmt -check -recursive
-tofu -chdir=tofu/<root> validate
-tofu -chdir=tofu/<root> plan -detailed-exitcode
-ansible-lint ansible/
-ansible-playbook ansible/playbooks/site.yml --check --diff --limit <host>
-ansible-inventory -i ansible/inventory/inventory.py --graph
-```
-Also confirm: no secrets staged (`git diff --cached`), lock files committed, plans show no unintended destroy/replace.
+## Standing decisions
 
-## § 8 — Known uncertainties (verify, do not assume)
-- bpg/proxmox: current resource type names and the import ID format (believed `node/vmid`; resource naming has been shifting). Provider uses SSH for some actions; HA-managed guests can migrate without the provider knowing.
-- `-generate-config-out`: documented as potentially changing output format between minor versions; no config generation for `for_each` imports; may emit plaintext secrets.
-- OCI resource discovery: needs a `terraform` binary; unknown whether it works with `tofu`; exported state references the Terraform registry provider address; omitted attributes expected.
-- `cloud.terraform` inventory plugins: `terraform_state` supports only AWS/Azure/GCP per its docs; `terraform_provider` needs initialized project dirs; `tofu` binary support unconfirmed.
-- Podman-in-LXC: requires `nesting=1` (sometimes `keyctl=1`); rootless inside unprivileged LXC can be fiddly with subuid/subgid ranges.
-- Third-party MCP server `mcp-proxmox` (`proxmox_generate_terraform`) is unevaluated and includes mutating operations; use only with a read-only token and after reading its source.
-
-## § 9 — Risks and rollback
-| Risk | Mitigation / rollback |
-|---|---|
-| State loss | Remote backend with locking, encrypted, with off-site backup of state and key |
-| Import produces a plan that wants to replace a guest | Stop; adjust config (not the guest) until the plan is a no-op; ask the human |
-| Bad Ansible change on a prod host | `--check --diff` first, `--limit` to one host, keep the old container until verified |
-| Tailnet ACL lockout | Separate root, plan-only without approval, retain LAN/console path |
-| Secrets leak | `.gitignore` and secret-scanning pre-commit first; sops only |
-| Quadlet migration data loss | Side-by-side migration; snapshot/backup before cutover; human approves old-container removal |
-
-## § 10 — Definition of done
-- Every in-scope guest is in OpenTofu state with a **no-op plan** in all three roots.
-- Every in-scope container runs as a pinned, Ansible-rendered Quadlet; a second playbook run reports no changes.
-- The dynamic inventory is built from OpenTofu outputs, with services defined only in `host_vars/`.
-- At least one service has been moved between hosts by changing data only, with a written runbook.
-- No secrets, state, or generated state files in git history.
-
-## § 11 — Decision log
-
-Decisions made by the human after this plan was written. Where they conflict with the sections above, this section wins.
-
-**2026-10-12**
-- **Order:** Phase 1 discovery starts with OCI; Proxmox discovery comes later.
-- **OCI auth (supersedes the OCI parts of § 2 rule 2 and § 4 Phase 1):** Parker's own user via `oci session authenticate`, a read/write session token in the `DEFAULT` profile, instead of a dedicated read-only user, because OpenTofu will write back to OCI. § 2 rule 1 is unchanged: every OCI write still needs per-action approval. The token lasts 60 minutes, refreshable to 24 hours with `oci session refresh`; Phase 9 will need a non-expiring credential.
-- **Public repository:** nothing sensitive is committed in plaintext. Anything sensitive that must be committed (e.g. values OpenTofu needs) goes in sops-encrypted `*.sops.*` files.
-- **Discovery snapshots are local only (supersedes "snapshot committed" in Phase 1):** `docs/snapshot/` is gitignored. Raw discovery output and `SUMMARY.md` stay on the operator's machine; only the OpenTofu configuration derived from them is committed. Human review of `SUMMARY.md` still gates the adoption phases.
-- **OCI scope:** compute instances and boot volumes, VCN networking (VCNs, subnets, gateways, route tables, security lists, DHCP options), NSGs, and Email Delivery (domain, senders, DKIM, `svc-mail` policy) go into `tofu/oracle`. Out of scope: identity-domain apps/users/groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, the DNS resolvers/views/private zones VCNs create automatically, and boot-volume backups themselves (data, not configuration).
-- **Phase 5 discovery (supersedes the exporter step):** skip `terraform-provider-oci -command=export`. Its docs say it always needs a `terraform` binary and list only Terraform 0.12/0.13. Inventory with the `oci` CLI instead, then adopt with `import {}` blocks and `tofu plan -generate-config-out`. `oracle/oci` is published on the OpenTofu registry.
-- **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (e.g. extra boot-volume backups) are expected.
-
-- **Handoff / commits:** Parker requested a soft reset to the empty initial commit, renamed this plan to AGENTS.md, and asked to continue OCI decompilation. Leave all work uncommitted until it is ready for review; this supersedes automatic per-phase commits and PRs. Read-only configuration generation may proceed before a backend exists, but no state import/apply is authorized.
-- **Existing creation-only settings:** Parker requested that existing resources ignore creation state rather than fabricate clone/restore sources. For image-created OCI boot volumes, ignore only `source_details`; keep other volume drift visible. OCI writes and state-changing operations still require explicit per-action approval.
-
-- **Write approval clarification:** Parker clarified that local file writes and edits are authorized. The instruction to ask before writes refers to operations that push changes to Oracle, not local drafting, encryption, validation, or read-only planning. Existing explicit approval requirements for state-changing import/apply and other infrastructure mutations still apply.
-- **HCL-first configuration:** Parker requires ordinary, readable `.tf` resource definitions with inline non-sensitive settings and direct references. SOPS holds sensitive input values only, not encrypted HCL, resource definitions, or an entire topology/configuration data model.
-
-- **OCI adoption (2026-10-12):** Parker explicitly authorized applying an import-only plan with no Oracle-side changes. The verified saved plan imported 74 resources with zero additions, changes, or deletions; the subsequent plan is a no-op. Execution used encrypted local state because no remote backend was configured, with an encrypted backup outside the repository on the operator machine. Remote backend migration remains outstanding. Completed import blocks are archived under the ignored discovery directory. Further mutating operations still need explicit authorization.
-- **OCI cleanup (2026-10-12):** Parker authorized cleanup tasks 1–5, then explicitly approved applying the resulting sensitivity-metadata updates and committing the changes. The verified saved plan applied with 0 additions, 34 updates, and 0 deletions; deferred IPv6 lookups resolved without changes. The fresh post-apply plan is a no-op. Import IDs and historical creation tags are no longer runtime inputs, empty attributes and redundant shape settings are omitted, and the existing agent plugin policy is shared in HCL. This approval does not authorize further infrastructure mutations.
-- **Network input sensitivity:** Parker explicitly classified the listed network CIDRs, host IPs, and route next-hop IDs as non-sensitive except for the GUA IPv6 `/64` prefixes. Keep those two prefixes SOPS-encrypted; derive full GUA host addresses and the enclosing `/56` from them. IPv4, ULA/Tailscale ranges, host suffixes, and the listed next-hop OCIDs may be plaintext HCL. This classification does not change the treatment of other credentials or sensitive inputs, and does not authorize apply.
-- **OCID ownership classification (supersedes the next-hop exception above):** Parker approved plaintext OCIDs for verified stock images, with their exact image names in comments above `source_id`. OCIDs owned by our tenancy/compartments remain sensitive, including the router next-hop IDs; the shared backup-policy ID also remains SOPS-encrypted. The five current image lookups have null compartment IDs and platform-image names; four additionally match Oracle's public regional catalog exactly. Livekit's exact revision was not found in the catalog, so its classification relies on the image API metadata. IPv4, ULA/Tailscale ranges, and host suffixes remain plaintext; GUA `/64` prefixes remain encrypted.
-
-- **Readability cleanup applied (2026-10-12):** Parker authorized cleanup items 1–4, verification, apply, and commit. The saved plan preserved all known values; apply recorded module/rule address moves and 13 sensitivity-metadata updates, with 0 additions or deletions. All 74 managed resources retain identical IDs and values, and the fresh plan is a no-op. Shared Tailscale ranges live in the resource-free `tofu/shared` module. Item 5 (presentation/order cleanup) remains a proposal for review. Further infrastructure mutations require separate approval.
-- **Tooling (2026-10-12):** `uv` is the Python/tool manager. Agents must not install anything themselves, including tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, and OpenTofu providers. Parker manages tools declaratively; ask him to install what is needed.
-- **Remote state deferred (2026-10-12):** OCI state stays local on Parker's backed-up laptop until the rest of the repository is ready. Remote-backend migration comes after that, not before.
-- **Presentation cleanup (2026-10-12):** Parker requested item 5, with each subnet in its own `subnet-<name>.tf` (subnet first, then the DHCP options, route table, and security list only it uses). The VCN-created defaults stay in `network.tf`. ICMP `type`/`code` values gained comments, and so did ports. Parker identified 7881 and both UDP ranges as standard LiveKit ports (TURN relay for 30000–40000) and router UDP 39127 as Tailscale peer relay. Bailout's 51820/51821 remain unlabelled until named. Parker then approved applying the verified saved plan, plus one commit as the final OCI cleanup pass that also adds the pre-commit configuration. That plan was a no-op for all 74 resources. Apply recorded **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan is a no-op. Encrypted before/after state backups are under `%LOCALAPPDATA%/homelab/oracle-backups/final-cleanup-*`. This approval does not authorize further infrastructure mutations.
-- **Pre-commit (2026-10-12):** Parker approved `pre-commit install` and pinned `pre-commit/pre-commit-hooks`; gitleaks is not wanted. Other hooks use installed tools (`language: unsupported`) or `pygrep`.
+- **Pre-commit:** `.pre-commit-config.yaml` runs the pinned `pre-commit/pre-commit-hooks` plus local hooks that use installed tools (`language: unsupported`) or `pygrep`. Gitleaks is not wanted.
+- **Discovery snapshots** stay on the operator's machine; only configuration derived from them is committed. Parker's review of `docs/snapshot/SUMMARY.md` gates the adoption phases.
+- **OCI auth:** Parker's own user, through an `oci session authenticate` read/write session token in the `DEFAULT` profile, because OpenTofu writes back to OCI.
+- **OCI adoption is complete** for the scope in the plan's Phase 5. Never regenerate or re-import it.
+- **OCI state** is local, with enforced AES-GCM encryption and backups under `%LOCALAPPDATA%/homelab/oracle-backups/` on Parker's backed-up laptop. Migrating to a remote backend is deferred until the rest of the repository is ready.
+- **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
+- **The OCI `ansible_hosts` output** waits for the Ansible phases.
+- **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.

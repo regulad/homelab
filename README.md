@@ -1,10 +1,9 @@
 # homelab
 
-Current progress: **static decompilation of OCI state**.
+Declarative infrastructure for a home Proxmox cluster and an OCI tenancy:
+OpenTofu for machines, Ansible and Podman Quadlets for what runs on them.
 
-The existing OCI infrastructure is represented by 74 explicit OpenTofu resources
-in [`tofu/oracle/`](tofu/oracle/README.md). Adoption imported those resources with
-zero additions, changes, or deletions. The post-adoption plan reports no changes.
+WIP.
 
 Sensitive input values are encrypted with SOPS and age. State is encrypted locally
 and backed up outside the repository; state, plaintext inputs, plans, and discovery
@@ -22,7 +21,7 @@ environment only for `pre-commit-hooks`. Initialize each root once
 enable the Git hook with `pre-commit install`, and check everything with
 `pre-commit run --all-files`.
 
-Remote state, Proxmox adoption, and Ansible service management remain future work.
-See [`AGENTS.md`](AGENTS.md) for the migration plan and operating rules.
+See [`.claude/PLAN.md`](.claude/PLAN.md) for the migration plan and each phase's
+status, and [`AGENTS.md`](AGENTS.md) for the rules and conventions agents follow.
 
 Licensed under [GNU AGPLv3](LICENSE.md).

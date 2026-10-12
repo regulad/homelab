@@ -92,69 +92,21 @@ From the repository root, in PowerShell 7.5 or newer:
 $env:OCI_CLI_AUTH = 'security_token'
 $env:OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = 'True'
 oci session validate --profile DEFAULT
-tofu '-chdir=tofu/oracle' init '-backend=false' '-input=false'
+tofu '-chdir=tofu/oracle' init '-backend=false' '-input=false' '-lockfile=readonly'
 tofu '-chdir=tofu/oracle' fmt '-check' '-recursive'
 tofu '-chdir=tofu/oracle' validate
 tofu '-chdir=tofu/oracle' plan '-input=false' '-detailed-exitcode'
 ```
 
-On 2026-10-12, Parker authorized adoption. The exact verified plan applied
-successfully: **74 imported, 0 added, 0 changed, 0 destroyed**, using OpenTofu
-1.13.1 and oracle/oci 9.9.0. A fresh post-adoption plan reports **No changes**
-(exit code 0). Completed import blocks are archived locally in
-`docs/snapshot/oci/adopted-imports.tf`. The original encrypted inputs, including
-import IDs, are archived in `docs/snapshot/oci/cleanup-1-5-before/secrets.sops.json`
-and the adoption backup outside the repository. Import IDs are no longer runtime
-inputs. No Oracle resource mutations were performed.
-
-The subsequent configuration cleanup removes historical creation tags, empty
-attributes, and redundant shape settings, and shares the existing plugin policy
-without changing plugin states or order. Oracle-created tags are left to the
-provider rather than asserted as desired configuration.
-
-**Cleanup applied (2026-10-12):** Parker authorized the sensitivity-metadata
-updates and the cleanup commit. A fresh saved plan matched the reviewed changes:
-34 resources retained their values but lost the sensitivity mark on historical
-tags; five dependent IPv6 resources had deferred VNIC lookups. The verified plan
-applied successfully: **0 added, 34 changed, 0 destroyed**. The IPv6 lookups
-resolved without resource changes. A fresh post-apply plan reports **No changes**
-(exit code 0). Formatting and validation pass. Local evidence is in
-`docs/snapshot/oci/cleanup-approved-apply.log` and
-`docs/snapshot/oci/cleanup-post-apply-plan.log`.
-
-**Reorganization and readability cleanup applied (2026-10-12):** Parker
-approved the module/address moves, host-centered files, dual-stack rule and route
-helpers, shared Tailscale constants, input naming, redundant network-argument
-removal, and sensitivity changes. Both VCNs use `cidr_blocks`; each subnet uses
-one IPv4 CIDR, an IPv6 CIDR list, and `prohibit_internet_ingress`.
-
-The verified saved plan had 0 additions, 18 updates, and 0 deletions: 13 resources
-had sensitivity-metadata changes only, and five IPv6 resources awaited VNIC
-lookups. Apply completed with **0 added, 13 changed, 0 destroyed**; the IPv6
-lookups resolved without changes. All 74 managed resource IDs and values match
-the pre-apply state exactly. The fresh live plan reports **No changes** (exit 0).
-Formatting, validation, encrypted-input consistency, and the public-file privacy
-audit pass. Keep both `moved.tf` files to support older states and backups.
-Local evidence is in `docs/snapshot/oci/readability-{plan,apply,post-apply-plan}.log`
-and `readability-{before,after}-verification.json`.
-
-**Final cleanup pass applied (2026-10-12):** per-subnet files, consistent
-resource and argument order, and comments naming ICMP type/code values and ports. Parker approved
-applying the verified saved plan, which was a no-op for all 74 resources. Apply
-completed with **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan
-reports **No changes**. Local evidence is in
-`docs/snapshot/oci/final-cleanup-{plan,apply,post-apply-plan}.log`.
-
-State is currently **local**, in the ignored `terraform.tfstate`, with enforced
-AES-GCM encryption. The generated encryption passphrase is stored in
-`secrets.sops.json`. Do not change or lose that passphrase. Saved plans are also
+State is **local**, in the ignored `terraform.tfstate`, with enforced AES-GCM
+encryption. The generated encryption passphrase is stored in `secrets.sops.json`.
+Do not change or lose that passphrase. Saved plans are also
 encrypted; plaintext JSON plan output must stay in `docs/snapshot/`.
 
-An encrypted state copy and SOPS-encrypted inputs are backed up outside this
-repository under `%LOCALAPPDATA%/homelab/oracle-backups/`. Recovery of the backup
-was verified by reading all 74 managed resources. Keep the matching age identity
-safe. A remote backend has not been configured; no OCI bucket or locking resource
-was created during adoption.
+Encrypted state copies and SOPS-encrypted inputs are backed up outside this
+repository under `%LOCALAPPDATA%/homelab/oracle-backups/`. Keep the matching age
+identity safe. No remote backend is configured; it is deferred until the rest of
+the repository is ready.
 
 ## Ownership and adoption details
 
@@ -174,13 +126,11 @@ was created during adoption.
   that changes, requiring review of primary-VNIC selection.
 - Public IPv4 addresses are ephemeral. Instance VNIC configuration preserves
   allocation behavior; it does not promise the same address after recreation.
-- The provider generated an invalid empty `server_type` on a SearchDomain DHCP
-  option. Omitting the inapplicable field preserves the existing configuration.
+- The SearchDomain DHCP option omits `server_type`, which does not apply to that
+  option type.
 
-Review `docs/snapshot/SUMMARY.md` locally. Remote state with shared locking remains
-a follow-up. Obtain Parker's explicit approval before further Oracle mutations or
-state-changing operations.
-No automatic commits or infrastructure writes are part of the local workflow.
+Discovery output, including `SUMMARY.md`, stays local in `docs/snapshot/`. Every
+Oracle mutation or state change needs Parker's explicit approval.
 
 References:
 - [OpenTofu import blocks](https://opentofu.org/docs/language/import/)
