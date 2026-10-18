@@ -1,21 +1,21 @@
 # OCI infrastructure
 
 The `.tf` files in the `legacy` and `wahlecloud` child modules are the source of
-truth. They describe 74 managed resources, ordinary configuration values,
+truth. They describe 76 managed resources, ordinary configuration values,
 nested blocks, and direct resource references. Run OpenTofu from this root so both
 modules share the existing provider configuration and encrypted state.
 
 | Location | Configuration |
 |---|---|
-| `legacy/` | Legacy VCN and networking, web instance, boot volume and IPv6 assignment (9 resources) |
-| `wahlecloud/` | Wahlecloud VCN and networking, bailout/livekit/mail/router hosts, volumes, IPv6 and Email Delivery (65 resources) |
+| `legacy/` | Legacy VCN and networking, web instance, boot volume, backup-policy assignment and IPv6 assignment (10 resources) |
+| `wahlecloud/` | Wahlecloud VCN and networking, bailout/livekit/mail/router hosts, volumes, IPv6 and Email Delivery (66 resources) |
 | `main.tf` | Local module calls, the availability-domain lookup, and explicit provider/input wiring |
 | `moved.tf` | Mappings from the original root addresses to their module addresses |
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
 | `state.tf` | Enforced encryption for local state and saved plans |
 
 Each host has an `instance-<name>.tf` file containing, in order, any host-local
-constants, its instance, boot volume, backup-policy assignment where present, VNIC
+constants, its instance, boot volume, backup-policy assignment, VNIC
 lookup, IPv6 assignment, and dedicated firewall resources. These files are
 `legacy/instance-web.tf` and `wahlecloud/instance-{bailout,livekit,mail,router}.tf`.
 The web-only agent policy is grouped with the web instance.
@@ -83,9 +83,9 @@ Values that are not ours, or not secret, stay out of SOPS:
   `platform_image_ids` map, keyed by exact image name. Instances select theirs by
   that name. These Oracle-owned regional images are shared across tenancies.
   Custom-image IDs owned by our compartments remain sensitive.
-- Livekit, mail, and router are assigned Oracle's predefined `bronze` backup
-  policy from `wahlecloud`'s `backup_policy_ids` map. Its realm-wide OCID belongs
-  to no compartment.
+- Every boot volume is assigned Oracle's predefined `bronze` backup policy from
+  each module's `backup_policy_ids` map. Its realm-wide OCID belongs to no
+  compartment.
 - The maps live in `wahlecloud/locals.tf` and at the top of
   `legacy/instance-web.tf`, the only file in `legacy` that uses them.
 - Each instance's SSH public key is plaintext in its `metadata`. Web and bailout

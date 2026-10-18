@@ -94,6 +94,11 @@ resource "oci_core_boot_volume" "bailout" {
   }
 }
 
+resource "oci_core_volume_backup_policy_assignment" "bailout" {
+  asset_id  = oci_core_boot_volume.bailout.id
+  policy_id = local.backup_policy_ids.bronze
+}
+
 # This instance has one attached VNIC. one() fails if that changes.
 data "oci_core_vnic_attachments" "bailout" {
   compartment_id = var.tenancy_ocid

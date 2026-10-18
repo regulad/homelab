@@ -153,3 +153,20 @@ Parker reviewed `tofu/oracle`'s inputs and retired four of them from
 - `ipv6_subnet_cidrs` stays encrypted at Parker's direction, although each `/64`
   could be derived from its VCN's Oracle-allocated `/56`, so that a full
   redeploy keeps the same subnets.
+
+## `bronze` backups on every boot volume (2026-10-18)
+
+Parker extended `bronze` to every boot volume: web and bailout, which had no
+policy, gained new assignments. One apply covered this and the input cleanup
+above. Parker approved it on condition that the plan showed only those two
+assignments plus sensitivity changes.
+
+The saved plan `docs/snapshot/oci/input-cleanup.tfplan` had 2 to add, 13 to
+change, and 0 to destroy. The 13 were 8 sensitivity-only updates, whose values
+were unchanged (five instances' `metadata` and three assignments' `policy_id`),
+and five IPv6 resources awaiting deferred VNIC lookups. Apply completed with
+**2 added, 8 changed, 0 destroyed**. The IPv6 lookups resolved without change,
+and the fresh post-apply plan reports **No changes** for 76 managed resources.
+Encrypted state backups are under
+`%LOCALAPPDATA%/homelab/oracle-backups/input-cleanup-{before,after}-*`. Logs are in
+`docs/snapshot/oci/input-cleanup-{plan,apply,post-apply-plan}.log`.

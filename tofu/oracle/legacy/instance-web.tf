@@ -15,6 +15,12 @@ locals {
     { name = "Bastion", desired_state = "DISABLED" },
   ]
 
+  # Oracle-defined backup policies, keyed by exact name. These realm-wide IDs
+  # belong to no compartment.
+  backup_policy_ids = {
+    "bronze" = "ocid1.volumebackuppolicy.oc1..aaaaaaaadrzfwjb5tflixtmy5axp2kx65uqakgnupfogabzjhtn5x5dfra6q"
+  }
+
   # Oracle platform images, keyed by exact image name. These regional images are
   # shared across tenancies.
   platform_image_ids = {
@@ -119,6 +125,11 @@ resource "oci_core_boot_volume" "web" {
     # schema placeholder is ignored for adoption; it is not a creation recipe.
     ignore_changes = [source_details]
   }
+}
+
+resource "oci_core_volume_backup_policy_assignment" "web" {
+  asset_id  = oci_core_boot_volume.web.id
+  policy_id = local.backup_policy_ids.bronze
 }
 
 # This instance has one attached VNIC. one() fails if that changes.
