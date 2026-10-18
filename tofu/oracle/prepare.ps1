@@ -1,10 +1,13 @@
 #Requires -Version 7.5
 <#
 .SYNOPSIS
-Decrypt OCI input values into the gitignored secrets.auto.tfvars.json file.
+Decrypt OCI input values into the gitignored secrets.auto.tfvars.json file, and set
+the state backend's credentials and endpoint in this session's environment.
 .DESCRIPTION
 The resource definitions are ordinary .tf files. This script only decrypts values;
 it never generates HCL, calls OCI, imports state, or applies infrastructure changes.
+A script runs in the caller's process, so the environment variables it sets persist
+for later tofu commands in the same session.
 #>
 [CmdletBinding()]
 param()
@@ -40,4 +43,14 @@ if (Test-Path -LiteralPath $destination) {
 } else {
     [IO.File]::WriteAllText($destination, $plaintext, [Text.UTF8Encoding]::new($false))
 }
-Write-Output 'Decrypted OCI inputs are ready. Resource definitions remain in the .tf files.'
+# The s3 backend reads these from the environment, so they never reach .terraform/ or saved plans.
+$backendNames = 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_ENDPOINT_URL_S3'
+$backendValues = @{}
+foreach ($line in (& sops decrypt (Join-Path $PSScriptRoot 'backend.sops.env'))) {
+    if ($line -match '^([A-Z0-9_]+)=(.*)$' -and $Matches[1] -in $backendNames) { $backendValues[$Matches[1]] = $Matches[2] }
+}
+foreach ($name in $backendNames) {
+    if (-not $backendValues[$name]) { throw "backend.sops.env is missing $name." }
+    Set-Item -LiteralPath "env:$name" -Value $backendValues[$name]
+}
+Write-Output 'Decrypted OCI inputs and backend credentials are ready. Resource definitions remain in the .tf files.'

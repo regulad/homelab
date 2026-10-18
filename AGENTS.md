@@ -61,18 +61,18 @@ homelab/
 From the repository root, in PowerShell 7.5 or newer:
 
 ```powershell
-./tofu/oracle/prepare.ps1                         # decrypt inputs into the ignored secrets.auto.tfvars.json
+./tofu/oracle/prepare.ps1                         # decrypt inputs; set the state backend's credentials for this session
 $env:OCI_CLI_AUTH = 'security_token'
 $env:OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = 'True'
 oci session validate --profile DEFAULT            # `oci session refresh` extends a still-valid token
-tofu '-chdir=tofu/oracle' init '-backend=false' '-input=false' '-lockfile=readonly'   # once per clone; downloads providers
+tofu '-chdir=tofu/oracle' init '-input=false' '-lockfile=readonly'                    # once per clone; downloads providers
 tofu '-chdir=tofu/oracle' plan '-input=false' '-detailed-exitcode'                    # 0 no changes, 2 diff, 1 error
 pre-commit run --all-files
 ```
 
 - Run plans from a root, never from a child module.
 - Write plaintext plan output and saved plans to `docs/snapshot/`. State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
-- Before an approved apply, copy the encrypted state, `secrets.sops.json`, and the lock file to `%LOCALAPPDATA%/homelab/oracle-backups/<label>-<timestamp>/`. Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op.
+- Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op. The state bucket's versioning keeps every earlier state version, so applies need no separate backups.
 - The OCI session token lasts 60 minutes, and refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate` himself.
 
 ## Verification before review
@@ -144,7 +144,7 @@ unintended destroy or replace.
 - **Discovery snapshots** stay on the operator's machine; only configuration derived from them is committed. Parker's review of `docs/snapshot/SUMMARY.md` gates the adoption phases.
 - **OCI auth:** Parker's own user, through an `oci session authenticate` read/write session token in the `DEFAULT` profile, because OpenTofu writes back to OCI.
 - **OCI adoption is complete** for the scope in the plan's Phase 5. Never regenerate or re-import it.
-- **OCI state** is local, with enforced AES-GCM encryption and backups under `%LOCALAPPDATA%/homelab/oracle-backups/` on Parker's backed-up laptop. Migrating to a remote backend is deferred until the rest of the repository is ready.
+- **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/oracle/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
 - **The OCI `ansible_hosts` output** waits for the Ansible phases.
 - **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.

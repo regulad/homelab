@@ -4,7 +4,7 @@ The `.tf` files in the `legacy`, `wahlecloud`, and `state-backend` child modules
 are the source of truth. They describe 82 managed resources, ordinary
 configuration values, nested blocks, and direct resource references. Run OpenTofu
 from this root so the modules share the existing provider configuration and
-encrypted state.
+encrypted remote state.
 
 | Location | Configuration |
 |---|---|
@@ -14,7 +14,7 @@ encrypted state.
 | `main.tf` | Local module calls, the availability-domain lookup, and explicit provider/input wiring |
 | `moved.tf` | Mappings from the original root addresses to their module addresses |
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
-| `state.tf` | Enforced encryption for local state and saved plans |
+| `state.tf` | The s3 backend, and enforced encryption for state and saved plans |
 
 Each host has an `instance-<name>.tf` file containing, in order, any host-local
 constants, its instance, boot volume, backup-policy assignment, VNIC
@@ -79,6 +79,13 @@ passphrase. It contains no HCL or resource definitions.
 `variables.tf` declares these inputs. `prepare.ps1` decrypts them into the ignored
 `secrets.auto.tfvars.json`; it does not generate `.tf` files.
 
+`backend.sops.env` holds what the s3 backend reads from the environment:
+`svc-tofu-state`'s customer secret key (`AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`), and the endpoint `AWS_ENDPOINT_URL_S3`, which contains
+the tenancy's namespace. `prepare.ps1` sets all three in the current session, so
+none of them reaches `.terraform/` or a saved plan. The key is created outside
+OpenTofu, so it never lives in the state it unlocks.
+
 Values that are not ours, or not secret, stay out of SOPS:
 
 - Verified Oracle platform-image IDs are plaintext in each module's
@@ -104,21 +111,26 @@ From the repository root, in PowerShell 7.5 or newer:
 $env:OCI_CLI_AUTH = 'security_token'
 $env:OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = 'True'
 oci session validate --profile DEFAULT
-tofu '-chdir=tofu/oracle' init '-backend=false' '-input=false' '-lockfile=readonly'
+tofu '-chdir=tofu/oracle' init '-input=false' '-lockfile=readonly'
 tofu '-chdir=tofu/oracle' fmt '-check' '-recursive'
 tofu '-chdir=tofu/oracle' validate
 tofu '-chdir=tofu/oracle' plan '-input=false' '-detailed-exitcode'
 ```
 
-State is **local**, in the ignored `terraform.tfstate`, with enforced AES-GCM
-encryption. The generated encryption passphrase is stored in `secrets.sops.json`.
-Do not change or lose that passphrase. Saved plans are also
+State is **remote**: the s3 backend stores it as `oracle/terraform.tfstate` in
+the versioned `homelab-tofu-state` bucket, through OCI's S3 Compatibility API.
+`use_lockfile` takes an S3-native lock (`oracle/terraform.tfstate.tflock`) with a
+conditional write, which OCI honours. That was verified on 2026-10-18 with
+simultaneous applies. State is encrypted with AES-GCM before upload, so the bucket
+holds only ciphertext. The generated encryption passphrase is stored in
+`secrets.sops.json`. Do not change or lose that passphrase. Saved plans are also
 encrypted; plaintext JSON plan output must stay in `docs/snapshot/`.
 
-Encrypted state copies and SOPS-encrypted inputs are backed up outside this
-repository under `%LOCALAPPDATA%/homelab/oracle-backups/`. Keep the matching age
-identity safe. No remote backend is configured yet; `state-backend/` manages the
-bucket and service user it will use.
+Every workstation needs only a clone and the age identity: `prepare.ps1` and
+`init` give it the shared state. Bucket versioning keeps each earlier state
+version, so applies need no separate backups. The local state copies from before
+the migration, under `%LOCALAPPDATA%/homelab/oracle-backups/`, have a different
+lineage than the remote state, so restoring one needs `tofu state push -force`.
 
 ## Ownership and adoption details
 

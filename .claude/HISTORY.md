@@ -220,3 +220,33 @@ plan had the same 6 creates with identical values. Apply completed with **6
 added, 0 changed, 0 destroyed**, and the fresh plan was a no-op. Backups are
 under `oracle-backups/state-backend-{before,after}-*`. Logs are in
 `docs/snapshot/oci/state-backend-*.log`.
+
+## Remote state migration (2026-10-18)
+
+**Key.** Parker approved creating the customer secret key with the CLI, outside
+OpenTofu, so the key never lives in the state it unlocks. The first key's secret
+was lost: encrypting it failed on a newline, and the script had already discarded
+the secret. That key was never usable, and Parker approved deleting it. After a
+dummy-value round trip, the second key (`tofu-state-backend-20261018`) was
+encrypted straight from memory into `tofu/oracle/backend.sops.env`, with the
+endpoint. The new key failed intermittently with `SignatureDoesNotMatch` for
+about 15 minutes after creation, then succeeded on every request.
+
+**Migration.** Parker approved the migration.
+- The local state was backed up to
+  `oracle-backups/migrate-state-before-20261018-163215/`, and
+  `tofu init -migrate-state -force-copy` moved it to `oracle/terraform.tfstate`.
+- The remote object is the encrypted envelope, and holds all 82 managed
+  resources.
+- OpenTofu gave the remote state a new lineage (serial 1), so restoring a
+  pre-migration local backup needs `tofu state push -force`.
+- A fresh plan against the remote state reports **No changes**, and its lock
+  object was removed afterwards.
+- The emptied local `terraform.tfstate` and the stale `.backup` were moved into
+  the backup folder.
+
+Parker then dropped the rule to copy state, inputs, and the lock file to
+`%LOCALAPPDATA%/homelab/oracle-backups/` before each apply, because bucket
+versioning now keeps every earlier state version.
+
+Logs are in `docs/snapshot/oci/migrate-state*.log`.

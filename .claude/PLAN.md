@@ -19,7 +19,7 @@ workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dot
 | 2. Ansible baseline | Not started. |
 | 3. Quadlet services | Not started. |
 | 4. Proxmox OpenTofu | Not started. |
-| 5. OCI OpenTofu | Done: the agreed scope (74 resources) is adopted in `tofu/oracle`, and its plan is a no-op. Remote state is deferred. |
+| 5. OCI OpenTofu | Done: the agreed scope (74 resources) is adopted in `tofu/oracle`, and its plan is a no-op. State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages. |
 | 6. Proxmox and Ceph cluster settings | Not started. |
 | 7. Inventory handoff | Not started. |
 | 8. Portability proof | Not started. |
@@ -50,7 +50,7 @@ not start the next phase without it. Commit, and open a PR, only when Parker ask
 | Phase 0 | Python/tool manager | `uv` |
 | Phase 1 | OCI access | Provided: Parker's session token in the `DEFAULT` profile |
 | Phase 1 | SSH access from the operator machine to Proxmox nodes and guests over the tailnet; a read-only Proxmox API token (`PVEAuditor`) | Needed |
-| Phase 4 | Remote state backend choice and credentials (S3-compatible, e.g. OCI Object Storage or MinIO); state-encryption passphrase handling | Deferred until the rest of the repository is ready |
+| Phase 4 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/oracle/backend.sops.env` |
 | Phase 4 | A scoped Proxmox API token/role for management (Parker creates it) | Needed |
 | Phase 6 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node before any cluster firewall, network, or Ceph change | Needed |
 | Phase 6 | A Proxmox API token/role with the privileges cluster-wide settings need (Parker creates it) | Needed |
@@ -113,7 +113,7 @@ modify anything.
 
 ### Phase 4 — OpenTofu: adopt Proxmox guests
 - `tofu/proxmox`: `versions.tf` (pin `bpg/proxmox`), `providers.tf`, `backend.tf`, `variables.tf`, `main.tf`, `outputs.tf`, and readable HCL following the conventions in `AGENTS.md`.
-- Enforced OpenTofu state encryption, with the state and its key backed up off-cluster, **before** any import. A remote backend with locking is the target. Parker decides whether Proxmox starts on encrypted local state, as `tofu/oracle` does, until the shared backend migration.
+- Enforced OpenTofu state encryption and the remote backend, **before** any import. The `homelab-tofu-state` bucket and `svc-tofu-state` key already serve `tofu/oracle`; Proxmox's state gets its own key in that bucket and its own encryption passphrase.
 - Auth: API token via environment variables only; SSH for the provider via ssh-agent.
 - Adoption:
   1. Generate one `import {}` block per guest. Draft (verify the ID format and resource names against the provider docs first):
@@ -131,7 +131,7 @@ modify anything.
 - Inventory with the read-only `oci` CLI, then adopt in `tofu/oracle` through `import {}` blocks and `tofu plan -generate-config-out`. `oracle/oci` is published on the OpenTofu registry. Refactor the generated configuration into readable HCL (`AGENTS.md` conventions).
 - Reconcile until `tofu plan` is a no-op.
 - **Accept:** `tofu plan` is a no-op, and no plan showed a destroy or replace.
-- **Remaining:** the remote backend with locking, deferred until the rest of the repository is ready. The adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source.
+- **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source.
 
 ### Phase 6 — Proxmox and Ceph cluster settings (highest outage risk)
 - Discover cluster-wide settings read-only and record them under `docs/snapshot/`. For Proxmox: datacenter options, cluster firewall, HA groups and resources, storage definitions, SDN, users/groups/roles/ACLs, and backup and replication jobs. For Ceph: `ceph config dump`, pools, CRUSH rules, and monitor/manager/MDS layout.
@@ -179,7 +179,7 @@ modify anything.
 
 | Risk | Mitigation / rollback |
 |---|---|
-| State loss | Enforced state encryption with off-repo backups of state and key; a remote backend with locking once the repository is ready |
+| State loss | Client-side encrypted state in a versioned bucket with S3-native locking; the encryption passphrase in SOPS and the age identity kept safe off-repo |
 | Import produces a plan that wants to replace a guest | Stop; adjust config (not the guest) until the plan is a no-op; ask Parker |
 | Bad Ansible change on a prod host | `--check --diff` first, `--limit` to one host, keep the old container until verified |
 | A cluster firewall, network, or Ceph change locks out a node, interrupts the cluster, or starts data movement | Adopt current values with no changes first; plan-only and check-only without approval; keep the LAN/console path; Parker reviews every diff line by line |
