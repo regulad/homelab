@@ -1,0 +1,7 @@
+---
+# Hardware hosts: the machines OpenTofu cannot create. Listed by hand from the
+# Phase 1 discovery snapshot, each by its tailnet MagicDNS name.
+hardware:
+  children:
+    proxmox_nodes:
+      hosts: {}

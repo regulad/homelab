@@ -1,0 +1,5 @@
+---
+# Proxmox and Ceph cluster-wide settings that Phase 1 assigned to Ansible, because
+# bpg/proxmox cannot manage them. Adopt current values first with no changes;
+# check-only until Parker confirms a LAN/console path to every node (Phase 2).
+[]

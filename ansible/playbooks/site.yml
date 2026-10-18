@@ -1,0 +1,11 @@
+---
+# Every stage, in plan order: hardware hosts (Phase 2), then generated hosts'
+# baseline and services (Phase 4).
+- name: Hardware hosts
+  ansible.builtin.import_playbook: hardware.yml
+
+- name: Generated hosts baseline
+  ansible.builtin.import_playbook: base.yml
+
+- name: Generated hosts services
+  ansible.builtin.import_playbook: services.yml

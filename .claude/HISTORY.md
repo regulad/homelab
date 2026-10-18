@@ -269,3 +269,26 @@ numbers:
 | 6 Cluster and Ceph settings | Discovery to 1; Ansible-owned settings to 2; OpenTofu-owned settings to 3 |
 | 7 Inventory handoff | 4 |
 | 8 Portability, 9 Drift and CI | 5, 6 |
+
+## Ansible stages scaffolded (2026-10-18)
+
+Parker asked for the two Ansible stages to be scaffolded:
+- `ansible.cfg` at the repository root.
+- Inventories: the hand-written `hardware.yml` (groups `hardware` and
+  `proxmox_nodes`, no hosts yet), and `inventory.py`, which reads OpenTofu
+  outputs, puts every host in `generated`, and lists no roots yet.
+- One playbook per stage (`hardware.yml`, then `base.yml` and `services.yml`),
+  plus `site.yml`.
+- Skeleton roles with knobs in `defaults/`.
+
+Two choices came out of `ansible-lint`. The Quadlet role is named `quadlet`
+instead of `quadlet_services`, because role variables must carry the role's
+prefix and the plan's `quadlet_services` host_vars key is kept. Role metadata
+carries `license: AGPL-3.0`, after the repository's AGPLv3 `LICENSE.md`.
+
+Checks used the tools already in WSL `regulad-fedora` (ansible-core 2.21.5,
+ansible-lint 26.10.1, OpenTofu 1.13.1); nothing was installed.
+- `ansible-inventory --graph` and the `site.yml` syntax check pass.
+- `ansible-lint --offline` passes under its `production` profile.
+- Ansible ignores `ansible.cfg` in the world-writable `/mnt/d` checkout, so WSL
+  runs set `ANSIBLE_CONFIG`.

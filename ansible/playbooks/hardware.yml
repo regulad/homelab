@@ -1,0 +1,12 @@
+---
+# Phase 2: hardware hosts, from the hand-written inventory/hardware.yml.
+- name: Hardware host baseline
+  hosts: hardware
+  roles:
+    - base
+    - tailscale
+
+- name: Proxmox and Ceph cluster settings owned by Ansible
+  hosts: proxmox_nodes
+  roles:
+    - proxmox_cluster

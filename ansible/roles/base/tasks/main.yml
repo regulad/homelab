@@ -1,0 +1,4 @@
+---
+# Packages, admin user, time sync, and sshd hardening only where it is already
+# the current policy. Runs on hardware hosts (Phase 2) and generated hosts (Phase 4).
+[]

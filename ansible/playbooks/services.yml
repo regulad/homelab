@@ -1,0 +1,6 @@
+---
+# Phase 4: Quadlet services, rendered from host_vars/<host>/services.yml.
+- name: Quadlet services
+  hosts: podman_hosts
+  roles:
+    - quadlet

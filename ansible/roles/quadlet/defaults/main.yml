@@ -1,0 +1,4 @@
+---
+# This host's services, from host_vars/<host>/services.yml. The schema is in
+# .claude/PLAN.md, Phase 4.
+quadlet_services: []

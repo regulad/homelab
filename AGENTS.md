@@ -47,7 +47,7 @@ homelab/
 └── ansible/
     ├── inventory/               # hardware.yml (by hand), inventory.py (OpenTofu outputs), group_vars/, host_vars/<host>/{main,services}.yml
     ├── playbooks/               # site.yml, hardware.yml, base.yml, services.yml
-    ├── roles/                   # base, podman, tailscale, avahi, quadlet_services
+    ├── roles/                   # base, tailscale, proxmox_cluster, podman, avahi, quadlet
     └── requirements.yml         # pinned collections
 ```
 
@@ -83,12 +83,16 @@ pre-commit run --all-files
 tofu -chdir=tofu/<root> fmt -check -recursive
 tofu -chdir=tofu/<root> validate
 tofu -chdir=tofu/<root> plan -detailed-exitcode
-ansible-lint ansible/
+ansible-lint --offline ansible/
+ansible-playbook ansible/playbooks/site.yml --syntax-check
 ansible-playbook ansible/playbooks/site.yml --check --diff --limit <host>
 ansible-inventory -i ansible/inventory --graph
 ```
 
-Run the Ansible lines once Ansible exists. Also confirm that nothing secret is
+Run the Ansible lines from WSL with `ANSIBLE_CONFIG="$PWD/ansible.cfg"`, because
+Ansible ignores the config in a world-writable checkout (see
+[`ansible/README.md`](ansible/README.md)). `--offline` keeps `ansible-lint` from
+installing collections. Also confirm that nothing secret is
 staged (`git diff --cached`), lock files are committed, and no plan shows an
 unintended destroy or replace.
 

@@ -1,0 +1,4 @@
+---
+# Install Podman and configure registries; enable podman.socket only where it is
+# already used. Runs on generated hosts in podman_hosts (Phase 4).
+[]

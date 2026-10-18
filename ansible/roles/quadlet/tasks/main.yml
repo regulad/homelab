@@ -1,0 +1,5 @@
+---
+# Template each service's .container, .volume, and .network units into
+# /etc/containers/systemd/, reload systemd, and start them; state: absent removes
+# them. Runs on generated hosts in podman_hosts (Phase 4).
+[]

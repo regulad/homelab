@@ -21,7 +21,7 @@ Ansible runs in two phases, one on each side of OpenTofu:
 
 | Phase | Status |
 |---|---|
-| 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, and pre-commit (file hygiene, OpenTofu, privacy guards) are in place. The Ansible scaffold and pinned Python tooling remain. |
+| 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, pre-commit (file hygiene, OpenTofu, privacy guards), and the Ansible scaffold for both stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox, hardware hosts, cluster and Ceph settings, and the per-host service inventory are not started. |
 | 2. Ansible: hardware hosts | Not started. |
 | 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox guests and cluster settings are not started. |
@@ -69,7 +69,7 @@ Parker asks.
 - `.gitignore` first, then `.sops.yaml`, pre-commit config, `ansible.cfg` (inventory = `ansible/inventory`, `roles_path = ansible/roles`, `collections_path = ansible/collections`).
 - Pin tooling: OpenTofu in each root's `versions.tf`; Python dependencies for `ansible-core` and `ansible-lint` through `uv`. Parker installs tools.
 - **Accept:** `pre-commit run --all-files` passes; `git status` shows no ignored-class files tracked.
-- **Remaining:** the Ansible tree and `ansible.cfg`, `uv`-managed Python dependencies, `ansible-lint` and `yamllint` hooks, and `docs/runbooks/`.
+- **Remaining:** `uv`-managed Python dependencies, `ansible-lint` and `yamllint` hooks, and `docs/runbooks/`. The Ansible tree, `ansible.cfg`, both inventories, the stage playbooks, and skeleton roles exist; `ansible-lint` passes on them.
 
 ### Phase 1 — Read-only discovery snapshot
 Record what actually exists under `docs/snapshot/`. It is gitignored and stays on
@@ -105,7 +105,7 @@ hand and committed.
   - `base`: packages, admin user, sshd hardening only if already the current policy, time sync.
   - `tailscale`: install and enable; join logic gated on a variable so existing members are untouched.
   - A host takes only the roles its discovery calls for. These roles are reused for generated hosts in Phase 4.
-- Cluster and Ceph settings that Phase 1 assigned to Ansible are applied on the nodes with idempotent tasks.
+- Cluster and Ceph settings that Phase 1 assigned to Ansible are applied on the nodes with idempotent tasks, in the `proxmox_cluster` role.
   - Adopt the current values first, with **no changes**: a `changed=0` check run.
   - Change settings only afterwards, each diff reviewed line by line by Parker.
   - **Check-only until Parker confirms** a LAN/console path to every node. Firewall, network, and Ceph changes can lock out a node, interrupt the cluster, or start data movement.
@@ -165,7 +165,7 @@ resources, without a manual inventory edit.
   }
   ```
 - `ansible/inventory/inventory.py`: executable dynamic inventory.
-  - For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`.
+  - For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`. Every host also joins a `generated` group, mirroring `hardware`.
   - Reading outputs needs the backend credentials that `prepare.ps1` sets, in the control node's environment.
   - Cache nothing; fail loudly if a root is unreadable.
 - It sits beside `hardware.yml` in `ansible/inventory/`, so one inventory covers hardware and generated hosts.
@@ -184,7 +184,7 @@ resources, without a manual inventory edit.
 
 **Quadlet service model**
 - Convert the first low-stakes service with `podlet` (compose or `podman run` input), then review and hand-edit the output.
-- Implement `quadlet_services` as a data-driven role. Schema (per host):
+- Implement the data-driven `quadlet` role, fed by each host's `quadlet_services`. Schema (per host):
   ```yaml
   # ansible/inventory/host_vars/<host>/services.yml
   quadlet_services:

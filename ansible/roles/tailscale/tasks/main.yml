@@ -1,0 +1,4 @@
+---
+# Install and enable the Tailscale client; join only when tailscale_join is set.
+# Runs on hardware hosts (Phase 2) and generated hosts (Phase 4).
+[]

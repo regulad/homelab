@@ -1,0 +1,3 @@
+---
+# Join the tailnet only when set, so hosts that are already members are untouched.
+tailscale_join: false

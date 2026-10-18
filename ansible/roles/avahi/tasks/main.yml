@@ -1,0 +1,4 @@
+---
+# Template avahi-daemon.conf to reflect mDNS between the pinned podman bridge and
+# the LAN interface. Runs on generated hosts in podman_hosts (Phase 4).
+[]
