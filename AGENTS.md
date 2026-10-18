@@ -45,8 +45,8 @@ homelab/
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 └── ansible/
-    ├── inventory/               # inventory.py, group_vars/, host_vars/<host>/{main,services}.yml
-    ├── playbooks/               # site.yml, base.yml, services.yml
+    ├── inventory/               # hardware.yml (by hand), inventory.py (OpenTofu outputs), group_vars/, host_vars/<host>/{main,services}.yml
+    ├── playbooks/               # site.yml, hardware.yml, base.yml, services.yml
     ├── roles/                   # base, podman, tailscale, avahi, quadlet_services
     └── requirements.yml         # pinned collections
 ```
@@ -54,6 +54,7 @@ homelab/
 - **OpenTofu** owns which machines exist, plus the Proxmox cluster-wide settings its provider supports. It never manages containers or in-guest files.
 - **cloud-init**, set by OpenTofu, does only minimal bootstrap: admin user, SSH key, and a tailnet join with a pre-authorized, tagged key.
 - **Ansible** owns everything inside a guest after bootstrap, and the Proxmox and Ceph cluster-wide settings OpenTofu cannot manage, applied on the nodes. Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
+- **Two inventories:** hardware hosts, which OpenTofu cannot create, are listed by hand in `hardware.yml`. Generated hosts come from OpenTofu outputs through `inventory.py`. Hardware is configured before OpenTofu runs, and generated hosts after.
 - **Separate roots per provider** limit blast radius. Cross-root sharing goes through explicit outputs, or through `tofu/shared` for constants.
 
 ## Everyday commands
@@ -84,7 +85,7 @@ tofu -chdir=tofu/<root> validate
 tofu -chdir=tofu/<root> plan -detailed-exitcode
 ansible-lint ansible/
 ansible-playbook ansible/playbooks/site.yml --check --diff --limit <host>
-ansible-inventory -i ansible/inventory/inventory.py --graph
+ansible-inventory -i ansible/inventory --graph
 ```
 
 Run the Ansible lines once Ansible exists. Also confirm that nothing secret is
@@ -143,8 +144,8 @@ unintended destroy or replace.
 - **Pre-commit:** `.pre-commit-config.yaml` runs the pinned `pre-commit/pre-commit-hooks` plus local hooks that use installed tools (`language: unsupported`) or `pygrep`. Gitleaks is not wanted.
 - **Discovery snapshots** stay on the operator's machine; only configuration derived from them is committed. Parker's review of `docs/snapshot/SUMMARY.md` gates the adoption phases.
 - **OCI auth:** Parker's own user, through an `oci session authenticate` read/write session token in the `DEFAULT` profile, because OpenTofu writes back to OCI.
-- **OCI adoption is complete** for the scope in the plan's Phase 5. Never regenerate or re-import it.
+- **OCI adoption is complete** for the scope in the OCI part of the plan's Phase 3. Never regenerate or re-import it.
 - **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/oracle/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
-- **The OCI `ansible_hosts` output** waits for the Ansible phases.
+- **The OCI `ansible_hosts` output** waits for Phase 4, when generated hosts' identities are chosen.
 - **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.

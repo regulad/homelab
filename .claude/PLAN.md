@@ -10,37 +10,43 @@ out of this one: the tailnet's ACL policy and DNS in
 [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and
 workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles).
 
+Ansible runs in two phases, one on each side of OpenTofu:
+- **Hardware hosts** are the machines OpenTofu cannot create, such as the
+  Proxmox nodes. They come first, from an inventory written by hand.
+- **Generated hosts** are the machines OpenTofu creates or adopts: Proxmox
+  guests and OCI instances. They come after it, from an inventory built from
+  OpenTofu's outputs.
+
 ## Status
 
 | Phase | Status |
 |---|---|
 | 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, and pre-commit (file hygiene, OpenTofu, privacy guards) are in place. The Ansible scaffold and pinned Python tooling remain. |
-| 1. Discovery | OCI done, with snapshots kept locally. Proxmox and the per-host service inventory are not started. |
-| 2. Ansible baseline | Not started. |
-| 3. Quadlet services | Not started. |
-| 4. Proxmox OpenTofu | Not started. |
-| 5. OCI OpenTofu | Done: the agreed scope (74 resources) is adopted in `tofu/oracle`, and its plan is a no-op. State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages. |
-| 6. Proxmox and Ceph cluster settings | Not started. |
-| 7. Inventory handoff | Not started. |
-| 8. Portability proof | Not started. |
-| 9. Drift and CI (optional) | Not started. |
+| 1. Discovery | OCI done, with snapshots kept locally. Proxmox, hardware hosts, cluster and Ceph settings, and the per-host service inventory are not started. |
+| 2. Ansible: hardware hosts | Not started. |
+| 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox guests and cluster settings are not started. |
+| 4. Ansible: generated hosts | Not started. |
+| 5. Portability proof | Not started. |
+| 6. Drift and CI (optional) | Not started. |
 
 Each phase ends with its acceptance criteria met and a check-in with Parker. Do
-not start the next phase without it. Commit, and open a PR, only when Parker asks.
+not start the next phase without it. The OCI part of Phase 3 was done before this
+order was set; it depends on nothing in Phase 2. Commit, and open a PR, only when
+Parker asks.
 
 ## Goal and non-goals
 
 **Goal**
 - Machines (Proxmox LXC/VM, OCI instances) are declared in **OpenTofu** and tracked in state.
 - Proxmox cluster-wide and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
-- Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**.
+- Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs.
 - Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a playbook run.
 - Existing infrastructure is **adopted** (imported), not recreated.
 
 **Non-goals (for now)**
 - Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
 - Migrating data inside containers automatically. Parker plans data movement per service.
-- CI/drift automation (optional Phase 9).
+- CI/drift automation (optional Phase 6).
 
 ## Inputs from Parker
 
@@ -50,11 +56,11 @@ not start the next phase without it. Commit, and open a PR, only when Parker ask
 | Phase 0 | Python/tool manager | `uv` |
 | Phase 1 | OCI access | Provided: Parker's session token in the `DEFAULT` profile |
 | Phase 1 | SSH access from the operator machine to Proxmox nodes and guests over the tailnet; a read-only Proxmox API token (`PVEAuditor`) | Needed |
-| Phase 4 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/oracle/backend.sops.env` |
-| Phase 4 | A scoped Proxmox API token/role for management (Parker creates it) | Needed |
-| Phase 6 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node before any cluster firewall, network, or Ceph change | Needed |
-| Phase 6 | A Proxmox API token/role with the privileges cluster-wide settings need (Parker creates it) | Needed |
-| Phase 9 | A non-expiring OCI credential (API-key user or instance principal) | Needed |
+| Phase 2 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node before any cluster firewall, network, or Ceph change | Needed |
+| Phase 3 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/oracle/backend.sops.env` |
+| Phase 3 | A scoped Proxmox API token/role for management (Parker creates it) | Needed |
+| Phase 3 | A Proxmox API token/role with the privileges cluster-wide settings need (Parker creates it) | Needed |
+| Phase 6 | A non-expiring OCI credential (API-key user or instance principal) | Needed |
 
 ## Phases
 
@@ -76,24 +82,107 @@ modify anything.
   qm config <vmid>
   pvesh get /nodes/<node>/storage --output-format json
   ```
-- Per guest (over SSH): OS release, `podman ps -a --format json`, `podman inspect` of each container, `podman network ls`/`inspect`, `systemctl list-units --state=running`, Avahi config (`/etc/avahi/avahi-daemon.conf`), `tailscale status --json`, listening ports, mounts/volumes.
+- Hardware hosts: every physical machine, Proxmox nodes and any others, with its role and tailnet name.
+- Cluster-wide settings, read-only:
+  - Proxmox: datacenter options, cluster firewall, HA groups and resources, storage definitions, SDN, users/groups/roles/ACLs, and backup and replication jobs.
+  - Ceph: `ceph config dump`, pools, CRUSH rules, and monitor/manager/MDS layout.
+  - For each setting, verify whether `bpg/proxmox` manages it, and record its owner: OpenTofu (Phase 3) if it does, Ansible on the nodes (Phase 2) if not.
+- Per hardware host and per guest (over SSH): OS release, `podman ps -a --format json`, `podman inspect` of each container, `podman network ls`/`inspect`, `systemctl list-units --state=running`, Avahi config (`/etc/avahi/avahi-daemon.conf`), `tailscale status --json`, listening ports, mounts/volumes.
 - Compose files / `podman run` histories where they exist.
 - OCI (read-only): compartments, instances, VCNs, subnets, security lists/NSGs, volumes, reserved IPs.
-- Produce `docs/snapshot/SUMMARY.md`: one table per host (guest ID, role, containers, volumes, ports, networks, tailnet name) and an **Open questions** list.
-- **Accept:** Parker has reviewed `SUMMARY.md` and answered the open questions. This review gates the adoption phases.
-- **Remaining:** Proxmox cluster and guest discovery and the per-host service inventory, then review with Parker.
+- Produce `docs/snapshot/SUMMARY.md`:
+  - one table per host, hardware or guest: guest ID, role, containers, volumes, ports, networks, tailnet name;
+  - one table of cluster and Ceph settings with their owners;
+  - an **Open questions** list.
+- **Accept:** Parker has reviewed `SUMMARY.md` and answered the open questions. This review gates Phases 2 and 3.
+- **Remaining:** Proxmox cluster, hardware-host, settings, and guest discovery and the per-host service inventory, then review with Parker.
 
-### Phase 2 — Ansible baseline (non-destructive)
-- Static inventory first (`inventory/hosts.yml`) matching the snapshot; groups: `podman_hosts`, `proxmox`, `oracle`.
+### Phase 2 — Ansible: hardware hosts (manual inventory)
+Hardware hosts change only when hardware does, so their inventory is written by
+hand and committed.
+- Static inventory `ansible/inventory/hardware.yml` matching the snapshot. Hosts are listed by tailnet MagicDNS name, in groups such as `hardware` and `proxmox_nodes`.
 - Roles:
   - `base`: packages, admin user, sshd hardening only if already the current policy, time sync.
-  - `podman`: install podman; configure registries; enable `podman.socket` only if currently used.
   - `tailscale`: install and enable; join logic gated on a variable so existing members are untouched.
+  - A host takes only the roles its discovery calls for. These roles are reused for generated hosts in Phase 4.
+- Cluster and Ceph settings that Phase 1 assigned to Ansible are applied on the nodes with idempotent tasks.
+  - Adopt the current values first, with **no changes**: a `changed=0` check run.
+  - Change settings only afterwards, each diff reviewed line by line by Parker.
+  - **Check-only until Parker confirms** a LAN/console path to every node. Firewall, network, and Ceph changes can lock out a node, interrupt the cluster, or start data movement.
+- Run against **one** node first: `ansible-playbook ansible/playbooks/hardware.yml --check --diff --limit <node>`.
+- **Accept:**
+  - Parker has reviewed the `--check --diff` output.
+  - After an approved real run, a **second run reports `changed=0`** (idempotency).
+  - Every Ansible-owned cluster and Ceph setting is captured as code.
+  - No service restarted unexpectedly.
+
+### Phase 3 — OpenTofu
+OpenTofu declares the machines, and the cluster settings its providers support.
+Each root keeps its state in the shared `homelab-tofu-state` bucket, under its own
+key and with its own enforced encryption passphrase, before any import.
+
+#### OCI (`tofu/oracle`): done
+- **Scope:** compute instances and boot volumes, VCN networking (VCNs, subnets, gateways, route tables, security lists, DHCP options), NSGs, and Email Delivery (domain, senders, DKIM, `svc-mail` policy). Out of scope: identity-domain apps/users/groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, the DNS resolvers/views/private zones VCNs create automatically, and boot-volume backups themselves (data, not configuration).
+- Inventory with the read-only `oci` CLI, then adopt in `tofu/oracle` through `import {}` blocks and `tofu plan -generate-config-out`. `oracle/oci` is published on the OpenTofu registry. Refactor the generated configuration into readable HCL (`AGENTS.md` conventions).
+- Reconcile until `tofu plan` is a no-op.
+- **Accept:** `tofu plan` is a no-op, and no plan showed a destroy or replace.
+- **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source. The state bucket and its service user live in `tofu/oracle`'s `state-backend` module.
+
+#### Proxmox guests (`tofu/proxmox`)
+- `tofu/proxmox`: `versions.tf` (pin `bpg/proxmox`), `providers.tf`, `state.tf` (backend and encryption, as in `tofu/oracle`), `variables.tf`, `main.tf`, `outputs.tf`, and readable HCL following the conventions in `AGENTS.md`.
+- Auth: API token via environment variables only; SSH for the provider via ssh-agent.
+- Adoption:
+  1. Generate one `import {}` block per guest. Draft (verify the ID format and resource names against the provider docs first):
+     ```bash
+     pvesh get /cluster/resources --type vm --output-format json | jq -r '.[] | select(.template==0) | "import {\n  to = proxmox_virtual_environment_\(if .type=="lxc" then "container" else "vm" end).g\(.vmid)\n  id = \"\(.node)/\(.vmid)\"\n}\n"' > tofu/proxmox/imports.tf
+     ```
+  2. `tofu -chdir=tofu/proxmox plan -generate-config-out=generated.tf` (the target file must not already exist; the output format is not stable across versions).
+  3. Refactor `generated.tf` into readable resources and the `lxc-guest`/`vm-guest` modules: remove computed attributes and plaintext secrets, and keep names stable.
+  4. Iterate until `tofu plan` shows **no changes**. Add `lifecycle { ignore_changes = [...] }` only where justified (e.g., HA-managed guests that may migrate between nodes) and comment why.
+  5. Remove the `import` blocks after the Parker-approved apply that records them.
+- **Accept:** `tofu plan` is a no-op; no `destroy`/`replace` appeared in any reviewed plan; the lock file is committed; state is in the remote bucket.
+
+#### Proxmox and Ceph cluster settings (highest outage risk)
+- Adopt the settings Phase 1 assigned to OpenTofu in `tofu/proxmox`, with `import {}` blocks.
+- Adopt the current values first, with **no changes**: a no-op plan. Change settings only afterwards, each diff reviewed line by line by Parker.
+- **Plan-only until Parker confirms** a LAN/console path to every node, as in Phase 2.
+- **Accept:** every OpenTofu-owned cluster and Ceph setting is captured as code, and the plan is a no-op.
+
+### Phase 4 — Ansible: generated hosts (OpenTofu-fed inventory)
+Generated hosts appear in and disappear from Ansible with their OpenTofu
+resources, without a manual inventory edit.
+
+**Inventory handoff**
+- Each root exports the same output shape:
+  ```hcl
+  output "ansible_hosts" {
+    value = {
+      for name, g in local.guests : name => {
+        address = g.tailnet_name   # MagicDNS name, so it works from the laptop
+        groups  = g.groups         # e.g. ["podman_hosts", "proxmox_guests"]
+      }
+    }
+  }
+  ```
+- `ansible/inventory/inventory.py`: executable dynamic inventory.
+  - For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`.
+  - Reading outputs needs the backend credentials that `prepare.ps1` sets, in the control node's environment.
+  - Cache nothing; fail loudly if a root is unreadable.
+- It sits beside `hardware.yml` in `ansible/inventory/`, so one inventory covers hardware and generated hosts.
+- Keep the inventory **minimal** (name, address, groups). Services and other variables stay in `host_vars/` in git.
+- `tofu/oracle` gets its `ansible_hosts` output here, once host identities are chosen.
+- Optional later: the Ansible Terraform provider (`ansible_host`/`ansible_group` resources) with the `cloud.terraform.terraform_provider` inventory plugin (requires initialized roots; shells out to a `terraform` binary, so verify `tofu` compatibility).
+- **Accept:** `ansible-inventory --graph` shows every hardware and generated host in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
+
+**Baseline (non-destructive)**
+- cloud-init, set by OpenTofu, did only the minimal bootstrap; Ansible owns everything inside a guest after it.
+- Roles, reusing Phase 2's `base` and `tailscale`:
+  - `podman`: install podman; configure registries; enable `podman.socket` only if currently used.
   - `avahi`: template `avahi-daemon.conf` (`enable-reflector=yes`, `allow-interfaces=` the podman bridge + LAN interface, as discovered). Pin the podman network subnet/bridge name so this is deterministic.
-- Run against **one** low-risk host first: `ansible-playbook ansible/playbooks/base.yml --check --diff --limit <host>`.
+- Run against **one** low-risk guest first: `ansible-playbook ansible/playbooks/base.yml --check --diff --limit <host>`.
 - **Accept:** Parker has reviewed the `--check --diff` output; after an approved real run, a **second run reports `changed=0`** (idempotency); no service restarted unexpectedly.
 
-### Phase 3 — Quadlet service model
+**Quadlet service model**
 - Convert the first low-stakes service with `podlet` (compose or `podman run` input), then review and hand-edit the output.
 - Implement `quadlet_services` as a data-driven role. Schema (per host):
   ```yaml
@@ -111,61 +200,14 @@ modify anything.
 - Migrate one service **side by side**: stand up the Quadlet version on a spare port or host, verify, cut over, and only then retire the old container (Parker approves the removal).
 - **Accept:** the service runs as a systemd-managed Quadlet; a restart/reboot test passes; data persists; the old container is retired only after Parker signs off; a second playbook run is idempotent.
 
-### Phase 4 — OpenTofu: adopt Proxmox guests
-- `tofu/proxmox`: `versions.tf` (pin `bpg/proxmox`), `providers.tf`, `backend.tf`, `variables.tf`, `main.tf`, `outputs.tf`, and readable HCL following the conventions in `AGENTS.md`.
-- Enforced OpenTofu state encryption and the remote backend, **before** any import. The `homelab-tofu-state` bucket and `svc-tofu-state` key already serve `tofu/oracle`; Proxmox's state gets its own key in that bucket and its own encryption passphrase.
-- Auth: API token via environment variables only; SSH for the provider via ssh-agent.
-- Adoption:
-  1. Generate one `import {}` block per guest. Draft (verify the ID format and resource names against the provider docs first):
-     ```bash
-     pvesh get /cluster/resources --type vm --output-format json | jq -r '.[] | select(.template==0) | "import {\n  to = proxmox_virtual_environment_\(if .type=="lxc" then "container" else "vm" end).g\(.vmid)\n  id = \"\(.node)/\(.vmid)\"\n}\n"' > tofu/proxmox/imports.tf
-     ```
-  2. `tofu -chdir=tofu/proxmox plan -generate-config-out=generated.tf` (the target file must not already exist; the output format is not stable across versions).
-  3. Refactor `generated.tf` into readable resources and the `lxc-guest`/`vm-guest` modules: remove computed attributes and plaintext secrets, and keep names stable.
-  4. Iterate until `tofu plan` shows **no changes**. Add `lifecycle { ignore_changes = [...] }` only where justified (e.g., HA-managed guests that may migrate between nodes) and comment why.
-  5. Remove the `import` blocks after the Parker-approved apply that records them.
-- **Accept:** `tofu plan` is a no-op; no `destroy`/`replace` appeared in any reviewed plan; the lock file is committed; state is backed up.
-
-### Phase 5 — OpenTofu: adopt OCI resources
-- **Scope:** compute instances and boot volumes, VCN networking (VCNs, subnets, gateways, route tables, security lists, DHCP options), NSGs, and Email Delivery (domain, senders, DKIM, `svc-mail` policy). Out of scope: identity-domain apps/users/groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, the DNS resolvers/views/private zones VCNs create automatically, and boot-volume backups themselves (data, not configuration).
-- Inventory with the read-only `oci` CLI, then adopt in `tofu/oracle` through `import {}` blocks and `tofu plan -generate-config-out`. `oracle/oci` is published on the OpenTofu registry. Refactor the generated configuration into readable HCL (`AGENTS.md` conventions).
-- Reconcile until `tofu plan` is a no-op.
-- **Accept:** `tofu plan` is a no-op, and no plan showed a destroy or replace.
-- **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source.
-
-### Phase 6 — Proxmox and Ceph cluster settings (highest outage risk)
-- Discover cluster-wide settings read-only and record them under `docs/snapshot/`. For Proxmox: datacenter options, cluster firewall, HA groups and resources, storage definitions, SDN, users/groups/roles/ACLs, and backup and replication jobs. For Ceph: `ceph config dump`, pools, CRUSH rules, and monitor/manager/MDS layout.
-- For each setting, verify whether `bpg/proxmox` manages it. If it does, adopt it in `tofu/proxmox` with `import {}` blocks; if not, manage it with idempotent Ansible tasks on the nodes. Record the choice per setting.
-- Adopt the current values first, with **no changes**: a no-op plan and a `changed=0` check run. Change settings only afterwards, each diff reviewed line by line by Parker.
-- **Plan-only and check-only until Parker confirms** a LAN/console path to every node. Firewall, network, and Ceph changes can lock out a node, interrupt the cluster, or start data movement.
-- **Accept:** every in-scope cluster and Ceph setting is captured as code; the plan is a no-op and the check run reports `changed=0`.
-
-### Phase 7 — Inventory handoff
-- Each root exports the same output shape:
-  ```hcl
-  output "ansible_hosts" {
-    value = {
-      for name, g in local.guests : name => {
-        address = g.tailnet_name   # MagicDNS name, so it works from the laptop
-        groups  = g.groups         # e.g. ["podman_hosts", "proxmox"]
-      }
-    }
-  }
-  ```
-- `ansible/inventory/inventory.py`: executable dynamic inventory. For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`. Cache nothing; fail loudly if a root is unreadable.
-- Keep the inventory **minimal** (name, address, groups). Services and other variables stay in `host_vars/` in git.
-- Optional later: the Ansible Terraform provider (`ansible_host`/`ansible_group` resources) with the `cloud.terraform.terraform_provider` inventory plugin (requires initialized roots; shells out to a `terraform` binary, so verify `tofu` compatibility).
-- **Accept:** `ansible-inventory --graph` shows every guest in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
-- `tofu/oracle` gets its `ansible_hosts` output once the Ansible phases choose host identities.
-
-### Phase 8 — Portability proof
+### Phase 5 — Portability proof
 - Pick one stateless-ish service. Move it by deleting its entry from host A's `services.yml`, adding it to host B (including an OCI host), and running `services.yml` for both with `--check` first.
 - Document, per service, a data strategy (restic restore, shared mount, or stateless) in `docs/runbooks/move-a-service.md`.
 - **Accept:** the service runs on host B, is gone from host A, and the runbook reflects exactly what was done.
 
-### Phase 9 — Optional: drift and CI
-- Scheduled `tofu plan -detailed-exitcode` and `ansible-playbook --check` from a runner on the tailnet, alerting on drift. Plans only; never auto-apply.
-- Needs a non-expiring OCI credential; the current session token lasts at most 24 hours.
+### Phase 6 — Optional: drift and CI
+- Scheduled `tofu plan -detailed-exitcode` and `ansible-playbook --check` (hardware and generated hosts) from a runner on the tailnet, alerting on drift. Plans only; never auto-apply.
+- Needs a non-expiring OCI credential, because the current session token lasts at most 24 hours. It also needs the state backend's key.
 
 ## Known uncertainties (verify, do not assume)
 - bpg/proxmox: current resource type names and the import ID format (believed `node/vmid`; resource naming has been shifting). The provider uses SSH for some actions; HA-managed guests can migrate without the provider knowing.
@@ -187,9 +229,10 @@ modify anything.
 | Quadlet migration data loss | Side-by-side migration; snapshot/backup before cutover; Parker approves old-container removal |
 
 ## Definition of done
+- Every hardware host is in the hand-written inventory, and its playbook run reports `changed=0`.
 - Every in-scope guest is in OpenTofu state with a **no-op plan** in both provider roots (`tofu/oracle`, `tofu/proxmox`).
 - Every in-scope Proxmox and Ceph cluster-wide setting is captured as code, with a no-op plan and a `changed=0` check run.
+- The generated hosts' inventory is built from OpenTofu outputs, with services defined only in `host_vars/`.
 - Every in-scope container runs as a pinned, Ansible-rendered Quadlet; a second playbook run reports no changes.
-- The dynamic inventory is built from OpenTofu outputs, with services defined only in `host_vars/`.
 - At least one service has been moved between hosts by changing data only, with a written runbook.
 - No secrets, state, or generated state files in git history.

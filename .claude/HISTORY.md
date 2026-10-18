@@ -250,3 +250,22 @@ Parker then dropped the rule to copy state, inputs, and the lock file to
 versioning now keeps every earlier state version.
 
 Logs are in `docs/snapshot/oci/migrate-state*.log`.
+
+## Plan restructured around two Ansible phases (2026-10-18)
+
+Parker asked for two Ansible phases on either side of OpenTofu:
+- hardware hosts, from a hand-written inventory, before OpenTofu;
+- generated hosts, from an inventory fed by OpenTofu outputs, after it.
+
+The plan went from ten phases to seven. Entries above this one use the old
+numbers:
+
+| Old | New |
+|---|---|
+| 0 Scaffold, 1 Discovery | 0, 1. Discovery now also covers hardware hosts, and picks an owner for each cluster and Ceph setting. |
+| 2 Ansible baseline | Split: Proxmox nodes and other hardware go to 2 (Ansible: hardware hosts); guests go to 4 (Ansible: generated hosts) |
+| 3 Quadlet services | 4 |
+| 4 Proxmox OpenTofu, 5 OCI OpenTofu | 3 (OpenTofu), as its Proxmox-guest and OCI parts |
+| 6 Cluster and Ceph settings | Discovery to 1; Ansible-owned settings to 2; OpenTofu-owned settings to 3 |
+| 7 Inventory handoff | 4 |
+| 8 Portability, 9 Drift and CI | 5, 6 |
