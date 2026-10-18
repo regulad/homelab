@@ -29,6 +29,16 @@ module "legacy" {
   tenancy_ocid         = var.tenancy_ocid
 }
 
+module "state_backend" {
+  source = "./state-backend"
+
+  providers = {
+    oci = oci
+  }
+
+  tenancy_ocid = var.tenancy_ocid
+}
+
 module "wahlecloud" {
   source = "./wahlecloud"
 

@@ -170,3 +170,53 @@ and the fresh post-apply plan reports **No changes** for 76 managed resources.
 Encrypted state backups are under
 `%LOCALAPPDATA%/homelab/oracle-backups/input-cleanup-{before,after}-*`. Logs are in
 `docs/snapshot/oci/input-cleanup-{plan,apply,post-apply-plan}.log`.
+
+## Remote state brought forward; OCI lock test (2026-10-18)
+
+Parker brought the remote state backend forward from "after the rest of the
+repository": he now switches between workstations, all of which share one age
+identity. The backend itself is not configured yet.
+
+Research found three things:
+- OpenTofu 1.13.1 has no native OCI backend.
+- Its `s3` backend works with OCI's S3 Compatibility API using Oracle's
+  documented settings.
+- `use_lockfile` depends on `If-None-Match: *`, which Oracle does not document
+  for the S3-compatible path.
+
+Parker approved a test with a scratch versioned bucket, `homelab-tofu-locktest`,
+and a temporary Customer Secret Key on his own user:
+
+- **Raw requests:** a repeated conditional create returned 412, and a create
+  over a delete marker returned 200. A wrong `If-Match` was ignored and returned
+  200; OpenTofu does not send that header.
+- **Held lock:** while an apply held the lock, a second run was refused with 412
+  `PreconditionFailed`. The lock object was removed afterwards, and the next
+  apply took the lock again.
+- **Race:** in 20 of 20 rounds of two simultaneous applies, exactly one got the
+  lock. All 20 refusals were 412s, and no lock object was left behind.
+
+The bucket and its 71 object versions were deleted afterwards.
+Parker then deleted the test key.
+
+## State backend resources (2026-10-18)
+
+Parker had the bucket and the backend's service identity managed in
+`tofu/oracle`, as the new `state-backend` module:
+- `homelab-tofu-state` is private and versioned. Parker ruled out
+  `prevent_destroy`, because the bucket is created declaratively rather than
+  adopted.
+- `svc-tofu-state@regulad.xyz` is limited to customer secret keys. Parker
+  created that mailbox, so the identity domain's activation mail is delivered.
+- The `svc-tofu-state` group and policy grant `read buckets` and the five object
+  permissions the backend uses, scoped to that bucket. They omit
+  `OBJECT_VERSION_DELETE`.
+
+Identity-domain users and groups stay out of Phase 5's adoption scope; these were
+created by OpenTofu. The classic IAM resources were used, as with `svc-mail`.
+
+The plan Parker reviewed was re-planned after removing `prevent_destroy`. The new
+plan had the same 6 creates with identical values. Apply completed with **6
+added, 0 changed, 0 destroyed**, and the fresh plan was a no-op. Backups are
+under `oracle-backups/state-backend-{before,after}-*`. Logs are in
+`docs/snapshot/oci/state-backend-*.log`.

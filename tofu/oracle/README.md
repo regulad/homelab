@@ -1,14 +1,16 @@
 # OCI infrastructure
 
-The `.tf` files in the `legacy` and `wahlecloud` child modules are the source of
-truth. They describe 76 managed resources, ordinary configuration values,
-nested blocks, and direct resource references. Run OpenTofu from this root so both
-modules share the existing provider configuration and encrypted state.
+The `.tf` files in the `legacy`, `wahlecloud`, and `state-backend` child modules
+are the source of truth. They describe 82 managed resources, ordinary
+configuration values, nested blocks, and direct resource references. Run OpenTofu
+from this root so the modules share the existing provider configuration and
+encrypted state.
 
 | Location | Configuration |
 |---|---|
 | `legacy/` | Legacy VCN and networking, web instance, boot volume, backup-policy assignment and IPv6 assignment (10 resources) |
 | `wahlecloud/` | Wahlecloud VCN and networking, bailout/livekit/mail/router hosts, volumes, IPv6 and Email Delivery (66 resources) |
+| `state-backend/` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
 | `main.tf` | Local module calls, the availability-domain lookup, and explicit provider/input wiring |
 | `moved.tf` | Mappings from the original root addresses to their module addresses |
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
@@ -115,13 +117,14 @@ encrypted; plaintext JSON plan output must stay in `docs/snapshot/`.
 
 Encrypted state copies and SOPS-encrypted inputs are backed up outside this
 repository under `%LOCALAPPDATA%/homelab/oracle-backups/`. Keep the matching age
-identity safe. No remote backend is configured; it is deferred until the rest of
-the repository is ready.
+identity safe. No remote backend is configured yet; `state-backend/` manages the
+bucket and service user it will use.
 
 ## Ownership and adoption details
 
-- All managed resources have `prevent_destroy = true`. Do not remove this to get
-  an unexpected replacement through a plan.
+- All adopted resources have `prevent_destroy = true`. Do not remove this to get
+  an unexpected replacement through a plan. Resources created by OpenTofu, such
+  as those in `state-backend/`, do not.
 - Image-created boot volumes expose no creation source. The provider requires a
   `source_details` block, so these existing volumes use a schema-only `bootVolume`
   type with no invented source ID and `ignore_changes = [source_details]`.
