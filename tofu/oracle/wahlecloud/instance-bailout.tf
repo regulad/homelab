@@ -6,7 +6,7 @@ resource "oci_core_instance" "bailout" {
   availability_domain = var.availability_domains.ad_3
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.E2.1.Micro"
-  metadata            = var.shared_ssh_metadata
+  metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMcSNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhkduWYAwg8utchrqloVGd7NDd+BphSDJ8u/4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56HgjN/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzGsPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlpQUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcXTPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQSAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE=" }
   state               = "RUNNING"
   freeform_tags       = { "managed-by" = "opentofu" }
 
@@ -57,9 +57,8 @@ resource "oci_core_instance" "bailout" {
 
   source_details {
     is_preserve_boot_volume_enabled = false
-    # Oracle-Linux-9.8-2026.07.20-1
-    source_id   = "ocid1.image.oc1.iad.aaaaaaaai4tjt6h3zmwiou6gppgnyjnm3twfqaezcynx6dp3uwr6i2be43cq"
-    source_type = "image"
+    source_id                       = local.platform_image_ids["Oracle-Linux-9.8-2026.07.20-1"]
+    source_type                     = "image"
   }
 
   # The following exists as an artifact of import from the imperative setup.

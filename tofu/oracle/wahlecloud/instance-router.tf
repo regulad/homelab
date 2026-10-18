@@ -12,7 +12,7 @@ resource "oci_core_instance" "router" {
   availability_domain = var.availability_domains.ad_3
   fault_domain        = "FAULT-DOMAIN-1"
   shape               = "VM.Standard.E2.1.Micro"
-  metadata            = var.instance_metadata.router
+  metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDpNJsQQDEtDUBjyUr4uR24C1Irt4+5caHdPG4k7uZ+Vzt0qgXNhTVvP+yRDA0+O8jJ1DzAvbFUgU13BknxoLKeBEShhW9ZiuGDHorYoe4zDe+30hnR8HtWe8htEaeCdLe61VsVLdVOzhNqPWSG6w79z2S//VlpK134/ItvUYaxBSKD/rb5K/AXQ7i9/VsLTPFvnimA9DXEKCVZ5fxIzDMBtfAK+XNiDq1slsMczDaqmJb2k1zQg6PbCDHtLqrK9mvHQEjvGEA/pKtDmnp8uS593akaFH8yIaGDAiCmSmez9s1n4OGMqsQoHLXFddLLHGpsJGIo05F/VNuzIa46Sr0V ssh-key-2025-12-08" }
   state               = "RUNNING"
   freeform_tags       = { "managed-by" = "opentofu" }
 
@@ -63,9 +63,8 @@ resource "oci_core_instance" "router" {
 
   source_details {
     is_preserve_boot_volume_enabled = false
-    # Oracle-Linux-9.6-2025.11.20-0
-    source_id   = "ocid1.image.oc1.iad.aaaaaaaaglxne5nh73mxqppl3fkzkqdlda3k22y6oyxcvy6gcaxxsym54mca"
-    source_type = "image"
+    source_id                       = local.platform_image_ids["Oracle-Linux-9.6-2025.11.20-0"]
+    source_type                     = "image"
   }
 
   # The following exists as an artifact of import from the imperative setup.
@@ -103,7 +102,7 @@ resource "oci_core_boot_volume" "router" {
 
 resource "oci_core_volume_backup_policy_assignment" "router" {
   asset_id  = oci_core_boot_volume.router.id
-  policy_id = var.backup_policy_id
+  policy_id = local.backup_policy_ids.bronze
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

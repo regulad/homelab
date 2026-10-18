@@ -17,8 +17,8 @@ Where this file and the plan disagree, this file wins.
 2. **Read-only discovery.** Use read-only credentials, such as a Proxmox `PVEAuditor` token. OCI is the exception: Parker's own read/write session token, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
 3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
 4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
-   - OCIDs owned by our tenancy or compartments link resources to the tenancy, so they stay encrypted, including router next-hop and backup-policy IDs. Verified stock-image OCIDs may be plaintext, with the exact image name in a comment above `source_id`. Verify ownership before publishing an unfamiliar OCID.
-   - GUA IPv6 `/64` prefixes stay encrypted; derive host addresses and enclosing prefixes from them. IPv4, ULA and Tailscale ranges, and IPv6 host suffixes are plaintext.
+   - OCIDs owned by our tenancy or compartments link resources to the tenancy, so they stay encrypted, including router next-hop IDs. Verified Oracle-defined OCIDs may be plaintext as entries in a module's `platform_image_ids` or `backup_policy_ids` map, keyed by their exact Oracle name. Verify ownership before publishing an unfamiliar OCID.
+   - GUA IPv6 `/64` prefixes stay encrypted; derive host addresses and enclosing prefixes from them. IPv4, ULA and Tailscale ranges, IPv6 host suffixes, and SSH public keys are plaintext.
 5. **Don't invent facts.** Discover with read-only commands, keep raw output in the gitignored `docs/snapshot/`, and ask about anything unknown. Verify provider and tool details (resource names, import ID formats, flags) against current docs.
 6. **Stop and ask** when a plan shows any destroy or replace, when an Ansible `--check` shows unexpected changes on a production host, or at an auth or permission wall.
 7. **Pin everything:** providers with a committed `.terraform.lock.hcl`, Ansible collections in `requirements.yml`, container image tags (never `latest`), and pre-commit hook revisions.
@@ -121,7 +121,8 @@ unintended destroy or replace.
   - protocol numbers: `"1" # ICMP`, `"6" # TCP`, `"17" # UDP`, `"58" # ICMPv6`, `"all" # All IP protocols`
   - ICMP `type`/`code` pairs: `type = 3 # Destination Unreachable`
   - ports, on the opening line of the block holding `max`/`min`: `destination_port_range { # SMTP`, `tcp_options { # SSH`. A rule whose existing `description` already names the port needs no comment.
-  - each plaintext stock-image OCID: the exact image name on the line above `source_id`
+
+  Plaintext Oracle OCIDs need no comment: their map key is their exact name (rule 4).
 
   Use HCL comments for this, not new `description` arguments; adding a description changes infrastructure.
 - **IPv4/IPv6 pairs:** values that exist per IP family are objects keyed `ipv4`, then `ipv6`, named `dual_stack_<what>` when local (`local.dual_stack_internet_cidrs`, `var.tailscale_cidrs`, `var.router_next_hop_ids`).

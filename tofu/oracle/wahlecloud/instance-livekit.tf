@@ -6,7 +6,7 @@ resource "oci_core_instance" "livekit" {
   availability_domain = var.availability_domains.ad_1
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
-  metadata            = var.instance_metadata.livekit
+  metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCd2nNjLPxuJEWMOJJ0nfJ5C1qK/ydxbJiBQJPX+GH4SfIabQn5mfKLkX+p16k7JJj74M1zRAfhvdN/EAjIzDWt6yG1grSystxPHyN/Bt2r5UubHiVHVH/+1iktl7HankbD5vFl4A0xn8tt4gXEpUO2wZTQyuRryItsmjzl+2IXbhsGwyR60+yaZtoh2NKGhwgakT04dz9aPBHC69KJdvhZsgtE3cn2pyDUuOHkFoUHvqJHccoL168HtEi2QtXVn4ZjXw+4uLypHZJSNVcGwfG5oXtJwY5PAf004KDDNiZHIwo656FWFQIsC3kqc/8YQVLjpWCsA6lEAX1SzZa02PZP ssh-key-2025-12-19" }
   state               = "RUNNING"
   freeform_tags       = { "managed-by" = "opentofu" }
 
@@ -63,9 +63,8 @@ resource "oci_core_instance" "livekit" {
 
   source_details {
     is_preserve_boot_volume_enabled = false
-    # Oracle-Linux-9.6-aarch64-2025.11.20-1
-    source_id   = "ocid1.image.oc1.iad.aaaaaaaaz3iia6dyo7qkwbkp4crbk6unkjkwg572v553l3rsf4dvsp2teugq"
-    source_type = "image"
+    source_id                       = local.platform_image_ids["Oracle-Linux-9.6-aarch64-2025.11.20-1"]
+    source_type                     = "image"
   }
 
   # The following exists as an artifact of import from the imperative setup.
@@ -103,7 +102,7 @@ resource "oci_core_boot_volume" "livekit" {
 
 resource "oci_core_volume_backup_policy_assignment" "livekit" {
   asset_id  = oci_core_boot_volume.livekit.id
-  policy_id = var.backup_policy_id
+  policy_id = local.backup_policy_ids.bronze
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

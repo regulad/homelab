@@ -14,6 +14,12 @@ locals {
     { name = "Block Volume Management", desired_state = "DISABLED" },
     { name = "Bastion", desired_state = "DISABLED" },
   ]
+
+  # Oracle platform images, keyed by exact image name. These regional images are
+  # shared across tenancies.
+  platform_image_ids = {
+    "Canonical-Ubuntu-24.04-Minimal-aarch64-2025.09.22-0" = "ocid1.image.oc1.iad.aaaaaaaaoxcb6yp3brpepe726ar3bsadhbs3mqrn6cyaeq2dneo75opgfija"
+  }
 }
 
 resource "oci_core_instance" "web" {
@@ -22,7 +28,7 @@ resource "oci_core_instance" "web" {
   availability_domain = var.availability_domains.ad_1
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
-  metadata            = var.shared_ssh_metadata
+  metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMcSNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhkduWYAwg8utchrqloVGd7NDd+BphSDJ8u/4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56HgjN/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzGsPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlpQUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcXTPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQSAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE=" }
   state               = "RUNNING"
   freeform_tags       = { "managed-by" = "opentofu" }
 
@@ -78,9 +84,8 @@ resource "oci_core_instance" "web" {
 
   source_details {
     is_preserve_boot_volume_enabled = false
-    # Canonical-Ubuntu-24.04-Minimal-aarch64-2025.09.22-0
-    source_id   = "ocid1.image.oc1.iad.aaaaaaaaoxcb6yp3brpepe726ar3bsadhbs3mqrn6cyaeq2dneo75opgfija"
-    source_type = "image"
+    source_id                       = local.platform_image_ids["Canonical-Ubuntu-24.04-Minimal-aarch64-2025.09.22-0"]
+    source_type                     = "image"
   }
 
   # The following exists as an artifact of import from the imperative setup.

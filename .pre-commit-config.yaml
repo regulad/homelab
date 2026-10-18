@@ -62,17 +62,17 @@ repos:
         exclude: ^\.sops\.yaml$
 
       - id: no-plaintext-ocids
-        name: No plaintext OCIDs except images
+        name: No plaintext OCIDs except images and backup policies
         language: pygrep
-        entry: 'ocid1\.(?!image\.)[a-z0-9]+\.'
+        entry: 'ocid1\.(?!image\.|volumebackuppolicy\.)[a-z0-9]+\.'
         types: [text]
 
-      # Only verified stock images may be plaintext, each named in the comment above it.
-      - id: image-ocids-named
-        name: Image OCIDs follow a name comment
+      # Only verified Oracle-defined images and backup policies may be plaintext,
+      # each as a map entry keyed by its exact quoted name.
+      - id: oracle-ocids-named
+        name: Image and backup-policy OCIDs are keyed by name
         language: pygrep
-        entry: '^(?![ \t]*#)[^\n]*\n[^\n#]*ocid1\.image\.'
-        args: [--multiline]
+        entry: '^(?![ \t]*"[^"\n]+"[ \t]*=[ \t]*"ocid1\.)[^\n]*ocid1\.(image|volumebackuppolicy)\.'
         types: [text]
 
       # Our GUA prefixes stay in SOPS; ULA and Tailscale ranges (fc00::/7) do not match.

@@ -129,3 +129,27 @@ also brought Proxmox cluster-wide and Ceph cluster-wide settings into scope; the
 plan previously listed them as a non-goal because `bpg/proxmox` does not cover
 them all. Phase 6 now covers those settings, using OpenTofu where the provider
 supports a setting and Ansible on the nodes otherwise.
+
+## OCI input cleanup (2026-10-18)
+
+Parker reviewed `tofu/oracle`'s inputs and retired four of them from
+`secrets.sops.json`. Each replacement keeps the value it replaces:
+
+- `backup_policy_id` was Oracle's predefined `bronze` policy: a realm-wide OCID
+  (`oc1..`) with no compartment, not a tenancy-owned OCID. The tenancy has no
+  user-defined backup policies. Managing it as an `oci_core_volume_backup_policy`
+  resource was ruled out, because that resource requires a compartment and
+  Oracle owns the policy. A lookup by name was drafted, then replaced at Parker's
+  direction with the plaintext OCID. This supersedes the 2026-10-12
+  classification that kept the backup-policy ID encrypted.
+- Plaintext Oracle OCIDs moved into per-module `backup_policy_ids` and
+  `platform_image_ids` maps, keyed by exact Oracle name. They replace the
+  name-comment convention for stock images. The privacy hook now requires that
+  keyed form for image and backup-policy OCIDs.
+- `availability_domains` is looked up from `tenancy_ocid` in the root and still
+  reaches the modules as a sensitive input.
+- `instance_metadata` and `shared_ssh_metadata` held only one SSH public key per
+  instance, with no `user_data`. Parker had the keys moved to plaintext HCL.
+- `ipv6_subnet_cidrs` stays encrypted at Parker's direction, although each `/64`
+  could be derived from its VCN's Oracle-allocated `/56`, so that a full
+  redeploy keeps the same subnets.

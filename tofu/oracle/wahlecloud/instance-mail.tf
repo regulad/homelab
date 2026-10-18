@@ -6,7 +6,7 @@ resource "oci_core_instance" "mail" {
   availability_domain = var.availability_domains.ad_1
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
-  metadata            = var.instance_metadata.mail
+  metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDxXmCTFU5AtK2O0qhoGCwNnGZedLuGKJwepda9j3hx3r/H5esWZI2cuEBXn4dvVdZqZeSAyAWffhYY22Lx6yTysBDnsvcFnNrpf31BkRzqXT5vNTn8VTPd4HnbjrrtM4w+CjETU/Q3mwG7fWog2XbkW12lonB9kmiC7bggmrxDhyKyv8hhFrunW5J4tlTFjNd9AcJi9Qx9OhC4PftK1kZCD1xAKHuG648PgI4jGD4V24icEnO76T7KgeeZHQkH0WakvBQgbOMwS4mnaooCEBB2dADR73U9jnF5bUeIyuP6UmJh2nvG51kKhnAcVVLktJt00xMq3NngtNxISXJEU2+f ssh-key-2025-12-08" }
   state               = "RUNNING"
   freeform_tags       = { "managed-by" = "opentofu" }
 
@@ -63,9 +63,8 @@ resource "oci_core_instance" "mail" {
 
   source_details {
     is_preserve_boot_volume_enabled = false
-    # Oracle-Linux-9.6-aarch64-2025.11.20-0
-    source_id   = "ocid1.image.oc1.iad.aaaaaaaaa53zducgjvcstvpe76ctctt6ddw5bloq2wvhvboggfs5usyd47za"
-    source_type = "image"
+    source_id                       = local.platform_image_ids["Oracle-Linux-9.6-aarch64-2025.11.20-0"]
+    source_type                     = "image"
   }
 
   # The following exists as an artifact of import from the imperative setup.
@@ -103,7 +102,7 @@ resource "oci_core_boot_volume" "mail" {
 
 resource "oci_core_volume_backup_policy_assignment" "mail" {
   asset_id  = oci_core_boot_volume.mail.id
-  policy_id = var.backup_policy_id
+  policy_id = local.backup_policy_ids.bronze
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

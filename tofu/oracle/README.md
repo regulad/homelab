@@ -9,7 +9,7 @@ modules share the existing provider configuration and encrypted state.
 |---|---|
 | `legacy/` | Legacy VCN and networking, web instance, boot volume and IPv6 assignment (9 resources) |
 | `wahlecloud/` | Wahlecloud VCN and networking, bailout/livekit/mail/router hosts, volumes, IPv6 and Email Delivery (65 resources) |
-| `main.tf` | Local module calls and explicit provider/input wiring |
+| `main.tf` | Local module calls, the availability-domain lookup, and explicit provider/input wiring |
 | `moved.tf` | Mappings from the original root addresses to their module addresses |
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
 | `state.tf` | Enforced encryption for local state and saved plans |
@@ -34,7 +34,7 @@ Within a resource, scalar arguments come before nested blocks, and the
 import-artifact `lifecycle` footer (with the boot-volume `source_details`
 placeholder) stays last.
 
-Wahlecloud's shared agent plugin policy remains in `wahlecloud/locals.tf`. `variables.tf` declares
+Wahlecloud's shared agent plugin policy, backup policies, and platform images are in `wahlecloud/locals.tf`. `variables.tf` declares
 each module's inputs. Email resources live in `wahlecloud/email.tf`. Child modules
 declare the OCI provider source but inherit the root's provider instance; version
 pins live only in the root `versions.tf`.
@@ -72,16 +72,26 @@ hexadecimal host suffix using `cidrhost` and `parseint`. The enclosing wahleclou
 `/56` is derived from its `/64`, so no GUA network prefix is published in HCL.
 
 `secrets.sops.json` stores those prefixes and the other inputs that remain
-sensitive: tenancy/backup-policy/next-hop identifiers, account-specific
-availability-domain names, instance metadata, and the state encryption passphrase.
-`shared_ssh_metadata` holds the SSH metadata shared by web and bailout;
-`backup_policy_id` is the single policy shared by livekit, mail, and router.
-Verified stock image IDs are plaintext in each instance file, with the exact
-image name above `source_id`. These Oracle-owned regional images are shared
-across tenancies. Custom-image IDs owned by our compartments remain sensitive.
-It contains no HCL or resource definitions.
+sensitive: the tenancy and router next-hop identifiers, and the state encryption
+passphrase. It contains no HCL or resource definitions.
 `variables.tf` declares these inputs. `prepare.ps1` decrypts them into the ignored
 `secrets.auto.tfvars.json`; it does not generate `.tf` files.
+
+Values that are not ours, or not secret, stay out of SOPS:
+
+- Verified Oracle platform-image IDs are plaintext in each module's
+  `platform_image_ids` map, keyed by exact image name. Instances select theirs by
+  that name. These Oracle-owned regional images are shared across tenancies.
+  Custom-image IDs owned by our compartments remain sensitive.
+- Livekit, mail, and router are assigned Oracle's predefined `bronze` backup
+  policy from `wahlecloud`'s `backup_policy_ids` map. Its realm-wide OCID belongs
+  to no compartment.
+- The maps live in `wahlecloud/locals.tf` and at the top of
+  `legacy/instance-web.tf`, the only file in `legacy` that uses them.
+- Each instance's SSH public key is plaintext in its `metadata`. Web and bailout
+  share one key.
+- Availability-domain names carry a tenancy-specific prefix, so `main.tf` looks
+  them up from the tenancy and passes them to both modules, keyed `ad_<number>`.
 
 ## Local checks
 

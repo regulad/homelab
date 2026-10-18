@@ -1,27 +1,8 @@
-variable "shared_ssh_metadata" {
-  description = "SSH metadata shared by the web and bailout instances."
+variable "availability_domains" {
+  description = "Availability-domain names keyed ad_<number>, looked up by the root."
   type        = map(string)
   sensitive   = true
   nullable    = false
-}
-
-variable "availability_domains" {
-  type      = map(string)
-  sensitive = true
-  nullable  = false
-}
-
-variable "backup_policy_id" {
-  description = "Backup policy shared by livekit, mail, and router."
-  type        = string
-  sensitive   = true
-  nullable    = false
-}
-
-variable "instance_metadata" {
-  type      = map(map(string))
-  sensitive = true
-  nullable  = false
 }
 
 variable "tenancy_ocid" {
