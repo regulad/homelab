@@ -36,7 +36,7 @@ homelab/
 ├── AGENTS.md, README.md
 ├── .claude/                     # PLAN.md, HISTORY.md
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy, Ansible lint hooks
-├── .sops.yaml, .gitignore, ansible.cfg
+├── .sops.yaml, .gitignore
 ├── docs/
 │   ├── snapshot/                # local-only discovery output (gitignored)
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
@@ -45,17 +45,26 @@ homelab/
 │   ├── <provider>/              # one root per provider, own state (oracle, proxmox)
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
-└── ansible/
-    ├── inventory/               # hardware.yml (by hand), inventory.py (OpenTofu outputs), group_vars/, host_vars/<host>/{main,services}.yml
-    ├── playbooks/               # site.yml, hardware.yml, base.yml, services.yml
-    ├── roles/                   # base, tailscale, proxmox_cluster, podman, avahi, quadlet
+├── ansible-common/
+│   └── roles/                   # roles both stages apply: base, tailscale
+├── ansible-hardware/            # Phase 2, before OpenTofu; reads only the hand-written inventory
+│   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
+│   ├── inventory/               # hardware.yml (by hand), group_vars/, host_vars/<host>/main.yml
+│   ├── playbooks/               # site.yml
+│   ├── roles/                   # proxmox_cluster
+│   └── requirements.yml         # pinned collections
+└── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
+    ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
+    ├── inventory/               # inventory.py (OpenTofu outputs), group_vars/, host_vars/<host>/{main,services}.yml
+    ├── playbooks/               # site.yml, base.yml, services.yml
+    ├── roles/                   # podman, avahi, quadlet
     └── requirements.yml         # pinned collections
 ```
 
 - **OpenTofu** owns which machines exist, plus the Proxmox cluster-wide settings its provider supports. It never manages containers or in-guest files.
 - **cloud-init**, set by OpenTofu, does only minimal bootstrap: admin user, SSH key, and a tailnet join with a pre-authorized, tagged key.
 - **Ansible** owns everything inside a guest after bootstrap, and the Proxmox and Ceph cluster-wide settings OpenTofu cannot manage, applied on the nodes. Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
-- **Two inventories:** hardware hosts, which OpenTofu cannot create, are listed by hand in `hardware.yml`. Generated hosts come from OpenTofu outputs through `inventory.py`. Hardware is configured before OpenTofu runs, and generated hosts after.
+- **Two Ansible stages, two inventories:** `ansible-hardware/` configures the hosts OpenTofu cannot create, listed by hand in its `hardware.yml`, before OpenTofu runs. `ansible-generated/` configures the hosts OpenTofu creates or adopts, from OpenTofu outputs through its `inventory.py`, after. Neither stage reads the other's inventory. Roles both apply live in `ansible-common/roles/`; anything used by one stage stays in that stage's folder.
 - **Separate roots per provider** limit blast radius. Cross-root sharing goes through explicit outputs, or through `tofu/shared` for constants.
 
 ## Everyday commands
@@ -83,11 +92,15 @@ pre-commit run --all-files
 tofu -chdir=tofu/<root> fmt -check -recursive
 tofu -chdir=tofu/<root> validate
 tofu -chdir=tofu/<root> plan -detailed-exitcode
-ansible-lint --offline ansible/
-ansible-playbook ansible/playbooks/site.yml --syntax-check
-ansible-playbook ansible/playbooks/site.yml --check --diff --limit <host>
-ansible-inventory -i ansible/inventory --graph
+# Ansible: once per stage, from inside ansible-hardware/ or ansible-generated/
+ansible-lint --offline
+ansible-playbook playbooks/site.yml --syntax-check
+ansible-playbook playbooks/site.yml --check --diff --limit <host>
+ansible-inventory --graph
 ```
+
+Each Ansible stage reads the `ansible.cfg` in the current directory, so run its
+commands from inside that stage's folder.
 
 `--offline` keeps `ansible-lint` from installing collections. Also confirm that
 nothing secret is staged (`git diff --cached`), lock files are committed, and no

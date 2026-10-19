@@ -1,0 +1,14 @@
+# Ansible: shared roles
+
+Roles that both [`ansible-hardware/`](../ansible-hardware/README.md) and
+[`ansible-generated/`](../ansible-generated/README.md) apply. This folder has no
+inventory, playbooks or `ansible.cfg` of its own: each stage's `ansible.cfg`
+lists `../ansible-common/roles` after its own `roles/`.
+
+| Role | Purpose |
+|---|---|
+| `base` | Packages, admin user, time sync, and sshd hardening only where it is already policy |
+| `tailscale` | Tailscale client; joins only when `tailscale_join` is set |
+
+A role here runs against both hardware and generated hosts, so it must handle
+both. Any collection it needs is pinned in both stages' `requirements.yml`.

@@ -45,7 +45,7 @@ vault-password*
 *.decrypted.*
 
 # --- Ansible ----------------------------------------------------------------
-ansible/collections/
+ansible-*/collections/
 *.retry
 
 # --- Python / tooling -------------------------------------------------------

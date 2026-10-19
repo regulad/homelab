@@ -1,0 +1,8 @@
+---
+# Phase 4, in order: generated hosts' baseline, then their services. Hardware
+# hosts are configured separately, from ../ansible-hardware, before OpenTofu.
+- name: Generated hosts baseline
+  ansible.builtin.import_playbook: base.yml
+
+- name: Generated hosts services
+  ansible.builtin.import_playbook: services.yml

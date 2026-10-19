@@ -10,12 +10,14 @@ out of this one: the tailnet's ACL policy and DNS in
 [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and
 workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles).
 
-Ansible runs in two phases, one on each side of OpenTofu:
+Ansible runs in two phases, one on each side of OpenTofu, each in its own folder:
 - **Hardware hosts** are the machines OpenTofu cannot create, such as the
-  Proxmox nodes. They come first, from an inventory written by hand.
+  Proxmox nodes. They come first, from `ansible-hardware/`, which reads only an
+  inventory written by hand.
 - **Generated hosts** are the machines OpenTofu creates or adopts: Proxmox
-  guests and OCI instances. They come after it, from an inventory built from
-  OpenTofu's outputs.
+  guests and OCI instances. They come after it, from `ansible-generated/`, which
+  reads only an inventory built from OpenTofu's outputs.
+- Roles both phases apply live in `ansible-common/roles/`.
 
 ## Status
 
@@ -68,10 +70,10 @@ Parker asks.
 
 ### Phase 0 — Scaffold and tooling
 - Create the tree from the model architecture in `AGENTS.md`, with placeholder READMEs.
-- `.gitignore` first, then `.sops.yaml`, pre-commit config, `ansible.cfg` (inventory = `ansible/inventory`, `roles_path = ansible/roles`, `collections_path = ansible/collections`).
+- `.gitignore` first, then `.sops.yaml`, pre-commit config, and one `ansible.cfg` per Ansible stage (its own inventory, `roles_path = roles:../ansible-common/roles`, `collections_path = collections`).
 - Pin tooling: OpenTofu in each root's `versions.tf`; Python dependencies for `ansible-core` and `ansible-lint` through `uv`. Parker installs tools.
 - **Accept:** `pre-commit run --all-files` passes; `git status` shows no ignored-class files tracked.
-- **Remaining:** `uv`-managed Python dependencies, `ansible-lint` and `yamllint` hooks, and `docs/runbooks/`. The Ansible tree, `ansible.cfg`, both inventories, the stage playbooks, and skeleton roles exist; `ansible-lint` passes on them.
+- **Remaining:** `uv`-managed Python dependencies, `ansible-lint` and `yamllint` hooks, and `docs/runbooks/`. The `ansible-hardware/`, `ansible-generated/` and `ansible-common/` folders, each stage's `ansible.cfg`, inventory and playbooks, and skeleton roles exist; `ansible-lint` passes on both stages.
 
 ### Phase 1 — Read-only discovery snapshot
 Record what actually exists under `docs/snapshot/`. It is gitignored and stays on
@@ -102,7 +104,7 @@ modify anything.
 ### Phase 2 — Ansible: hardware hosts (manual inventory)
 Hardware hosts change only when hardware does, so their inventory is written by
 hand and committed.
-- Static inventory `ansible/inventory/hardware.yml` matching the snapshot. Hosts are listed by tailnet MagicDNS name, in groups such as `hardware` and `proxmox_nodes`.
+- Static inventory `ansible-hardware/inventory/hardware.yml` matching the snapshot. Hosts are listed by tailnet MagicDNS name, in groups such as `hardware` and `proxmox_nodes`.
 - Roles:
   - `base`: packages, admin user, sshd hardening only if already the current policy, time sync.
   - `tailscale`: install and enable; join logic gated on a variable so existing members are untouched.
@@ -111,7 +113,7 @@ hand and committed.
   - Adopt the current values first, with **no changes**: a `changed=0` check run.
   - Change settings only afterwards, each diff reviewed line by line by Parker.
   - **Check-only until Parker confirms** a LAN/console path to every node. Firewall, network, and Ceph changes can lock out a node, interrupt the cluster, or start data movement.
-- Run against **one** node first: `ansible-playbook ansible/playbooks/hardware.yml --check --diff --limit <node>`.
+- Run against **one** node first: `ansible-playbook playbooks/site.yml --check --diff --limit <node>`, from `ansible-hardware/`.
 - **Accept:**
   - Parker has reviewed the `--check --diff` output.
   - After an approved real run, a **second run reports `changed=0`** (idempotency).
@@ -176,29 +178,28 @@ resources, without a manual inventory edit.
     }
   }
   ```
-- `ansible/inventory/inventory.py`: executable dynamic inventory.
+- `ansible-generated/inventory/inventory.py`: executable dynamic inventory, and the only inventory `ansible-generated/` reads.
   - For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`. Every host also joins a `generated` group, mirroring `hardware`.
   - Reading outputs needs the backend credentials that sourcing `prepare.sh` exports, in the control node's environment.
   - Cache nothing; fail loudly if a root is unreadable.
-- It sits beside `hardware.yml` in `ansible/inventory/`, so one inventory covers hardware and generated hosts.
 - Keep the inventory **minimal** (name, address, groups). Services and other variables stay in `host_vars/` in git.
 - `tofu/oracle` gets its `ansible_hosts` output here, once host identities are chosen.
 - Optional later: the Ansible Terraform provider (`ansible_host`/`ansible_group` resources) with the `cloud.terraform.terraform_provider` inventory plugin (requires initialized roots; shells out to a `terraform` binary, so verify `tofu` compatibility).
-- **Accept:** `ansible-inventory --graph` shows every hardware and generated host in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
+- **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
 
 **Baseline (non-destructive)**
 - cloud-init, set by OpenTofu, did only the minimal bootstrap; Ansible owns everything inside a guest after it.
-- Roles, reusing Phase 2's `base` and `tailscale`:
+- Roles, reusing the shared `base` and `tailscale` from `ansible-common/roles/`:
   - `podman`: install podman; configure registries; enable `podman.socket` only if currently used.
   - `avahi`: template `avahi-daemon.conf` (`enable-reflector=yes`, `allow-interfaces=` the podman bridge + LAN interface, as discovered). Pin the podman network subnet/bridge name so this is deterministic.
-- Run against **one** low-risk guest first: `ansible-playbook ansible/playbooks/base.yml --check --diff --limit <host>`.
+- Run against **one** low-risk guest first: `ansible-playbook playbooks/base.yml --check --diff --limit <host>`, from `ansible-generated/`.
 - **Accept:** Parker has reviewed the `--check --diff` output; after an approved real run, a **second run reports `changed=0`** (idempotency); no service restarted unexpectedly.
 
 **Quadlet service model**
 - Convert the first low-stakes service with `podlet` (compose or `podman run` input), then review and hand-edit the output.
 - Implement the data-driven `quadlet` role, fed by each host's `quadlet_services`. Schema (per host):
   ```yaml
-  # ansible/inventory/host_vars/<host>/services.yml
+  # ansible-generated/inventory/host_vars/<host>/services.yml
   quadlet_services:
     - name: example
       image: registry.example/app:1.2.3     # pinned tag, no :latest

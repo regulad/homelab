@@ -351,3 +351,24 @@ or macOS, with a POSIX shell. Native Windows is no longer supported.
   `WSLENV` route for backend credentials.
 - The pre-migration state copies are still on the former Windows workstation,
   under `%LOCALAPPDATA%/homelab/oracle-backups/`.
+
+## Ansible split into per-stage folders (2026-10-18)
+
+At Parker's direction, `ansible/` became three folders, so each stage reads
+only its own inventory:
+- `ansible-hardware/`: Phase 2. It reads only the hand-written
+  `inventory/hardware.yml`, with `overture`'s host variables beside it. The old
+  `hardware.yml` playbook became its `playbooks/site.yml`. It owns the
+  `proxmox_cluster` role.
+- `ansible-generated/`: Phase 4. It reads only `inventory/inventory.py`, built
+  from OpenTofu outputs, and keeps `base.yml`, `services.yml` and a `site.yml`
+  that no longer imports the hardware stage. It owns `podman`, `avahi` and
+  `quadlet`.
+- `ansible-common/roles/`: `base` and `tailscale`, which both stages apply.
+  Parker chose a shared folder over copying the roles into each stage.
+
+Each stage has its own `ansible.cfg` (`roles_path = roles:../ansible-common/roles`),
+`requirements.yml` and gitignored `collections/`, and runs from inside its
+folder. The root `ansible.cfg` was removed. Both stages pass `--syntax-check` and
+`ansible-lint --offline`, and `overture` still answers Ansible's `ping` from
+`ansible-hardware/`.
