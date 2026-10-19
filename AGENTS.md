@@ -56,7 +56,7 @@ homelab/
 └── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
     ├── inventory/               # inventory.py (OpenTofu outputs), group_vars/, host_vars/<host>/{main,services}.yml
-    ├── playbooks/               # site.yml, base.yml, services.yml
+    ├── playbooks/               # site.yml
     ├── roles/                   # podman, avahi, quadlet
     └── requirements.yml         # pinned collections
 ```
@@ -162,4 +162,5 @@ plan shows an unintended destroy or replace.
 - **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/oracle/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
 - **The OCI `ansible_hosts` output** waits for Phase 4, when generated hosts' identities are chosen.
+- **Ansible scope:** each stage has exactly one playbook, `playbooks/site.yml`. Every play in it converges hosts to the state declared here and is safe to rerun; a second run reports `changed=0`. Deliberate operations, such as rolling reboots, release upgrades, key rotation and restores, are not Ansible playbooks. Package updates come from each host's own automatic updater (unattended-upgrades, dnf-automatic), not from a playbook. Moving a service is a `host_vars` edit plus a `site.yml` run; its data moves by hand.
 - **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.

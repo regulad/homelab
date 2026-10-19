@@ -385,3 +385,13 @@ ignored `docs/` and decrypted inputs matched WSL's. The only objects lost were
 four draft commits from 2026-10-12 that had already been reset away and redone
 as `bb36843`. The pre-migration OCI state copies under Windows
 `%LOCALAPPDATA%/homelab/oracle-backups/` were outside the checkout and remain.
+
+## One converging playbook per stage (2026-10-18)
+
+Parker decided that each Ansible stage has only `playbooks/site.yml`, whose
+plays converge hosts and are safe to rerun. No deliberate operations, such as
+rolling reboots or release upgrades, go into Ansible. Package updates come from
+each host's own automatic updater (unattended-upgrades, dnf-automatic).
+`ansible-generated`'s `base.yml` and `services.yml` were folded into its
+`site.yml`. Parker also identified `turk` as Ubuntu 24.04 running VMware
+Workstation.

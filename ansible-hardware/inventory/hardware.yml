@@ -4,7 +4,7 @@
 # name. SSH settings, such as each host's user, come from that configuration.
 hardware:
   hosts:
-    turk:  # VMware host for Windows guests with accelerated graphics
+    turk:  # Ubuntu 24.04; VMware Workstation for Windows guests with accelerated graphics
     overture:  # macOS, from 99-osx
   children:
     proxmox_nodes:

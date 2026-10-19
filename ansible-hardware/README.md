@@ -24,6 +24,11 @@ Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
 which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks
 land in Phase 2.
 
+`site.yml` is the stage's only playbook: every play converges hosts to the
+declared state and is safe to rerun, and deliberate operations such as rolling
+reboots or release upgrades are not playbooks. Package updates come from each
+host's own automatic updater (unattended-upgrades, dnf-automatic).
+
 ## Running
 
 Ansible reads `ansible.cfg` from the current directory, so run from this one:

@@ -1,8 +1,21 @@
 ---
-# Phase 4, in order: generated hosts' baseline, then their services. Hardware
-# hosts are configured separately, from ../ansible-hardware, before OpenTofu.
-- name: Generated hosts baseline
-  ansible.builtin.import_playbook: base.yml
+# Phase 4: the only playbook for generated hosts, from OpenTofu outputs via
+# inventory/inventory.py. Every play converges hosts to the declared state and
+# is safe to rerun. Hardware hosts are configured from ../ansible-hardware.
+- name: Generated host baseline
+  hosts: generated
+  roles:
+    - base
+    - tailscale
 
-- name: Generated hosts services
-  ansible.builtin.import_playbook: services.yml
+- name: Podman hosts
+  hosts: podman_hosts
+  roles:
+    - podman
+    - avahi
+
+# Rendered from host_vars/<host>/services.yml.
+- name: Quadlet services
+  hosts: podman_hosts
+  roles:
+    - quadlet

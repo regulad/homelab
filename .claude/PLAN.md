@@ -43,14 +43,15 @@ Parker asks.
 - Proxmox cluster-wide and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
 - Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs.
 - Network switch configuration is applied by the repository's own **bash scripts**, because the switches cannot run Ansible's modules.
-- Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a playbook run.
+- Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a `site.yml` run.
 - Existing infrastructure is **adopted** (imported), not recreated.
 
 **Non-goals (for now)**
 - Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
 - Migrating data inside containers automatically. Parker plans data movement per service.
 - CI/drift automation (optional Phase 6).
-- The VMware guests on `turk`, which runs VMware so its Windows guests get hardware-accelerated graphics. Bringing them into OpenTofu is a far-future addition; `turk` itself is a hardware host.
+- Operational playbooks. Each Ansible stage has only `site.yml`, which converges hosts and is safe to rerun. Rolling reboots, release upgrades and similar deliberate operations stay manual, and package updates come from each host's automatic updater (unattended-upgrades, dnf-automatic).
+- The VMware guests on `turk`, an Ubuntu 24.04 host that runs VMware Workstation so its Windows guests get hardware-accelerated graphics. Bringing them into OpenTofu is a far-future addition; `turk` itself is a hardware host.
 
 ## Inputs from Parker
 
@@ -192,7 +193,7 @@ resources, without a manual inventory edit.
 - Roles, reusing the shared `base` and `tailscale` from `ansible-common/roles/`:
   - `podman`: install podman; configure registries; enable `podman.socket` only if currently used.
   - `avahi`: template `avahi-daemon.conf` (`enable-reflector=yes`, `allow-interfaces=` the podman bridge + LAN interface, as discovered). Pin the podman network subnet/bridge name so this is deterministic.
-- Run against **one** low-risk guest first: `ansible-playbook playbooks/base.yml --check --diff --limit <host>`, from `ansible-generated/`.
+- Run against **one** low-risk guest first: `ansible-playbook playbooks/site.yml --check --diff --limit <host>`, from `ansible-generated/`.
 - **Accept:** Parker has reviewed the `--check --diff` output; after an approved real run, a **second run reports `changed=0`** (idempotency); no service restarted unexpectedly.
 
 **Quadlet service model**
@@ -214,7 +215,7 @@ resources, without a manual inventory edit.
 - **Accept:** the service runs as a systemd-managed Quadlet; a restart/reboot test passes; data persists; the old container is retired only after Parker signs off; a second playbook run is idempotent.
 
 ### Phase 5 — Portability proof
-- Pick one stateless-ish service. Move it by deleting its entry from host A's `services.yml`, adding it to host B (including an OCI host), and running `services.yml` for both with `--check` first.
+- Pick one stateless-ish service. Move it by deleting its entry from host A's `services.yml`, adding it to host B (including an OCI host), and running `site.yml` limited to both, with `--check` first.
 - Document, per service, a data strategy (restic restore, shared mount, or stateless) in `docs/runbooks/move-a-service.md`.
 - **Accept:** the service runs on host B, is gone from host A, and the runbook reflects exactly what was done.
 

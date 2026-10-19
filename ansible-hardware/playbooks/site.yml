@@ -1,5 +1,7 @@
 ---
-# Phase 2: hardware hosts, from the hand-written inventory/hardware.yml only.
+# Phase 2: the only playbook for hardware hosts, from the hand-written
+# inventory/hardware.yml only. Every play converges hosts to the declared state
+# and is safe to rerun.
 - name: Hardware host baseline
   hosts: hardware
   roles:
