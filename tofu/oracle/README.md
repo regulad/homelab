@@ -76,15 +76,15 @@ hexadecimal host suffix using `cidrhost` and `parseint`. The enclosing wahleclou
 `secrets.sops.json` stores those prefixes and the other inputs that remain
 sensitive: the tenancy and router next-hop identifiers, and the state encryption
 passphrase. It contains no HCL or resource definitions.
-`variables.tf` declares these inputs. `prepare.ps1` decrypts them into the ignored
+`variables.tf` declares these inputs. `prepare.sh` decrypts them into the ignored
 `secrets.auto.tfvars.json`; it does not generate `.tf` files.
 
 `backend.sops.env` holds what the s3 backend reads from the environment:
 `svc-tofu-state`'s customer secret key (`AWS_ACCESS_KEY_ID` and
 `AWS_SECRET_ACCESS_KEY`), and the endpoint `AWS_ENDPOINT_URL_S3`, which contains
-the tenancy's namespace. `prepare.ps1` sets all three in the current session, so
-none of them reaches `.terraform/` or a saved plan. The key is created outside
-OpenTofu, so it never lives in the state it unlocks.
+the tenancy's namespace. Sourcing `prepare.sh` exports all three into the current
+shell, so none of them reaches `.terraform/` or a saved plan. The key is created
+outside OpenTofu, so it never lives in the state it unlocks.
 
 Values that are not ours, or not secret, stay out of SOPS:
 
@@ -104,18 +104,21 @@ Values that are not ours, or not secret, stay out of SOPS:
 
 ## Local checks
 
-From the repository root, in PowerShell 7.5 or newer:
+From the repository root, in bash or zsh on Linux or macOS:
 
-```powershell
-./tofu/oracle/prepare.ps1
-$env:OCI_CLI_AUTH = 'security_token'
-$env:OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = 'True'
+```bash
+. tofu/oracle/prepare.sh
+export OCI_CLI_AUTH=security_token
 oci session validate --profile DEFAULT
-tofu '-chdir=tofu/oracle' init '-input=false' '-lockfile=readonly'
-tofu '-chdir=tofu/oracle' fmt '-check' '-recursive'
-tofu '-chdir=tofu/oracle' validate
-tofu '-chdir=tofu/oracle' plan '-input=false' '-detailed-exitcode'
+tofu -chdir=tofu/oracle init -input=false -lockfile=readonly
+tofu -chdir=tofu/oracle fmt -check -recursive
+tofu -chdir=tofu/oracle validate
+tofu -chdir=tofu/oracle plan -input=false -detailed-exitcode
 ```
+
+`prepare.sh` must be sourced, not executed, so its exports reach the shell that
+runs `tofu`. It needs `sops`, `jq` and `git`, and reports failure through its
+exit status without closing the shell.
 
 State is **remote**: the s3 backend stores it as `oracle/terraform.tfstate` in
 the versioned `homelab-tofu-state` bucket, through OCI's S3 Compatibility API.
@@ -126,11 +129,12 @@ holds only ciphertext. The generated encryption passphrase is stored in
 `secrets.sops.json`. Do not change or lose that passphrase. Saved plans are also
 encrypted; plaintext JSON plan output must stay in `docs/snapshot/`.
 
-Every workstation needs only a clone and the age identity: `prepare.ps1` and
+Every workstation needs only a clone and the age identity: `prepare.sh` and
 `init` give it the shared state. Bucket versioning keeps each earlier state
 version, so applies need no separate backups. The local state copies from before
-the migration, under `%LOCALAPPDATA%/homelab/oracle-backups/`, have a different
-lineage than the remote state, so restoring one needs `tofu state push -force`.
+the migration, kept on the former Windows workstation under
+`%LOCALAPPDATA%/homelab/oracle-backups/`, have a different lineage than the
+remote state, so restoring one needs `tofu state push -force`.
 
 ## Ownership and adoption details
 

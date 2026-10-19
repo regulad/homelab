@@ -7,6 +7,9 @@ OpenTofu for machines, Ansible and Podman Quadlets for what runs on them.
 
 WIP.
 
+Everything here runs on Unix-like systems only: Linux (including WSL) or macOS,
+with a POSIX shell. Native Windows is not supported.
+
 Sensitive input values are encrypted with SOPS and age. State is encrypted
 client-side and stored in a versioned OCI Object Storage bucket; state, plaintext
 inputs, plans, and discovery snapshots are excluded from version history.
@@ -21,7 +24,7 @@ in plaintext. The OpenTofu hooks use
 the operator's installed OpenTofu and TFLint; pre-commit 4.4.0 or newer builds an
 environment only for `pre-commit-hooks`. Initialize each root once
 (`tofu -chdir=tofu/oracle init -input=false -lockfile=readonly`, after
-`./tofu/oracle/prepare.ps1` sets the backend credentials),
+`. tofu/oracle/prepare.sh` exports the backend credentials),
 enable the Git hook with `pre-commit install`, and check everything with
 `pre-commit run --all-files`.
 

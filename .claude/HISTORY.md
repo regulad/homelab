@@ -333,3 +333,21 @@ them with the repository's own bash scripts.
 - At Parker's direction, `overture` pins `ansible_python_interpreter` to
   `/usr/bin/python3`, the interpreter macOS ships (Python 3.9.6 on macOS 27.0.1),
   instead of relying on interpreter discovery.
+
+## Unix-only tooling (2026-10-18)
+
+At Parker's direction, the repository became Unix-only: Linux (including WSL)
+or macOS, with a POSIX shell. Native Windows is no longer supported.
+- `tofu/oracle/prepare.ps1` was replaced by `prepare.sh`, which is sourced
+  (`. tofu/oracle/prepare.sh`) and runs in sh, bash and zsh. It keeps the old
+  behaviour: it refuses an un-ignored destination and refuses to overwrite a
+  `secrets.auto.tfvars.json` whose data differs. It checks every backend name
+  before exporting any, and writes the decrypted inputs with mode 600. `jq`
+  replaces PowerShell's JSON comparison.
+- Documented commands moved from PowerShell to bash. The Windows-only
+  `OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING` setting was dropped.
+- The `ANSIBLE_CONFIG` workaround for world-writable `/mnt/` checkouts was
+  removed from `ansible.cfg`, `AGENTS.md` and `ansible/README.md`, and so was the
+  `WSLENV` route for backend credentials.
+- The pre-migration state copies are still on the former Windows workstation,
+  under `%LOCALAPPDATA%/homelab/oracle-backups/`.

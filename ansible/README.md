@@ -29,21 +29,18 @@ first need them.
 
 ## Running
 
-The control node is Linux, so on Windows run Ansible from WSL. Ansible ignores
-an `ansible.cfg` in a world-writable directory, which a checkout under `/mnt/`
-is, so name the file explicitly. From the repository root:
+The control node is Linux or macOS; native Windows cannot run Ansible. From the
+repository root, where Ansible reads `ansible.cfg`:
 
 ```bash
-export ANSIBLE_CONFIG="$PWD/ansible.cfg"
 ansible-inventory --graph
 ansible-playbook ansible/playbooks/site.yml --syntax-check
 ansible-lint --offline ansible/
 ansible-playbook ansible/playbooks/hardware.yml --check --diff --limit <node>
 ```
 
-`inventory.py` runs `tofu output` for each root it lists. The state backend's
-credentials therefore have to reach the WSL environment, for example through
-`WSLENV` after `tofu/oracle/prepare.ps1` sets them in PowerShell. The script
-lists no roots yet; each root joins in Phase 4, once it exports `ansible_hosts`.
-A root that cannot be read fails the whole inventory, because `ansible.cfg` sets
-`any_unparsed_is_failed`.
+`inventory.py` runs `tofu output` for each root it lists, so the state backend's
+credentials must be in the environment: source `tofu/oracle/prepare.sh` in the
+same shell first. The script lists no roots yet; each root joins in Phase 4,
+once it exports `ansible_hosts`. A root that cannot be read fails the whole
+inventory, because `ansible.cfg` sets `any_unparsed_is_failed`.

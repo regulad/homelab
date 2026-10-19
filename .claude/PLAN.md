@@ -178,7 +178,7 @@ resources, without a manual inventory edit.
   ```
 - `ansible/inventory/inventory.py`: executable dynamic inventory.
   - For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`. Every host also joins a `generated` group, mirroring `hardware`.
-  - Reading outputs needs the backend credentials that `prepare.ps1` sets, in the control node's environment.
+  - Reading outputs needs the backend credentials that sourcing `prepare.sh` exports, in the control node's environment.
   - Cache nothing; fail loudly if a root is unreadable.
 - It sits beside `hardware.yml` in `ansible/inventory/`, so one inventory covers hardware and generated hosts.
 - Keep the inventory **minimal** (name, address, groups). Services and other variables stay in `host_vars/` in git.

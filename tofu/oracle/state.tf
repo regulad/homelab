@@ -13,7 +13,7 @@ variable "state_encryption_passphrase" {
 
 terraform {
   # Credentials and the endpoint, which names the tenancy, come from the
-  # environment that prepare.ps1 sets from backend.sops.env.
+  # environment that sourcing prepare.sh exports from backend.sops.env.
   backend "s3" {
     bucket         = "homelab-tofu-state"
     key            = "oracle/terraform.tfstate"

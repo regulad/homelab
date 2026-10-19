@@ -7,6 +7,7 @@ them. Parker supervises and approves.
 - **Plan and status:** [`.claude/PLAN.md`](.claude/PLAN.md) has the goals, phases, and each phase's current status.
 - **History:** [`.claude/HISTORY.md`](.claude/HISTORY.md) records past approvals, apply results, and superseded decisions. Append new history there and nowhere else.
 - **Directory detail:** each `README.md`, starting with [`tofu/oracle/README.md`](tofu/oracle/README.md).
+- **Platform:** Unix-like systems only: Linux (WSL counts) or macOS, with a POSIX shell. Native Windows is not supported; write scripts and documented commands for `sh`/`bash`, never PowerShell or batch.
 - **Managed elsewhere:** the tailnet's ACL policy and DNS live in [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles). Never add or change either from this repository.
 
 Where this file and the plan disagree, this file wins.
@@ -59,15 +60,14 @@ homelab/
 
 ## Everyday commands
 
-From the repository root, in PowerShell 7.5 or newer:
+From the repository root, in bash or zsh:
 
-```powershell
-./tofu/oracle/prepare.ps1                         # decrypt inputs; set the state backend's credentials for this session
-$env:OCI_CLI_AUTH = 'security_token'
-$env:OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING = 'True'
+```bash
+. tofu/oracle/prepare.sh                          # decrypt inputs; export the state backend's credentials into this shell
+export OCI_CLI_AUTH=security_token
 oci session validate --profile DEFAULT            # `oci session refresh` extends a still-valid token
-tofu '-chdir=tofu/oracle' init '-input=false' '-lockfile=readonly'                    # once per clone; downloads providers
-tofu '-chdir=tofu/oracle' plan '-input=false' '-detailed-exitcode'                    # 0 no changes, 2 diff, 1 error
+tofu -chdir=tofu/oracle init -input=false -lockfile=readonly    # once per clone; downloads providers
+tofu -chdir=tofu/oracle plan -input=false -detailed-exitcode    # 0 no changes, 2 diff, 1 error
 pre-commit run --all-files
 ```
 
@@ -89,12 +89,9 @@ ansible-playbook ansible/playbooks/site.yml --check --diff --limit <host>
 ansible-inventory -i ansible/inventory --graph
 ```
 
-Run the Ansible lines from WSL with `ANSIBLE_CONFIG="$PWD/ansible.cfg"`, because
-Ansible ignores the config in a world-writable checkout (see
-[`ansible/README.md`](ansible/README.md)). `--offline` keeps `ansible-lint` from
-installing collections. Also confirm that nothing secret is
-staged (`git diff --cached`), lock files are committed, and no plan shows an
-unintended destroy or replace.
+`--offline` keeps `ansible-lint` from installing collections. Also confirm that
+nothing secret is staged (`git diff --cached`), lock files are committed, and no
+plan shows an unintended destroy or replace.
 
 ## Conventions
 

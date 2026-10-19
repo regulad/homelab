@@ -5,7 +5,7 @@ Each root in ROOTS exports an `ansible_hosts` output shaped
 {name: {address, groups}}. Every host also joins the `generated` group, which
 mirrors `hardware` in hardware.yml. Nothing is cached, and a root that cannot be
 read fails the whole inventory. Reading outputs needs the state backend's
-credentials in the environment, as tofu/oracle/prepare.ps1 sets them.
+credentials in the environment, as sourcing tofu/oracle/prepare.sh sets them.
 """
 
 import argparse
