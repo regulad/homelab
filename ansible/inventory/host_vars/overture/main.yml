@@ -1,0 +1,6 @@
+---
+# 99-osx wraps interactive logins in a RemoteCommand, which cannot coexist with
+# the commands Ansible sends over SSH.
+ansible_ssh_common_args: -o RemoteCommand=none -o RequestTTY=no
+# The interpreter macOS ships, rather than whichever Python discovery finds.
+ansible_python_interpreter: /usr/bin/python3

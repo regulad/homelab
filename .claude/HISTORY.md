@@ -292,3 +292,44 @@ ansible-lint 26.10.1, OpenTofu 1.13.1); nothing was installed.
 - `ansible-lint --offline` passes under its `production` profile.
 - Ansible ignores `ansible.cfg` in the world-writable `/mnt/d` checkout, so WSL
   runs set `ANSIBLE_CONFIG`.
+
+## Repository moved into WSL; hardware hosts seeded (2026-10-18)
+
+Ansible's control node is Linux-only, so Parker moved the repository into WSL:
+- **Clone:** `~/repositories/homelab` in `regulad-fedora`, cloned after the
+  push. Its gitignored `docs/snapshot/` was copied from the Windows checkout.
+  The checkout is not world-writable, so Ansible reads `ansible.cfg` without
+  `ANSIBLE_CONFIG`.
+- **Worktree:** agent work happens in the `homelab_ansible` worktree, on branch
+  `ansible`.
+- **pve material:** the on-hold `tofu/gonkputer` work stays in the Windows
+  `homelab_pve` worktree, on branch `pve`. At Parker's direction, the
+  gitignored gonkputer files left in the main Windows checkout were moved
+  there: `.terraform/`, the decrypted inputs, and the discovery snapshot.
+
+**Hardware hosts.** At Parker's direction, the hardware inventory was seeded from
+`~/.ssh/config.d/99-hardware`, plus `overture`, which that file points to in
+`99-osx`.
+- `prodingus` (Proxmox VE 9.2.22 on Debian 13) answered Ansible's `ping`. Its
+  facts are in the local snapshot.
+- `turk` was unreachable from WSL because it happened to be down; like the other
+  hardware hosts, it normally runs around the clock. Parker identified it as a
+  separate computer, not part of the `gonkputer` Proxmox cluster. It runs VMware
+  instead of QEMU/KVM, so Windows guests get hardware-accelerated graphics.
+  Bringing those guests into OpenTofu is a far-future idea.
+- Parker dropped `longitude` (mobile) and `minintosh`.
+- `overture` gets `-o RemoteCommand=none -o RequestTTY=no`, because its SSH
+  login wrapper cannot coexist with Ansible's commands. This is untested.
+
+**Network switches.** The two Cisco SG300s and the Arista 7010T run no Python.
+Parker kept them out of the Ansible inventory and added a Phase 2 step to manage
+them with the repository's own bash scripts.
+
+## overture reachable through Ansible (2026-10-18)
+
+- The `RemoteCommand=none` / `RequestTTY=no` override now works: Ansible's
+  `ping` to `overture` succeeded with it and failed without it ("Cannot execute
+  command-line and remote command").
+- At Parker's direction, `overture` pins `ansible_python_interpreter` to
+  `/usr/bin/python3`, the interpreter macOS ships (Python 3.9.6 on macOS 27.0.1),
+  instead of relying on interpreter discovery.

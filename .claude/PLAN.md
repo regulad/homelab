@@ -23,7 +23,7 @@ Ansible runs in two phases, one on each side of OpenTofu:
 |---|---|
 | 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, pre-commit (file hygiene, OpenTofu, privacy guards), and the Ansible scaffold for both stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox, hardware hosts, cluster and Ceph settings, and the per-host service inventory are not started. |
-| 2. Ansible: hardware hosts | Not started. |
+| 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons, and the network switch scripts are not started. |
 | 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox guests and cluster settings are not started. |
 | 4. Ansible: generated hosts | Not started. |
 | 5. Portability proof | Not started. |
@@ -40,6 +40,7 @@ Parker asks.
 - Machines (Proxmox LXC/VM, OCI instances) are declared in **OpenTofu** and tracked in state.
 - Proxmox cluster-wide and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
 - Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs.
+- Network switch configuration is applied by the repository's own **bash scripts**, because the switches cannot run Ansible's modules.
 - Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a playbook run.
 - Existing infrastructure is **adopted** (imported), not recreated.
 
@@ -47,6 +48,7 @@ Parker asks.
 - Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
 - Migrating data inside containers automatically. Parker plans data movement per service.
 - CI/drift automation (optional Phase 6).
+- The VMware guests on `turk`, which runs VMware so its Windows guests get hardware-accelerated graphics. Bringing them into OpenTofu is a far-future addition; `turk` itself is a hardware host.
 
 ## Inputs from Parker
 
@@ -56,7 +58,7 @@ Parker asks.
 | Phase 0 | Python/tool manager | `uv` |
 | Phase 1 | OCI access | Provided: Parker's session token in the `DEFAULT` profile |
 | Phase 1 | SSH access from the operator machine to Proxmox nodes and guests over the tailnet; a read-only Proxmox API token (`PVEAuditor`) | Needed |
-| Phase 2 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node before any cluster firewall, network, or Ceph change | Needed |
+| Phase 2 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node and network switch before any cluster firewall, network, Ceph, or switch change | Needed |
 | Phase 3 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/oracle/backend.sops.env` |
 | Phase 3 | A scoped Proxmox API token/role for management (Parker creates it) | Needed |
 | Phase 3 | A Proxmox API token/role with the privileges cluster-wide settings need (Parker creates it) | Needed |
@@ -82,7 +84,7 @@ modify anything.
   qm config <vmid>
   pvesh get /nodes/<node>/storage --output-format json
   ```
-- Hardware hosts: every physical machine, Proxmox nodes and any others, with its role and tailnet name.
+- Hardware hosts: every physical machine, Proxmox nodes and any others, with its role and tailnet name. Network switches too, with their running configuration captured read-only over SSH.
 - Cluster-wide settings, read-only:
   - Proxmox: datacenter options, cluster firewall, HA groups and resources, storage definitions, SDN, users/groups/roles/ACLs, and backup and replication jobs.
   - Ceph: `ceph config dump`, pools, CRUSH rules, and monitor/manager/MDS layout.
@@ -115,6 +117,16 @@ hand and committed.
   - After an approved real run, a **second run reports `changed=0`** (idempotency).
   - Every Ansible-owned cluster and Ceph setting is captured as code.
   - No service restarted unexpectedly.
+
+**Network switches (outside Ansible)**
+The two Cisco SG300 switches and the Arista 7010T run no Python, so Ansible's
+usual modules cannot manage them. They stay out of the Ansible inventory, and the
+repository's own bash scripts manage them over SSH instead.
+- The scripts connect through the operator's SSH configuration, which holds each switch's address, its user, and the legacy algorithms the SG300s need.
+- Capture each switch's running configuration read-only into `docs/snapshot/` first. Raw configurations can hold secrets such as password hashes, so only configuration derived from them is committed, with sensitive values in SOPS.
+- Adopt first: the scripts reproduce each switch's current configuration with **no diff**. Change settings only afterwards, each diff reviewed line by line by Parker.
+- **Read-only until Parker confirms** a console path to each switch. A bad change can cut off a switch's management address or the hosts behind it.
+- **Accept:** for every switch, the configuration the scripts produce matches the running configuration, and Parker has reviewed both.
 
 ### Phase 3 — OpenTofu
 OpenTofu declares the machines, and the cluster settings its providers support.
@@ -230,6 +242,7 @@ resources, without a manual inventory edit.
 
 ## Definition of done
 - Every hardware host is in the hand-written inventory, and its playbook run reports `changed=0`.
+- Every network switch's running configuration is reproduced by the repository's scripts with no diff.
 - Every in-scope guest is in OpenTofu state with a **no-op plan** in both provider roots (`tofu/oracle`, `tofu/proxmox`).
 - Every in-scope Proxmox and Ceph cluster-wide setting is captured as code, with a no-op plan and a `changed=0` check run.
 - The generated hosts' inventory is built from OpenTofu outputs, with services defined only in `host_vars/`.

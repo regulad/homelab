@@ -1,7 +1,12 @@
 ---
-# Hardware hosts: the machines OpenTofu cannot create. Listed by hand from the
-# Phase 1 discovery snapshot, each by its tailnet MagicDNS name.
+# Hardware hosts: the machines OpenTofu cannot create. Seeded from the hosts that
+# ~/.ssh/config.d/99-hardware marks as hardware, each by its tailnet MagicDNS
+# name. SSH settings, such as each host's user, come from that configuration.
 hardware:
+  hosts:
+    turk:  # VMware host for Windows guests with accelerated graphics
+    overture:  # macOS, from 99-osx
   children:
     proxmox_nodes:
-      hosts: {}
+      hosts:
+        prodingus:  # gonkputer
