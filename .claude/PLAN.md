@@ -168,24 +168,17 @@ Generated hosts appear in and disappear from Ansible with their OpenTofu
 resources, without a manual inventory edit.
 
 **Inventory handoff**
-- Each root exports the same output shape:
-  ```hcl
-  output "ansible_hosts" {
-    value = {
-      for name, g in local.guests : name => {
-        address = g.tailnet_name   # MagicDNS name, so it works from the laptop
-        groups  = g.groups         # e.g. ["podman_hosts", "proxmox_guests"]
-      }
-    }
-  }
-  ```
-- `ansible-generated/inventory/inventory.py`: executable dynamic inventory, and the only inventory `ansible-generated/` reads.
-  - For each root, run `tofu -chdir=<root> output -json ansible_hosts`; merge; emit Ansible's `--list` JSON including `_meta.hostvars`; support `--host`. Every host also joins a `generated` group, mirroring `hardware`.
-  - Reading outputs needs the backend credentials that sourcing `prepare.sh` exports, in the control node's environment.
-  - Cache nothing; fail loudly if a root is unreadable.
-- Keep the inventory **minimal** (name, address, groups). Services and other variables stay in `host_vars/` in git.
-- `tofu/oracle` gets its `ansible_hosts` output here, once host identities are chosen.
-- Optional later: the Ansible Terraform provider (`ansible_host`/`ansible_group` resources) with the `cloud.terraform.terraform_provider` inventory plugin (requires initialized roots; shells out to a `terraform` binary, so verify `tofu` compatibility).
+- `ansible-generated/` reads its inventory from OpenTofu state through the `cloud.terraform.terraform_state` inventory plugin (collection pinned in `requirements.yml`). Each root is one `inventory/<root>.terraform_state.yml` file, and every host it yields joins the `generated` group, mirroring `hardware`.
+  - The plugin pulls state in a scratch directory with a bare `backend "s3" {}`, so each source file mirrors its root's backend settings. The backend credentials come from the environment that sourcing `prepare.sh` exports.
+  - State is encrypted client-side, and the scratch directory has no `encryption` block. A per-root wrapper, `ansible-generated/bin/tofu-<root>`, is the plugin's `binary_path`, found on `PATH` because the plugin runs it from the scratch directory: it sets `TF_ENCRYPTION` for that one process from the root's decrypted inputs, so the setting never leaks to other roots.
+  - `provider_mapping` names the resource types that become hosts. The plugin maps only AWS, Azure and GCP by itself.
+  - `compose` sets `ansible_host` with `strict: true`, so an expression error fails the inventory instead of leaving a host on an ambiguous short name.
+  - Every attribute of a mapped resource becomes a host variable. Services and other variables Ansible owns stay in `host_vars/` in git.
+- `tofu/oracle`: the five `oci_core_instance` resources, named by display name.
+  - The wahlecloud instances are reached at their VCN DNS names, `<hostname label>.pubsub.wahlecloud.oraclevcn.com`, which resolve over the tailnet. Short names do not work: `tailscalerouter` resolves elsewhere first.
+  - Legacy `web` is reached at its public name, `doppelgangerhq.com`, because the legacy VCN's DNS names do not reach the tailnet.
+  - Each host's login user comes from the operator's SSH configuration for that name, or from `host_vars` where it differs (`bailout` logs in as `opc`).
+- `tofu/proxmox` gets its own source file mapping the `bpg/proxmox` guest types, once that root exists.
 - **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
 
 **Baseline (non-destructive)**
@@ -227,7 +220,6 @@ resources, without a manual inventory edit.
 - bpg/proxmox: current resource type names and the import ID format (believed `node/vmid`; resource naming has been shifting). The provider uses SSH for some actions; HA-managed guests can migrate without the provider knowing.
 - bpg/proxmox coverage of cluster-wide settings (datacenter options, firewall, HA, storage, SDN, access control, backup and replication jobs) and whether it covers any Ceph configuration; verify each before choosing between OpenTofu and Ansible.
 - `-generate-config-out`: documented as potentially changing output format between minor versions; no config generation for `for_each` imports; may emit plaintext secrets.
-- `cloud.terraform` inventory plugins: `terraform_state` supports only AWS/Azure/GCP per its docs; `terraform_provider` needs initialized project dirs; `tofu` binary support unconfirmed.
 - Podman-in-LXC: requires `nesting=1` (sometimes `keyctl=1`); rootless inside unprivileged LXC can be fiddly with subuid/subgid ranges.
 - Third-party MCP server `mcp-proxmox` (`proxmox_generate_terraform`) is unevaluated and includes mutating operations; use it only with a read-only token and after reading its source.
 

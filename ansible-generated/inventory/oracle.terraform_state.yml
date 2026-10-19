@@ -1,0 +1,39 @@
+---
+# Generated hosts from tofu/oracle's state. The plugin pulls the state through a
+# scratch backend configuration that mirrors the backend block in
+# tofu/oracle/state.tf; its credentials and endpoint come from the environment
+# that sourcing tofu/oracle/prepare.sh exports.
+plugin: cloud.terraform.terraform_state
+# The plugin runs this from a scratch directory, so it is a bare name found on
+# PATH: sourcing tofu/oracle/prepare.sh adds ansible-generated/bin.
+binary_path: tofu-oracle
+backend_type: s3
+backend_config:
+  bucket: homelab-tofu-state
+  key: oracle/terraform.tfstate
+  region: us-ashburn-1
+  use_path_style: "true"
+  skip_credentials_validation: "true"  # No STS
+  skip_region_validation: "true"  # Not an AWS region
+  skip_requesting_account_id: "true"  # No IAM or STS
+  skip_metadata_api_check: "true"  # No instance metadata
+  skip_s3_checksum: "true"  # No flexible-checksum headers
+# The instances live in the wahlecloud and legacy child modules.
+search_child_modules: true
+provider_mapping:
+  - provider_name: registry.opentofu.org/oracle/oci
+    types:
+      - oci_core_instance
+hostnames:
+  - display_name
+# Fail on an expression error instead of silently leaving ansible_host unset:
+# short names are ambiguous on the tailnet.
+strict: true
+compose:
+  # Only the wahlecloud public subnet's VCN DNS names reach the tailnet. The
+  # legacy web instance is reached on its public name, which is its display name.
+  ansible_host: >-
+    display_name if display_name == 'doppelgangerhq.com'
+    else create_vnic_details[0].hostname_label ~ '.pubsub.wahlecloud.oraclevcn.com'
+groups:
+  generated: true

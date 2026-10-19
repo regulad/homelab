@@ -1,6 +1,8 @@
 # shellcheck shell=sh
 # Decrypt OCI input values into the gitignored secrets.auto.tfvars.json file, and
 # export the state backend's credentials and endpoint into the calling shell.
+# It also puts ansible-generated/bin on PATH, where the inventory plugin finds
+# bin/tofu-oracle.
 #
 # Source it from anywhere in the clone; do not execute it:
 #
@@ -61,6 +63,12 @@ _homelab_oracle_prepare() {
         value=$(printf '%s\n' "$backend" | sed -n "s/^$name=//p" | head -n 1)
         export "$name=$value"
     done
+    # The inventory plugin runs binary_path from a scratch directory, so it must
+    # be a bare name found on PATH. Add the directory only once.
+    case ":$PATH:" in
+        *":$root/ansible-generated/bin:"*) ;;
+        *) export PATH="$root/ansible-generated/bin:$PATH" ;;
+    esac
     echo 'Decrypted OCI inputs and backend credentials are ready. Resource definitions remain in the .tf files.'
 }
 

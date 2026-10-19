@@ -2,13 +2,14 @@
 
 Phase 4 of [`.claude/PLAN.md`](../.claude/PLAN.md): the Proxmox guests and OCI
 instances that OpenTofu creates or adopts. This stage runs after OpenTofu and
-reads **only** `inventory/inventory.py`, built from each root's `ansible_hosts`
-output; it never sees the hand-written hardware inventory. Hardware hosts are
+reads **only** OpenTofu state, through the `cloud.terraform.terraform_state`
+inventory plugin; it never sees the hand-written hardware inventory. Hardware hosts are
 configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 
 | Path | Contents |
 |---|---|
-| `inventory/inventory.py` | Dynamic inventory from OpenTofu outputs; every host joins the `generated` group |
+| `inventory/<root>.terraform_state.yml` | One inventory source per OpenTofu root; every host joins the `generated` group |
+| `bin/tofu-<root>` | The `tofu` each source runs, with that root's state encryption settings |
 | `inventory/group_vars/`, `inventory/host_vars/<host>/` | Variables, including each host's `services.yml` |
 | `playbooks/site.yml` | The stage's only playbook |
 | `roles/` | Roles only this stage uses |
@@ -31,22 +32,43 @@ declared state and is safe to rerun, and deliberate operations such as rolling
 reboots or release upgrades are not playbooks. Package updates come from each
 host's own automatic updater (unattended-upgrades, dnf-automatic).
 
+## Inventory
+
+Each `inventory/<root>.terraform_state.yml` reads one root's state. The plugin
+runs `tofu init` and `tofu state pull` in a scratch directory holding only a
+bare `backend "s3" {}`, so:
+
+- each source file mirrors its root's backend settings, and the credentials come
+  from the environment that sourcing `tofu/oracle/prepare.sh` exports;
+- the scratch directory has no `encryption` block, so `binary_path` names the
+  wrapper `tofu-<root>` from `bin/`. That wrapper sets `TF_ENCRYPTION` for its
+  own process from the root's decrypted inputs, keeping one root's encryption
+  settings away from the others. Its names must match the root's `encryption`
+  block.
+- the plugin runs `binary_path` from the scratch directory, so it is a bare name
+  found on `PATH`. Sourcing `tofu/oracle/prepare.sh` puts `bin/` on `PATH`.
+
+Every attribute of a mapped resource becomes a host variable, so
+`ansible-inventory --vars` shows instance metadata such as SSH keys.
+
+| Source | Hosts | `ansible_host` |
+|---|---|---|
+| `oracle.terraform_state.yml` | Each `oci_core_instance`, named by display name | `<hostname label>.pubsub.wahlecloud.oraclevcn.com`; legacy `web` uses its public name, `doppelgangerhq.com` |
+
 ## Running
 
-Ansible reads `ansible.cfg` from the current directory, so run from this one.
-`inventory.py` runs `tofu output` for each root it lists, so the state backend's
-credentials must be in the environment: source `tofu/oracle/prepare.sh` in the
-same shell first.
+Ansible reads `ansible.cfg` from the current directory, so run from this one,
+after installing the pinned collections into the gitignored `collections/`:
 
 ```bash
 . tofu/oracle/prepare.sh
 cd ansible-generated
+ansible-galaxy collection install -r requirements.yml -p collections
 ansible-inventory --graph
 ansible-playbook playbooks/site.yml --syntax-check
 ansible-lint --offline
 ansible-playbook playbooks/site.yml --check --diff --limit <host>
 ```
 
-The script lists no roots yet; each root joins in Phase 4, once it exports
-`ansible_hosts`. A root that cannot be read fails the whole inventory, because
-`ansible.cfg` sets `any_unparsed_is_failed`.
+A source that cannot be read fails the whole inventory, because `ansible.cfg`
+sets `any_unparsed_is_failed`.

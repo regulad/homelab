@@ -395,3 +395,32 @@ each host's own automatic updater (unattended-upgrades, dnf-automatic).
 `ansible-generated`'s `base.yml` and `services.yml` were folded into its
 `site.yml`. Parker also identified `turk` as Ubuntu 24.04 running VMware
 Workstation.
+
+## Generated inventory from OpenTofu state (2026-10-18)
+
+Parker compared three ways to feed `ansible-generated/` from OpenTofu: the
+`inventory.py` script reading an `ansible_hosts` output; the `ansible/ansible`
+provider with `cloud.terraform.terraform_provider`; and
+`cloud.terraform.terraform_state` reading instances straight from state. He chose
+`terraform_state` because it scales to more roots and resource types without
+HCL changes. `inventory.py` was removed.
+- `inventory/oracle.terraform_state.yml` maps tofu/oracle's five
+  `oci_core_instance` resources, named by display name. Parker identified each
+  wahlecloud instance's VCN DNS name (`<label>.pubsub.wahlecloud.oraclevcn.com`)
+  and legacy `web`'s public name (`doppelgangerhq.com`) as their addresses.
+  Short names are ambiguous on the tailnet: `tailscalerouter` resolved elsewhere
+  first.
+- The plugin pulls state in a scratch directory with no `encryption` block, so
+  its `binary_path` is a wrapper, `bin/tofu-oracle`, that sets `TF_ENCRYPTION`
+  for its own process. The plugin reads `binary_path` raw and runs it from the
+  scratch directory, so a relative path fails there; it is the bare name
+  `tofu-oracle`, and sourcing `prepare.sh` puts `ansible-generated/bin` on `PATH`.
+- With Parker's approval, `cloud.terraform` 4.0.0 was installed into the
+  stage's gitignored `collections/`.
+- With Parker approving each SSH agent prompt, `ansible generated -m ping -f 1`
+  reached all five hosts. Ansible connects by VCN DNS name, which the operator's
+  SSH configuration does not match for `bailout`, so its `host_vars` set
+  `ansible_user: opc`.
+- Each stage gained an `.ansible-lint` that excludes the installed
+  `collections/`. With it, a stage's lint no longer follows `../ansible-common`,
+  so AGENTS.md now lints the shared roles separately.

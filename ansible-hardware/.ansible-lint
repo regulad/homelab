@@ -1,0 +1,4 @@
+---
+# Installed collections are third-party code, kept out of the lint.
+exclude_paths:
+  - collections/

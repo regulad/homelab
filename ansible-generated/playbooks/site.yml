@@ -1,7 +1,8 @@
 ---
-# Phase 4: the only playbook for generated hosts, from OpenTofu outputs via
-# inventory/inventory.py. Every play converges hosts to the declared state and
-# is safe to rerun. Hardware hosts are configured from ../ansible-hardware.
+# Phase 4: the only playbook for generated hosts, from OpenTofu state via the
+# inventory/*.terraform_state.yml sources. Every play converges hosts to the
+# declared state and is safe to rerun. Hardware hosts are configured from
+# ../ansible-hardware.
 - name: Generated host baseline
   hosts: generated
   roles:
