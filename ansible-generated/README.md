@@ -54,6 +54,7 @@ Every attribute of a mapped resource becomes a host variable, so
 | Source | Hosts | `ansible_host` |
 |---|---|---|
 | `oracle.terraform_state.yml` | Each `oci_core_instance`, named by display name | `<hostname label>.pubsub.wahlecloud.oraclevcn.com`; legacy `web` uses its public name, `doppelgangerhq.com` |
+| `proxmox.terraform_state.yml` (still to do) | The `bpg/proxmox` guest types, once `tofu/proxmox` exists | To be decided |
 
 ## Running
 

@@ -27,7 +27,7 @@ Ansible runs in two phases, one on each side of OpenTofu, each in its own folder
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox, hardware hosts, cluster and Ceph settings, and the per-host service inventory are not started. |
 | 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons, and the network switch scripts are not started. |
 | 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox guests and cluster settings are not started. |
-| 4. Ansible: generated hosts | Not started. |
+| 4. Ansible: generated hosts | Started: `ansible-generated/` reads `tofu/oracle`'s state through the `terraform_state` inventory plugin, and Ansible reaches all five OCI instances. **Still to do:** feed Proxmox guests in the same way, once `tofu/proxmox` exists; that waits on the `bpg/proxmox` provider work. The roles are skeletons. |
 | 5. Portability proof | Not started. |
 | 6. Drift and CI (optional) | Not started. |
 

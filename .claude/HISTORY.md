@@ -424,3 +424,6 @@ HCL changes. `inventory.py` was removed.
 - Each stage gained an `.ansible-lint` that excludes the installed
   `collections/`. With it, a stage's lint no longer follows `../ansible-common`,
   so AGENTS.md now lints the shared roles separately.
+- Proxmox guests do not feed `ansible-generated/` yet. That needs a
+  `tofu/proxmox` root, which waits on the `bpg/proxmox` provider work, and then
+  a `proxmox.terraform_state.yml` source beside the oracle one.
