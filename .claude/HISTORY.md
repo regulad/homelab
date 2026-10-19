@@ -372,3 +372,16 @@ Each stage has its own `ansible.cfg` (`roles_path = roles:../ansible-common/role
 folder. The root `ansible.cfg` was removed. Both stages pass `--syntax-check` and
 `ansible-lint --offline`, and `overture` still answers Ansible's `ping` from
 `ansible-hardware/`.
+
+## Windows checkout removed (2026-10-18)
+
+The repository now lives only on Unix-like systems. The on-hold `homelab_pve`
+worktree moved into WSL as `~/repositories/homelab_pve`, on branch `pve`, with
+all of its uncommitted and ignored files verified by checksum. Parker then
+approved deleting the Windows checkout `D:\repositories\homelab` and its
+`homelab_pve` worktree. Before deletion, every branch and remote ref was
+confirmed present in WSL, there were no stashes or uncommitted changes, and the
+ignored `docs/` and decrypted inputs matched WSL's. The only objects lost were
+four draft commits from 2026-10-12 that had already been reset away and redone
+as `bb36843`. The pre-migration OCI state copies under Windows
+`%LOCALAPPDATA%/homelab/oracle-backups/` were outside the checkout and remain.
