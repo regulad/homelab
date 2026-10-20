@@ -1,8 +1,8 @@
 # shellcheck shell=sh
 # Prepare the calling shell to run OpenTofu in tofu/gonkputer: select the
 # committed tofu.rc, export the Proxmox endpoint and API token and the state
-# backend's credentials, make applies serial (TF_CLI_ARGS_apply), and decrypt
-# the OpenTofu inputs into the gitignored secrets.auto.tfvars.json file.
+# backend's credentials, and decrypt the OpenTofu inputs into the gitignored
+# secrets.auto.tfvars.json file.
 #
 # Source it from anywhere in the clone; do not execute it:
 #
@@ -83,18 +83,13 @@ _homelab_gonkputer_prepare() {
         export "$name=$value"
     done
     export TF_CLI_CONFIG_FILE="$dir/tofu.rc"
-    # Snippet uploads open their own SSH connections as root through the
-    # operator's agent. Bitwarden's SSH agent refuses or drops signing requests
-    # that arrive in parallel, so applies run one operation at a time and each
-    # prompt can be approved. Plans only read through the API and stay parallel.
-    export TF_CLI_ARGS_apply="-parallelism=1"
     # The inventory plugin runs binary_path from a scratch directory, so it must
     # be a bare name found on PATH. Add the directory only once.
     case ":$PATH:" in
         *":$root/ansible-generated/bin:"*) ;;
         *) export PATH="$root/ansible-generated/bin:$PATH" ;;
     esac
-    echo 'Loaded the Proxmox and state backend credentials, selected tofu.rc, and made applies serial for this shell. Decrypted inputs are ready.'
+    echo 'Loaded the Proxmox and state backend credentials and selected tofu.rc for this shell. Decrypted inputs are ready.'
 }
 
 _homelab_gonkputer_prepare

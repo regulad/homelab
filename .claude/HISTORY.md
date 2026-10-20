@@ -627,14 +627,12 @@ At Parker's direction:
 - With Parker's approval, the saved plan (7 to add, 23 to change, 0 to destroy)
   was applied. He chose to let the provider reboot VM 129 for `scsihw: lsi`,
   which a `scsi_hardware` change requires; it came back running with the new
-  line. Every change applied, but three snippet uploads failed: the provider
-  opened its SSH connections as root in parallel, and Bitwarden's SSH agent,
-  behind `~/.wsl-ssh-agent.sock`, refused or dropped them. The live snippets were
-  unharmed.
-- `tofu/gonkputer/prepare.sh` now exports `TF_CLI_ARGS_apply="-parallelism=1"`,
-  so applies open one SSH connection at a time and each Bitwarden prompt can be
-  approved. A second saved plan, the three remaining uploads, then applied
-  cleanly.
+  line. Every change applied, but three snippet uploads failed SSH
+  authentication when the provider opened its connections as root in parallel.
+  The live snippets were unharmed.
+- As a workaround, `tofu/gonkputer/prepare.sh` exported
+  `TF_CLI_ARGS_apply="-parallelism=1"`, so applies opened one SSH connection at a
+  time. A second saved plan, the three remaining uploads, then applied cleanly.
 - A fresh plan reports no changes, and all 7 live snippets match the repository
   byte for byte. The import blocks were removed, as the adoption convention says.
 
@@ -729,8 +727,7 @@ With Parker's approval:
 - The inventory now holds 26 generated hosts: 19 containers through
   `proxmox_pct_remote`, `arawi` and `vkasm` over SSH, and the 5 OCI instances.
 - A first ping of `openclaw` through the plugin failed with an authentication
-  timeout, most likely Bitwarden's SSH agent waiting for its prompt to be
-  approved. It was not retried.
+  timeout; a second, at Parker's request, returned `pong`.
 
 ## Imperative leftovers removed (2026-10-20)
 
@@ -769,3 +766,15 @@ With Parker's approval:
   rebooting it; the provider warned that a reboot is required. Proxmox shows no
   pending changes, and VM 100's USB slots are now `usb0` AX200, `usb1` TubesZB,
   `usb2` BCM20702A0 and `usb4` CPS. A fresh plan is a no-op.
+
+## Serial-apply workaround removed (2026-10-20)
+
+Parker fixed the operator's SSH agent so that parallel SSH connections
+authenticate. `tofu/gonkputer/prepare.sh` no longer exports
+`TF_CLI_ARGS_apply="-parallelism=1"`, and the docs no longer describe it.
+- Verified without the workaround: a `tofu/gonkputer` plan, which opens the
+  root-ticket SSH connection, is a no-op, and `ansible generated -m ping` at the
+  default 5 forks reached all 26 hosts, the 19 containers through `prodingus` at
+  once. `vkasm` first refused the login as `regulad`: the operator's SSH
+  configuration sets `kasm_admin` only for its short name, so its `host_vars` now
+  set `ansible_user: kasm_admin`, as `bailout`'s do.

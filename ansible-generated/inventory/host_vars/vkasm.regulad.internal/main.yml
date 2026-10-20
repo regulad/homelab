@@ -1,0 +1,4 @@
+---
+# vkasm's login user. The operator's SSH configuration sets it only for the
+# short name, and Ansible connects by the DNS name.
+ansible_user: kasm_admin

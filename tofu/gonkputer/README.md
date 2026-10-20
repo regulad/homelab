@@ -68,12 +68,7 @@ tofu -chdir=tofu/gonkputer plan -input=false -detailed-exitcode
 `prepare.sh` must be sourced, not executed, so its exports reach the shell that runs
 `tofu`. It needs `sops`, `jq` and `git`. It exports `PROXMOX_VE_ENDPOINT` and
 `PROXMOX_VE_API_TOKEN` from `provider.sops.env` into that shell only, and sets
-`TF_CLI_CONFIG_FILE` to this root's `tofu.rc`.
-
-It also exports `TF_CLI_ARGS_apply="-parallelism=1"`. Snippet uploads open their own SSH
-connections as root through the operator's agent, and Bitwarden's SSH agent refuses or drops
-signing requests that arrive in parallel; serial applies let each prompt be approved. It
-applies to every `tofu apply` in that shell, other roots included. Plans stay parallel. It decrypts `secrets.sops.json` into the ignored
+`TF_CLI_CONFIG_FILE` to this root's `tofu.rc`. It decrypts `secrets.sops.json` into the ignored
 `secrets.auto.tfvars.json`. That file holds the state passphrase, the node's SSH address
 (the provider uploads snippets over SSH as root, through the operator's SSH agent), and the
 datacenter notes, which name internal hosts and networks.

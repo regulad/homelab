@@ -185,6 +185,7 @@ resources, without a manual inventory edit.
   - A guest is requested when its HA resource is `started`, or, without an HA resource, when it starts on boot. Each guest file computes this as the `ansible_host`'s `count`, so the inventory follows the HA and boot settings without a manual edit.
   - Hosts are named by their DNS name, `<name>.regulad.internal` (`local.guest_domain`), which every guest resolves as from the control node. The name keeps them apart from OCI hosts of the same short name (both roots have a `tailscalerouter`).
   - Each host's `groups` become Ansible groups: `gonkputer`, plus `proxmox_vms` or `proxmox_containers`.
+  - A VM's login user comes from the operator's SSH configuration for its DNS name, or from `host_vars` where it differs (`vkasm` logs in as `kasm_admin`).
 - **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds from the laptop, over the tailnet for VMs and OCI instances and through `proxmox_pct_remote` for containers.
 
 **Baseline (non-destructive)**
