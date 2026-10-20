@@ -637,3 +637,35 @@ At Parker's direction:
   cleanly.
 - A fresh plan reports no changes, and all 7 live snippets match the repository
   byte for byte. The import blocks were removed, as the adoption convention says.
+
+## gonkputer cleanup after adoption (2026-10-20)
+
+At Parker's direction:
+- Proxmox-generated values left the HCL now that state tracks them, as OCIDs did
+  in `tofu/oracle`: `vm_id` on all 32 guests, and `path_in_datastore` and
+  `file_format` on VM disks and EFI disks. The backup job's exclusions reference
+  the two guests instead of literal `"100"` and `"101"`. MAC addresses stay. The
+  plan confirmed that none of these removals changes anything.
+- Every guest gets the tag `terraform`, marking it as managed by OpenTofu like
+  `managed-by=opentofu` on the OCI instances. Proxmox tags cannot contain `=`, and
+  Parker chose `terraform` over `managed-by-opentofu`. A tags change needs no
+  reboot.
+- The cluster's `next_id` gets `lower = 200`, so new guests are set apart from the
+  adopted ones.
+- The 14 containers whose whole description was `amd64v3` carry it as a tag
+  instead, and their descriptions are removed.
+- Tag names live once, in `local.tags` in a new `locals.tf`, and every guest
+  references them, so later resources can use the same names.
+- Every container's IPv6 method was already `auto`, in the HCL and live, so that
+  needed no change.
+- Containers moved from `cores` to `limit`. The provider reads a missing `cores`
+  as 1 (its comment cites the API documentation), but Proxmox treats it as every
+  core. It also sends `cores` on every `cpu` change, 1 when unset. So the seven
+  containers with only `cpulimit` were recorded as `cores = 1`, and converting
+  `cores = 2` to `limit = 2` would have pinned containers to one core. Parker chose
+  an explicit `cores = local.cpu_threads` (32, the node's logical CPUs) on all 20
+  containers, with each former core count, 1 or 2, kept as `limit`.
+- The "artifact of import" footers stay, as the OCI convention has them.
+- With Parker's approval, the plan applied 33 in-place updates: tags on 32
+  guests, the CPU change on all 20 containers, 14 descriptions removed, and the
+  cluster options. Nothing rebooted, and a fresh plan is a no-op.

@@ -5,7 +5,6 @@ resource "proxmox_virtual_environment_vm" "arawi" {
   depends_on = [proxmox_virtual_environment_file.block_mac_108]
 
   name                = "arawi"
-  vm_id               = 108
   node_name           = "prodingus"
   description         = "`vtnet1` is a dummy interface, because pfSense will freak out if the interface assigned to be WAN is NO-CARRIER. Nothing is attached to VLAN 4093."
   on_boot             = false
@@ -14,6 +13,7 @@ resource "proxmox_virtual_environment_vm" "arawi" {
   kvm_arguments       = "-device ipmi-bmc-sim,id=bmc0 -device isa-ipmi-kcs,bmc=bmc0"
   machine             = "q35"
   scsi_hardware       = "virtio-scsi-single"
+  tags                = [local.tags.terraform]
 
   network_device {
     mac_address = "BC:24:11:AF:E1:CF"
@@ -45,13 +45,11 @@ resource "proxmox_virtual_environment_vm" "arawi" {
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "vm-108-disk-2"
-    size              = 32
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 32
   }
 
   memory {

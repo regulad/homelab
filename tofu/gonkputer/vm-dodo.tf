@@ -5,15 +5,14 @@ resource "proxmox_virtual_environment_vm" "dodo" {
   depends_on = [proxmox_virtual_environment_file.hook_101]
 
   name                = "dodo"
-  vm_id               = 101
   node_name           = "prodingus"
   description         = "MAINTENANCE TASKS AT 5:15"
-  tags                = ["locally-backed"]
   bios                = "ovmf"
   hook_script_file_id = "local:snippets/101.sh"
   hotplug             = "disk,network,usb"
   machine             = "q35"
   scsi_hardware       = "virtio-scsi-single"
+  tags                = [local.tags.locally_backed, local.tags.terraform]
 
   network_device {
     mac_address = "BC:24:11:0B:76:9E"
@@ -36,16 +35,14 @@ resource "proxmox_virtual_environment_vm" "dodo" {
   }
 
   disk {
-    datastore_id      = ""
-    discard           = "on"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "/dev/disk/by-id/ata-SK_hynix_SC311_SATA_256GB_MJ85N41231280545M"
-    size              = 238
+    datastore_id = ""
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 238
   }
 
   efi_disk {
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

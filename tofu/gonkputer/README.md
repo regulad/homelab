@@ -17,6 +17,7 @@ Fixes follow as separate, reviewed changes. `gonkputer` has one node, `prodingus
 | `backup.tf` | The weekly backup job |
 | `access.tf` | The LDAP realm `home.arpa` and its single ACL |
 | `snippets.tf`, `snippets/<storage>/` | Hookscripts and cloud-init vendor files, byte for byte |
+| `locals.tf` | Values shared across files: the guest tag names in `local.tags` |
 | `providers.tf`, `versions.tf`, `tofu.rc` | Provider auth, pinned versions, and the CLI configuration with the provider mirror |
 | `state.tf`, `variables.tf` | Enforced state encryption and the sensitive inputs |
 
@@ -35,8 +36,18 @@ A `-` inside a guest name is written as `--` (`vm-resolute--template.tf`).
   explicitly, with a comment. This covers VM 100's firewall options (the provider defaults
   `ndp` off and `radv` on), the cluster firewall's output and forward policies, and VM 129's
   `scsi_hardware = "lsi"` (the provider defaults to `virtio-scsi-pci`).
-- **Containers state their `vm_id`.** The container importer records none, and the HA
-  references need it.
+- **No generated values.** Guests don't state `vm_id`, and disks don't state
+  `path_in_datastore` or `file_format`: Proxmox generated them, and state tracks them. HA
+  resources, firewall options and the backup job's exclusions reference a guest's `vm_id`.
+- **Container CPUs:** every container sets `cores = local.cpu_threads`, the node's 32
+  logical CPUs, and caps CPU time with `limit`. The provider cannot leave `cores` unset
+  (which Proxmox treats as every core): it reads a missing `cores` as 1 and sends 1 whenever
+  the `cpu` block changes.
+- **Tags and VMIDs:** every guest carries the tag `terraform`. The 14 containers that need
+  the x86-64-v3 microarchitecture level carry `amd64v3`, which used to be their whole
+  description. Tag names come from `local.tags` in `locals.tf`. The cluster's `next_id`
+  starts at 200, so new guests are set apart from the adopted ones, whose IDs are below 200
+  or 8000.
 - **Firewall bypass:** VMs 100 and 101 have `firewall = false` on their NICs, so their traffic
   never passes a firewall bridge. VM 100's firewall options stay disabled.
 

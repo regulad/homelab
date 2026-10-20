@@ -1,14 +1,15 @@
 # tailscalerouter: container 122 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "tailscalerouter" {
-  vm_id         = 122
   node_name     = "prodingus"
   start_on_boot = false
   unprivileged  = true
+  tags          = [local.tags.terraform]
 
   console {}
 
   cpu {
+    cores = local.cpu_threads
     limit = 2
   }
 

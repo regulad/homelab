@@ -5,13 +5,13 @@ resource "proxmox_virtual_environment_vm" "authentik" {
   depends_on = [proxmox_virtual_environment_file.vendor]
 
   name          = "authentik"
-  vm_id         = 109
   node_name     = "prodingus"
   description   = "⚠️ USES EARLYOOM"
   bios          = "ovmf"
   boot_order    = ["virtio0"]
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -31,18 +31,15 @@ resource "proxmox_virtual_environment_vm" "authentik" {
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "vm-109-disk-1"
-    size              = 100
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 100
   }
 
   efi_disk {
     datastore_id      = "rbd"
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

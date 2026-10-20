@@ -2,7 +2,6 @@
 
 resource "proxmox_virtual_environment_vm" "matrix" {
   name      = "matrix"
-  vm_id     = 107
   node_name = "prodingus"
   description = chomp(<<EOT
 MAINTENANCE TASKS AT 5:45
@@ -17,6 +16,7 @@ EOT
   boot_order    = ["virtio0"]
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -36,23 +36,19 @@ EOT
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "vm-107-disk-1"
-    size              = 100
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 100
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio1"
-    iothread          = true
-    path_in_datastore = "vm-107-disk-0"
-    size              = 100
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio1"
+    iothread     = true
+    size         = 100
   }
 
   memory {

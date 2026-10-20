@@ -7,7 +7,7 @@ resource "proxmox_backup_job" "weekly" {
   storage  = "cephfs"
   all      = true
   compress = "zstd"
-  exclude  = ["100", "101"] # aboriginal, dodo
+  exclude  = [proxmox_virtual_environment_vm.aboriginal.vm_id, proxmox_virtual_environment_vm.dodo.vm_id]
   fleecing = {
     enabled = true
     storage = "local-lvm"

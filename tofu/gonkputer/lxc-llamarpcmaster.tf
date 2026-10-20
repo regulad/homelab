@@ -1,14 +1,14 @@
 # llamarpcmaster: container 119 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "llamarpcmaster" {
-  vm_id     = 119
   node_name = "prodingus"
-  tags      = ["virtiofsd"]
   started   = false
+  tags      = [local.tags.terraform, local.tags.virtiofsd]
 
   console {}
 
   cpu {
+    cores = local.cpu_threads
     limit = 4
   }
 

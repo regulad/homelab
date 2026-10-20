@@ -10,7 +10,7 @@ resource "proxmox_cluster_options" "cluster" {
   mac_prefix                = "BC:24:11"
   migration_type            = "secure"
   next_id = {
-    lower = null
+    lower = 200 # New guests get IDs from 200, setting them apart from the adopted ones
     upper = 1000
   }
 

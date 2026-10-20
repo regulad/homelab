@@ -5,7 +5,6 @@ resource "proxmox_virtual_environment_vm" "resolute_template" {
   depends_on = [proxmox_virtual_environment_file.ubuntu_vendor]
 
   name          = "resolute-template"
-  vm_id         = 8000
   node_name     = "prodingus"
   template      = true
   on_boot       = false
@@ -14,6 +13,7 @@ resource "proxmox_virtual_environment_vm" "resolute_template" {
   boot_order    = ["virtio0"]
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -33,18 +33,15 @@ resource "proxmox_virtual_environment_vm" "resolute_template" {
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "base-8000-disk-2"
-    size              = 3
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 3
   }
 
   efi_disk {
     datastore_id      = "rbd"
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

@@ -1,10 +1,9 @@
 # ncsusplitt: container 125 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "ncsusplitt" {
-  vm_id         = 125
   node_name     = "prodingus"
-  description   = "amd64v3\n"
   start_on_boot = false
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
@@ -14,6 +13,11 @@ resource "proxmox_virtual_environment_container" "ncsusplitt" {
 
   device_passthrough {
     path = "/dev/vhost-net"
+  }
+
+  cpu {
+    cores = local.cpu_threads
+    limit = 1
   }
 
   disk {

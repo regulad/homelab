@@ -2,14 +2,13 @@
 
 resource "proxmox_virtual_environment_vm" "freeipa" {
   name          = "freeipa"
-  vm_id         = 113
   node_name     = "prodingus"
-  tags          = ["rhel"]
   protection    = true
   bios          = "ovmf"
   boot_order    = ["virtio0"]
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.rhel, local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -30,18 +29,15 @@ resource "proxmox_virtual_environment_vm" "freeipa" {
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "vm-113-disk-2"
-    size              = 10
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 10
   }
 
   efi_disk {
     datastore_id      = "rbd"
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

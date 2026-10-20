@@ -1,16 +1,15 @@
 # immich: container 116 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "immich" {
-  vm_id         = 116
   node_name     = "prodingus"
-  description   = "amd64v3\n"
-  tags          = ["virtiofsd"]
   start_on_boot = false
+  tags          = [local.tags.amd64v3, local.tags.terraform, local.tags.virtiofsd]
 
   console {}
 
   cpu {
-    cores = 2
+    cores = local.cpu_threads
+    limit = 2
   }
 
   disk {

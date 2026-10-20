@@ -1,14 +1,15 @@
 # mastodon: container 105 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "mastodon" {
-  vm_id         = 105
   node_name     = "prodingus"
   start_on_boot = false
   unprivileged  = true
+  tags          = [local.tags.terraform]
 
   console {}
 
   cpu {
+    cores = local.cpu_threads
     limit = 4
   }
 

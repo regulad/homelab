@@ -5,13 +5,13 @@ resource "proxmox_virtual_environment_vm" "unifi" {
   depends_on = [proxmox_virtual_environment_file.ubuntu_vendor]
 
   name          = "unifi"
-  vm_id         = 102
   node_name     = "prodingus"
   on_boot       = false
   bios          = "ovmf"
   boot_order    = ["virtio0"]
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -31,18 +31,15 @@ resource "proxmox_virtual_environment_vm" "unifi" {
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "base-8000-disk-2/vm-102-disk-2"
-    size              = 32
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 32
   }
 
   efi_disk {
     datastore_id      = "rbd"
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

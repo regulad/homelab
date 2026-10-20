@@ -1,16 +1,20 @@
 # openwebui: container 115 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "openwebui" {
-  vm_id         = 115
   node_name     = "prodingus"
-  description   = "amd64v3\n"
   start_on_boot = false
   unprivileged  = true
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
   device_passthrough {
     path = "/dev/net/tun"
+  }
+
+  cpu {
+    cores = local.cpu_threads
+    limit = 1
   }
 
   disk {

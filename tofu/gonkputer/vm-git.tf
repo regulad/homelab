@@ -2,7 +2,6 @@
 
 resource "proxmox_virtual_environment_vm" "git" {
   name      = "git"
-  vm_id     = 110
   node_name = "prodingus"
   description = chomp(<<EOT
 ⚠️ USES EARLYOOM
@@ -17,12 +16,12 @@ MAINTAINENCE TASKS AT 4:55
 4. Alma Linux 10.1
 EOT
   )
-  tags          = ["rhel"]
   protection    = true
   bios          = "ovmf"
   boot_order    = ["virtio0"]
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.rhel, local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -42,18 +41,15 @@ EOT
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "vm-110-disk-2"
-    size              = 46
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 46
   }
 
   efi_disk {
     datastore_id      = "rbd"
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

@@ -1,16 +1,16 @@
 # pihole: container 112 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "pihole" {
-  vm_id         = 112
   node_name     = "prodingus"
-  description   = "amd64v3\n"
   start_on_boot = false
   unprivileged  = true
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
   cpu {
-    cores = 2
+    cores = local.cpu_threads
+    limit = 2
     units = 10000
   }
 

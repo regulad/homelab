@@ -112,7 +112,7 @@ plan shows an unintended destroy or replace.
 
 - **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened (work done, approvals, apply results, superseded decisions) by appending to `.claude/HISTORY.md`.
 - **Guest names:** lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
-- **Tags:** every guest carries `managed-by=opentofu`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
+- **Tags:** every guest is marked as managed by OpenTofu: `managed-by=opentofu` on OCI instances, and the tag `terraform` on Proxmox guests, whose tags cannot contain `=`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
 - **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
 - **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
 - **Quadlets:** one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.
@@ -161,8 +161,11 @@ The rules above apply, with these additions.
 - **Files:** one `vm-<name>.tf` or `lxc-<name>.tf` per guest, holding the guest, then its HA resource and firewall resources. Cluster-wide concerns get their own files (`cluster.tf`, `firewall.tf`, `ha.tf`, `storage.tf`, `mappings.tf`, `backup.tf`, `access.tf`, `snippets.tf`). Labels are the guest name with `-` written as `_`.
 - **References:** VMs reference the custom CPU model's `cputype` and hardware mappings by name; HA resources reference their guest's `vm_id`; HA rules reference HA resources. Snippet volume IDs stay literal, because `vendor_data_file_id` forces replacement and a file still to be created is unknown at plan time; the guest lists the file resource in `depends_on`.
 - **Defaults:** where a setting is unset live and the provider's default differs from Proxmox's effective value, write Proxmox's value explicitly with a comment. Never hide such a diff with `ignore_changes`. Compare against the provider's source and Proxmox's API schema, and let the plan confirm.
-- **Containers** state their `vm_id`: the importer records none, and HA references need it.
-- **Opaque values:** PCI and USB vendor/device IDs get the device name as a comment (`id = "8086:2723" # Intel Wi-Fi 6 AX200`), as do guest IDs in lists (`exclude = ["100", "101"] # aboriginal, dodo`).
+- **Generated values stay out:** guests don't state `vm_id`, and disks don't state `path_in_datastore` or `file_format`. Proxmox generated them, and state tracks them since adoption, as with OCIDs. Anything that needs a guest's ID references its `vm_id`.
+- **Container CPUs:** every container sets `cores = local.cpu_threads` (the node's 32 logical CPUs) and caps CPU time with `limit`. Proxmox would treat a missing `cores` as every core, but the provider cannot leave it unset: it reads a missing `cores` as 1 and sends 1 on any `cpu` change.
+- **VMIDs:** the cluster's `next_id` starts at 200, so guests created from here on are set apart from the adopted ones below it.
+- **Tags:** every guest lists `terraform` among its `tags`, sorted as Proxmox stores them, as its last scalar argument. Markers such as `amd64v3` are tags, not descriptions. Tag names live once, in `local.tags` in `locals.tf`; guests reference them (`local.tags.terraform`) instead of writing the string.
+- **Opaque values:** PCI and USB vendor/device IDs get the device name as a comment (`id = "8086:2723" # Intel Wi-Fi 6 AX200`), as do other opaque IDs.
 
 ## Standing decisions
 

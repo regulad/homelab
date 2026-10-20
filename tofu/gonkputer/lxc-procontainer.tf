@@ -1,14 +1,13 @@
 # procontainer: container 106.
 
 resource "proxmox_virtual_environment_container" "procontainer" {
-  vm_id       = 106
-  node_name   = "prodingus"
-  description = "amd64v3\n"
-  tags        = ["locally-backed"]
+  node_name = "prodingus"
+  tags      = [local.tags.amd64v3, local.tags.locally_backed, local.tags.terraform]
 
   console {}
 
   cpu {
+    cores = local.cpu_threads
     limit = 2
   }
 

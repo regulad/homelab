@@ -5,7 +5,6 @@ resource "proxmox_virtual_environment_vm" "aboriginal" {
   depends_on = [proxmox_virtual_environment_file.pin_vcpus]
 
   name      = "aboriginal"
-  vm_id     = 100
   node_name = "prodingus"
   description = chomp(<<EOT
 MAINTENENCE TASKS AT 5:35
@@ -35,13 +34,13 @@ Passing through a GPU breaks the metering of how much memory has been paged in f
 The UPS USB cord keeps coming loose.
 EOT
   )
-  tags                = ["locally-backed", "virtiofsd"]
   protection          = true
   bios                = "ovmf"
   boot_order          = ["virtio0"]
   hook_script_file_id = "local:snippets/pin-vcpus.sh"
   machine             = "q35"
   scsi_hardware       = "virtio-scsi-single"
+  tags                = [local.tags.locally_backed, local.tags.terraform, local.tags.virtiofsd]
 
   network_device {
     mac_address = "BC:24:11:5D:BE:75"
@@ -64,16 +63,14 @@ EOT
   }
 
   disk {
-    datastore_id      = ""
-    discard           = "on"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "/dev/disk/by-id/ata-SK_hynix_SC311_SATA_256GB_MJ85N41231280545N"
-    size              = 238
+    datastore_id = ""
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 238
   }
 
   efi_disk {
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

@@ -5,13 +5,13 @@ resource "proxmox_virtual_environment_vm" "urbackup" {
   depends_on = [proxmox_virtual_environment_file.vendor]
 
   name          = "urbackup"
-  vm_id         = 111
   node_name     = "prodingus"
   bios          = "ovmf"
   boot_order    = ["virtio0"]
   hotplug       = "disk,network,usb"
   machine       = "q35"
   scsi_hardware = "virtio-scsi-single"
+  tags          = [local.tags.terraform]
 
   network_device {
     firewall    = true
@@ -31,29 +31,24 @@ resource "proxmox_virtual_environment_vm" "urbackup" {
   }
 
   disk {
-    datastore_id      = "rbd"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio0"
-    iothread          = true
-    path_in_datastore = "vm-111-disk-2"
-    size              = 100
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio0"
+    iothread     = true
+    size         = 100
   }
 
   disk {
-    backup            = false
-    datastore_id      = "rbd_cmr"
-    discard           = "on"
-    file_format       = "raw"
-    interface         = "virtio1"
-    iothread          = true
-    path_in_datastore = "vm-111-disk-0"
-    size              = 3072
+    backup       = false
+    datastore_id = "rbd_cmr"
+    discard      = "on"
+    interface    = "virtio1"
+    iothread     = true
+    size         = 3072
   }
 
   efi_disk {
     datastore_id      = "rbd"
-    file_format       = "raw"
     pre_enrolled_keys = true
     type              = "4m"
   }

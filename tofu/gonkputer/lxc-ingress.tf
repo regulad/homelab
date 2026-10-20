@@ -1,7 +1,6 @@
 # ingress: container 121 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "ingress" {
-  vm_id         = 121
   node_name     = "prodingus"
   description   = <<EOT
 Enabling mDNS in an LXC container is annoying.
@@ -29,10 +28,12 @@ MulticastDNS=yes
 EOT
   start_on_boot = false
   unprivileged  = true
+  tags          = [local.tags.terraform]
 
   console {}
 
   cpu {
+    cores = local.cpu_threads
     limit = 2
   }
 

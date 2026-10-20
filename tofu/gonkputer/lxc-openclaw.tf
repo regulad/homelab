@@ -1,15 +1,15 @@
 # openclaw: container 103 and its HA resource.
 
 resource "proxmox_virtual_environment_container" "openclaw" {
-  vm_id         = 103
   node_name     = "prodingus"
-  description   = "amd64v3\n"
   start_on_boot = false
   unprivileged  = true
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
   cpu {
+    cores = local.cpu_threads
     limit = 2
   }
 
