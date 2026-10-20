@@ -1,0 +1,11 @@
+# OpenTofu CLI configuration for this root, selected by prepare.sh through TF_CLI_CONFIG_FILE.
+# The mirror serves the build pinned in versions.tf. List direct first: OpenTofu installs
+# from the first method that has the selected version, and the mirror answers 404 for official
+# releases instead of falling through.
+provider_installation {
+  direct {}
+  network_mirror {
+    url     = "https://opentofu.regulad.xyz/"
+    include = ["registry.opentofu.org/bpg/proxmox"]
+  }
+}

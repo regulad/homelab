@@ -427,3 +427,195 @@ HCL changes. `inventory.py` was removed.
 - Proxmox guests do not feed `ansible-generated/` yet. That needs a
   `tofu/proxmox` root, which waits on the `bpg/proxmox` provider work, and then
   a `proxmox.terraform_state.yml` source beside the oracle one.
+
+## The gonkputer draft rebased onto master (2026-10-19)
+
+The on-hold `pve` worktree moved to `.claude/worktrees/pve`, and its uncommitted
+work was replayed onto `master`. Its rewrite of this file into a "pivots and
+findings" format was dropped in favour of `master`'s append-only log; what it had
+learned is kept here. Parker kept the root name `tofu/gonkputer`, so the docs
+that said `tofu/proxmox` now use it. No existing gonkputer state carries over:
+the provider has had several fixes since the draft, so its imports will be redone
+from scratch. Where that root's state lives is undecided.
+
+Decisions carried over, updated where later ones replaced them:
+- **Read/write credentials, approval-gated (2026-10-12).** `gonkputer` uses a
+  `root@pam` API token plus root SSH, because OpenTofu will write back; per-action
+  approval is the safeguard.
+- **Own provider mirror (2026-10-13).** Provider builds are served by the static
+  network mirror `regulad/opentofu-registry` at `https://opentofu.regulad.xyz/`,
+  under the `bpg/proxmox` address, so changing builds needs no state migration.
+- **Explicit Proxmox defaults, not `ignore_changes` (2026-10-14).** Where a
+  setting is unset live and the provider's default differs from Proxmox's
+  effective value, `tofu/gonkputer` writes Proxmox's value.
+- **Ceph narrowed to RBD (2026-10-14), then widened again (2026-10-19).** The
+  draft's plan to manage CephFS and move MDS daemons to OpenTofu was first
+  narrowed to the RBD pools and storages, with CephFS and MDS unmanaged. The
+  provider build adopted below covers every Ceph object, so all of them are in
+  scope again.
+- The draft's "containers, then VMs, then hardware hosts" Ansible order was
+  dropped; `master`'s hardware-first phase order stands.
+
+Findings about `gonkputer` (Proxmox and Ceph):
+- `prodingus` is a standalone pmxcfs node with no corosync configuration, yet the
+  HA manager runs with single-node quorum and armed fencing.
+- Proxmox VE 9 replaced HA groups with HA rules; one rule references a node,
+  `jondingus`, that is not part of the cluster.
+- pveproxy's certificate is self-signed by the PVE cluster CA and lacks the
+  tailnet name. `tailscale serve` publishes port 8006 on the node's tailnet name
+  to the tailnet only, with a Tailscale-issued certificate, so provider TLS
+  verification stays on.
+- Users and groups are owned by the LDAP realm `home.arpa` and its sync job,
+  which removes vanished entries.
+- `bpg/proxmox` 0.116.0 renamed its resources to short `proxmox_*` names; the long
+  names are deprecated (removal planned for v1.0), and some resources have no
+  short name yet. `proxmox_vm` is not the short name of
+  `proxmox_virtual_environment_vm` but the experimental former `vm2`, without
+  import support.
+- Proxmox documents an API for custom CPU models,
+  `/cluster/qemu/custom-cpu-models`, which `pvesh ls /cluster` does not show. The
+  provider can only reference custom models from `cpu.type`.
+- An API token with privilege separation and no ACLs has effectively no
+  permissions, while `/version` still answers. `root@pam!homelab` had this until
+  privilege separation was disabled.
+- The provider has no resources for RBD or CephFS storage, notification endpoints
+  and matchers, Ceph configuration, CRUSH rules or CephFS, or the scheduled
+  realm-sync job. `proxmox_ceph_pool` exists but is experimental.
+- Importing a `proxmox_virtual_environment_file` records only node, storage and
+  content type, so an imported snippet plans as a replacement. Creating the
+  resource over the live file adopts it in place. Edits on the node are not
+  detected.
+- PVE returns `number` options as text, so the seven containers that set only
+  `cpulimit` report `"cpus": "2"`, which `bpg/proxmox` could not read. Fixed in the
+  fork (bpg/terraform-provider-proxmox#3170) and reported to Proxmox as bug 8162.
+- `-generate-config-out` emits empty strings and zeros that fail the provider's
+  own validators; dropping nulls, provider defaults and empty values left only
+  meaningful settings.
+- Several provider defaults differ from Proxmox's: the guest firewall's `ndp` and
+  `radv`, the cluster and guest output and forward policies, and a VM's
+  `scsi_hardware`, which would have swapped the controller under VM 129's boot
+  disk.
+- The container importer records no `vm_id` and no `timeout_start`, so the first
+  plan shows an in-place update that sends no request.
+- A force-new attribute that references a resource still to be created forces
+  replacement (`vendor_data_file_id` on the cloud-init VMs); literal volume IDs
+  with `depends_on` avoid it.
+- Plugin Framework defaults are applied during planning, after `ignore_changes`,
+  so `ignore_changes` cannot hide a missing default in state.
+- `proxmox_ceph_pool` after an import plans an update, and its `add_storages`
+  forces replacement. Its update resends every property, including `application`,
+  which Proxmox's API cannot set to `mgr`.
+- The provider never sends an empty cloud-init password, so an unconfigured one
+  stays unmanaged.
+- Proxmox's Ceph objects form three layers: Ceph objects (pools, filesystems,
+  MDS), storage entries that refer to them by name, and one-shot bridges between
+  them. "Add as storage" registers an RBD storage named after the pool; CephFS
+  creation makes new `<name>_data` and `<name>_metadata` pools and needs a standby
+  MDS.
+- `storage.cfg` does not record how an entry was created; the missing `krbd 0`
+  lines reflect upgrades from Proxmox VE 7 through 9.
+- `prodingus1` was a test MDS at first. By 2026-10-19 Parker had made it a real hot
+  spare on the same host, and a second spare, `prodingus2`, had been added.
+- The snippet storages hold two scripts no guest references:
+  `local:snippets/lxc-bindfs-hook.sh` and `cephfs:snippets/block-ula.sh`.
+- Ceph was in HEALTH_WARN at discovery: `osd.1` down, 32 PGs inactive, the `rbd`
+  storage unlistable, and stale per-OSD mClock settings for removed OSDs.
+
+Tooling findings:
+- OpenTofu selects a provider version across all matching installation methods
+  but installs from the first one listed. A network mirror listed before
+  `direct {}` answers 404 for official releases, and the install fails, so
+  `direct {}` comes first.
+- `tofu providers lock` ignores the CLI configuration's installation methods;
+  lock mirrored builds with `-net-mirror=<url>`.
+- A GitHub Pages custom domain set before its DNS record existed never got a
+  certificate. Clearing and re-setting it after DNS resolved fixed that.
+- The GUA guard's `\b` boundary also matched later hextets of link-local EUI-64
+  addresses; a `(?<![0-9a-f:])` lookbehind fixes it.
+
+Unix port of the draft, approved by Parker:
+- `tofu/gonkputer/prepare.ps1` became a sourced `prepare.sh`, like
+  `tofu/oracle/prepare.sh`. It exports only `PROXMOX_VE_ENDPOINT` and
+  `PROXMOX_VE_API_TOKEN`, rejects any other key, and sets `TF_CLI_CONFIG_FILE` to
+  the root's `tofu.rc`. The README, `tofu.rc` and `providers.tf` comments dropped
+  their Windows references.
+- The decrypted `secrets.auto.tfvars.json`, written on Windows, was converted from
+  CRLF to LF; its data did not change.
+- The worktree's `tofu/oracle/.terraform/` was copied from the main checkout, so
+  nothing was downloaded.
+- The draft's `.tf` files were never run through `tofu fmt`; they are left as
+  they are, since the imports will be redone.
+
+## gonkputer provider build with full Ceph support (2026-10-19)
+
+- `tofu/gonkputer` now pins `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1` from
+  the mirror. Beyond the official `v0.117.0`, which already includes the custom CPU
+  model and the string `cpus` fix, this build adds:
+  - `proxmox_ceph_pool` fixes: imports plan no changes, `pool_id`, erasure-coded
+    pools. Pools no longer create storages; `add_storages`, `remove_storages` and
+    `remove_ecprofile` are gone.
+  - `proxmox_storage_rbd`.
+  - `proxmox_ceph_mds`.
+  - `proxmox_ceph_fs`, whose destroy is a manual procedure the provider refuses
+    to run, and `proxmox_storage_cephfs`.
+- Parker put every Ceph object created through Proxmox in scope: the pools, the
+  CephFS, their storages and the `prodingus` MDS. `AGENTS.md`'s Ceph scope
+  replaces the RBD-only and unmanaged-MDS decisions.
+- Work on the provider itself happens outside this repository, so the docs no
+  longer describe it.
+- The lock file was regenerated for `linux_amd64` with
+  `-net-mirror=https://opentofu.regulad.xyz/`, after removing the old version's
+  entry, which `providers lock` refuses to replace. With Parker's approval,
+  `tofu init -backend=false` fetched the `linux_amd64` build, and the draft
+  validates against it.
+
+## gonkputer re-described from live, with Ceph (2026-10-19)
+
+Proxmox remains authoritative; `tofu/gonkputer` still describes it, not the
+other way round.
+- A fresh read-only crawl (`docs/snapshot/gonkputer-2026-10-19/`, local only)
+  was compared with the first one. Configuration changes since the draft:
+  containers 103, 106 and 115 gained the description `amd64v3`; Parker started
+  containers 103 and 115 through HA, so their HA state became `started`; and the
+  MDS `prodingus1` and `prodingus2` were added as hot spares. The RGW pool
+  `default.rgw.buckets.non-ec` went from size 3 to 2, outside this root's scope.
+  No VM settings changed, and the 7 snippets still match the live files.
+- The draft's guests were updated to match, and `ceph.tf` now describes the
+  pools `rbd_ssd` and `rbd_cmr`, the CephFS `cephfs` and the three MDS daemons.
+  `storage.tf` gained the storages `rbd`, `rbd_cmr` and `cephfs`, and there are
+  9 new import blocks (86 in all). The PG autoscaler is on for every pool, so
+  `pg_num` is left to it.
+- The first plans stalled for 15 minutes. VM 100's QEMU guest agent answered
+  every `network-get-interfaces` call with HTTP 500, and the provider retries
+  until its agent timeout (15 minutes by default) runs out. The agent had not
+  restarted when Parker re-rooted the VM without a reboot; he started it, and a
+  plan then took seconds.
+- A 1-minute `agent.timeout` was tried and removed again. It cannot help an
+  import, whose first read uses the default before the configuration applies.
+  And any change to a VM's `agent` block, even this provider-side attribute,
+  makes the provider rewrite the live `agent` line and mark the VM for a reboot,
+  which `reboot_after_update` (default true) would carry out.
+- The read-only plan then reported 86 to import, 7 to add, 23 to change and 0 to
+  destroy. The 7 creates are the snippet uploads. The 23 updates are the draft's
+  expected ones: the 20 containers' state-only `vm_id` and `timeout_start`, the
+  explicit firewall defaults in `cluster.fw` and `100.fw`, and VM 129's
+  `scsihw: lsi`. The 9 Ceph imports plan no changes.
+
+## gonkputer state moved to the shared bucket (2026-10-19)
+
+At Parker's direction:
+- `backend.sops.env` moved from `tofu/oracle/` to `tofu/shared/`, since every
+  root uses the same backend credentials. Both `prepare.sh` scripts export them
+  from there. `svc-tofu-state`'s policy already covers the whole
+  `homelab-tofu-state` bucket, so OCI needed no change.
+- `tofu/gonkputer` got the same s3 backend as `tofu/oracle`, under the key
+  `gonkputer/terraform.tfstate`, keeping its own encryption passphrase.
+- The empty local `terraform.tfstate`, left by the read-only plans, was deleted,
+  and `tofu init` configured the backend.
+- With Parker's approval, each import block's object was imported with
+  `tofu import`, one at a time. That records state only; the plan's live
+  changes (snippet uploads, explicit firewall defaults, VM 129's `scsihw`) were
+  not applied.
+- All 86 imports succeeded. A plan against the imported state shows 7 to add,
+  23 to change and 0 to destroy, the same live changes as before; the import
+  blocks are now no-ops.

@@ -7,7 +7,7 @@ This module exports non-sensitive constants and manages no resources or provider
 `svc-tofu-state`'s customer secret key and the bucket's S3-compatible endpoint. Each root's
 `prepare.sh` exports them; they are not module inputs.
 
-From a root such as `tofu/oracle` or a future `tofu/proxmox`:
+From a root such as `tofu/oracle` or `tofu/gonkputer`:
 
 ```hcl
 module "shared" {

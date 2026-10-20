@@ -21,6 +21,8 @@ repos:
         args: [--fix=lf]
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        # Snippets are byte-exact copies of the files OpenTofu uploads.
+        exclude: ^tofu/gonkputer/snippets/
 
   # --- OpenTofu -------------------------------------------------------------
   - repo: local
@@ -38,6 +40,13 @@ repos:
         language: unsupported
         entry: tofu -chdir=tofu/oracle validate -no-color
         files: ^tofu/(oracle|shared)/
+        pass_filenames: false
+
+      - id: tofu-validate-gonkputer
+        name: tofu validate (gonkputer)
+        language: unsupported
+        entry: tofu -chdir=tofu/gonkputer validate -no-color
+        files: ^tofu/(gonkputer|shared)/
         pass_filenames: false
 
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
@@ -76,9 +85,10 @@ repos:
         types: [text]
 
       # Our GUA prefixes stay in SOPS; ULA and Tailscale ranges (fc00::/7) do not match.
+      # The lookbehind skips later hextets, such as the 3fff in fe80::1ef4:3fff:fe...
       - id: no-gua-ipv6
         name: No global unicast IPv6 literals
         language: pygrep
-        entry: '(?i)\b[23][0-9a-f]{3}:[0-9a-f]{1,4}:'
+        entry: '(?i)(?<![0-9a-f:])[23][0-9a-f]{3}:[0-9a-f]{1,4}:'
         types: [text]
         exclude: \.sops\.

@@ -1,0 +1,56 @@
+#cloud-config
+timezone: "America/New_York"
+package_update: true
+package_upgrade: true
+ssh_deletekeys: false
+users:
+  - name: "regulad"
+    groups: ["sudo"]
+    shell: "/bin/bash"
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMcSNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhkduWYAwg8utchrqloVGd7NDd+BphSDJ8u/4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56HgjN/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzGsPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlpQUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcXTPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQSAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE= regulad@github/102565467"
+apt:
+  sources_list: |
+    deb $MIRROR $RELEASE main restricted universe multiverse
+    deb $MIRROR $RELEASE-updates main restricted universe multiverse
+    deb $MIRROR $RELEASE-backports main restricted universe multiverse
+    deb $SECURITY $RELEASE-security main restricted universe multiverse
+packages:
+  - linux-image-generic 
+  - qemu-guest-agent
+  - unattended-upgrades
+  - watchdog
+runcmd:
+  - sudo sysctl --system 
+  - sed -i '/watchdog-device/s/^#/ /' /etc/watchdog.conf
+  - sed -i 's/^watchdog_module="none"/watchdog_module="i6300esb"/' /etc/default/watchdog
+  - systemctl daemon-reload
+  - systemctl start qemu-guest-agent
+  - systemctl enable --now unattended-upgrades.service
+  - systemctl enable --now watchdog.service
+  - networkctl reload
+  - networkctl reconfigure eth0
+  - systemctl restart systemd-resolved
+write_files:
+  - path: /etc/systemd/resolved.conf.d/mdns.conf
+    content: |
+      [Resolve]
+      MulticastDNS=yes
+  - path: /etc/systemd/network/10-netplan-eth0.network.d/mdns.conf
+    content: |
+      [Network]
+      MulticastDNS=yes
+  - path: /etc/sysctl.d/99-panic.conf
+    content: |
+      kernel.panic = 10
+      kernel.hung_task_panic = 1
+      kernel.softlockup_panic = 1
+      kernel.panic_on_oops = 1
+network:
+  version: 2
+  ethernets:
+    eth0:
+      renderer: "networkd"
+      dhcp4: true
+      accept-ra: true

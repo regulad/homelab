@@ -15,7 +15,7 @@ Where this file and the plan disagree, this file wins.
 ## Hard rules
 
 1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `pvesh set|create|delete`, `ceph config set` and other Ceph changes, `podman rm|stop`, and `oci ... delete|update`. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
-2. **Read-only discovery.** Use read-only credentials, such as a Proxmox `PVEAuditor` token. OCI is the exception: Parker's own read/write session token, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
+2. **Read-only discovery.** Discover with reads only. The OCI session token and the `gonkputer` `root@pam` API token and root SSH are read/write, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
 3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
 4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
    - OCIDs owned by our tenancy or compartments link resources to the tenancy, so they stay encrypted, including router next-hop IDs. Verified Oracle-defined OCIDs may be plaintext as entries in a module's `platform_image_ids` or `backup_policy_ids` map, keyed by their exact Oracle name. Verify ownership before publishing an unfamiliar OCID.
@@ -42,7 +42,7 @@ homelab/
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
-│   ├── <provider>/              # one root per provider, own state (oracle, proxmox)
+│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer)
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
@@ -116,7 +116,7 @@ plan shows an unintended destroy or replace.
 - **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
 - **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
 - **Quadlets:** one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.
-- **File names:** where `-` delimits parts of a file name (`instance-<name>.tf`, `subnet-<name>.tf`), write each `-` inside a part as `--`. For example, subnet `subnet-20230331-2242` lives in `subnet-subnet--20230331--2242.tf`.
+- **File names:** where `-` delimits parts of a file name (`instance-<name>.tf`, `subnet-<name>.tf`, `vm-<name>.tf`, `lxc-<name>.tf`), write each `-` inside a part as `--`. For example, subnet `subnet-20230331-2242` lives in `subnet-subnet--20230331--2242.tf`, and VM `resolute-template` in `vm-resolute--template.tf`.
 
 ### OpenTofu HCL (as practiced in `tofu/oracle`)
 - **HCL first:** ordinary, readable `.tf` resources with inline non-sensitive settings and direct references. SOPS holds sensitive input values only, never encrypted HCL, resource definitions, or a topology data model.
@@ -155,6 +155,15 @@ plan shows an unintended destroy or replace.
 - **Deferred problems:** a setting known to be wrong but kept for now gets `# FIXME: <what is wrong>. Revisit <when>.` on the lines directly above it.
 - **Labels:** resource labels are stable identities; renaming one needs a `moved` block. NSG rules are labelled `<host>_<protocol>_<port or range>`; bailout's two family-specific rules keep their adopted `bailout_rule_NN` labels.
 
+### Proxmox HCL (as practiced in `tofu/gonkputer`)
+The rules above apply, with these additions.
+- **Resource names:** use the short `proxmox_*` names. The long `proxmox_virtual_environment_*` names are deprecated; use one only where no short name exists yet (containers, firewalls, DNS/hosts/time, users/groups/roles, files). VMs stay on `proxmox_virtual_environment_vm`: the short `proxmox_vm` is a different resource, the experimental former `vm2`, which the provider marks unfit for production.
+- **Files:** one `vm-<name>.tf` or `lxc-<name>.tf` per guest, holding the guest, then its HA resource and firewall resources. Cluster-wide concerns get their own files (`cluster.tf`, `firewall.tf`, `ha.tf`, `storage.tf`, `mappings.tf`, `backup.tf`, `access.tf`, `snippets.tf`). Labels are the guest name with `-` written as `_`.
+- **References:** VMs reference the custom CPU model's `cputype` and hardware mappings by name; HA resources reference their guest's `vm_id`; HA rules reference HA resources. Snippet volume IDs stay literal, because `vendor_data_file_id` forces replacement and a file still to be created is unknown at plan time; the guest lists the file resource in `depends_on`.
+- **Defaults:** where a setting is unset live and the provider's default differs from Proxmox's effective value, write Proxmox's value explicitly with a comment. Never hide such a diff with `ignore_changes`. Compare against the provider's source and Proxmox's API schema, and let the plan confirm.
+- **Containers** state their `vm_id`: the importer records none, and HA references need it.
+- **Opaque values:** PCI and USB vendor/device IDs get the device name as a comment (`id = "8086:2723" # Intel Wi-Fi 6 AX200`), as do guest IDs in lists (`exclude = ["100", "101"] # aboriginal, dodo`).
+
 ## Standing decisions
 
 - **Pre-commit:** `.pre-commit-config.yaml` runs the pinned `pre-commit/pre-commit-hooks` plus local hooks that use installed tools (`language: unsupported`) or `pygrep`. Gitleaks is not wanted.
@@ -164,4 +173,12 @@ plan shows an unintended destroy or replace.
 - **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/shared/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
 - **Ansible scope:** each stage has exactly one playbook, `playbooks/site.yml`. Every play in it converges hosts to the state declared here and is safe to rerun; a second run reports `changed=0`. Deliberate operations, such as rolling reboots, release upgrades, key rotation and restores, are not Ansible playbooks. Package updates come from each host's own automatic updater (unattended-upgrades, dnf-automatic), not from a playbook. Moving a service is a `host_vars` edit plus a `site.yml` run; its data moves by hand.
+- **First pass describes; later passes prescribe.** A root's first adoption pass mirrors the live configuration exactly, warts included (for example the HA rule naming the departed node `jondingus`). Fixes follow as separate, reviewed changes.
+- **gonkputer ownership:** node-level settings (network, DNS, hosts, time, APT, node options) belong to Ansible. Users and groups belong to the LDAP realm `home.arpa` and its sync. Ceph health warnings are known and can be ignored.
+- **gonkputer API endpoint:** the node's tailnet name on port 8006, published by `tailscale serve` (tailnet only) with a Tailscale-managed certificate. Keep provider TLS verification on. The endpoint and token live in `tofu/gonkputer/provider.sops.env`.
+- **Provider mirror:** `tofu/gonkputer` pins a build of `bpg/proxmox`, served under the official address by [`regulad/opentofu-registry`](https://github.com/regulad/opentofu-registry) at `https://opentofu.regulad.xyz/`. The root's `tofu.rc`, selected by sourcing `tofu/gonkputer/prepare.sh`, lists `direct {}` before the mirror. Lock with `tofu providers lock -net-mirror=https://opentofu.regulad.xyz/`.
+- **Snippets:** hookscripts and cloud-init vendor files live byte for byte under `tofu/gonkputer/snippets/<storage>/`, uploaded by `proxmox_virtual_environment_file` over SSH as root through the operator's agent. They are created over the live files, not imported, and are exempt from the whitespace hook.
+- **Ceph scope:** `tofu/gonkputer` manages the Ceph objects created through Proxmox: the pools `rbd_ssd` and `rbd_cmr` (`proxmox_ceph_pool`) with their storages `rbd` and `rbd_cmr` (`proxmox_storage_rbd`), the CephFS `cephfs` with its pools (`proxmox_ceph_fs`) and its storage (`proxmox_storage_cephfs`), and the MDS daemons (`proxmox_ceph_mds`): `prodingus`, which serves `cephfs`, and the hot spares `prodingus1` and `prodingus2` on the same host. Storages are always separate resources, never created as a side effect of a pool or filesystem; `rbd_cmr`'s storage, which Proxmox's "Add as storage" made, is imported like any other. Destroying a CephFS is a manual procedure the provider refuses to run. Not managed: `.mgr` and the RGW pools, which were not created through Proxmox; and monitors, managers, OSDs, Ceph configuration and CRUSH rules, which have no resources.
+- **gonkputer firewall bypass:** VMs 100 and 101 deliberately bypass the firewall (`firewall = false` on their NICs).
+- **gonkputer state** lives in the same `homelab-tofu-state` bucket under the key `gonkputer/terraform.tfstate`, with the same backend credentials and its own encryption passphrase. No state from the draft carried over; its imports were redone from scratch.
 - **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.
