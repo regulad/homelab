@@ -40,6 +40,10 @@ EOT
   hook_script_file_id = "local:snippets/pin-vcpus.sh"
   machine             = "q35"
   scsi_hardware       = "virtio-scsi-single"
+  # Never reboot this VM on its own: its passed-through AMD GPU does not reset
+  # properly when the KVM host detaches and re-attaches it. Restart it by rerooting,
+  # or together with a host reboot. Changes that need a reboot stay pending.
+  reboot_after_update = false
   tags                = [local.tags.locally_backed, local.tags.terraform, local.tags.virtiofsd]
 
   network_device {
@@ -117,8 +121,17 @@ EOT
   }
 
   usb {
-    host = "0b05:17cb" # ASUSTek Broadcom BCM20702A0 Bluetooth
+    mapping = proxmox_hardware_mapping_usb.bcm20702a0.name
   }
+
+  # The APC UPS is under maintenance; restore this block when it is back.
+  # usb {
+  #   mapping = proxmox_hardware_mapping_usb.back_ups.name
+  # }
+
+  # TODO: declare usb4, which is live as `mapping=CPS` (the CyberPower UPS). The
+  # provider reads only usb0 to usb3, so a usb block for it would plan a change
+  # on every run. Pending https://github.com/bpg/terraform-provider-proxmox/issues/3009.
 
   vga {
     type = "virtio-gl"

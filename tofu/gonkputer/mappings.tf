@@ -91,6 +91,19 @@ resource "proxmox_hardware_mapping_usb" "ax200" {
   }
 }
 
+# Created by OpenTofu, replacing VM 100's ad-hoc host passthrough.
+resource "proxmox_hardware_mapping_usb" "bcm20702a0" {
+  name = "BCM20702A0"
+  map = [
+    {
+      comment = null
+      id      = "0b05:17cb" # ASUSTek Broadcom BCM20702A0 Bluetooth
+      node    = "prodingus"
+      path    = null
+    },
+  ]
+}
+
 resource "proxmox_hardware_mapping_usb" "tubeszb" {
   name = "TubesZB"
   map = [

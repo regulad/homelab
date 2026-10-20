@@ -747,3 +747,25 @@ The survey also found that VM 100 has a USB device live in slot `usb4`,
 the provider only knows the slots `usb0` to `usb3`. That is bpg issue #3009, open
 and confirmed by the maintainer, so a TODO on VM 100 links it instead of a new
 issue.
+
+## VM 100's Bluetooth adapter mapped, and root tickets (2026-10-20)
+
+With Parker's approval:
+- The ASUS Broadcom BCM20702A0 Bluetooth adapter (`0b05:17cb`) got a USB mapping,
+  `BCM20702A0`, created by OpenTofu, and VM 100 uses it instead of raw host
+  passthrough. The APC UPS's `usb` block sits commented out in VM 100: the UPS is
+  under maintenance.
+- VM 100 sets `reboot_after_update = false`. Its passed-through AMD GPU does not
+  reset properly when the KVM host detaches and re-attaches it, so it is never
+  rebooted on its own: it is rerooted, or restarted with a host reboot.
+- The first apply created the mapping but failed on VM 100: Proxmox lets only
+  `root@pam` itself set or remove USB passthrough by device ID ("only root can
+  set 'usb3' config for real devices"), and the API token does not count. The
+  provider's `ssh.root_ticket` is now on: node-scoped calls run as `root@pam` with
+  a ticket minted over SSH. Parker asked to drop the API token as well, but calls
+  outside `/nodes/` (cluster options, HA, mappings, storage, backup, access) still
+  need it, so it stays. Plans now open that SSH connection too.
+- The second apply changed VM 100 (0 added, 1 changed, 0 destroyed) without
+  rebooting it; the provider warned that a reboot is required. Proxmox shows no
+  pending changes, and VM 100's USB slots are now `usb0` AX200, `usb1` TubesZB,
+  `usb2` BCM20702A0 and `usb4` CPS. A fresh plan is a no-op.

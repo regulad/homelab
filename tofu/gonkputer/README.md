@@ -48,6 +48,9 @@ A `-` inside a guest name is written as `--` (`vm-resolute--template.tf`).
   description. Tag names come from `local.tags` in `locals.tf`. The cluster's `next_id`
   starts at 200, so new guests are set apart from the adopted ones, whose IDs are below 200
   or 8000.
+- **VM 100 never reboots on its own:** its passed-through AMD GPU does not reset properly when
+  the KVM host detaches and re-attaches it. It sets `reboot_after_update = false`, and is
+  restarted by rerooting or with a host reboot.
 - **Firewall bypass:** VMs 100 and 101 have `firewall = false` on their NICs, so their traffic
   never passes a firewall bridge. VM 100's firewall options stay disabled.
 

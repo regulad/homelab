@@ -7,6 +7,10 @@ provider "proxmox" {
   ssh {
     agent    = true
     username = "root"
+    # Calls under /nodes/{node}/ run as root@pam with a ticket minted on the node over
+    # this SSH connection, for operations Proxmox reserves for root@pam itself (such as
+    # USB passthrough by device ID). Everything else still uses the API token.
+    root_ticket = true
 
     node {
       name    = "prodingus"
