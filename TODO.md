@@ -1,0 +1,76 @@
+# TODO: hosts to declarativize
+
+Every host still configured by hand. Check one off once its configuration is
+captured as code and a run against it reports no changes (`changed=0` for
+Ansible, an identical configuration for the switch scripts). See
+[`.claude/PLAN.md`](.claude/PLAN.md) for each phase.
+
+## Hardware hosts (`ansible-hardware/`)
+
+- [ ] `prodingus`: the Proxmox VE node of `gonkputer`
+- [ ] `turk`: Ubuntu 24.04 with VMware Workstation
+- [ ] `overture`: macOS
+
+## Network switches (repository scripts)
+
+- [ ] Cisco SG300 `switch45f304`
+- [ ] Cisco SG300 `switch070e26`
+- [ ] Arista 7010T
+
+## OCI instances (`ansible-generated/`, from `tofu/oracle`)
+
+- [ ] `bailout`
+- [ ] `doppelgangerhq.com` (legacy `web`)
+- [ ] `livekit`
+- [ ] `mail`
+- [ ] `tailscalerouter`
+
+## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
+
+- [ ] `aboriginal` (100)
+- [ ] `arawi` (108)
+- [ ] `authentik` (109)
+- [ ] `dodo` (101)
+- [ ] `freeipa` (113)
+- [ ] `git` (110)
+- [ ] `matrix` (107)
+- [ ] `softether` (114)
+- [ ] `unifi` (102)
+- [ ] `urbackup` (111)
+- [ ] `vkasm` (129)
+
+## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
+
+- [ ] `aameter` (130)
+- [ ] `act` (123)
+- [ ] `cordpepperer` (118)
+- [ ] `immich` (116)
+- [ ] `ingress` (121)
+- [ ] `llamarpcmaster` (119): in the inventory only while its HA resource is requested
+- [ ] `mastodon` (105)
+- [ ] `ncsusplitt` (125)
+- [ ] `openclaw` (103)
+- [ ] `openwebui` (115)
+- [ ] `peppercord` (126)
+- [ ] `pihole` (112)
+- [ ] `procontainer` (106)
+- [ ] `pterodactyl` (120)
+- [ ] `tailscalerouter` (122)
+- [ ] `timemachine` (104)
+- [ ] `tsexit` (124)
+- [ ] `tvheadend` (127)
+- [ ] `uptime` (117)
+- [ ] `vaultwarden` (128)
+
+Not listed: the template `resolute-template` (8000), which is not a host.
+
+## MAC addresses
+
+Each hardware host's and switch's management interface, as `mac` - Name.
+
+- `3c:7c:3f:22:33:b3` - prodingus (`vmbr0`, on `eth0`)
+- overture
+- pending - turk (unreachable on 2026-10-20)
+- `08:cc:68:45:f3:04` - Cisco SG300 `switch45f304`
+- `f8:7b:20:07:0e:26` - Cisco SG300 `switch070e26`
+- `28:99:3a:fa:31:fa` - Arista 7010T
