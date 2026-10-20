@@ -62,7 +62,7 @@ Parker asks.
 | Phase 1 | OCI access | Provided: Parker's session token in the `DEFAULT` profile |
 | Phase 1 | SSH access from the operator machine to Proxmox nodes and guests over the tailnet; a read-only Proxmox API token (`PVEAuditor`) | Needed |
 | Phase 2 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node and network switch before any cluster firewall, network, Ceph, or switch change | Needed |
-| Phase 3 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/oracle/backend.sops.env` |
+| Phase 3 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/shared/backend.sops.env`, used by every root |
 | Phase 3 | A scoped Proxmox API token/role for management (Parker creates it) | Needed |
 | Phase 3 | A Proxmox API token/role with the privileges cluster-wide settings need (Parker creates it) | Needed |
 | Phase 6 | A non-expiring OCI credential (API-key user or instance principal) | Needed |

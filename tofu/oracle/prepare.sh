@@ -52,7 +52,7 @@ _homelab_oracle_prepare() {
     fi
     # The s3 backend reads these from the environment, so they never reach
     # .terraform/ or saved plans. Check every name before exporting any.
-    backend=$(_homelab_sops decrypt "$dir/backend.sops.env") || return 1
+    backend=$(_homelab_sops decrypt "$root/tofu/shared/backend.sops.env") || return 1
     for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3; do
         if ! printf '%s\n' "$backend" | grep -q "^$name=."; then
             echo "prepare.sh: backend.sops.env is missing $name." >&2

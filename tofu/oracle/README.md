@@ -79,7 +79,8 @@ passphrase. It contains no HCL or resource definitions.
 `variables.tf` declares these inputs. `prepare.sh` decrypts them into the ignored
 `secrets.auto.tfvars.json`; it does not generate `.tf` files.
 
-`backend.sops.env` holds what the s3 backend reads from the environment:
+`tofu/shared/backend.sops.env`, shared by every root, holds what the s3 backend reads from
+the environment:
 `svc-tofu-state`'s customer secret key (`AWS_ACCESS_KEY_ID` and
 `AWS_SECRET_ACCESS_KEY`), and the endpoint `AWS_ENDPOINT_URL_S3`, which contains
 the tenancy's namespace. Sourcing `prepare.sh` exports all three into the current
