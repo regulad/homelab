@@ -731,3 +731,19 @@ With Parker's approval:
 - A first ping of `openclaw` through the plugin failed with an authentication
   timeout, most likely Bitwarden's SSH agent waiting for its prompt to be
   approved. It was not retried.
+
+## Imperative leftovers removed (2026-10-20)
+
+A survey of `tofu/gonkputer` for leftovers found four candidates. With Parker's
+approval, three were destroyed (0 added, 0 changed, 3 destroyed): the HA rule
+`ha-rule-157366ac-952c`, which pinned `uptime` to `jondingus`, a node no longer
+in the cluster; and the snippets `local:snippets/lxc-bindfs-hook.sh` and
+`cephfs:snippets/block-ula.sh`, which no guest referenced. Their copies left
+`tofu/gonkputer/snippets/`. Parker kept the USB mapping `Back-UPS`, though no
+guest uses it and the device is not attached. A fresh plan is a no-op.
+
+The survey also found that VM 100 has a USB device live in slot `usb4`,
+`mapping=CPS`, since the first crawl, which the HCL lacks and no plan reported:
+the provider only knows the slots `usb0` to `usb3`. That is bpg issue #3009, open
+and confirmed by the maintainer, so a TODO on VM 100 links it instead of a new
+issue.

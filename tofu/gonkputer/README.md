@@ -90,7 +90,7 @@ All 86 adopted resources, including the 9 Ceph objects, were imported into the r
 and the import blocks were removed after the adoption apply. That apply changed nothing live
 except:
 
-- the 7 snippet files, uploaded over their identical live copies (an import records neither
+- the snippet files, uploaded over their identical live copies (an import records neither
   content nor mode, so the files are created instead);
 - `100.fw` and `cluster.fw`, which gain explicit lines for Proxmox's effective defaults;
 - VM 129's config, which gains `scsihw: lsi`, its current default.

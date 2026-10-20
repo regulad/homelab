@@ -30,19 +30,6 @@ resource "proxmox_virtual_environment_file" "hook_101" {
   }
 }
 
-# No guest references this hookscript.
-resource "proxmox_virtual_environment_file" "lxc_bindfs_hook" {
-  node_name    = "prodingus"
-  datastore_id = "local"
-  content_type = "snippets"
-  file_mode    = "0755"
-
-  source_raw {
-    data      = file("${path.module}/snippets/local/lxc-bindfs-hook.sh")
-    file_name = "lxc-bindfs-hook.sh"
-  }
-}
-
 resource "proxmox_virtual_environment_file" "vendor" {
   node_name    = "prodingus"
   datastore_id = "local"
@@ -64,19 +51,6 @@ resource "proxmox_virtual_environment_file" "block_mac_108" {
   source_raw {
     data      = file("${path.module}/snippets/cephfs/block-mac-108.sh")
     file_name = "block-mac-108.sh"
-  }
-}
-
-# No guest references this hookscript.
-resource "proxmox_virtual_environment_file" "block_ula" {
-  node_name    = "prodingus"
-  datastore_id = "cephfs"
-  content_type = "snippets"
-  file_mode    = "0755"
-
-  source_raw {
-    data      = file("${path.module}/snippets/cephfs/block-ula.sh")
-    file_name = "block-ula.sh"
   }
 }
 
