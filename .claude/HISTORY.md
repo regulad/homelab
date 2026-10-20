@@ -619,3 +619,21 @@ At Parker's direction:
 - All 86 imports succeeded. A plan against the imported state shows 7 to add,
   23 to change and 0 to destroy, the same live changes as before; the import
   blocks are now no-ops.
+
+## gonkputer adoption applied (2026-10-20)
+
+- The first saved plan failed with HTTP 401 on every read: the `root@pam!homelab`
+  API token had expired at midnight. Parker extended it.
+- With Parker's approval, the saved plan (7 to add, 23 to change, 0 to destroy)
+  was applied. He chose to let the provider reboot VM 129 for `scsihw: lsi`,
+  which a `scsi_hardware` change requires; it came back running with the new
+  line. Every change applied, but three snippet uploads failed: the provider
+  opened its SSH connections as root in parallel, and Bitwarden's SSH agent,
+  behind `~/.wsl-ssh-agent.sock`, refused or dropped them. The live snippets were
+  unharmed.
+- `tofu/gonkputer/prepare.sh` now exports `TF_CLI_ARGS_apply="-parallelism=1"`,
+  so applies open one SSH connection at a time and each Bitwarden prompt can be
+  approved. A second saved plan, the three remaining uploads, then applied
+  cleanly.
+- A fresh plan reports no changes, and all 7 live snippets match the repository
+  byte for byte. The import blocks were removed, as the adoption convention says.

@@ -2,7 +2,7 @@
 
 The `.tf` files are the source of truth for the `gonkputer` cluster: its guests and the
 cluster-wide settings, including Ceph, that `bpg/proxmox` supports. This is the first, descriptive pass. It
-mirrors the live configuration, including its known warts, so that adoption changes nothing.
+mirrors the live configuration, including its known warts, so adoption changed almost nothing.
 Fixes follow as separate, reviewed changes. `gonkputer` has one node, `prodingus`.
 
 | Location | Configuration |
@@ -17,7 +17,6 @@ Fixes follow as separate, reviewed changes. `gonkputer` has one node, `prodingus
 | `backup.tf` | The weekly backup job |
 | `access.tf` | The LDAP realm `home.arpa` and its single ACL |
 | `snippets.tf`, `snippets/<storage>/` | Hookscripts and cloud-init vendor files, byte for byte |
-| `imports.tf` | Import blocks for the adoption apply; removed afterwards |
 | `providers.tf`, `versions.tf`, `tofu.rc` | Provider auth, pinned versions, and the CLI configuration with the provider mirror |
 | `state.tf`, `variables.tf` | Enforced state encryption and the sensitive inputs |
 
@@ -76,16 +75,18 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 
 ## Adoption
 
-The adoption plan imports 86 resources, including the 9 Ceph objects, which import with no
-changes. It changes nothing live except:
+All 86 adopted resources, including the 9 Ceph objects, were imported into the remote state,
+and the import blocks were removed after the adoption apply. That apply changed nothing live
+except:
 
 - the 7 snippet files, uploaded over their identical live copies (an import records neither
   content nor mode, so the files are created instead);
 - `100.fw` and `cluster.fw`, which gain explicit lines for Proxmox's effective defaults;
 - VM 129's config, which gains `scsihw: lsi`, its current default.
 
-The 20 containers also show an in-place update that only records `vm_id` and `timeout_start`
-in state; it makes no API call. Every adopted resource carries `prevent_destroy = true`.
+It also recorded the 20 containers' `vm_id` and `timeout_start` in state, with no API call,
+and rebooted VM 129 to apply `scsihw`. A plan is now a no-op. Every adopted resource carries
+`prevent_destroy = true`.
 
 ## Not managed here
 

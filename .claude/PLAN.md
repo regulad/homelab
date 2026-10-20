@@ -26,7 +26,7 @@ Ansible runs in two phases, one on each side of OpenTofu, each in its own folder
 | 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, pre-commit (file hygiene, OpenTofu, privacy guards), and the Ansible scaffold for both stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox: the `gonkputer` crawl is done, including cluster and Ceph settings, and its open questions are answered (local snapshot and `SUMMARY.md`). Hardware hosts and the per-host service inventory are not started. |
 | 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons, and the network switch scripts are not started. |
-| 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: a first, descriptive draft of `tofu/gonkputer` (77 imports covering guests, HA and cluster settings, plus 7 snippet uploads) exists, uncommitted and unapplied. It moves to provider build `0.118.0-pr3204.pr3207.pr3209.1`, which covers every Ceph object, and its imports are redone from scratch. |
+| 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus 7 snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. |
 | 4. Ansible: generated hosts | Started: `ansible-generated/` reads `tofu/oracle`'s state through the `terraform_state` inventory plugin, and Ansible reaches all five OCI instances. **Still to do:** feed Proxmox guests in the same way, once `tofu/gonkputer` exists; that waits on the `bpg/proxmox` provider work. The roles are skeletons. |
 | 5. Portability proof | Not started. |
 | 6. Drift and CI (optional) | Not started. |
@@ -144,7 +144,7 @@ key and with its own enforced encryption passphrase, before any import.
 - **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source. The state bucket and its service user live in `tofu/oracle`'s `state-backend` module.
 
 #### Proxmox guests (`tofu/gonkputer`)
-- **Status:** the draft's first, descriptive pass pins `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1`, served by the provider mirror, and now also covers the Ceph objects (see Ceph scope in `AGENTS.md`). No existing state carries over: the provider has had several fixes since the draft, so the imports are redone from scratch.
+- **Status:** adopted. The first, descriptive pass pins `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1`, served by the provider mirror, covers the Ceph objects (see Ceph scope in `AGENTS.md`), and plans no changes. The import blocks are removed.
 - `tofu/gonkputer`: `versions.tf` (pin `bpg/proxmox`), `providers.tf`, `state.tf` (the shared s3 backend under the key `gonkputer/terraform.tfstate`, and encryption), `variables.tf`, and readable HCL following the conventions in `AGENTS.md`, including its Proxmox HCL section.
 - Auth: API token via environment variables only; SSH for the provider via ssh-agent.
 - Adoption:
