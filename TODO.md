@@ -27,16 +27,7 @@ Ansible, an identical configuration for the switch scripts). See
 
 ## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
 
-- [ ] `aboriginal` (100)
 - [ ] `arawi` (108)
-- [ ] `authentik` (109)
-- [ ] `dodo` (101)
-- [ ] `freeipa` (113)
-- [ ] `git` (110)
-- [ ] `matrix` (107)
-- [ ] `softether` (114)
-- [ ] `unifi` (102)
-- [ ] `urbackup` (111)
 - [ ] `vkasm` (129)
 
 ## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
@@ -61,6 +52,25 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `tvheadend` (127)
 - [ ] `uptime` (117)
 - [ ] `vaultwarden` (128)
+
+## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
+
+Configured by a cloud-init vendor file instead of Ansible, so they need no SSH.
+
+- [ ] `aboriginal` (100)
+  - [ ] Boot with cloud-init
+- [ ] `authentik` (109)
+- [ ] `dodo` (101)
+  - [ ] Boot with cloud-init
+- [ ] `freeipa` (113)
+  - [ ] Add a vendor file
+- [ ] `git` (110)
+  - [ ] Boot with cloud-init
+- [ ] `matrix` (107)
+  - [ ] Boot with cloud-init
+- [ ] `softether` (114)
+- [ ] `unifi` (102)
+- [ ] `urbackup` (111)
 
 Not listed: the template `resolute-template` (8000), which is not a host.
 

@@ -27,7 +27,7 @@ Ansible runs in two phases, one on each side of OpenTofu, each in its own folder
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox: the `gonkputer` crawl is done, including cluster and Ceph settings, and its open questions are answered (local snapshot and `SUMMARY.md`). Hardware hosts and the per-host service inventory are not started. |
 | 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons, and the network switch scripts are not started. |
 | 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus 7 snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. |
-| 4. Ansible: generated hosts | Started: `ansible-generated/` reads both roots' state through the `terraform_state` inventory plugin, as one inventory that `site.yml` runs over once: the five OCI instances, which Ansible reaches, and the requested gonkputer guests. The roles are skeletons. |
+| 4. Ansible: generated hosts | Started: `ansible-generated/` reads both roots' state through the `terraform_state` inventory plugin, as one inventory that `site.yml` runs over once: the five OCI instances, which Ansible reaches, and the requested gonkputer guests Ansible manages. Proxmox VMs are moving to cloud-init where they can, and containers will be reached through `proxmox_pct_remote`. The roles are skeletons. |
 | 5. Portability proof | Not started. |
 | 6. Drift and CI (optional) | Not started. |
 
@@ -41,7 +41,7 @@ Parker asks.
 **Goal**
 - Machines (Proxmox LXC/VM, OCI instances) are declared in **OpenTofu** and tracked in state.
 - Proxmox cluster-wide and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
-- Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs.
+- Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs. Proxmox VMs are the exception wherever they can boot with cloud-init: a cloud-init vendor file holds their whole setup, so they need no SSH. LXC containers stay in Ansible, reached through the `proxmox_pct_remote` connection plugin over SSH to their Proxmox node instead of SSH into each container.
 - Network switch configuration is applied by the repository's own **bash scripts**, because the switches cannot run Ansible's modules.
 - Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a `site.yml` run.
 - Existing infrastructure is **adopted** (imported), not recreated.
@@ -179,14 +179,17 @@ resources, without a manual inventory edit.
   - The wahlecloud instances are reached at their VCN DNS names, `<hostname label>.pubsub.wahlecloud.oraclevcn.com`, which resolve over the tailnet. Short names do not work: `tailscalerouter` resolves elsewhere first.
   - Legacy `web` is reached at its public name, `doppelgangerhq.com`, because the legacy VCN's DNS names do not reach the tailnet.
   - Each host's login user comes from the operator's SSH configuration for that name, or from `host_vars` where it differs (`bailout` logs in as `opc`).
-- `tofu/gonkputer`: one `ansible_host` resource (`ansible/ansible` provider) per requested guest, which `gonkputer.terraform_state.yml` maps.
+- `tofu/gonkputer`: one `ansible_host` resource (`ansible/ansible` provider) per requested guest that Ansible manages, which `gonkputer.terraform_state.yml` maps: the containers, and the VMs that can't use cloud-init (`arawi`, `vkasm`). VMs on cloud-init (`authentik`, `freeipa`, `softether`, `unifi`, `urbackup`) or being moved to it (`aboriginal`, `dodo`, `git`, `matrix`) are configured by their vendor file and left out.
+  - Containers use `ansible_connection: community.proxmox.proxmox_pct_remote`, with `ansible_host` set to their node and `proxmox_vmid` to their VMID, so one SSH connection to `prodingus` reaches all of them. The `community.proxmox` collection gets pinned in `requirements.yml`, and the plugin needs `paramiko` on the control node.
+  - `proxmox_pct_remote` uses Paramiko, which keeps no persistent connections, so container runs are slow; turn fact gathering down where it isn't needed.
   - A guest is requested when its HA resource is `started`, or, without an HA resource, when it starts on boot. Each guest file computes this as the `ansible_host`'s `count`, so the inventory follows the HA and boot settings without a manual edit.
   - Hosts are named by their DNS name, `<name>.regulad.internal` (`local.guest_domain`), which every guest resolves as from the control node. The name keeps them apart from OCI hosts of the same short name (both roots have a `tailscalerouter`).
   - Each host's `groups` become Ansible groups: `gonkputer`, plus `proxmox_vms` or `proxmox_containers`.
-- **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
+- **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds from the laptop, over the tailnet for VMs and OCI instances and through `proxmox_pct_remote` for containers.
 
 **Baseline (non-destructive)**
-- cloud-init, set by OpenTofu, did only the minimal bootstrap; Ansible owns everything inside a guest after it.
+- Proxmox VMs boot with cloud-init wherever they can, and their vendor file holds the whole setup; Ansible never touches them. Move each compatible VM to cloud-init as its own reviewed change.
+- LXC containers, VMs that can't use cloud-init, OCI instances and hardware hosts: Ansible owns everything inside them. Containers are reached through `proxmox_pct_remote`, the rest over SSH.
 - Roles, reusing the shared `base` and `tailscale` from `ansible-common/roles/`:
   - `podman`: install podman; configure registries; enable `podman.socket` only if currently used.
   - `avahi`: template `avahi-daemon.conf` (`enable-reflector=yes`, `allow-interfaces=` the podman bridge + LAN interface, as discovered). Pin the podman network subnet/bridge name so this is deterministic.

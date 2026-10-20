@@ -1,4 +1,4 @@
-# matrix: VM 107, its HA resource and its Ansible host.
+# matrix: VM 107 and its HA resource.
 
 resource "proxmox_virtual_environment_vm" "matrix" {
   name      = "matrix"
@@ -89,12 +89,4 @@ resource "proxmox_haresource" "matrix" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-# Listed in the Ansible inventory while its HA resource is requested.
-resource "ansible_host" "matrix" {
-  count = proxmox_haresource.matrix.state == "started" ? 1 : 0
-
-  name   = "${proxmox_virtual_environment_vm.matrix.name}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_vms"]
 }

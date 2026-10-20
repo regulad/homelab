@@ -1,4 +1,4 @@
-# freeipa: VM 113, its HA resource and its Ansible host.
+# freeipa: VM 113 and its HA resource.
 
 resource "proxmox_virtual_environment_vm" "freeipa" {
   name          = "freeipa"
@@ -108,12 +108,4 @@ resource "proxmox_haresource" "freeipa" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-# Listed in the Ansible inventory while its HA resource is requested.
-resource "ansible_host" "freeipa" {
-  count = proxmox_haresource.freeipa.state == "started" ? 1 : 0
-
-  name   = "${proxmox_virtual_environment_vm.freeipa.name}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_vms"]
 }

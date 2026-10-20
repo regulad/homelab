@@ -691,3 +691,20 @@ and `site.yml` runs once over the union.
 - With Parker's approval, the 30 `ansible_host` resources were applied, state only.
   The combined inventory lists 35 hosts in `generated`: 30 gonkputer guests and
   the 5 OCI instances. A fresh plan is a no-op.
+
+## cloud-init VMs configured by vendor files (2026-10-20)
+
+Parker decided that gonkputer VMs booting with cloud-init (`authentik`,
+`freeipa`, `softether`, `unifi`, `urbackup`) get their whole setup from a
+cloud-init vendor file, so nothing needs to SSH into them. This replaces the
+earlier rule that cloud-init does only minimal bootstrap and Ansible owns
+everything after it. They left `TODO.md`, and AGENTS.md and PLAN describe the
+split. `freeipa` has a cloud-init drive but no vendor file yet.
+
+Parker then widened it: every Proxmox VM that can boot with cloud-init moves to
+it, and `aboriginal`, `dodo`, `git` and `matrix` lost their `ansible_host` ahead
+of that move, leaving `arawi` and `vkasm` as the only VMs in Ansible. LXC
+containers stay managed by Ansible, but through the
+`community.proxmox.proxmox_pct_remote` connection plugin, which runs `pct` on the
+Proxmox node over SSH, instead of SSH into each container. Proxmox has no
+cloud-init for containers: bug 4686's patch has not been merged.

@@ -1,4 +1,4 @@
-# dodo: VM 101 and its Ansible host.
+# dodo: VM 101.
 
 resource "proxmox_virtual_environment_vm" "dodo" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -79,12 +79,4 @@ resource "proxmox_virtual_environment_vm" "dodo" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-# No HA resource, so listed in the Ansible inventory while it starts on boot.
-resource "ansible_host" "dodo" {
-  count = proxmox_virtual_environment_vm.dodo.on_boot ? 1 : 0
-
-  name   = "${proxmox_virtual_environment_vm.dodo.name}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_vms"]
 }
