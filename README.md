@@ -3,9 +3,12 @@
 [![wakatime](https://wakatime.com/badge/github/regulad/homelab.svg)](https://wakatime.com/badge/github/regulad/homelab)
 
 Declarative infrastructure for a home Proxmox cluster and an OCI tenancy:
-OpenTofu for machines, Ansible and Podman Quadlets for what runs on them.
 
-WIP.
+1. Ansible for configuring hardware hosts (network appliances, hypervisors, macOS hosts)
+2. OpenTofu for creating resources on hypervisors and cloud providers
+3. Ansible again for configuring the remaining containerized/virtualized hosts that can't use something like cloud-init to be configured at provisionment-time.
+
+WIP: the OpenTofu work is done but the writing of configuration for individual hosts and the Ansible plays to push said configuration is still a work in progress.
 
 Everything here runs on Unix-like systems only: Linux (including WSL) or macOS,
 with a POSIX shell. Native Windows is not supported.
