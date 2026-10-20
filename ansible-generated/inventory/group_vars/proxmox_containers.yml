@@ -1,0 +1,7 @@
+---
+# LXC containers are reached through their Proxmox node, not SSH of their own:
+# proxmox_pct_remote connects to ansible_host (the node) as root over SSH and runs
+# pct for proxmox_vmid. Both come from each container's ansible_host in
+# tofu/gonkputer, through compose in gonkputer.terraform_state.yml.
+ansible_connection: community.proxmox.proxmox_pct_remote
+ansible_user: root

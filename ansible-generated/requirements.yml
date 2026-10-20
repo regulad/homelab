@@ -4,3 +4,6 @@ collections:
   # The terraform_state inventory plugin.
   - name: cloud.terraform
     version: 4.0.0
+  # The proxmox_pct_remote connection plugin, for LXC containers.
+  - name: community.proxmox
+    version: 2.1.0

@@ -77,4 +77,10 @@ resource "ansible_host" "pihole" {
 
   name   = "${proxmox_virtual_environment_container.pihole.initialization[0].hostname}.${local.guest_domain}"
   groups = ["gonkputer", "proxmox_containers"]
+
+  # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
+  variables = {
+    ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.pihole.node_name]
+    proxmox_vmid = proxmox_virtual_environment_container.pihole.vm_id
+  }
 }

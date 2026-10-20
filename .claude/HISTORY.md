@@ -708,3 +708,26 @@ containers stay managed by Ansible, but through the
 `community.proxmox.proxmox_pct_remote` connection plugin, which runs `pct` on the
 Proxmox node over SSH, instead of SSH into each container. Proxmox has no
 cloud-init for containers: bug 4686's patch has not been merged.
+
+## Containers reached through proxmox_pct_remote (2026-10-20)
+
+With Parker's approval:
+- `community.proxmox` 2.1.0 is pinned in `ansible-generated/requirements.yml`
+  and installed into the stage's `collections/`. `paramiko`, which the plugin
+  needs, was already bundled with Homebrew's Ansible (5.0.0), so nothing else
+  was installed.
+- Each container's `ansible_host` gained `variables`: the node's SSH address,
+  from the encrypted `node_ssh_addresses` input, so the tailnet domain stays out
+  of git; and the container's `vm_id`. The plugin keeps a dynamic attribute as
+  `{type, value}`, so `compose` reads `variables.value`. `group_vars` for
+  `proxmox_containers` set the connection plugin and `ansible_user: root`.
+- The apply for the five cloud-init VMs' `ansible_host` destroys had already run
+  (0 added, 0 changed, 5 destroyed) when Parker interrupted that step to change
+  course; nothing was committed then. The follow-up apply destroyed
+  `aboriginal`'s, `dodo`'s, `git`'s and `matrix`'s and added the containers'
+  variables: 0 added, 19 changed, 4 destroyed. A fresh plan is a no-op.
+- The inventory now holds 26 generated hosts: 19 containers through
+  `proxmox_pct_remote`, `arawi` and `vkasm` over SSH, and the 5 OCI instances.
+- A first ping of `openclaw` through the plugin failed with an authentication
+  timeout, most likely Bitwarden's SSH agent waiting for its prompt to be
+  approved. It was not retried.

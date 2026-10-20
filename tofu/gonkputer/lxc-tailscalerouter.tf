@@ -80,4 +80,10 @@ resource "ansible_host" "tailscalerouter" {
 
   name   = "${proxmox_virtual_environment_container.tailscalerouter.initialization[0].hostname}.${local.guest_domain}"
   groups = ["gonkputer", "proxmox_containers"]
+
+  # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
+  variables = {
+    ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.tailscalerouter.node_name]
+    proxmox_vmid = proxmox_virtual_environment_container.tailscalerouter.vm_id
+  }
 }

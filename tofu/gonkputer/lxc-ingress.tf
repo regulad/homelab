@@ -101,4 +101,10 @@ resource "ansible_host" "ingress" {
 
   name   = "${proxmox_virtual_environment_container.ingress.initialization[0].hostname}.${local.guest_domain}"
   groups = ["gonkputer", "proxmox_containers"]
+
+  # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
+  variables = {
+    ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.ingress.node_name]
+    proxmox_vmid = proxmox_virtual_environment_container.ingress.vm_id
+  }
 }

@@ -56,7 +56,7 @@ Every attribute of a mapped resource becomes a host variable, so
 | Source | Hosts | `ansible_host` |
 |---|---|---|
 | `oracle.terraform_state.yml` | Each `oci_core_instance`, named by display name | `<hostname label>.pubsub.wahlecloud.oraclevcn.com`; legacy `web` uses its public name, `doppelgangerhq.com` |
-| `gonkputer.terraform_state.yml` | Each `ansible_host` in `tofu/gonkputer`: the requested guests (a started HA resource, or no HA resource and starting on boot), named by DNS name; groups `gonkputer` and `proxmox_vms` or `proxmox_containers` | The host name, `<name>.regulad.internal` |
+| `gonkputer.terraform_state.yml` | Each `ansible_host` in `tofu/gonkputer`: the requested guests Ansible manages (containers, and the VMs that can't use cloud-init), named by DNS name; groups `gonkputer` and `proxmox_vms` or `proxmox_containers` | VMs: the host name, `<name>.regulad.internal`. Containers: their Proxmox node, reached through `proxmox_pct_remote` (`inventory/group_vars/proxmox_containers.yml`), with `proxmox_vmid` from state |
 
 Both sources load as one inventory, and `site.yml` runs once over the union.
 
