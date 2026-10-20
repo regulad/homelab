@@ -9,5 +9,11 @@ terraform {
       source  = "bpg/proxmox"
       version = "= 0.118.0-pr3204.pr3207.pr3209.1"
     }
+    # Declares the guests' Ansible inventory (ansible_host), which ansible-generated
+    # reads from this root's state.
+    ansible = {
+      source  = "ansible/ansible"
+      version = "= 1.5.0"
+    }
   }
 }

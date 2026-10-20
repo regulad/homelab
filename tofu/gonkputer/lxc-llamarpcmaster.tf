@@ -1,4 +1,4 @@
-# llamarpcmaster: container 119 and its HA resource.
+# llamarpcmaster: container 119, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "llamarpcmaster" {
   node_name = "prodingus"
@@ -77,4 +77,12 @@ resource "proxmox_haresource" "llamarpcmaster" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "llamarpcmaster" {
+  count = proxmox_haresource.llamarpcmaster.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.llamarpcmaster.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

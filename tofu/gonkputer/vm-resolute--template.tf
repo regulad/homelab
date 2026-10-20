@@ -1,4 +1,4 @@
-# resolute-template: VM template 8000.
+# resolute-template: VM template 8000 and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "resolute_template" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -95,4 +95,12 @@ resource "proxmox_virtual_environment_vm" "resolute_template" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# No HA resource, so listed in the Ansible inventory while it starts on boot.
+resource "ansible_host" "resolute_template" {
+  count = proxmox_virtual_environment_vm.resolute_template.on_boot ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.resolute_template.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms"]
 }

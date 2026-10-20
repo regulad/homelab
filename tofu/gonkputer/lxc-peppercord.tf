@@ -1,4 +1,4 @@
-# peppercord: container 126 and its HA resource.
+# peppercord: container 126, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "peppercord" {
   node_name     = "prodingus"
@@ -69,4 +69,12 @@ resource "proxmox_haresource" "peppercord" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "peppercord" {
+  count = proxmox_haresource.peppercord.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.peppercord.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

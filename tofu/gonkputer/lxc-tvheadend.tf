@@ -1,4 +1,4 @@
-# tvheadend: container 127 and its HA resource.
+# tvheadend: container 127, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "tvheadend" {
   node_name     = "prodingus"
@@ -73,4 +73,12 @@ resource "proxmox_haresource" "tvheadend" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "tvheadend" {
+  count = proxmox_haresource.tvheadend.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.tvheadend.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

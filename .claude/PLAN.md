@@ -27,7 +27,7 @@ Ansible runs in two phases, one on each side of OpenTofu, each in its own folder
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox: the `gonkputer` crawl is done, including cluster and Ceph settings, and its open questions are answered (local snapshot and `SUMMARY.md`). Hardware hosts and the per-host service inventory are not started. |
 | 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons, and the network switch scripts are not started. |
 | 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus 7 snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. |
-| 4. Ansible: generated hosts | Started: `ansible-generated/` reads `tofu/oracle`'s state through the `terraform_state` inventory plugin, and Ansible reaches all five OCI instances. **Still to do:** feed Proxmox guests in the same way, once `tofu/gonkputer` exists; that waits on the `bpg/proxmox` provider work. The roles are skeletons. |
+| 4. Ansible: generated hosts | Started: `ansible-generated/` reads both roots' state through the `terraform_state` inventory plugin, as one inventory that `site.yml` runs over once: the five OCI instances, which Ansible reaches, and the requested gonkputer guests. The roles are skeletons. |
 | 5. Portability proof | Not started. |
 | 6. Drift and CI (optional) | Not started. |
 
@@ -100,7 +100,7 @@ modify anything.
   - one table of cluster and Ceph settings with their owners;
   - an **Open questions** list.
 - **Accept:** Parker has reviewed `SUMMARY.md` and answered the open questions. This review gates Phases 2 and 3.
-- **Remaining:** Proxmox cluster, hardware-host, settings, and guest discovery and the per-host service inventory, then review with Parker.
+- **Remaining:** hardware-host discovery and the per-host service inventory, then review with Parker.
 
 ### Phase 2 — Ansible: hardware hosts (manual inventory)
 Hardware hosts change only when hardware does, so their inventory is written by
@@ -173,13 +173,16 @@ resources, without a manual inventory edit.
   - The plugin pulls state in a scratch directory with a bare `backend "s3" {}`, so each source file mirrors its root's backend settings. The backend credentials come from the environment that sourcing `prepare.sh` exports.
   - State is encrypted client-side, and the scratch directory has no `encryption` block. A per-root wrapper, `ansible-generated/bin/tofu-<root>`, is the plugin's `binary_path`, found on `PATH` because the plugin runs it from the scratch directory: it sets `TF_ENCRYPTION` for that one process from the root's decrypted inputs, so the setting never leaks to other roots.
   - `provider_mapping` names the resource types that become hosts. The plugin maps only AWS, Azure and GCP by itself.
-  - `compose` sets `ansible_host` with `strict: true`, so an expression error fails the inventory instead of leaving a host on an ambiguous short name.
+  - `compose` sets `ansible_host` with `strict: true` where a source needs it, so an expression error fails the inventory instead of leaving a host on an ambiguous short name.
   - Every attribute of a mapped resource becomes a host variable. Services and other variables Ansible owns stay in `host_vars/` in git.
 - `tofu/oracle`: the five `oci_core_instance` resources, named by display name.
   - The wahlecloud instances are reached at their VCN DNS names, `<hostname label>.pubsub.wahlecloud.oraclevcn.com`, which resolve over the tailnet. Short names do not work: `tailscalerouter` resolves elsewhere first.
   - Legacy `web` is reached at its public name, `doppelgangerhq.com`, because the legacy VCN's DNS names do not reach the tailnet.
   - Each host's login user comes from the operator's SSH configuration for that name, or from `host_vars` where it differs (`bailout` logs in as `opc`).
-- `tofu/gonkputer` gets its own source file mapping the `bpg/proxmox` guest types, once that root exists.
+- `tofu/gonkputer`: one `ansible_host` resource (`ansible/ansible` provider) per requested guest, which `gonkputer.terraform_state.yml` maps.
+  - A guest is requested when its HA resource is `started`, or, without an HA resource, when it starts on boot. Each guest file computes this as the `ansible_host`'s `count`, so the inventory follows the HA and boot settings without a manual edit.
+  - Hosts are named by their DNS name, `<name>.regulad.internal` (`local.guest_domain`), which every guest resolves as from the control node. The name keeps them apart from OCI hosts of the same short name (both roots have a `tailscalerouter`).
+  - Each host's `groups` become Ansible groups: `gonkputer`, plus `proxmox_vms` or `proxmox_containers`.
 - **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds over the tailnet from the laptop.
 
 **Baseline (non-destructive)**

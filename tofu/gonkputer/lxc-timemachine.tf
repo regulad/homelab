@@ -1,4 +1,4 @@
-# timemachine: container 104 and its HA resource.
+# timemachine: container 104, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "timemachine" {
   node_name     = "prodingus"
@@ -73,4 +73,12 @@ resource "proxmox_haresource" "timemachine" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "timemachine" {
+  count = proxmox_haresource.timemachine.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.timemachine.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

@@ -1,0 +1,36 @@
+#!/bin/sh
+# The tofu binary for inventory/gonkputer.terraform_state.yml, found on PATH.
+# The inventory plugin runs `tofu init` and `tofu state pull` in a scratch
+# directory that has none of tofu/gonkputer's encryption settings, so this
+# supplies them through TF_ENCRYPTION for this process only; exporting them from
+# the shell would apply them to every root. Keep the names below in step with
+# the encryption block in tofu/gonkputer/state.tf, because the state records
+# which key provider and method encrypted it.
+set -eu
+root=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+# The passphrase becomes an HCL string literal: JSON escaping, plus HCL's own
+# escapes for template sequences.
+passphrase=$(jq -er '.state_encryption_passphrase | gsub("\\$\\{"; "$${") | gsub("%\\{"; "%%{") | @json' \
+    "$root/tofu/gonkputer/secrets.auto.tfvars.json")
+TF_ENCRYPTION=$(cat <<HCL
+key_provider "pbkdf2" "gonkputer" {
+  passphrase = $passphrase
+}
+
+method "aes_gcm" "gonkputer" {
+  keys = key_provider.pbkdf2.gonkputer
+}
+
+state {
+  method   = method.aes_gcm.gonkputer
+  enforced = true
+}
+
+plan {
+  method   = method.aes_gcm.gonkputer
+  enforced = true
+}
+HCL
+)
+export TF_ENCRYPTION
+exec tofu "$@"

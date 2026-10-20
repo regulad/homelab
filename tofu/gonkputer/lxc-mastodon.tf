@@ -1,4 +1,4 @@
-# mastodon: container 105 and its HA resource.
+# mastodon: container 105, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "mastodon" {
   node_name     = "prodingus"
@@ -70,4 +70,12 @@ resource "proxmox_haresource" "mastodon" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "mastodon" {
+  count = proxmox_haresource.mastodon.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.mastodon.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

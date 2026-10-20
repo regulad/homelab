@@ -1,4 +1,4 @@
-# unifi: VM 102 and its HA resource.
+# unifi: VM 102, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "unifi" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -104,4 +104,12 @@ resource "proxmox_haresource" "unifi" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "unifi" {
+  count = proxmox_haresource.unifi.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.unifi.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms"]
 }

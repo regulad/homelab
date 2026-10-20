@@ -669,3 +669,25 @@ At Parker's direction:
 - With Parker's approval, the plan applied 33 in-place updates: tags on 32
   guests, the CPU change on all 20 containers, 14 descriptions removed, and the
   cluster options. Nothing rebooted, and a fresh plan is a no-op.
+
+## gonkputer feeds ansible-generated (2026-10-20)
+
+At Parker's direction, `ansible-generated` reads both roots as one inventory,
+and `site.yml` runs once over the union.
+- The `terraform_state` plugin can't filter hosts, join a guest with its HA
+  resource, or read a container's nested hostname. So `tofu/gonkputer` declares
+  the inventory itself: one `ansible_host` per guest, with the `ansible/ansible`
+  provider (1.5.0, installed with Parker's approval). The plugin maps those
+  resources, so `ansible-generated` still uses one plugin.
+- Parker set which guests count as requested: a started HA resource, or, without
+  an HA resource, starting on boot. That gives 30 hosts. `llamarpcmaster`, whose
+  HA resource is stopped, and the template stay out.
+- Every running guest resolves as `<name>.regulad.internal` from the control node,
+  while only five have tailnet names. Hosts are named by that DNS name, which also
+  keeps them apart from OCI hosts with the same short name (`tailscalerouter`).
+- The OpenTofu registry has no signing key for `ansible/ansible`, so its install
+  skipped signature validation; the lock file pins its checksum.
+- The two stale PLAN lines were updated.
+- With Parker's approval, the 30 `ansible_host` resources were applied, state only.
+  The combined inventory lists 35 hosts in `generated`: 30 gonkputer guests and
+  the 5 OCI instances. A fresh plan is a no-op.

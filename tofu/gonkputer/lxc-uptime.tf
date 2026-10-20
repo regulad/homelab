@@ -1,4 +1,4 @@
-# uptime: container 117 and its HA resource.
+# uptime: container 117, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "uptime" {
   node_name     = "prodingus"
@@ -72,4 +72,12 @@ resource "proxmox_haresource" "uptime" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "uptime" {
+  count = proxmox_haresource.uptime.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.uptime.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

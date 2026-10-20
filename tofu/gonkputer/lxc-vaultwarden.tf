@@ -1,4 +1,4 @@
-# vaultwarden: container 128 and its HA resource.
+# vaultwarden: container 128, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "vaultwarden" {
   node_name     = "prodingus"
@@ -68,4 +68,12 @@ resource "proxmox_haresource" "vaultwarden" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "vaultwarden" {
+  count = proxmox_haresource.vaultwarden.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.vaultwarden.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

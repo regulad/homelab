@@ -1,4 +1,4 @@
-# openwebui: container 115 and its HA resource.
+# openwebui: container 115, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "openwebui" {
   node_name     = "prodingus"
@@ -72,4 +72,12 @@ resource "proxmox_haresource" "openwebui" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "openwebui" {
+  count = proxmox_haresource.openwebui.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.openwebui.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

@@ -1,4 +1,4 @@
-# vkasm: VM 129.
+# vkasm: VM 129 and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "vkasm" {
   name       = "vkasm"
@@ -37,4 +37,12 @@ resource "proxmox_virtual_environment_vm" "vkasm" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# No HA resource, so listed in the Ansible inventory while it starts on boot.
+resource "ansible_host" "vkasm" {
+  count = proxmox_virtual_environment_vm.vkasm.on_boot ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.vkasm.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms"]
 }

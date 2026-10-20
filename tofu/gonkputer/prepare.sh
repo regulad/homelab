@@ -88,6 +88,12 @@ _homelab_gonkputer_prepare() {
     # that arrive in parallel, so applies run one operation at a time and each
     # prompt can be approved. Plans only read through the API and stay parallel.
     export TF_CLI_ARGS_apply="-parallelism=1"
+    # The inventory plugin runs binary_path from a scratch directory, so it must
+    # be a bare name found on PATH. Add the directory only once.
+    case ":$PATH:" in
+        *":$root/ansible-generated/bin:"*) ;;
+        *) export PATH="$root/ansible-generated/bin:$PATH" ;;
+    esac
     echo 'Loaded the Proxmox and state backend credentials, selected tofu.rc, and made applies serial for this shell. Decrypted inputs are ready.'
 }
 

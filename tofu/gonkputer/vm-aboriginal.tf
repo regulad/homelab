@@ -1,4 +1,4 @@
-# aboriginal: VM 100 and its firewall options.
+# aboriginal: VM 100, its firewall options and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "aboriginal" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -161,4 +161,12 @@ resource "proxmox_virtual_environment_firewall_options" "aboriginal" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# No HA resource, so listed in the Ansible inventory while it starts on boot.
+resource "ansible_host" "aboriginal" {
+  count = proxmox_virtual_environment_vm.aboriginal.on_boot ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms"]
 }

@@ -1,4 +1,4 @@
-# act: container 123 and its HA resource.
+# act: container 123, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "act" {
   node_name     = "prodingus"
@@ -83,4 +83,12 @@ resource "proxmox_haresource" "act" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "act" {
+  count = proxmox_haresource.act.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.act.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

@@ -1,4 +1,4 @@
-# cordpepperer: container 118 and its HA resource.
+# cordpepperer: container 118, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "cordpepperer" {
   node_name     = "prodingus"
@@ -69,4 +69,12 @@ resource "proxmox_haresource" "cordpepperer" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "cordpepperer" {
+  count = proxmox_haresource.cordpepperer.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.cordpepperer.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

@@ -1,4 +1,4 @@
-# pterodactyl: container 120 and its HA resource.
+# pterodactyl: container 120, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "pterodactyl" {
   node_name     = "prodingus"
@@ -68,4 +68,12 @@ resource "proxmox_haresource" "pterodactyl" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "pterodactyl" {
+  count = proxmox_haresource.pterodactyl.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.pterodactyl.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

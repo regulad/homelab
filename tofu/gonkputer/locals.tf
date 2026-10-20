@@ -7,6 +7,10 @@ locals {
   # https://github.com/bpg/terraform-provider-proxmox/issues/3210.
   cpu_threads = 32
 
+  # The DNS zone every guest resolves in, from the control node too. Guests are
+  # listed in the Ansible inventory under <name>.<guest_domain>.
+  guest_domain = "regulad.internal"
+
   # Guest tags, by name. A guest lists the ones it carries in Proxmox's sorted
   # order; every guest carries `terraform`, marking it as managed by OpenTofu.
   tags = {

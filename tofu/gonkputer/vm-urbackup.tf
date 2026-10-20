@@ -1,4 +1,4 @@
-# urbackup: VM 111 and its HA resource.
+# urbackup: VM 111, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "urbackup" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -116,4 +116,12 @@ resource "proxmox_haresource" "urbackup" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "urbackup" {
+  count = proxmox_haresource.urbackup.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.urbackup.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms"]
 }

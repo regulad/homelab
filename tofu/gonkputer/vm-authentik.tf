@@ -1,4 +1,4 @@
-# authentik: VM 109 and its HA resource.
+# authentik: VM 109, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "authentik" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -107,4 +107,12 @@ resource "proxmox_haresource" "authentik" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "authentik" {
+  count = proxmox_haresource.authentik.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.authentik.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms"]
 }

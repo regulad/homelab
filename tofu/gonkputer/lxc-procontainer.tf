@@ -1,4 +1,4 @@
-# procontainer: container 106.
+# procontainer: container 106 and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "procontainer" {
   node_name = "prodingus"
@@ -55,4 +55,12 @@ resource "proxmox_virtual_environment_container" "procontainer" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# No HA resource, so listed in the Ansible inventory while it starts on boot.
+resource "ansible_host" "procontainer" {
+  count = proxmox_virtual_environment_container.procontainer.start_on_boot ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.procontainer.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

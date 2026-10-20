@@ -1,0 +1,38 @@
+---
+# Generated hosts from tofu/gonkputer's state: its ansible_host resources, one per
+# guest that is requested (a started HA resource, or no HA resource and starting
+# on boot). Each is named by its DNS name, so the name is also the address. The
+# plugin pulls the state through a scratch backend configuration that mirrors the
+# backend block in tofu/gonkputer/state.tf; its credentials and endpoint come
+# from the environment that sourcing a root's prepare.sh exports.
+plugin: cloud.terraform.terraform_state
+# The plugin runs this from a scratch directory, so it is a bare name found on
+# PATH: sourcing tofu/oracle/prepare.sh or tofu/gonkputer/prepare.sh adds
+# ansible-generated/bin.
+binary_path: tofu-gonkputer
+backend_type: s3
+backend_config:
+  bucket: homelab-tofu-state
+  key: gonkputer/terraform.tfstate
+  region: us-ashburn-1
+  use_path_style: "true"
+  skip_credentials_validation: "true"  # No STS
+  skip_region_validation: "true"  # Not an AWS region
+  skip_requesting_account_id: "true"  # No IAM or STS
+  skip_metadata_api_check: "true"  # No instance metadata
+  skip_s3_checksum: "true"  # No flexible-checksum headers
+provider_mapping:
+  - provider_name: registry.opentofu.org/ansible/ansible
+    types:
+      - ansible_host
+hostnames:
+  - name
+strict: true
+# Each entry of an ansible_host's groups becomes a group of the same name.
+keyed_groups:
+  - key: groups
+    prefix: ""
+    separator: ""
+    leading_separator: false
+groups:
+  generated: true

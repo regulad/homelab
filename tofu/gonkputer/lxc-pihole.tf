@@ -1,4 +1,4 @@
-# pihole: container 112 and its HA resource.
+# pihole: container 112, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "pihole" {
   node_name     = "prodingus"
@@ -69,4 +69,12 @@ resource "proxmox_haresource" "pihole" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "pihole" {
+  count = proxmox_haresource.pihole.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.pihole.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

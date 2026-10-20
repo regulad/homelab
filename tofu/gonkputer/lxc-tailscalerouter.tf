@@ -1,4 +1,4 @@
-# tailscalerouter: container 122 and its HA resource.
+# tailscalerouter: container 122, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "tailscalerouter" {
   node_name     = "prodingus"
@@ -72,4 +72,12 @@ resource "proxmox_haresource" "tailscalerouter" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "tailscalerouter" {
+  count = proxmox_haresource.tailscalerouter.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.tailscalerouter.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

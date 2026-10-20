@@ -1,4 +1,4 @@
-# immich: container 116 and its HA resource.
+# immich: container 116, its HA resource and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "immich" {
   node_name     = "prodingus"
@@ -73,4 +73,12 @@ resource "proxmox_haresource" "immich" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "immich" {
+  count = proxmox_haresource.immich.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_container.immich.initialization[0].hostname}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_containers"]
 }

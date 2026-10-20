@@ -39,14 +39,16 @@ runs `tofu init` and `tofu state pull` in a scratch directory holding only a
 bare `backend "s3" {}`, so:
 
 - each source file mirrors its root's backend settings, and the credentials come
-  from the environment that sourcing `tofu/oracle/prepare.sh` exports;
+  from the environment that sourcing a root's `prepare.sh` exports;
 - the scratch directory has no `encryption` block, so `binary_path` names the
   wrapper `tofu-<root>` from `bin/`. That wrapper sets `TF_ENCRYPTION` for its
   own process from the root's decrypted inputs, keeping one root's encryption
   settings away from the others. Its names must match the root's `encryption`
   block.
 - the plugin runs `binary_path` from the scratch directory, so it is a bare name
-  found on `PATH`. Sourcing `tofu/oracle/prepare.sh` puts `bin/` on `PATH`.
+  found on `PATH`. Sourcing either root's `prepare.sh` puts `bin/` on `PATH`.
+- each wrapper reads its root's decrypted inputs, so source both roots'
+  `prepare.sh` once before the first run.
 
 Every attribute of a mapped resource becomes a host variable, so
 `ansible-inventory --vars` shows instance metadata such as SSH keys.
@@ -54,7 +56,9 @@ Every attribute of a mapped resource becomes a host variable, so
 | Source | Hosts | `ansible_host` |
 |---|---|---|
 | `oracle.terraform_state.yml` | Each `oci_core_instance`, named by display name | `<hostname label>.pubsub.wahlecloud.oraclevcn.com`; legacy `web` uses its public name, `doppelgangerhq.com` |
-| `gonkputer.terraform_state.yml` (still to do) | The `bpg/proxmox` guest types, once `tofu/gonkputer` exists | To be decided |
+| `gonkputer.terraform_state.yml` | Each `ansible_host` in `tofu/gonkputer`: the requested guests (a started HA resource, or no HA resource and starting on boot), named by DNS name; groups `gonkputer` and `proxmox_vms` or `proxmox_containers` | The host name, `<name>.regulad.internal` |
+
+Both sources load as one inventory, and `site.yml` runs once over the union.
 
 ## Running
 
@@ -63,6 +67,7 @@ after installing the pinned collections into the gitignored `collections/`:
 
 ```bash
 . tofu/oracle/prepare.sh
+. tofu/gonkputer/prepare.sh
 cd ansible-generated
 ansible-galaxy collection install -r requirements.yml -p collections
 ansible-inventory --graph
