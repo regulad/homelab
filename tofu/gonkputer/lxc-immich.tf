@@ -14,7 +14,7 @@ resource "proxmox_virtual_environment_container" "immich" {
 
   disk {
     datastore_id  = "rbd"
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     size          = 16
   }
 

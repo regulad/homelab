@@ -15,7 +15,7 @@ resource "proxmox_virtual_environment_container" "cordpepperer" {
 
   disk {
     datastore_id  = "rbd"
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     size          = 8
   }
 

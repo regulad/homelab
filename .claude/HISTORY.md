@@ -778,3 +778,13 @@ authenticate. `tofu/gonkputer/prepare.sh` no longer exports
   once. `vkasm` first refused the login as `regulad`: the operator's SSH
   configuration sets `kasm_admin` only for its short name, so its `host_vars` now
   set `ansible_user: kasm_admin`, as `bailout`'s do.
+
+## LXC disks mount with `discard` and `lazytime` (2026-10-20)
+
+At Parker's request, every container's root disk and RBD mount point now mounts
+with `["discard", "lazytime"]` instead of `["discard", "noatime"]`;
+`llamarpcmaster`'s root disk, which had no mount options, gained them. The CephFS
+bind mounts are unchanged.
+- Parker approved the apply: 0 added, 20 changed, 0 destroyed. A fresh plan is a
+  no-op. Proxmox recorded the options as current, not pending, and `act`'s root
+  filesystem showed `relatime,lazytime,discard` without a restart.

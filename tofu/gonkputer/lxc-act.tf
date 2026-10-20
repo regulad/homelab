@@ -15,7 +15,7 @@ resource "proxmox_virtual_environment_container" "act" {
 
   disk {
     datastore_id  = "rbd"
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     size          = 16
   }
 
@@ -43,14 +43,14 @@ resource "proxmox_virtual_environment_container" "act" {
   }
 
   mount_point {
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     path          = "/mnt/cache"
     size          = "128G"
     volume        = "rbd:vm-123-disk-1"
   }
 
   mount_point {
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     path          = "/mnt/docker"
     size          = "128G"
     volume        = "rbd:vm-123-disk-2"

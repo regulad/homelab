@@ -39,7 +39,7 @@ EOT
 
   disk {
     datastore_id  = "rbd"
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     size          = 24
   }
 

@@ -13,8 +13,9 @@ resource "proxmox_virtual_environment_container" "llamarpcmaster" {
   }
 
   disk {
-    datastore_id = "rbd"
-    size         = 64
+    datastore_id  = "rbd"
+    mount_options = ["discard", "lazytime"]
+    size          = 64
   }
 
   features {

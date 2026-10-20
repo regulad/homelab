@@ -13,7 +13,7 @@ resource "proxmox_virtual_environment_container" "procontainer" {
 
   disk {
     datastore_id  = "local-lvm"
-    mount_options = ["discard", "noatime"]
+    mount_options = ["discard", "lazytime"]
     size          = 128
   }
 
