@@ -3,12 +3,17 @@
 # <major>.<minor>, which names /etc/php/<version> and php<version>-fpm.
 php_fpm_version: ""
 
+# Stopgap settings for a vulnerability the installed PHP does not fix yet. They
+# are present while php<version>-fpm is older than php_fpm_stopgap_until, the
+# first package version with the fix (compared by dpkg), and removed once that
+# version or a newer one is installed. Empty applies no stopgap.
+php_fpm_stopgap_until: ""
 # Ini files copied into /etc/php/<version>/fpm/conf.d from the same path under
 # php_fpm_files_dir, by file name. FPM reads them after php.ini.
-php_fpm_conf_d: []
+php_fpm_stopgap_conf_d: []
 php_fpm_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
-
-# php_admin_flag lines, which a .user.ini cannot override. Each item has the
-# pool, the setting's name and its value (on or off), and is kept as one line in
-# pool.d/<pool>.conf; the rest of that file stays the package's.
-php_fpm_pool_admin_flags: []
+# php_admin_flag and php_admin_value lines, which a .user.ini cannot override.
+# Each item has the pool, the setting's name and its value, and is kept as one
+# line in pool.d/<pool>.conf; the rest of that file stays the package's.
+php_fpm_stopgap_pool_admin_flags: []
+php_fpm_stopgap_pool_admin_values: []

@@ -1,10 +1,17 @@
 ---
 php_fpm_version: "8.3"
-# Session upload progress off, a partial PHP2Shell mitigation, until Ubuntu ships
-# a fixed php8.3; the pool flag keeps a .user.ini from turning it back on.
-php_fpm_conf_d:
+# PHP2Shell (CVE-2026-109618, CVE-2026-109619) stopgaps, each closing a known
+# attack path: session upload progress off and no memory limit. USN-8948-1
+# fixes noble's php8.3 in 8.3.6-0ubuntu0.24.04.13, after which the role removes
+# them; the pool's admin settings keep a .user.ini from undoing them meanwhile.
+php_fpm_stopgap_until: 8.3.6-0ubuntu0.24.04.13
+php_fpm_stopgap_conf_d:
   - 99-php2shell.ini
-php_fpm_pool_admin_flags:
+php_fpm_stopgap_pool_admin_flags:
   - pool: www
     name: session.upload_progress.enabled
     value: "off"
+php_fpm_stopgap_pool_admin_values:
+  - pool: www
+    name: memory_limit
+    value: "-1"

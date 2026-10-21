@@ -1102,3 +1102,15 @@ the open request to stop replacing VMs when their cloud-init files change,
 noting that Proxmox changes `cicustom` in place and that a vendor-data-only
 change keeps the nocloud instance-id, disclosing that Claude drafted it.
 `TODO.md` makes the issue a precondition for moving more VMs to cloud-init.
+
+## pterodactyl: second PHP2Shell stopgap, gated on the fix (2026-10-21)
+
+At Parker's direction, pterodactyl's `www` pool gained
+`php_admin_value[memory_limit] = -1`, which closes another known PHP2Shell attack
+path. `site.yml` added it after a check run showing only that line, and a request
+through the FPM socket then read `memory_limit=-1` with upload progress still
+off; the panel kept answering. The `php_fpm` role now treats its settings as
+stopgaps: they stay while the installed `php8.3-fpm` is older than
+`php_fpm_stopgap_until` (8.3.6-0ubuntu0.24.04.13, from USN-8948-1, compared by
+dpkg) and are removed by the first `site.yml` run after the fix is installed; a
+check run simulating the fixed version removed the ini file and both pool lines.

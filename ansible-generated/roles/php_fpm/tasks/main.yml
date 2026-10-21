@@ -7,23 +7,56 @@
     fail_msg: "Set php_fpm_version to the FPM's <major>.<minor>."
     quiet: true
 
-- name: FPM ini files
+- name: Read the installed FPM's version
+  ansible.builtin.command: dpkg-query --show --showformat=${Version} php{{ php_fpm_version }}-fpm
+  register: php_fpm_installed
+  changed_when: false
+  check_mode: false
+  when: php_fpm_stopgap_until | length > 0
+
+- name: Compare it with the fixed version
+  ansible.builtin.command: >-
+    dpkg --compare-versions {{ php_fpm_installed.stdout | quote }}
+    lt {{ php_fpm_stopgap_until | quote }}
+  register: php_fpm_older
+  changed_when: false
+  failed_when: php_fpm_older.rc not in [0, 1]
+  check_mode: false
+  when: php_fpm_stopgap_until | length > 0
+
+- name: Decide whether the stopgap applies
+  ansible.builtin.set_fact:
+    php_fpm_stopgap: "{{ php_fpm_stopgap_until | length > 0 and php_fpm_older.rc == 0 }}"
+
+- name: Stopgap ini files
   ansible.builtin.copy:
     dest: /etc/php/{{ php_fpm_version }}/fpm/conf.d/{{ item }}
     src: "{{ php_fpm_files_dir }}/etc/php/{{ php_fpm_version }}/fpm/conf.d/{{ item }}"
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ php_fpm_conf_d }}"
+  loop: "{{ php_fpm_stopgap_conf_d }}"
+  when: php_fpm_stopgap
   notify: PHP-FPM configuration changed
 
-- name: Pool admin flags
+- name: Remove stopgap ini files once PHP is fixed
+  ansible.builtin.file:
+    path: /etc/php/{{ php_fpm_version }}/fpm/conf.d/{{ item }}
+    state: absent
+  loop: "{{ php_fpm_stopgap_conf_d }}"
+  when: not php_fpm_stopgap
+  notify: PHP-FPM configuration changed
+
+- name: Stopgap pool settings
   ansible.builtin.lineinfile:
     path: /etc/php/{{ php_fpm_version }}/fpm/pool.d/{{ item.pool }}.conf
-    regexp: '^\s*php_admin_flag\[{{ item.name | regex_escape }}\]\s*='
-    line: php_admin_flag[{{ item.name }}] = {{ item.value }}
+    regexp: '^\s*{{ item.directive }}\[{{ item.name | regex_escape }}\]\s*='
+    line: "{{ item.directive }}[{{ item.name }}] = {{ item.value }}"
     insertafter: EOF
-  loop: "{{ php_fpm_pool_admin_flags }}"
+    state: "{{ php_fpm_stopgap | ternary('present', 'absent') }}"
+  loop: >-
+    {{ php_fpm_stopgap_pool_admin_flags | map('combine', {'directive': 'php_admin_flag'})
+       + php_fpm_stopgap_pool_admin_values | map('combine', {'directive': 'php_admin_value'}) }}
   loop_control:
     label: "{{ item.pool }}: {{ item.name }}"
   notify: PHP-FPM configuration changed
