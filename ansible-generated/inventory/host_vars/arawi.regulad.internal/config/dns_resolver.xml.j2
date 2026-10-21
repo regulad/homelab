@@ -176,22 +176,6 @@ server:
 	<unwanted_reply_threshold>10000000</unwanted_reply_threshold>
 	<log_verbosity>1</log_verbosity>
 	<acls>
-		<aclname>WireGuard</aclname>
-		<aclaction>allow</aclaction>
-		<description>WireGuard Unbound ACL (DO NOT EDIT/DELETE!)</description>
-		<aclid>3</aclid>
-		<row>
-			<acl_network>fdc5:4979:78da::</acl_network>
-			<mask>126</mask>
-			<description>tun_wg0</description>
-		</row>
-		<row>
-			<acl_network>172.16.31.128</acl_network>
-			<mask>30</mask>
-			<description>tun_wg1</description>
-		</row>
-	</acls>
-	<acls>
 		<aclid>0</aclid>
 		<aclname>ipv6</aclname>
 		<aclaction>allow</aclaction>

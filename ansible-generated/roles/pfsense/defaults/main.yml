@@ -1,4 +1,16 @@
 ---
+# The pfSense release the host's configuration is written for, as
+# <major>.<minor>. pfSense does not follow semantic versioning: minor releases
+# change the FreeBSD base, config.xml and package builds, so the role refuses any
+# other release. Empty skips the check.
+pfsense_release: ""
+
+# pfSense packages to install, by full name (pfSense-pkg-<name>). Their builds
+# come from Netgate's repository for pfsense_release, which serves only the
+# current build of each. Packages left off are not removed; removing one deletes
+# its settings, so that stays a manual step.
+pfsense_packages: []
+
 # Knobs for pfsense. Each object list or settings dict is passed to the
 # pfsensible.core module of the same name; an empty value leaves that part of
 # config.xml alone.
@@ -85,6 +97,40 @@ pfsense_config_section_reloads:
   snmpd: |
     require_once("services.inc");
     services_snmpd_configure();
+  sudo: |
+    require_once("/usr/local/pkg/sudo.inc");
+    sudo_write_config();
+  # Established SSH sessions, Ansible's included, survive an sshd restart.
+  sshd: |
+    send_event("service restart sshd");
+  console: |
+    require_once("pfsense-utils.inc");
+    console_configure();
+  # As System > Advanced > Miscellaneous. RAM disk changes apply at the next boot.
+  system_misc: |
+    require_once("pfsense-utils.inc");
+    require_once("system.inc");
+    require_once("filter.inc");
+    activate_powerd();
+    load_crypto();
+    setup_loader_settings();
+    filter_configure();
+  # As System > Advanced > Firewall & NAT.
+  system_firewall: |
+    require_once("system.inc");
+    require_once("filter.inc");
+    require_once("services.inc");
+    system_setup_sysctl();
+    filter_configure();
+    configure_cron();
+  # As System > Advanced > Networking. Offload changes apply at the next boot.
+  system_network: |
+    require_once("pfsense-utils.inc");
+    require_once("filter.inc");
+    require_once("services.inc");
+    setup_loader_settings();
+    filter_configure();
+    services_dhcpd_configure();
 
 # Files outside config.xml, such as scripts that cron or shell commands run,
 # owned by root:wheel. Each file has a path, a mode, and either src, relative

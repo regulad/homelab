@@ -2,6 +2,49 @@
 # Converge config.xml on pfSense hosts through pfsensible.core, in dependency
 # order: certificates before the services that use them, VLANs and interfaces
 # before gateways, gateways before routes and rules.
+- name: Read the pfSense release
+  ansible.builtin.slurp:
+    src: /etc/version
+  register: pfsense_version_file
+  when: pfsense_release | length > 0
+
+- name: Check the pfSense release
+  ansible.builtin.assert:
+    that: (pfsense_version_file.content | b64decode | trim).startswith(pfsense_release ~ '.')
+    fail_msg: >-
+      This host runs pfSense {{ pfsense_version_file.content | b64decode | trim }},
+      but its configuration is written for {{ pfsense_release }}.
+    quiet: true
+  when: pfsense_release | length > 0
+
+- name: Find installed packages
+  ansible.builtin.command: pkg info -e {{ item }}
+  register: pfsense_package_check
+  changed_when: false
+  failed_when: pfsense_package_check.rc not in [0, 1]
+  check_mode: false
+  loop: "{{ pfsense_packages }}"
+
+- name: Report packages to install
+  ansible.builtin.debug:
+    msg: "{{ item.item }} would be installed"
+  changed_when: true
+  loop: "{{ pfsense_package_check.results | selectattr('rc', 'eq', 1) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: ansible_check_mode
+
+# pfSense's own installer registers the package in config.xml.
+- name: Install packages
+  ansible.builtin.command: /usr/local/sbin/pfSsh.php playback installpkg {{ item.item }}
+  register: pfsense_package_install
+  changed_when: true
+  failed_when: "'Done.' not in pfsense_package_install.stdout"
+  loop: "{{ pfsense_package_check.results | selectattr('rc', 'eq', 1) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not ansible_check_mode
+
 - name: General setup
   pfsensible.core.pfsense_setup:
     hostname: "{{ pfsense_setup.hostname | default(omit) }}"

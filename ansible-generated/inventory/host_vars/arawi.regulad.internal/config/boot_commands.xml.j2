@@ -1,0 +1,1 @@
+<afterbootupshellcmd>/sbin/kldload -n ipmi; /sbin/sysctl hw.ipmi.wd_timer_actions=1; /usr/sbin/watchdogd -t 30 -e /usr/local/bin/tmpfscheck.sh</afterbootupshellcmd>

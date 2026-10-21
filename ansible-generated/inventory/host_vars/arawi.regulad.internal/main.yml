@@ -1,6 +1,12 @@
 ---
 # arawi: pfSense CE, applied by the pfsense role through pfsensible.core.
 ansible_python_interpreter: /usr/local/bin/python3.11
+pfsense_release: "2.9"
+pfsense_packages:
+  - pfSense-pkg-Cron
+  - pfSense-pkg-System_Patches
+  - pfSense-pkg-WireGuard
+  - pfSense-pkg-sudo
 pfsense_setup:
   hostname: arawi
   domain: regulad.internal
@@ -384,55 +390,6 @@ pfsense_interfaces:
     ipv4_gateway: BAILOUT464GW
     ipv6_type: none
     mtu: 1400
-pfsense_gateways:
-  - name: LANGW
-    interface: LAN
-    ipprotocol: inet
-    gateway: 10.23.0.1
-    descr: ''
-    weight: 1
-    monitor: 1.1.1.1
-  - name: LAN_SLAAC
-    interface: LAN
-    ipprotocol: inet6
-    gateway: dynamic
-    descr: Interface LAN_SLAAC Gateway
-    weight: 1
-    monitor: 2606:4700:4700::1111
-  - name: tailscalerouter
-    interface: LAN
-    ipprotocol: inet
-    gateway: 10.23.2.171
-    descr: ''
-    weight: 1
-  - name: U5G_GRE_TUNNELV4
-    interface: U5G_GRE
-    ipprotocol: inet
-    gateway: dynamic
-    descr: Interface U5G_GRE_TUNNELV4 Gateway
-    weight: 1
-    monitor: 1.0.0.1
-  - name: U5G_GRE_TUNNELV6
-    interface: U5G_GRE
-    ipprotocol: inet6
-    gateway: dynamic
-    descr: Interface U5G_GRE_TUNNELV6 Gateway
-    weight: 1
-    monitor: 2606:4700:4700::1001
-  - name: BAILOUT646GW
-    interface: BAILOUT646
-    ipprotocol: inet6
-    gateway: fdc5:4979:78da::1
-    descr: ''
-    weight: 1
-    monitor: 2620:fe::fe
-  - name: BAILOUT464GW
-    interface: BAILOUT464
-    ipprotocol: inet
-    gateway: 172.16.31.129
-    descr: ''
-    weight: 1
-    monitor: 9.9.9.9
 pfsense_routes:
   - descr: Tailnet IPv4
     network: 100.64.0.0/10
@@ -619,73 +576,6 @@ pfsense_rules:
     protocol: any
     source: tailnet_subnet_ipv6
     destination: IP:LAN2
-pfsense_dhcp_servers:
-  - interface: LAN
-    enable: true
-    range_from: 10.23.1.11
-    range_to: 10.23.1.245
-  - interface: GUEST
-    enable: true
-    range_from: 10.23.129.11
-    range_to: 10.23.129.245
-pfsense_dhcp_statics:
-  - netif: lan
-    macaddr: 00:18:dd:01:ca:34
-    ipaddr: 10.23.1.6
-    hostname: hdhr-101ca340
-    descr: Broken HDHR discovery
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: bc:24:11:4a:25:fa
-    ipaddr: 10.23.2.31
-    hostname: ingress
-    descr: Port forwarding
-    gateway: 10.23.0.1
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: bc:24:11:7d:6f:9b
-    ipaddr: 10.23.2.32
-    hostname: freeipa
-    descr: Legacy DNS
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: bc:24:11:0b:76:9e
-    ipaddr: 10.23.2.33
-    hostname: dodo
-    descr: Port forwarding
-    gateway: 10.23.0.1
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: bc:24:11:c8:9b:09
-    ipaddr: 10.23.2.41
-    hostname: pihole
-    arp_table_static_entry: true
-    dnsserver:
-      - 10.23.0.254
-  - netif: lan
-    macaddr: bc:24:11:d8:56:c2
-    ipaddr: 10.23.2.68
-    hostname: ncsusplitt
-    descr: Asymmetric route
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: bc:24:11:5d:be:75
-    ipaddr: 10.23.2.145
-    hostname: aboriginal
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: bc:24:11:53:2c:15
-    ipaddr: 10.23.2.171
-    hostname: tailscalerouter
-    descr: IPv4 static routing
-    gateway: 10.23.0.254
-    arp_table_static_entry: true
-  - netif: lan
-    macaddr: 74:f9:2c:b2:96:cf
-    ipaddr: 10.23.2.229
-    hostname: u5g-us
-    gateway: 10.23.0.254
-    arp_table_static_entry: true
 pfsense_log_settings:
   filterdescriptions: 1
 
@@ -731,19 +621,16 @@ pfsense_config_sections:
   - name: gre
     select:
       - gres
+    # u5g-gre6-sync.php follows the carrier's /64.
     ignore:
       - gre/tunnel-local-addr6
       - gre/tunnel-remote-addr6
     template: gre.xml.j2
     reload: gre
-  - name: gateway_groups
-    parent: gateways
+  - name: gateways
     select:
-      - gateway_item[name='tailscalerouter6']
-      - defaultgw4
-      - defaultgw6
-      - gateway_group
-    template: gateway_groups.xml.j2
+      - gateways
+    template: gateways.xml.j2
     reload: routing
   - name: limiters
     select:
@@ -760,21 +647,17 @@ pfsense_config_sections:
       - kea
     template: kea.xml.j2
     reload: dhcpd
-  - name: kea_lan
-    parent: dhcpd/lan
+  - name: dhcp
     select:
-      - custom_kea_config
-    template: kea_lan.xml.j2
-    reload: dhcpd
-  - name: kea_guest
-    parent: dhcpd/opt2
-    select:
-      - custom_kea_config
-    template: kea_guest.xml.j2
+      - dhcpd
+    template: dhcp.xml.j2
     reload: dhcpd
   - name: dns_resolver
     select:
       - unbound
+    # The WireGuard package rebuilds its ACL from the tunnels on every resync.
+    ignore:
+      - acls[aclname='WireGuard']
     template: dns_resolver.xml.j2
     reload: unbound
   - name: outbound_nat
@@ -807,3 +690,92 @@ pfsense_config_sections:
       - snmpd
     template: snmp.xml.j2
     reload: snmpd
+  - name: sudo
+    parent: installedpackages
+    select:
+      - sudo
+    template: sudo.xml.j2
+    reload: sudo
+  - name: ssh
+    parent: system
+    select:
+      - ssh
+    template: ssh.xml.j2
+    reload: sshd
+  - name: console
+    parent: system
+    select:
+      - enableserial
+      - primaryconsole
+      - serialspeed
+    template: console.xml.j2
+    reload: console
+  - name: system_misc
+    parent: system
+    select:
+      - powerd_ac_mode
+      - powerd_battery_mode
+      - powerd_normal_mode
+      - crypto_hardware
+      - mds_disable
+      - use_mfs_tmpvar
+      - use_mfs_tmp_size
+      - use_mfs_var_size
+      - gw_down_kill_states
+      - lb_use_sticky
+    template: system_misc.xml.j2
+    reload: system_misc
+  - name: system_firewall
+    parent: system
+    select:
+      - optimization
+      - maximumstates
+      - maximumtableentries
+      - maximumfrags
+      - aliasesresolveinterval
+      - statepolicy
+      - disablenatreflection
+      - reflectiontimeout
+      - bogons
+      - no_apipa_block
+    template: system_firewall.xml.j2
+    reload: system_firewall
+  - name: system_network
+    parent: system
+    select:
+      - ipv6allow
+      - global-v6duid
+      - disablechecksumoffloading
+      - disablesegmentationoffloading
+      - disablelargereceiveoffloading
+      - hn_altq_enable
+    template: system_network.xml.j2
+    reload: system_network
+  - name: boot_commands
+    parent: system
+    select:
+      - afterbootupshellcmd
+    template: boot_commands.xml.j2
+  - name: filter_extras
+    parent: filter
+    select:
+      - bypassstaticroutes
+      - separator
+    template: filter_extras.xml.j2
+    reload: filter
+  - name: diag
+    select:
+      - diag
+    template: diag.xml.j2
+    reload: filter
+  - name: unused_features
+    select:
+      - virtualip
+      - ppps
+      - qinqs
+      - ipsec
+      - openvpn
+      - proxyarp
+      - wol
+    template: unused_features.xml.j2
+    reload: filter

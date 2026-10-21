@@ -890,3 +890,61 @@ read as an inventory source. A `--check` run reported all of them unchanged.
   authorized keys as text, except `internal-ca`, whose CRLF PEM stays base64.
   Both stages' `.ansible-lint` exclude `*.sops.yml`, whose ciphertext cannot be
   wrapped.
+
+## arawi: pfSense release pin and packages (2026-10-20)
+
+pfSense installs the packages `config.xml` lists only at a boot that finds
+`/cf/conf/needs_package_sync`; otherwise it registers installed packages into
+`config.xml`. The `pfsense` role now installs missing `pfsense_packages` through
+pfSense's own `installpkg` playback and never removes any. Parker asked to pin
+the role to pfSense's major version, with 2.9 as the fallback if pfSense does not
+follow semantic versioning. It does not: its minor releases change the FreeBSD
+base, the config revision and package builds, and pfsensible 0.7.0 needs 2.8.0
+or later. So `pfsense_release` pins `arawi` to 2.9, and the role refuses any
+other release. Check mode passed on `arawi`, refused a 2.8 pin, and reported a
+missing package without installing it.
+
+## arawi: the WireGuard ACL has one source (2026-10-20)
+
+The WireGuard package deletes and recreates its "WireGuard" ACL in
+`unbound/acls` on every resync, from the tunnels' addresses, while the
+`dns_resolver` section owned all of `unbound`. With Parker's approval, the
+section now ignores `acls[aclname='WireGuard']`. `pfsense_config_section`'s
+`ignore` now keeps each ignored element's whole live subtree, at its live
+position, and templates leave ignored paths out. A `--check` run against `arawi`
+reported every section unchanged. Parker noted that `U5G_GRE` cannot have a static
+IPv6, because pfSense manages GRE addressing elsewhere, so `u5g-gre6-sync.php`'s
+interface branch never conflicts with `pfsense_interface`.
+
+## arawi: more of config.xml in sections (2026-10-20)
+
+Parker chose which unmanaged parts of `config.xml` to take on. New sections own
+the sudo rules, SSH, the serial console, the System > Advanced settings without
+a module, `afterbootupshellcmd`, the filter settings beside the rules,
+`diag/ipv6nat`, and the unused features, kept empty. Each reloads as pfSense's
+own page does, verified on `arawi`. Gateways and DHCP moved from pfsensible to
+the `gateways` and `dhcp` sections, because `pfsense_gateway` and the DHCP
+modules cannot model fields `arawi` sets; that also ended the two cosmetic DHCP
+fields. Both earlyshellcmds belong to their packages (System Patches and
+WireGuard), and `pkg_repo_conf_path` to pfSense's updater, so they stay
+unmanaged, with the other parts Parker left to pfSense. `pfsense_shellcmd`
+manages only the Shellcmd package's commands, so the watchdog command is a
+section. A full `--check` run against `arawi` reported `changed=0`.
+
+## arawi: first real run (2026-10-20)
+
+With Parker's approval, `site.yml` ran for real against `arawi` through the real
+inventory (`--limit arawi.regulad.internal`), after a `--check` run the same way.
+The baseline play matched no hosts and the `Arawi` play reported `ok=15
+changed=0`. `config.xml` on `arawi` was byte-identical before and after the
+run, so no section wrote and no reload ran.
+
+## arawi: end-to-end check (2026-10-20)
+
+A `tofu/gonkputer` plan was a no-op; the inventory, read from its state, put
+`arawi.regulad.internal` in the `arawi` group; and a `site.yml --check` run
+through it reported `changed=0`. OpenTofu's three NICs matched `arawi`'s `vtnet0`
+to `vtnet2` by MAC. The guest agent answered `qm agent 108 ping`, the IPMI
+module and `tmpfscheck.sh` watchdog were running, and the console is on
+`ttyu0`. `vtnet1` runs at MTU 1500 although OpenTofu and `config.xml` both say
+9000, because pfSense leaves the WAN interface, which is not enabled, unconfigured.

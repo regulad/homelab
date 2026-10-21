@@ -47,8 +47,9 @@ options:
       ignore:
         description:
           - Paths, relative to each owned element, that something on the host
-            rewrites. They are left out of the comparison, and their live values
-            are kept when the section is written.
+            owns. They are left out of the comparison, and when the section is
+            written the live elements, with everything inside them, are kept at
+            their live positions. Templates leave them out.
         type: list
         elements: str
         default: []
@@ -111,13 +112,20 @@ def _without(elts, ignore):
 
 
 def _keep_live(current, wanted, ignore):
-    """Carry the live values of ignored paths into wanted."""
+    """Replace ignored paths in wanted with the live elements, at their live positions."""
     for live, new in zip(current, wanted):
         if live.tag != new.tag:
             continue
         for path in ignore:
-            for live_x, new_x in zip(live.findall(path), new.findall(path)):
-                new_x.text = live_x.text
+            branch, _, leaf = path.rpartition("/")
+            live_holders = live.findall(branch) if branch else [live]
+            new_holders = new.findall(branch) if branch else [new]
+            for live_holder, new_holder in zip(live_holders, new_holders):
+                for x in new_holder.findall(leaf):
+                    new_holder.remove(x)
+                for x in live_holder.findall(leaf):
+                    position = list(live_holder).index(x)
+                    new_holder.insert(min(position, len(new_holder)), copy.deepcopy(x))
 
 
 def _owned(parent, select):

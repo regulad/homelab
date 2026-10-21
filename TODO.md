@@ -27,7 +27,7 @@ Ansible, an identical configuration for the switch scripts). See
 
 ## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
 
-- [ ] `arawi` (108)
+- [x] `arawi` (108)
 - [ ] `vkasm` (129)
 
 ## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
