@@ -1066,3 +1066,16 @@ prodingus reported `changed=0`. A second check reported `changed=0` on all 25,
 and the 11 rebuilt bundles contain neither root. The cloud-init VMs unifi,
 softether, urbackup, matrix, freeipa and git, which Ansible does not reach,
 still trust emSign, and matrix also Comodo.
+
+## eMudhra: distrusted roots on the cloud-init VMs, by hand (2026-10-21)
+
+With Parker's approval, the six cloud-init VMs outside Ansible's inventory got
+`ca_trust`'s change by hand over SSH, mirroring the role. On unifi, softether,
+urbackup and matrix, the enabled `mozilla/...` lines for the two roots in
+`/etc/ca-certificates.conf` were negated (emSign everywhere; Comodo only on
+matrix, the only one still enabling it), then `update-ca-certificates` ran. On
+freeipa and git, both roots went into `/etc/pki/ca-trust/source/blocklist` as
+copies of the role's files (sha256 matched), then `update-ca-trust extract`
+ran. Afterwards no system bundle on the six contained either root, and an HTTPS
+request from each host still succeeded. The change is not declared anywhere
+yet; the VMs' vendor files do not carry it.
