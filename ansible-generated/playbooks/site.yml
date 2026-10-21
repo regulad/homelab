@@ -9,9 +9,9 @@
     - base
     - tailscale
 
-# Linux hosts by OS group; ca_trust_family comes from each group's group_vars.
+# Hosts by OS group; ca_trust_family comes from each group's group_vars.
 - name: Distrusted root certificates
-  hosts: debian:ubuntu:rhel
+  hosts: debian:ubuntu:rhel:freebsd
   gather_facts: false
   become: true
   roles:

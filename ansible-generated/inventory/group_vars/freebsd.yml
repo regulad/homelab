@@ -1,0 +1,4 @@
+---
+# FreeBSD, and pfSense on it, builds its trust store with certctl.
+ca_trust_family: freebsd
+ca_trust_file_group: wheel

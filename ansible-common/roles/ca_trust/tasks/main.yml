@@ -4,8 +4,8 @@
 # hardware hosts (Phase 2) and generated hosts (Phase 4) in an OS group.
 - name: Check the trust store family
   ansible.builtin.assert:
-    that: ca_trust_family in ['debian', 'rhel']
-    fail_msg: "Set ca_trust_family to debian or rhel through the host's OS group."
+    that: ca_trust_family in ['debian', 'rhel', 'freebsd']
+    fail_msg: "Set ca_trust_family to debian, rhel or freebsd through the host's OS group."
     quiet: true
 
 - name: Distrust roots in /etc/ca-certificates.conf
@@ -25,8 +25,21 @@
     dest: "{{ ca_trust_rhel_blocklist_dir }}/{{ item }}.pem"
     src: "{{ item }}.crt"
     owner: root
-    group: root
+    group: "{{ ca_trust_file_group }}"
     mode: "0644"
   loop: "{{ ca_trust_distrusted }}"
   when: ca_trust_family == 'rhel'
   notify: Update RHEL CA store
+
+- name: Distrust roots in certctl's untrusted directory
+  # A root FreeBSD already distrusts keeps the base system's own file.
+  ansible.builtin.copy:
+    dest: "{{ ca_trust_freebsd_untrusted_dir }}/{{ item }}.pem"
+    src: "{{ item }}.crt"
+    owner: root
+    group: "{{ ca_trust_file_group }}"
+    mode: "0644"
+    force: false
+  loop: "{{ ca_trust_distrusted }}"
+  when: ca_trust_family == 'freebsd'
+  notify: Rehash FreeBSD CA store

@@ -1079,3 +1079,17 @@ copies of the role's files (sha256 matched), then `update-ca-trust extract`
 ran. Afterwards no system bundle on the six contained either root, and an HTTPS
 request from each host still succeeded. The change is not declared anywhere
 yet; the VMs' vendor files do not carry it.
+
+## arawi: emSign distrusted through ca_trust (2026-10-21)
+
+`ca_trust` gained a `freebsd` family that copies the roots into certctl's
+untrusted directory, keeping any file FreeBSD already ships there, and runs
+`certctl rehash`; `arawi` joined a new `freebsd` group through its
+`ansible_host`. FreeBSD's base system already distrusted Comodo AAA Services
+root, so only emSign ECC Root CA - G3 changed. With Parker's approval, the
+`tofu/gonkputer` plan (1 changed) was applied and a fresh plan was a no-op;
+`site.yml` then ran against `arawi` after a check run showing only that file:
+`ok=18 changed=2` (the file and the rehash), and a second check reported
+`changed=0`. `/etc/ssl/cert.pem`, which PHP, Unbound and LDAP read, no longer
+contains emSign, and the web GUI answered. The `ca_root_nss` package's bundle
+in `/usr/local/share/certs` still contains it until that package is updated.

@@ -89,5 +89,5 @@ resource "ansible_host" "arawi" {
   count = proxmox_haresource.arawi.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_vm.arawi.name}.${local.guest_domain}"
-  groups = ["arawi", "gonkputer", "proxmox_vms"]
+  groups = ["arawi", "freebsd", "gonkputer", "proxmox_vms"]
 }

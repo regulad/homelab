@@ -1,8 +1,12 @@
 ---
 # How this host's system trust store is built, set by its OS group: debian
-# (Debian and Ubuntu, /etc/ca-certificates.conf) or rhel (Enterprise Linux,
-# p11-kit's blocklist).
+# (Debian and Ubuntu, /etc/ca-certificates.conf), rhel (Enterprise Linux,
+# p11-kit's blocklist) or freebsd (FreeBSD and pfSense, certctl's untrusted
+# directory).
 ca_trust_family: ""
+
+# Group owning the files the role writes: root's group, gid 0, is wheel on FreeBSD.
+ca_trust_file_group: root
 
 # Root certificates the system store must not trust, each by its name in the
 # Mozilla bundle as Debian ships it (mozilla/<name>.crt). files/<name>.crt holds
@@ -18,3 +22,7 @@ ca_trust_distrusted:
 
 # p11-kit's blocklist directory. p11-kit before 0.24 names it blacklist.
 ca_trust_rhel_blocklist_dir: /etc/pki/ca-trust/source/blocklist
+
+# certctl's directory of untrusted certificates, which FreeBSD already fills
+# with the roots its base system distrusts.
+ca_trust_freebsd_untrusted_dir: /usr/share/certs/untrusted
