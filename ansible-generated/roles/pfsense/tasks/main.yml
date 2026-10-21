@@ -197,9 +197,48 @@
     label: "{{ item.path }}"
   no_log: "{{ item.content is defined }}"
   register: pfsense_files_result
-  notify:
-    - Reload Unbound zones
-    - Restart PHP-FPM
+  notify: Reload Unbound zones
+
+- name: Read PHP's version
+  ansible.builtin.command: php -r 'echo PHP_VERSION;'
+  register: pfsense_php_version
+  changed_when: false
+  check_mode: false
+  when: pfsense_php_stopgap_until | length > 0
+
+- name: Compare it with the fixed version
+  ansible.builtin.command: pkg version -t {{ pfsense_php_version.stdout | quote }} {{ pfsense_php_stopgap_until | quote }}
+  register: pfsense_php_compare
+  changed_when: false
+  check_mode: false
+  when: pfsense_php_stopgap_until | length > 0
+
+- name: Decide whether the PHP stopgap applies
+  ansible.builtin.set_fact:
+    pfsense_php_stopgap: "{{ pfsense_php_stopgap_until | length > 0 and pfsense_php_compare.stdout == '<' }}"
+
+- name: PHP stopgap files
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    src: "{{ pfsense_files_dir ~ '/' ~ item.src }}"
+    owner: root
+    group: wheel
+    mode: "{{ item.mode }}"
+  loop: "{{ pfsense_php_stopgap_files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: pfsense_php_stopgap
+  notify: Restart PHP-FPM
+
+- name: Remove PHP stopgap files once PHP is fixed
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ pfsense_php_stopgap_files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: not pfsense_php_stopgap
+  notify: Restart PHP-FPM
 
 - name: Render sections with no pfsensible module
   ansible.builtin.set_fact:

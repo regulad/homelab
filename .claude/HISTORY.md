@@ -1193,3 +1193,16 @@ its `MaxStartups` of 10:30:100 (logged as `drop connection … Maxstartups`), so
 both stages now run 10 forks; a full check of the generated stage takes about
 ten minutes, because each task on a container costs several `pct exec` round
 trips.
+
+## arawi: second PHP2Shell stopgap, gated on the fix (2026-10-21)
+
+arawi's stopgap ini gained `memory_limit = -1`, beside upload progress off; PHP
+reads the scan directory after pfSense's generated `php.ini` (`512M`). The
+`pfsense` role now keeps PHP stopgap files only while `PHP_VERSION` is older
+than `pfsense_php_stopgap_until` (8.5.12, compared by `pkg version -t`),
+removes them once it is not, and restarts php-fpm when they change, replacing
+the `restarts_php_fpm` key. With Parker's approval, `site.yml` applied it after
+a check run showing only that file: `ok=22 changed=2` (the file and the
+restart). php-fpm then reported `memory_limit -1` and upload progress off, the
+web GUI answered, and a second check reported `changed=0`; a check run
+simulating a fixed PHP removed the file.
