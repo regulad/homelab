@@ -8,6 +8,14 @@
     - base
     - tailscale
 
+# Linux hosts by OS group; ca_trust_family comes from each group's group_vars.
+- name: Distrusted root certificates
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - ca_trust
+
 - name: Proxmox and Ceph cluster settings owned by Ansible
   hosts: proxmox_nodes
   roles:

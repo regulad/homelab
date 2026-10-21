@@ -9,6 +9,14 @@
     - base
     - tailscale
 
+# Linux hosts by OS group; ca_trust_family comes from each group's group_vars.
+- name: Distrusted root certificates
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - ca_trust
+
 # arawi runs pfSense, whose config.xml the pfsense role converges through
 # pfsensible.core; the baseline roles do not apply to it. Its group is its own,
 # because another pfSense host would not share its configuration.

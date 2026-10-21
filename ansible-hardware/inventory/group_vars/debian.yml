@@ -1,0 +1,3 @@
+---
+# Debian and Ubuntu build their trust store from /etc/ca-certificates.conf.
+ca_trust_family: debian

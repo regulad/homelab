@@ -8,7 +8,7 @@ resource "oci_core_instance" "livekit" {
   shape               = "VM.Standard.A1.Flex"
   metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCd2nNjLPxuJEWMOJJ0nfJ5C1qK/ydxbJiBQJPX+GH4SfIabQn5mfKLkX+p16k7JJj74M1zRAfhvdN/EAjIzDWt6yG1grSystxPHyN/Bt2r5UubHiVHVH/+1iktl7HankbD5vFl4A0xn8tt4gXEpUO2wZTQyuRryItsmjzl+2IXbhsGwyR60+yaZtoh2NKGhwgakT04dz9aPBHC69KJdvhZsgtE3cn2pyDUuOHkFoUHvqJHccoL168HtEi2QtXVn4ZjXw+4uLypHZJSNVcGwfG5oXtJwY5PAf004KDDNiZHIwo656FWFQIsC3kqc/8YQVLjpWCsA6lEAX1SzZa02PZP ssh-key-2025-12-19" }
   state               = "RUNNING"
-  freeform_tags       = { "managed-by" = "opentofu" }
+  freeform_tags       = { "managed-by" = "opentofu", "os" = "rhel" }
 
   agent_config {
     are_all_plugins_disabled = false

@@ -14,7 +14,7 @@ resource "oci_core_instance" "router" {
   shape               = "VM.Standard.E2.1.Micro"
   metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDpNJsQQDEtDUBjyUr4uR24C1Irt4+5caHdPG4k7uZ+Vzt0qgXNhTVvP+yRDA0+O8jJ1DzAvbFUgU13BknxoLKeBEShhW9ZiuGDHorYoe4zDe+30hnR8HtWe8htEaeCdLe61VsVLdVOzhNqPWSG6w79z2S//VlpK134/ItvUYaxBSKD/rb5K/AXQ7i9/VsLTPFvnimA9DXEKCVZ5fxIzDMBtfAK+XNiDq1slsMczDaqmJb2k1zQg6PbCDHtLqrK9mvHQEjvGEA/pKtDmnp8uS593akaFH8yIaGDAiCmSmez9s1n4OGMqsQoHLXFddLLHGpsJGIo05F/VNuzIa46Sr0V ssh-key-2025-12-08" }
   state               = "RUNNING"
-  freeform_tags       = { "managed-by" = "opentofu" }
+  freeform_tags       = { "managed-by" = "opentofu", "os" = "rhel" }
 
   agent_config {
     are_all_plugins_disabled = false

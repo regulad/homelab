@@ -1,0 +1,3 @@
+---
+# Enterprise Linux (Oracle Linux, Rocky, Alma) builds its trust store with p11-kit.
+ca_trust_family: rhel

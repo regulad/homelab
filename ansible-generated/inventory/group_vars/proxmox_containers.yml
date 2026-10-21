@@ -5,3 +5,6 @@
 # tofu/gonkputer, through compose in gonkputer.terraform_state.yml.
 ansible_connection: community.proxmox.proxmox_pct_remote
 ansible_user: root
+# pct already runs as root inside the container, so plays that become root do
+# not wrap their commands in the container's sudo.
+ansible_become: false

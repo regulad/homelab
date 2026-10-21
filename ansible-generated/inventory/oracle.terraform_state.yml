@@ -35,5 +35,11 @@ compose:
   ansible_host: >-
     display_name if display_name == 'doppelgangerhq.com'
     else create_vnic_details[0].hostname_label ~ '.pubsub.wahlecloud.oraclevcn.com'
+# One group per OS, from each instance's "os" freeform tag in tofu/oracle.
+keyed_groups:
+  - key: freeform_tags.os
+    prefix: ""
+    separator: ""
+    leading_separator: false
 groups:
   generated: true

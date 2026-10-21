@@ -102,5 +102,5 @@ resource "ansible_host" "resolute_template" {
   count = proxmox_virtual_environment_vm.resolute_template.on_boot ? 1 : 0
 
   name   = "${proxmox_virtual_environment_vm.resolute_template.name}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_vms"]
+  groups = ["gonkputer", "proxmox_vms", "ubuntu"]
 }

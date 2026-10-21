@@ -81,7 +81,7 @@ resource "ansible_host" "ncsusplitt" {
   count = proxmox_haresource.ncsusplitt.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_container.ncsusplitt.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_containers"]
+  groups = ["gonkputer", "proxmox_containers", "ubuntu"]
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

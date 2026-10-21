@@ -1040,3 +1040,29 @@ day was removed (`visudo -c` passes). The defunct hosts `gendo.home.arpa` and
 and IPA does not manage DNS. Earlier that day, Parker gave `regulad`
 passwordless sudo through `/etc/sudoers.d/90-regulad-nopasswd` on mail,
 livekit, tailscalerouter (OCI), matrix, git, dodo, aboriginal and overture.
+
+## eMudhra: distrusted roots through ca_trust (2026-10-21)
+
+The October 2026 eMudhra intermediates with compromised keys chain to emSign
+ECC Root CA - G3 and Comodo AAA Services root. A `ca_trust` role in
+`ansible-common` distrusts both the way each OS's packaging expects: on Debian
+and Ubuntu by negating their lines in `/etc/ca-certificates.conf`, on
+Enterprise Linux by copying them into p11-kit's blocklist; the PEMs matched by
+SHA-256 across Debian's package and the Rocky and Oracle Linux bundles. Hosts
+pick the workaround by a new OS group: `ubuntu` on every Linux `ansible_host` in
+`tofu/gonkputer`, an `os` freeform tag (`rhel`, `ubuntu`) on the OCI
+instances turned into groups by `oracle.terraform_state.yml`, and `debian`,
+`ubuntu` and `macos` in `hardware.yml`. Containers no longer become root
+through their own sudo.
+
+With Parker's approval, the `tofu/gonkputer` plan (20 `ansible_host` changed)
+and the `tofu/oracle` plan (5 instances' tags; the IPv6 assignments' `vnic_id`
+showed as known after apply and did not change) were applied, each followed by
+a no-op plan. `site.yml` then ran in both stages after check runs. Generated:
+act, cordpepperer, ncsusplitt, procontainer, timemachine, tsexit and uptime
+negated emSign's line, and bailout, mail, livekit and tailscalerouter got both
+blocklist files, all 11 rebuilding their store; the other 14 Linux hosts and
+prodingus reported `changed=0`. A second check reported `changed=0` on all 25,
+and the 11 rebuilt bundles contain neither root. The cloud-init VMs unifi,
+softether, urbackup, matrix, freeipa and git, which Ansible does not reach,
+still trust emSign, and matrix also Comodo.

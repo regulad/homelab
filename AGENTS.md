@@ -47,7 +47,7 @@ homelab/
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
-│   └── roles/                   # roles both stages apply: base, tailscale
+│   └── roles/                   # roles both stages apply: base, tailscale, ca_trust
 ├── ansible-hardware/            # Phase 2, before OpenTofu; reads only the hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── inventory/               # hardware.yml (by hand), group_vars/, host_vars/<host>/main.yml
@@ -115,6 +115,7 @@ plan shows an unintended destroy or replace.
 - **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened (work done, approvals, apply results, superseded decisions) by appending to `.claude/HISTORY.md`.
 - **Guest names:** lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
 - **Tags:** every guest is marked as managed by OpenTofu: `managed-by=opentofu` on OCI instances, and the tag `terraform` on Proxmox guests, whose tags cannot contain `=`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
+- **OS groups:** every Linux host Ansible manages is in exactly one OS group, `debian`, `ubuntu` or `rhel` (Oracle Linux, Rocky and Alma), which roles such as `ca_trust` key their behaviour on through `group_vars/<os>.yml`. Generated hosts get it from OpenTofu: an `os` freeform tag on OCI instances, and the group in each Proxmox guest's `ansible_host`. Hardware hosts list it in `hardware.yml`.
 - **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
 - **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
 - **pfSense:** the `pfsense` role converges `config.xml` through `pfsensible.core` modules wherever one works. Each part they cannot manage is a `pfsense_config_section` section, a template in `host_vars/<host>/config/` that replaces the elements it owns; paths something on the host rewrites are listed in its `ignore`. Every part of `config.xml` has one owner: when a module cannot model a field, the whole object type moves to a section rather than splitting ownership, and parts that pfSense or a package writes are left to them. Files outside `config.xml` come from `files/<host>/`. Each host pins its pfSense `<major>.<minor>` release in `pfsense_release`, because pfSense does not follow semantic versioning, and lists its packages in `pfsense_packages`; the role installs missing ones through pfSense's own installer and never removes any. Each host's gaps are tracked in `host_vars/<host>/TODO.md`. The operator's `config.xml` snapshot is authoritative over the live file: a fix the role cannot make is edited into the snapshot, pushed over SSH, and applied through pfSense's PHP.
@@ -155,7 +156,7 @@ plan shows an unintended destroy or replace.
 - **Lookups:** read a host's VNIC through a `data "oci_core_vnic_attachments"` filtered to `ATTACHED` and `one()`, so a second VNIC fails loudly instead of being guessed.
 - **Inputs:** sensitive inputs are `sensitive = true` and `nullable = false` and come from `secrets.sops.json`. Non-sensitive values are inline HCL, not variables. Resource-free constants shared by several roots live in `tofu/shared`.
 - **Versions:** pins live only in each root's `versions.tf`. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
-- **Tags:** every OCI instance sets `freeform_tags = { "managed-by" = "opentofu" }` as its last scalar argument.
+- **Tags:** every OCI instance sets `freeform_tags = { "managed-by" = "opentofu", "os" = "<os group>" }` as its last scalar argument.
 - **Deferred problems:** a setting known to be wrong but kept for now gets `# FIXME: <what is wrong>. Revisit <when>.` on the lines directly above it.
 - **Labels:** resource labels are stable identities; renaming one needs a `moved` block. NSG rules are labelled `<host>_<protocol>_<port or range>`; bailout's two family-specific rules keep their adopted `bailout_rule_NN` labels.
 

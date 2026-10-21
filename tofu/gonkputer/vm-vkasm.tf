@@ -44,5 +44,5 @@ resource "ansible_host" "vkasm" {
   count = proxmox_virtual_environment_vm.vkasm.on_boot ? 1 : 0
 
   name   = "${proxmox_virtual_environment_vm.vkasm.name}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_vms"]
+  groups = ["gonkputer", "proxmox_vms", "ubuntu"]
 }

@@ -10,3 +10,13 @@ hardware:
     proxmox_nodes:
       hosts:
         prodingus:  # gonkputer
+    # One group per OS, as the generated hosts are grouped by OpenTofu.
+    debian:
+      hosts:
+        prodingus:
+    ubuntu:
+      hosts:
+        turk:
+    macos:
+      hosts:
+        overture:
