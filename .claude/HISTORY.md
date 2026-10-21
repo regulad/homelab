@@ -948,3 +948,17 @@ to `vtnet2` by MAC. The guest agent answered `qm agent 108 ping`, the IPMI
 module and `tmpfscheck.sh` watchdog were running, and the console is on
 `ttyu0`. `vtnet1` runs at MTU 1500 although OpenTofu and `config.xml` both say
 9000, because pfSense leaves the WAN interface, which is not enabled, unconfigured.
+
+## pfsensible.core issues filed (2026-10-20)
+
+With Parker's approval, his GitHub account filed seven bug reports (#267–#273)
+and thirteen feature requests (#274–#286) on `pfsensible/core`, each reproduced
+in check mode against `arawi` with documentation addresses, and each disclosing
+that Claude drafted it. Reproducing corrected two earlier findings: the
+`pfsense_dns_resolver` crash comes from `sslcert` naming a description two
+certificates share, and `pfsense_rule`'s IPv6 error on 0.7.1 is #219's, already
+fixed on `master`. It also found that `pfsense_dns_resolver` rejects IPv6
+domain-override servers. The account left a 👍 on #128, #164 and #265 and
+posted no comments. `arawi`'s `TODO.md` links every issue. The project has no
+policy on AI-assisted contributions; its maintainer wrote on #153 that there is
+none.
