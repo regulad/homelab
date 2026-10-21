@@ -31,9 +31,14 @@
   become: false
   no_log: true
 
-- name: Install Postfix
+- name: Install Postfix and a mail client
+  # The SASL plugin carries the relay login; /usr/bin/mail is what tools such
+  # as smartd's mail script call (bsd-mailx on Debian and Ubuntu, s-nail on
+  # Enterprise Linux).
   ansible.builtin.package:
-    name: "{{ ['postfix', 'libsasl2-modules'] if mail_relay_family == 'debian' else ['postfix', 'cyrus-sasl-plain'] }}"
+    name: >-
+      {{ ['postfix', 'libsasl2-modules', 'bsd-mailx'] if mail_relay_family == 'debian'
+         else ['postfix', 'cyrus-sasl-plain', 's-nail'] }}
     state: present
 
 - name: Relay login

@@ -1206,3 +1206,15 @@ a check run showing only that file: `ok=22 changed=2` (the file and the
 restart). php-fpm then reported `memory_limit -1` and upload progress off, the
 web GUI answered, and a second check reported `changed=0`; a check run
 simulating a fixed PHP removed the file.
+
+## Mail client on every relaying host (2026-10-21)
+
+prodingus's smartd mails through `/etc/smartmontools/run.d/10mail`, which calls
+`/usr/bin/mail` and gives up without it, so `mail_relay` now also installs a
+mail client: `bsd-mailx` on Debian and Ubuntu, `s-nail` on Enterprise Linux.
+With Parker's approval, `site.yml` applied it with pihole first and prodingus
+last: 22 hosts installed it, and pihole, livekit, tailscalerouter (OCI) and
+prodingus already had one; every one of the 26 hosts now has `/usr/bin/mail`.
+A test through smartd's path on prodingus arrived as
+`null-prodingus@regulad.xyz` to regulad@regulad.xyz. Mail queued on prodingus
+before the relay was fixed keeps its old headers as it drains.
