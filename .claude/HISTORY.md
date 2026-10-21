@@ -1027,3 +1027,16 @@ describe the live change byte for byte, and `site.yml` gained a play for the
 1 changed, 0 destroyed), and a fresh plan was a no-op. `site.yml` then ran
 against `pterodactyl` through the real inventory, in check mode and for real,
 each reporting `ok=4 changed=0`; the panel kept answering.
+
+## freeipa: sudo through the Admins rule (2026-10-21)
+
+With Parker's approval, FreeIPA's only sudo rule, `Admins` (every host and
+command, for the `admins` group), gained the `!authenticate` option, so
+`regulad` has sudo without a password on freeipa; the rule had overridden the
+local `90-cloud-init-users` grant. SSSD picked it up after about 3.5 minutes,
+and the local `/etc/sudoers.d/90-regulad-nopasswd` drop-in made earlier that
+day was removed (`visudo -c` passes). The defunct hosts `gendo.home.arpa` and
+`tinker.home.arpa` were deleted from the directory; they were in no HBAC rule,
+and IPA does not manage DNS. Earlier that day, Parker gave `regulad`
+passwordless sudo through `/etc/sudoers.d/90-regulad-nopasswd` on mail,
+livekit, tailscalerouter (OCI), matrix, git, dodo, aboriginal and overture.
