@@ -47,7 +47,7 @@ homelab/
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
-│   └── roles/                   # roles both stages apply: base, tailscale, ca_trust
+│   └── roles/                   # roles both stages apply: base, tailscale, ca_trust, auto_updates
 ├── ansible-hardware/            # Phase 2, before OpenTofu; reads only the hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── inventory/               # hardware.yml (by hand), group_vars/, host_vars/<host>/main.yml

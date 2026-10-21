@@ -1,0 +1,11 @@
+---
+# Every repository except Proxmox's pve-test, which stays in prodingus's sources
+# for testing (the node tests things such as the bpg/proxmox provider) but is
+# never upgraded from unattended. Origins-Pattern cannot negate, so the first
+# entry allows every component not starting with "p", and the second adds back
+# pve-no-subscription; devel ("main") and Ceph ("no-subscription") are covered
+# by the first. Where pve-test has a newer version, unattended-upgrades takes
+# the newest version from an allowed repository instead.
+auto_updates_unattended_upgrade_origins_pattern:
+  - origin=*,component=[!p]*
+  - origin=*,component=pve-no-subscription

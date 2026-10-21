@@ -1,3 +1,20 @@
 ---
 # Debian and Ubuntu build their trust store from /etc/ca-certificates.conf.
 ca_trust_family: debian
+
+auto_updates_family: debian
+# One unattended-upgrades setup for every host: every repository's updates,
+# the distribution's and third parties', installed and rebooted into
+# automatically, with a report mailed on change.
+auto_updates_unattended_upgrade_origins_pattern:
+  - origin=*
+auto_updates_unattended_upgrade:
+  AutoFixInterruptedDpkg: "true"
+  MinimalSteps: "true"
+  Mail: "{{ auto_updates_mail_to }}"
+  MailReport: on-change
+  Remove-Unused-Kernel-Packages: "true"
+  Remove-New-Unused-Dependencies: "true"
+  Remove-Unused-Dependencies: "true"
+  Automatic-Reboot: "true"
+  Sender: "{{ auto_updates_mail_from }}"

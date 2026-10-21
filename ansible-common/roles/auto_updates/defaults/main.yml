@@ -1,0 +1,32 @@
+---
+# Which updater this host runs, set by its OS group: debian (unattended-upgrades,
+# on Debian and Ubuntu) or rhel (dnf-automatic, on Enterprise Linux).
+auto_updates_family: ""
+
+# debian: the APT::Periodic settings written to /etc/apt/apt.conf.d/20auto-upgrades,
+# in this order.
+auto_updates_apt_periodic:
+  Update-Package-Lists: "1"
+  Unattended-Upgrade: "1"
+
+# debian: 50unattended-upgrades is the package's own copy
+# (/usr/share/unattended-upgrades/) with these changes; everything else keeps
+# the package's default.
+# Origins-Pattern entries appended to the package's lists, which APT extends
+# rather than replaces; values are shell-style wildcards ("origin=*" matches
+# every repository, the distribution's and third parties').
+auto_updates_unattended_upgrade_origins_pattern: []
+# Unattended-Upgrade options by name: uncommented and set where the package's
+# file lists them, appended otherwise.
+auto_updates_unattended_upgrade: {}
+
+# rhel: keys set in /etc/dnf/automatic.conf, each a section, key and value, the
+# key already present in that section of the package's file; the rest of the
+# file stays the package's.
+auto_updates_dnf_automatic: []
+
+# Where the updater mails its reports, and the per-host sender it mails from.
+# FIXME: no host runs a mailer, and the sender is not a deliverable address.
+# Revisit when the hosts' outbound mail is settled.
+auto_updates_mail_to: regulad@regulad.xyz
+auto_updates_mail_from: root@{{ inventory_hostname }}

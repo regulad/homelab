@@ -1,3 +1,15 @@
 ---
 # Enterprise Linux (Oracle Linux, Rocky, Alma) builds its trust store with p11-kit.
 ca_trust_family: rhel
+
+auto_updates_family: rhel
+# One dnf-automatic setup for every host: all updates, not only security ones,
+# installed and rebooted into when needed, with a report mailed as well as logged.
+auto_updates_dnf_automatic:
+  - {section: commands, key: upgrade_type, value: default}
+  - {section: commands, key: download_updates, value: "yes"}
+  - {section: commands, key: apply_updates, value: "yes"}
+  - {section: commands, key: reboot, value: when-needed}
+  - {section: emitters, key: emit_via, value: "stdio,email"}
+  - {section: email, key: email_from, value: "{{ auto_updates_mail_from }}"}
+  - {section: email, key: email_to, value: "{{ auto_updates_mail_to }}"}

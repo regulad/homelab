@@ -16,6 +16,14 @@
   roles:
     - ca_trust
 
+# Each Linux host's own automatic updater, by OS group.
+- name: Automatic updates
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - auto_updates
+
 - name: Proxmox and Ceph cluster settings owned by Ansible
   hosts: proxmox_nodes
   roles:

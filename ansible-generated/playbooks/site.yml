@@ -17,6 +17,14 @@
   roles:
     - ca_trust
 
+# Each Linux host's own automatic updater, by OS group.
+- name: Automatic updates
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - auto_updates
+
 # arawi runs pfSense, whose config.xml the pfsense role converges through
 # pfsensible.core; the baseline roles do not apply to it. Its group is its own,
 # because another pfSense host would not share its configuration.

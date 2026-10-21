@@ -1,0 +1,129 @@
+---
+# Converge the distribution's own automatic updater, which installs package
+# updates on its own schedule (AGENTS.md: package updates come from each host's
+# automatic updater, not a playbook). Runs on hardware hosts (Phase 2) and
+# generated hosts (Phase 4) in an OS group.
+- name: Check the updater family
+  ansible.builtin.assert:
+    that: auto_updates_family in ['debian', 'rhel']
+    fail_msg: "Set auto_updates_family to debian or rhel through the host's OS group."
+    quiet: true
+
+- name: Unattended-upgrades
+  when: auto_updates_family == 'debian'
+  block:
+    - name: Install unattended-upgrades
+      ansible.builtin.package:
+        name: unattended-upgrades
+        state: present
+
+    - name: Periodic APT runs
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          {% for name, value in auto_updates_apt_periodic.items() %}
+          APT::Periodic::{{ name }} "{{ value }}";
+          {% endfor %}
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Read the package's 50unattended-upgrades
+      ansible.builtin.slurp:
+        src: /usr/share/unattended-upgrades/50unattended-upgrades
+      register: auto_updates_stock
+
+    - name: Check no option is listed more than once in the package's file
+      ansible.builtin.assert:
+        that: >-
+          auto_updates_stock.content | b64decode
+          | regex_findall('(?m)^(?://)?Unattended-Upgrade::' ~ (item | regex_escape) ~ ' ')
+          | length <= 1
+        fail_msg: "Unattended-Upgrade::{{ item }} appears more than once in the package's 50unattended-upgrades."
+        quiet: true
+      loop: "{{ auto_updates_unattended_upgrade.keys() | list }}"
+
+    - name: Unattended-upgrades settings
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/50unattended-upgrades
+        content: >-
+          {%- set file = namespace(text=auto_updates_stock.content | b64decode, extra='') -%}
+          {%- if auto_updates_unattended_upgrade_origins_pattern -%}
+          {%- set file.extra = 'Unattended-Upgrade::Origins-Pattern {\n' -%}
+          {%- for pattern in auto_updates_unattended_upgrade_origins_pattern -%}
+          {%- set file.extra = file.extra ~ '\t"' ~ pattern ~ '";\n' -%}
+          {%- endfor -%}
+          {%- set file.extra = file.extra ~ '};\n' -%}
+          {%- endif -%}
+          {%- for name, value in auto_updates_unattended_upgrade.items() -%}
+          {%- set pattern = '(?m)^(?://)?(Unattended-Upgrade::' ~ (name | regex_escape) ~ ') "[^"]*";$' -%}
+          {%- if file.text | regex_search(pattern) -%}
+          {%- set file.text = file.text | regex_replace(pattern, '\\1 "' ~ value ~ '";') -%}
+          {%- else -%}
+          {%- set file.extra = file.extra ~ 'Unattended-Upgrade::' ~ name ~ ' "' ~ value ~ '";\n' -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {{ file.text ~ file.extra }}
+        owner: root
+        group: root
+        mode: "0644"
+        # APT refuses a file it cannot parse, before it replaces the live one.
+        validate: apt-config -c %s dump
+
+    - name: Daily APT timers
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - apt-daily.timer
+        - apt-daily-upgrade.timer
+
+    - name: Unattended-upgrades shutdown hook
+      ansible.builtin.systemd_service:
+        name: unattended-upgrades.service
+        enabled: true
+        state: started
+
+- name: Dnf-automatic
+  when: auto_updates_family == 'rhel'
+  block:
+    - name: Install dnf-automatic
+      ansible.builtin.package:
+        name: dnf-automatic
+        state: present
+
+    - name: Read automatic.conf
+      ansible.builtin.slurp:
+        src: /etc/dnf/automatic.conf
+      register: auto_updates_dnf_conf
+
+    - name: Check every key is present once in its section
+      ansible.builtin.assert:
+        that: >-
+          auto_updates_dnf_conf.content | b64decode
+          | regex_search('(?s)(?:^|\n)\[' ~ (item.section | regex_escape) ~ '\]\n(.*?)(?:\n\[|$)', '\\1') | first
+          | regex_findall('(?m)^' ~ (item.key | regex_escape) ~ '\s*=')
+          | length == 1
+        fail_msg: "{{ item.key }} is not a single line in [{{ item.section }}] of automatic.conf."
+        quiet: true
+      loop: "{{ auto_updates_dnf_automatic }}"
+      loop_control:
+        label: "{{ item.section }}: {{ item.key }}"
+
+    - name: Dnf-automatic settings
+      ansible.builtin.replace:
+        path: /etc/dnf/automatic.conf
+        after: '\[{{ item.section | regex_escape }}\]\n'
+        before: '\n\['
+        regexp: '^{{ item.key | regex_escape }}\s*=.*$'
+        replace: "{{ item.key }} = {{ item.value }}"
+      loop: "{{ auto_updates_dnf_automatic }}"
+      loop_control:
+        label: "{{ item.section }}: {{ item.key }}"
+
+    - name: Dnf-automatic timer
+      ansible.builtin.systemd_service:
+        name: dnf-automatic.timer
+        enabled: true
+        state: started

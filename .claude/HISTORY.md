@@ -1114,3 +1114,36 @@ stopgaps: they stay while the installed `php8.3-fpm` is older than
 `php_fpm_stopgap_until` (8.3.6-0ubuntu0.24.04.13, from USN-8948-1, compared by
 dpkg) and are removed by the first `site.yml` run after the fix is installed; a
 check run simulating the fixed version removed the ini file and both pool lines.
+
+## Automatic updates converged in Ansible (2026-10-21)
+
+Every host's updater configuration was collected read-only into
+`docs/snapshot/autoupdates-2026-10-21/`. Each `50unattended-upgrades` variant
+was the package's own copy with some options uncommented, and each
+`dnf-automatic` variant differed from the package's file in up to three keys.
+An `auto_updates` role in `ansible-common` now rebuilds `50unattended-upgrades`
+from the package's copy (`/usr/share/unattended-upgrades/`) with the declared
+options and appended `Origins-Pattern` entries, validated by `apt-config`
+before it replaces the live file, and sets declared keys in sections of
+`automatic.conf`.
+
+A first, describing pass reproduced every host (`changed=0`). At Parker's
+direction, every host then converged on one setup: all updates from every
+repository (`origin=*` for unattended-upgrades, `upgrade_type = default` for
+dnf-automatic), unused kernels and dependencies removed, automatic reboots, and
+reports mailed to regulad@regulad.xyz from a per-host `root@<host>`, marked
+FIXME because no host runs a mailer. prodingus excludes only Proxmox's
+`pve-test`, which stays in its sources for testing: its patterns allow every
+component not starting with `p`, plus `pve-no-subscription`, so `devel` and
+Ceph stay allowed; a read-only evaluation with unattended-upgrades' own matcher
+confirmed `pve-test` as the only one denied.
+
+With Parker's approval, `site.yml` applied it in stages with prodingus last,
+because prodingus going down cuts off every guest: pihole first (APT parsed the
+file and a dry run listed `-updates` packages), then the other 18 containers,
+then vkasm, doppelgangerhq.com and the four Enterprise Linux instances, then
+prodingus, each host changing one file. On prodingus, a dry run pinned
+`pve-test` to -32768 and moved candidates to `pve-no-subscription`. livekit
+now installs updates and reboots when needed, and vkasm and ncsusplitt now
+reboot automatically. The cloud-init VMs are out of scope until
+bpg/terraform-provider-proxmox#2901 is resolved.
