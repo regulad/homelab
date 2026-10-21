@@ -1,0 +1,29 @@
+---
+# Converge the FPM settings of a distribution PHP; the packages themselves come
+# from the host's automatic updater. Runs on generated hosts in php_fpm (Phase 4).
+- name: Check the PHP release
+  ansible.builtin.assert:
+    that: php_fpm_version is match('^[0-9]+\.[0-9]+$')
+    fail_msg: "Set php_fpm_version to the FPM's <major>.<minor>."
+    quiet: true
+
+- name: FPM ini files
+  ansible.builtin.copy:
+    dest: /etc/php/{{ php_fpm_version }}/fpm/conf.d/{{ item }}
+    src: "{{ php_fpm_files_dir }}/etc/php/{{ php_fpm_version }}/fpm/conf.d/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ php_fpm_conf_d }}"
+  notify: PHP-FPM configuration changed
+
+- name: Pool admin flags
+  ansible.builtin.lineinfile:
+    path: /etc/php/{{ php_fpm_version }}/fpm/pool.d/{{ item.pool }}.conf
+    regexp: '^\s*php_admin_flag\[{{ item.name | regex_escape }}\]\s*='
+    line: php_admin_flag[{{ item.name }}] = {{ item.value }}
+    insertafter: EOF
+  loop: "{{ php_fpm_pool_admin_flags }}"
+  loop_control:
+    label: "{{ item.pool }}: {{ item.name }}"
+  notify: PHP-FPM configuration changed

@@ -1,0 +1,10 @@
+---
+php_fpm_version: "8.3"
+# Session upload progress off, a partial PHP2Shell mitigation, until Ubuntu ships
+# a fixed php8.3; the pool flag keeps a .user.ini from turning it back on.
+php_fpm_conf_d:
+  - 99-php2shell.ini
+php_fpm_pool_admin_flags:
+  - pool: www
+    name: session.upload_progress.enabled
+    value: "off"

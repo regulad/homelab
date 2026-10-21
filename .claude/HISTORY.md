@@ -1014,3 +1014,16 @@ after a passing config test, and a request through the FPM socket read the
 setting as off. nginx, stopped earlier that day, was started again; the panel
 answers on `pterodactyl.regulad.xyz`, still without the client-certificate gate.
 The setting is a partial mitigation until Ubuntu ships a fixed php8.3.
+
+## pterodactyl: PHP2Shell stopgap moved into Ansible (2026-10-21)
+
+The hand-made stopgap is now declared: a `php_fpm` role in `ansible-generated`
+copies ini files into the FPM's `conf.d` from `files/<host>/` and keeps
+`php_admin_flag` lines in a pool's file, testing the configuration before it
+reloads php-fpm. `pterodactyl`'s `host_vars` and its copy of `99-php2shell.ini`
+describe the live change byte for byte, and `site.yml` gained a play for the
+`php_fpm` group. With Parker's approval, the `tofu/gonkputer` plan adding
+`php_fpm` to `ansible_host.pterodactyl`'s groups was applied (0 added,
+1 changed, 0 destroyed), and a fresh plan was a no-op. `site.yml` then ran
+against `pterodactyl` through the real inventory, in check mode and for real,
+each reporting `ok=4 changed=0`; the panel kept answering.

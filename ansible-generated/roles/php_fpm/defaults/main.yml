@@ -1,0 +1,14 @@
+---
+# The PHP release whose FPM the host runs from its distribution's packages, as
+# <major>.<minor>, which names /etc/php/<version> and php<version>-fpm.
+php_fpm_version: ""
+
+# Ini files copied into /etc/php/<version>/fpm/conf.d from the same path under
+# php_fpm_files_dir, by file name. FPM reads them after php.ini.
+php_fpm_conf_d: []
+php_fpm_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
+
+# php_admin_flag lines, which a .user.ini cannot override. Each item has the
+# pool, the setting's name and its value (on or off), and is kept as one line in
+# pool.d/<pool>.conf; the rest of that file stays the package's.
+php_fpm_pool_admin_flags: []

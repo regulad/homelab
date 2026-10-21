@@ -19,6 +19,14 @@
   roles:
     - pfsense
 
+# Hosts that serve PHP through their distribution's php-fpm; the group comes
+# from each host's ansible_host in OpenTofu.
+- name: PHP-FPM hosts
+  hosts: php_fpm
+  gather_facts: false
+  roles:
+    - php_fpm
+
 - name: Podman hosts
   hosts: podman_hosts
   roles:

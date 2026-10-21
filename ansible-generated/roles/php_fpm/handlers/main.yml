@@ -1,0 +1,13 @@
+---
+# Test the whole FPM configuration before reloading, so a bad file leaves the
+# running workers alone. Both listen to one topic and run in this order.
+- name: Test PHP-FPM configuration
+  ansible.builtin.command: php-fpm{{ php_fpm_version }} --test
+  changed_when: false
+  listen: PHP-FPM configuration changed
+
+- name: Reload PHP-FPM
+  ansible.builtin.systemd_service:
+    name: php{{ php_fpm_version }}-fpm
+    state: reloaded
+  listen: PHP-FPM configuration changed
