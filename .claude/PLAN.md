@@ -204,13 +204,14 @@ resources, without a manual inventory edit.
   # ansible-generated/inventory/host_vars/<host>/services.yml
   quadlet_services:
     - name: example
-      image: registry.example/app:1.2.3     # pinned tag, no :latest
+      image: registry.example/app:1         # major-version or channel tag, no :latest
+      auto_update: registry                 # podman-auto-update pulls patch and minor releases
       ports: ["8080:8080"]
       volumes: ["example-data:/data"]
-      networks: [svcnet]
-      env_file: example.env                 # secret file, sops-encrypted
+      env_file: true                        # quadlet_env_files.example, from secrets.sops.yml
       state: present                        # present | absent
   ```
+  The full key list is in the `quadlet` role's `defaults/main.yml`.
 - The role templates `.container`, `.volume`, `.network` into `/etc/containers/systemd/`, notifies a `systemctl daemon-reload` handler, and enables/starts the generated unit. `state: absent` removes the unit.
 - Migrate one service **side by side**: stand up the Quadlet version on a spare port or host, verify, cut over, and only then retire the old container (Parker approves the removal).
 - **Accept:** the service runs as a systemd-managed Quadlet; a restart/reboot test passes; data persists; the old container is retired only after Parker signs off; a second playbook run is idempotent.

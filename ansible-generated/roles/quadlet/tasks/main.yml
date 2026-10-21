@@ -1,5 +1,73 @@
 ---
-# Template each service's .container, .volume, and .network units into
-# /etc/containers/systemd/, reload systemd, and start them; state: absent removes
-# them. Runs on generated hosts in podman_hosts (Phase 4).
-[]
+# Template each service's .container unit into /etc/containers/systemd/, with
+# its secret env file, and keep it running; state: absent removes both. Runs on
+# generated hosts in podman_hosts (Phase 4).
+- name: Split services into present and absent
+  ansible.builtin.set_fact:
+    quadlet_present: >-
+      {{ quadlet_services | rejectattr('state', 'defined') | list
+         + quadlet_services | selectattr('state', 'defined') | selectattr('state', 'eq', 'present') | list }}
+    quadlet_absent: "{{ quadlet_services | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
+
+- name: Quadlet units
+  ansible.builtin.template:
+    src: service.container.j2
+    dest: "{{ quadlet_dir }}/{{ item.name }}.container"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ quadlet_present }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: quadlet_units
+  notify: Restart changed Quadlet services
+
+- name: Quadlet env files
+  ansible.builtin.copy:
+    dest: "{{ quadlet_dir }}/{{ item.name }}.env"
+    # Exactly one final newline, which the SOPS value can lose on its way in.
+    content: "{{ quadlet_env_files[item.name] | regex_replace('\\n*$', '') }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ quadlet_present | selectattr('env_file', 'defined') | selectattr('env_file') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: quadlet_envs
+  no_log: true
+  notify: Restart changed Quadlet services
+
+- name: Stop removed Quadlet services
+  ansible.builtin.systemd_service:
+    name: "{{ item.name }}.service"
+    state: stopped
+  loop: "{{ quadlet_absent }}"
+  loop_control:
+    label: "{{ item.name }}"
+  failed_when: false
+
+- name: Remove absent Quadlet units
+  ansible.builtin.file:
+    path: "{{ quadlet_dir }}/{{ item.0.name }}.{{ item.1 }}"
+    state: absent
+  loop: "{{ quadlet_absent | product(['container', 'env']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}.{{ item.1 }}"
+  notify: Reload systemd
+
+- name: Quadlet services running
+  # Quadlet units are generated, so systemd cannot enable them; [Install]
+  # WantedBy starts them at boot.
+  ansible.builtin.systemd_service:
+    name: "{{ item.name }}.service"
+    state: started
+  loop: "{{ quadlet_present }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Podman auto-update timer
+  ansible.builtin.systemd_service:
+    name: podman-auto-update.timer
+    enabled: true
+    state: started
+  when: quadlet_present | selectattr('auto_update', 'defined') | list | length > 0

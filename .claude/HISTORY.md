@@ -1218,3 +1218,23 @@ prodingus already had one; every one of the 26 hosts now has `/usr/bin/mail`.
 A test through smartd's path on prodingus arrived as
 `null-prodingus@regulad.xyz` to regulad@regulad.xyz. Mail queued on prodingus
 before the relay was fixed keeps its old headers as it drains.
+
+## Containers surveyed; vaultwarden's Quadlet adopted (2026-10-21)
+
+A read-only survey of every container's applications is in
+`docs/snapshot/lxc-apps-2026-10-21/`. Parker marked pihole, procontainer,
+llamarpcmaster and openclaw low priority, confirmed cordpepperer and peppercord
+as mirrors, and decided the rest are taken over in place: hosts already on
+Podman move to Quadlets, the others keep their runtime. Quadlet images track a
+major-version or channel tag with `AutoUpdate=registry`, so podman-auto-update
+brings in patch and minor releases.
+
+The `quadlet` role now renders `.container` units from `services.yml`, writes
+secret env files from SOPS, restarts only services whose files changed, and
+keeps podman-auto-update on. vaultwarden's hand-written unit is described in
+its `services.yml`, still on `testing`, which tracks upstream Bitwarden's API,
+and its `vaultwarden.env` was copied into SOPS without being printed (hashes
+matched). With Parker's approval, the `tofu/gonkputer` plan adding
+`podman_hosts` to `ansible_host.vaultwarden` was applied (1 changed) and a
+fresh plan was a no-op; `site.yml` then reported `changed=0` against
+vaultwarden in check mode and for real.

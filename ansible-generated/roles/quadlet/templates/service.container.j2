@@ -1,0 +1,42 @@
+[Unit]
+Description={{ item.description }}
+{% if item.after | default([]) %}
+After={{ item.after | join(' ') }}
+{% endif %}
+{% if item.wants | default([]) %}
+Wants={{ item.wants | join(' ') }}
+{% endif %}
+
+[Container]
+Image={{ item.image }}
+{% if item.container_name is defined %}
+ContainerName={{ item.container_name }}
+{% endif %}
+{% if item.user is defined %}
+User={{ item.user }}
+{% endif %}
+{% if item.auto_update is defined %}
+AutoUpdate={{ item.auto_update }}
+{% endif %}
+{% for port in item.ports | default([]) %}
+PublishPort={{ port }}
+{% endfor %}
+{% for volume in item.volumes | default([]) %}
+Volume={{ volume }}
+{% endfor %}
+{% if item.environment | default({}) %}
+
+{% for name, value in item.environment.items() %}
+Environment={{ name }}={{ value }}
+{% endfor %}
+{% endif %}
+{% if item.env_file | default(false) %}
+
+EnvironmentFile={{ quadlet_dir }}/{{ item.name }}.env
+{% endif %}
+
+[Service]
+Restart={{ item.restart | default('always') }}
+
+[Install]
+WantedBy={{ item.wanted_by | default(['multi-user.target', 'default.target']) | join(' ') }}

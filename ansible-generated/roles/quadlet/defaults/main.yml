@@ -1,4 +1,19 @@
 ---
-# This host's services, from host_vars/<host>/services.yml. The schema is in
-# .claude/PLAN.md, Phase 4.
+# This host's Podman Quadlet services, from host_vars/<host>/services.yml. Each
+# is one .container unit in /etc/containers/systemd/, with:
+#   name            unit and default container name
+#   state           present (default) or absent
+#   description     [Unit] Description
+#   after, wants    [Unit] ordering and wanted units
+#   image           a major-version or channel tag, never latest; with
+#                   auto_update: registry, podman-auto-update pulls patch and
+#                   minor releases of that tag
+#   container_name, user, auto_update, ports (PublishPort), volumes (Volume)
+#   environment     Environment entries, in order
+#   env_file        true to write quadlet_env_files[name], from the host's
+#                   secrets.sops.yml, to /etc/containers/systemd/<name>.env
+#   restart         [Service] Restart
+#   wanted_by       [Install] WantedBy
 quadlet_services: []
+quadlet_env_files: {}
+quadlet_dir: /etc/containers/systemd

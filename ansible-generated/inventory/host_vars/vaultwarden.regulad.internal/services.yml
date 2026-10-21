@@ -1,0 +1,32 @@
+---
+quadlet_services:
+  - name: vaultwarden
+    description: Vaultwarden
+    after: [network-online.target]
+    wants: [network-online.target]
+    # testing tracks upstream Bitwarden's API, which the clients need.
+    image: ghcr.io/dani-garcia/vaultwarden:testing
+    container_name: vaultwarden
+    user: "1000:1000"
+    auto_update: registry
+    ports: ["8000:8000/tcp"]
+    volumes: ["vaultwarden_data:/data"]
+    environment:
+      DOMAIN: https://vw.regulad.xyz
+      ROCKET_PORT: "8000"
+      SIGNUPS_DOMAINS_WHITELIST: regulad.xyz
+      SIGNUPS_ALLOWED: "false"
+      PUSH_ENABLED: "true"
+      PUSH_INSTALLATION_ID: 175c9ac4-959f-4a7f-a749-b28e0184245a
+      SMTP_AUTH_MECHANISM: Login
+      SMTP_HOST: mail.regulad.xyz
+      SMTP_FROM: svc-vaultwarden@regulad.xyz
+      SMTP_PORT: "465"
+      SMTP_SECURITY: force_tls
+      SMTP_USERNAME: svc-vaultwarden
+      IP_HEADER: X-Forwarded-For
+      IP_HEADER_TRUSTED_PROXIES: 10.23.0.0/20,fd83:b84c:aa57:1::0/64
+    # ADMIN_TOKEN, PUSH_INSTALLATION_KEY and SMTP_PASSWORD, from secrets.sops.yml.
+    env_file: true
+    restart: always
+    wanted_by: [multi-user.target, default.target]

@@ -1,0 +1,15 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+# Regenerate the units, then restart only the services whose unit or env file
+# changed.
+- name: Restart changed Quadlet services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}.service"
+    state: restarted
+    daemon_reload: true
+  loop: >-
+    {{ ((quadlet_units.results | default([])) + (quadlet_envs.results | default([])))
+       | selectattr('changed') | map(attribute='item.name') | unique | list }}
