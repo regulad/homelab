@@ -1,0 +1,5 @@
+---
+tailscale_enabled: true
+tailscale_tags: [server]
+tailscale_settings:
+  stateful_filtering: false

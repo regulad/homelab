@@ -1,4 +1,83 @@
 ---
-# Install and enable the Tailscale client; join only when tailscale_join is set.
-# Runs on hardware hosts (Phase 2) and generated hosts (Phase 4).
-[]
+# Install Tailscale and converge a joined node's settings and Serve; join only
+# when tailscale_join is set and the node is not protected. Runs on hardware
+# hosts (Phase 2) and generated hosts (Phase 4).
+- name: Tailscale
+  when: tailscale_enabled
+  block:
+    - name: Check the declared tags
+      ansible.builtin.assert:
+        that: tailscale_tags | length > 0
+        fail_msg: Declare tailscale_tags for every Tailscale node.
+        quiet: true
+
+    - name: Install Tailscale
+      ansible.builtin.package:
+        name: tailscale
+        state: present
+
+    - name: Tailscale daemon
+      ansible.builtin.systemd_service:
+        name: tailscaled
+        enabled: true
+        state: started
+
+    - name: Tailscale settings and Serve
+      tailscale_node:
+        tags: "{{ tailscale_tags }}"
+        settings: "{{ tailscale_settings }}"
+        serve: "{{ tailscale_serve }}"
+      register: tailscale_node_result
+
+    - name: Join the tailnet
+      when: not tailscale_node_result.joined
+      block:
+        - name: Refuse to join a protected or unapproved node
+          ansible.builtin.assert:
+            that:
+              - not tailscale_protected
+              - tailscale_join
+            fail_msg: >-
+              {{ inventory_hostname }} is not logged in ({{ tailscale_node_result.backend_state }}).
+              {{ 'It is protected, so this role never joins it; log it in by hand.'
+                 if tailscale_protected else 'Set tailscale_join to join it.' }}
+            quiet: true
+
+        - name: Mint a one-off auth key with the node's tags
+          ansible.builtin.uri:
+            url: https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/keys
+            method: POST
+            headers:
+              Authorization: Bearer {{ tailscale_api_token }}
+            body_format: json
+            body:
+              description: ansible {{ inventory_hostname }}
+              expirySeconds: 3600
+              capabilities:
+                devices:
+                  create:
+                    reusable: false
+                    ephemeral: false
+                    preauthorized: true
+                    tags: "{{ tailscale_tags | map('regex_replace', '^', 'tag:') | list }}"
+            status_code: 200
+          register: tailscale_key
+          delegate_to: localhost
+          become: false
+          no_log: true
+
+        - name: Join with the key
+          ansible.builtin.command:
+            argv:
+              - tailscale
+              - up
+              - --auth-key={{ tailscale_key.json.key }}
+              - --advertise-tags={{ tailscale_tags | map('regex_replace', '^', 'tag:') | join(',') }}
+          changed_when: true
+          no_log: true
+
+        - name: Tailscale settings and Serve after joining
+          tailscale_node:
+            tags: "{{ tailscale_tags }}"
+            settings: "{{ tailscale_settings }}"
+            serve: "{{ tailscale_serve }}"

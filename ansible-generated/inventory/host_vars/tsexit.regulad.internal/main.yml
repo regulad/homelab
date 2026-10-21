@@ -1,0 +1,8 @@
+---
+tailscale_enabled: true
+tailscale_tags: [autoexit]
+tailscale_settings:
+  advertise_exit_node: true
+  accept_dns: false
+  stateful_filtering: false
+  operator: regulad

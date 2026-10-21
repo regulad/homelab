@@ -9,3 +9,14 @@
 auto_updates_unattended_upgrade_origins_pattern:
   - origin=*,component=[!p]*
   - origin=*,component=pve-no-subscription
+
+tailscale_enabled: true
+tailscale_tags: [server]
+tailscale_settings:
+  accept_dns: false
+  stateful_filtering: false
+  auto_update: true
+# The Proxmox web UI on the tailnet, with a Tailscale certificate.
+tailscale_serve:
+  - port: 8006
+    target: https+insecure://localhost:8006

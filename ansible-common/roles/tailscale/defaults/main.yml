@@ -1,3 +1,27 @@
 ---
-# Join the tailnet only when set, so hosts that are already members are untouched.
+# Hosts that run Tailscale set this; on others the role does nothing.
+tailscale_enabled: false
+
+# The node's tags, without "tag:". A joined node whose tags differ fails the run;
+# a new node joins with a one-off, pre-approved key carrying exactly these tags.
+tailscale_tags: []
+
+# Settings converged with `tailscale set`, by name (see the tailscale_node
+# module); undeclared settings are left alone.
+tailscale_settings: {}
+
+# The complete Serve configuration: a list of {port, target, funnel}. Null
+# leaves Serve alone.
+tailscale_serve: null
+
+# Join only when set, on a node that is not logged in. Joining mints a one-off
+# auth key through Tailscale's API with tailscale_api_token, from
+# group_vars/all.sops.yml.
 tailscale_join: false
+tailscale_api_token: ""
+tailscale_tailnet: "-"
+
+# Protected nodes are never joined, re-authenticated or logged out by this role,
+# whatever tailscale_join says; a protected node that is not logged in fails the
+# run instead. Settings and Serve are still converged.
+tailscale_protected: false

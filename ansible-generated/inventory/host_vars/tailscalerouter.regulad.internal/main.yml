@@ -1,3 +1,18 @@
 ---
 # Two hosts are named tailscalerouter; this one is the gonkputer container.
 mail_relay_account: null-tailscalerouter-gonkputer
+
+tailscale_enabled: true
+tailscale_tags: [edge-regulad--internal, relay]
+# The homelab's subnet router and peer relay, with SNAT off so devices behind it
+# keep their own addresses on the tailnet.
+tailscale_settings:
+  hostname: regulad-internal
+  advertise_routes: [10.23.0.0/20, "fd83:b84c:aa57:1::/64"]
+  snat_subnet_routes: false
+  accept_routes: true
+  accept_dns: false
+  stateful_filtering: false
+  operator: regulad
+  auto_update: true
+  relay_server_port: 37112

@@ -1,0 +1,6 @@
+---
+tailscale_enabled: true
+tailscale_tags: [edge-ncstate--net]
+tailscale_settings:
+  accept_dns: false
+  stateful_filtering: false

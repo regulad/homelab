@@ -1238,3 +1238,24 @@ matched). With Parker's approval, the `tofu/gonkputer` plan adding
 `podman_hosts` to `ansible_host.vaultwarden` was applied (1 changed) and a
 fresh plan was a no-op; `site.yml` then reported `changed=0` against
 vaultwarden in check mode and for real.
+
+## Tailscale described in Ansible (2026-10-21)
+
+A read-only survey of every host's Tailscale, Podman networks and Avahi is in
+`docs/snapshot/tailscale-2026-10-21/`. Parker chose a role of our own over
+`artis3n.tailscale`, whose `machine` role re-runs `tailscale up` with an auth
+key and has no Serve support, and decided that nodes get their tags by joining
+with a tagged key: he stored a Tailscale API access token as
+`tailscale_api_token` in both stages' `group_vars/all.sops.yml`. Nodes already
+joined with the right tags stay as they are, and aameter and aboriginal are
+never to be re-authenticated by Ansible.
+
+The `tailscale` role, with a `tailscale_node` module in its `library/`, checks
+each node's tags, converges declared settings with `tailscale set` and its
+Serve and Funnel ports, and joins a node that is not logged in only when
+`tailscale_join` is set, with a one-off, pre-approved key minted through the API
+for its tags. `tailscale_protected` (aameter) refuses any join. prodingus,
+aameter, ncsusplitt, both tailscalerouters, tsexit and uptime are described as
+found; the OCI router's IPv6 /64 and relay endpoints are in its
+`secrets.sops.yml`. Check runs reported `changed=0` on all seven, and with
+Parker's approval `site.yml` then ran for real against them.

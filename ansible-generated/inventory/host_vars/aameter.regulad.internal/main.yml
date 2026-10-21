@@ -1,0 +1,14 @@
+---
+tailscale_enabled: true
+# Never joined, re-authenticated or logged out by Ansible.
+tailscale_protected: true
+tailscale_tags: [funnel, server]
+tailscale_settings:
+  stateful_filtering: false
+# aameterd on the tailnet, and its second port public through Funnel.
+tailscale_serve:
+  - port: 443
+    target: http://localhost:8182
+  - port: 8443
+    target: http://localhost:8183
+    funnel: true

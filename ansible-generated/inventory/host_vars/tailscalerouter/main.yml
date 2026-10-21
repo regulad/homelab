@@ -1,3 +1,20 @@
 ---
 # Two hosts are named tailscalerouter; this one is the OCI instance in pubsub.
 mail_relay_account: null-tailscalerouter-pubsub
+
+tailscale_enabled: true
+tailscale_tags: [edge-pubsub--wahlecloud--oraclevcn--com, relay]
+# The Oracle VCN's subnet router and peer relay, with SNAT off. Its IPv6 /64 and
+# the relay's static endpoints, which include public addresses, are in
+# secrets.sops.yml.
+tailscale_settings:
+  hostname: pubsub-wahlecloud-oraclevcn-com
+  advertise_routes: [10.131.80.0/24, "{{ tailscale_vcn_ipv6_route }}"]
+  snat_subnet_routes: false
+  accept_routes: true
+  accept_dns: false
+  stateful_filtering: false
+  operator: regulad
+  auto_update: true
+  relay_server_port: 39127
+  relay_server_static_endpoints: "{{ tailscale_relay_static_endpoints | split(',') }}"

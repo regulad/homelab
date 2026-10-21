@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: Tailscale client, joining the tailnet only when asked
+  description: Tailscale client, its settings and Serve, joining the tailnet only when asked
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []
