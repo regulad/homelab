@@ -137,6 +137,9 @@ pfsense_config_section_reloads:
 # to pfsense_files_dir, or content. A file Unbound reads as an auth or RPZ
 # zonefile also names the zone in unbound_zone, which is reloaded at the end
 # of the play when the file changed, after the sections have restarted Unbound.
+# A file PHP reads, such as an ini file in /usr/local/etc/php, sets
+# restarts_php_fpm: true, so php-fpm restarts at the end of the play when the
+# file changed.
 pfsense_directories: []
 pfsense_files: []
 pfsense_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"

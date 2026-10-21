@@ -988,3 +988,17 @@ role gained its first handler, which reloads changed zones through
   to 173.54.15.27, with `ad` when it asked with DNSSEC OK. No guest client was
   tested. A second `--check` reported `changed=0`, and the snapshot was
   refreshed from live. The reboot test is still to do.
+
+## arawi: PHP2Shell stopgap (2026-10-21)
+
+Before PHP's 14:00 UTC release for PHP2Shell (CVE-2026-109618, CVE-2026-109619),
+`arawi` ran PHP 8.5.7 with `session.upload_progress.enabled` on. The `pfsense`
+role gained a `restarts_php_fpm` key for `pfsense_files`, whose handler runs
+pfSense's `/etc/rc.php-fpm_restart`, and `arawi` got
+`/usr/local/etc/php/99-php2shell.ini` turning upload progress off. The ini goes
+in PHP's scan directory because `/etc/rc.php_ini_setup` rewrites `php.ini` on
+every php-fpm restart. The setting is a partial mitigation only. With Parker's
+approval, `site.yml` ran against `arawi` after a `--check` run showing only that
+file: `ok=16 changed=2` (the file and the restart). Afterwards php-fpm reported
+the setting `Off` from the new file, the web GUI answered, and a second
+`--check` run reported `changed=0`.

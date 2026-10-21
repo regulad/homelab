@@ -623,6 +623,12 @@ pfsense_files:
   - path: /usr/local/bin/unbound-rpz-restore.sh
     mode: "0755"
     src: usr/local/bin/unbound-rpz-restore.sh
+  # Turns off session upload progress, a partial PHP2Shell mitigation, until
+  # pfSense ships a fixed PHP.
+  - path: /usr/local/etc/php/99-php2shell.ini
+    mode: "0644"
+    src: usr/local/etc/php/99-php2shell.ini
+    restarts_php_fpm: true
 
 # Parts of config.xml with no pfsensible module, replaced whole from config/.
 pfsense_config_sections:

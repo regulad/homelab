@@ -10,3 +10,11 @@
   loop_control:
     label: "{{ item.item.unbound_zone }}"
   changed_when: true
+
+# Restart php-fpm once when a file PHP reads changed in pfsense_files, through
+# pfSense's own script, which also regenerates php.ini. The web GUI drops for a
+# few seconds.
+- name: Restart PHP-FPM
+  ansible.builtin.command: /etc/rc.php-fpm_restart
+  when: pfsense_files_result.results | selectattr('changed') | selectattr('item.restarts_php_fpm', 'defined') | list | length > 0
+  changed_when: true
