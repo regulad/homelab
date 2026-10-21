@@ -1259,3 +1259,22 @@ aameter, ncsusplitt, both tailscalerouters, tsexit and uptime are described as
 found; the OCI router's IPv6 /64 and relay endpoints are in its
 `secrets.sops.yml`. Check runs reported `changed=0` on all seven, and with
 Parker's approval `site.yml` then ran for real against them.
+
+## Avahi reflecting mDNS onto Podman bridges (2026-10-21)
+
+Parker decided that every host whose containers sit on Podman bridge networks
+reflects mDNS: vaultwarden (its container is on the default `podman` network)
+and the cordpepperer/peppercord mirrors (the `peppercord_*` bridges), none of
+which ran Avahi. prodingus, the one host that did, uses Ubuntu's stock
+settings; aboriginal reflects nothing (systemd-resolved mDNS plus two
+host-network containers). The `avahi` role installs avahi-daemon, keeps
+prodingus's settings, and sets `enable-reflector=yes` with `allow-interfaces`
+set to the LAN interface plus every Podman bridge interface read at run time.
+
+With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
+cordpepperer's and peppercord's `ansible_host` was applied (2 changed) and a
+fresh plan was a no-op. `site.yml` then ran on vaultwarden first and then the
+pair: each installed avahi-daemon and changed only the reflector and
+`allow-interfaces`, Avahi joined mDNS on `eth0` and the bridges in use, and
+prodingus resolved `vaultwarden.local`, `cordpepperer.local` and
+`peppercord.local`. A second check reported `changed=0` on all three.

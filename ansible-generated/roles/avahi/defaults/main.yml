@@ -1,3 +1,17 @@
 ---
-# Knobs for avahi, each defaulted here when its tasks land.
-{}
+# Hosts whose containers sit on Podman bridge networks set this, so mDNS
+# reaches those containers and their services reach the LAN.
+avahi_enabled: false
+
+# The LAN interface mDNS is reflected to and from; every Podman bridge network's
+# interface on the host is added to it at run time.
+avahi_lan_interface: eth0
+
+# avahi-daemon.conf settings beside the reflector and allow-interfaces, which
+# the role sets itself; the rest of the file stays the package's. These match
+# prodingus, the one host that already ran Avahi.
+avahi_settings:
+  - {section: server, option: use-ipv4, value: "yes"}
+  - {section: server, option: use-ipv6, value: "yes"}
+  - {section: publish, option: publish-hinfo, value: "no"}
+  - {section: publish, option: publish-workstation, value: "no"}

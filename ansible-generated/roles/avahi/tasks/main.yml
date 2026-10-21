@@ -1,4 +1,43 @@
 ---
-# Template avahi-daemon.conf to reflect mDNS between the pinned podman bridge and
-# the LAN interface. Runs on generated hosts in podman_hosts (Phase 4).
-[]
+# Reflect mDNS between the LAN and the host's Podman bridge networks. Runs on
+# generated hosts in podman_hosts (Phase 4).
+- name: Avahi
+  when: avahi_enabled
+  block:
+    - name: Install avahi-daemon
+      ansible.builtin.package:
+        name: avahi-daemon
+        state: present
+
+    - name: Read Podman's bridge interfaces
+      ansible.builtin.command: podman network ls --filter driver=bridge --format '{{ "{{" }}.NetworkInterface{{ "}}" }}'
+      register: avahi_bridges
+      changed_when: false
+      check_mode: false
+
+    - name: Avahi settings
+      community.general.ini_file:
+        path: /etc/avahi/avahi-daemon.conf
+        section: "{{ item.section }}"
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+        no_extra_spaces: true
+        owner: root
+        group: root
+        mode: "0644"
+      loop: >-
+        {{ avahi_settings
+           + [{'section': 'reflector', 'option': 'enable-reflector', 'value': 'yes'},
+              {'section': 'server', 'option': 'allow-interfaces',
+               'value': ([avahi_lan_interface] + (avahi_bridges.stdout_lines | select | sort)) | join(',')}] }}
+      loop_control:
+        label: "{{ item.section }}: {{ item.option }}"
+      notify: Restart Avahi
+
+    - name: Avahi daemon
+      ansible.builtin.systemd_service:
+        name: avahi-daemon
+        enabled: true
+        state: started
+      # A check run before the package is installed has no unit to look at.
+      ignore_errors: "{{ ansible_check_mode }}"

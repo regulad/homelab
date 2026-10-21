@@ -1,0 +1,4 @@
+---
+
+# Containers on Podman bridge networks: reflect mDNS to them.
+avahi_enabled: true
