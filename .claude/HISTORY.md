@@ -1002,3 +1002,15 @@ approval, `site.yml` ran against `arawi` after a `--check` run showing only that
 file: `ok=16 changed=2` (the file and the restart). Afterwards php-fpm reported
 the setting `Off` from the new file, the web GUI answered, and a second
 `--check` run reported `changed=0`.
+
+## pterodactyl: PHP2Shell stopgap (2026-10-21)
+
+With Parker's approval, and by hand because no role manages `pterodactyl` yet,
+the container got `/etc/php/8.3/fpm/conf.d/99-php2shell.ini` turning
+`session.upload_progress.enabled` off, and its `www` pool a
+`php_admin_flag[session.upload_progress.enabled] = off` so a `.user.ini` cannot
+turn it back on (none exist). php8.3-fpm (8.3.6-0ubuntu0.24.04.12) was reloaded
+after a passing config test, and a request through the FPM socket read the
+setting as off. nginx, stopped earlier that day, was started again; the panel
+answers on `pterodactyl.regulad.xyz`, still without the client-certificate gate.
+The setting is a partial mitigation until Ubuntu ships a fixed php8.3.
