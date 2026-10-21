@@ -15,20 +15,16 @@ view:
     name: "local"
     view-first: yes
     #
-    local-zone: "ingress.regulad.xyz." redirect
-    local-data: "ingress.regulad.xyz. 60 IN CNAME ingress.regulad.internal."
-    local-zone: "dodo.regulad.xyz." redirect
-    local-data: "dodo.regulad.xyz. 60 IN CNAME dodo.regulad.internal."
-    #
-    local-zone: "mail.regulad.xyz." redirect
-    local-data: "mail.regulad.xyz. 60 IN CNAME mail.pubsub.wahlecloud.oraclevcn.com."
-    local-zone: "livekit.regulad.xyz." redirect
-    local-data: "livekit.regulad.xyz. 60 IN CNAME livekit.pubsub.wahlecloud.oraclevcn.com."
-    #
+    # regulad.xyz names are rewritten by the split-horizon RPZ below, which also
+    # matches CNAME targets; view local-data matches only the name asked for.
     local-zone: "mynetworksettings.com." redirect
     local-data: "mynetworksettings.com. 60 IN CNAME cr1000b.regulad-verizon-livingston.internal."
 
 server:
+    # RPZ needs the respip module. This replaces the module-config pfSense
+    # writes, "validator iterator" while DNSSEC is on; keep the two in step if
+    # DNSSEC, DNS64 or the Python module changes.
+    module-config: "respip validator iterator"
     do-not-query-localhost: no
     #
     private-domain: "regulad.internal."
@@ -38,15 +34,42 @@ server:
     private-domain: "regulad-verizon-livingston.internal."
     domain-insecure: "regulad-verizon-livingston.internal."
     #
+    # Every "local" netblock carries the "lan" tag on exactly the same netblock:
+    # each client matches one access-control entry, its most specific, and
+    # entries inherit no tags or views from wider ones.
+    define-tag: "lan"
     access-control-view: 10.23.0.0/16 local
+    access-control-tag: 10.23.0.0/16 "lan"
     access-control-view: fd83:b84c:aa57:0001::/64 local
+    access-control-tag: fd83:b84c:aa57:0001::/64 "lan"
     access-control-view: 100.64.0.0/10 local
+    access-control-tag: 100.64.0.0/10 "lan"
     access-control-view: fd7a:115c:a1e0::/48 local
+    access-control-tag: fd7a:115c:a1e0::/48 "lan"
     access-control-view: 10.131.80.239/24 local
+    access-control-tag: 10.131.80.239/24 "lan"
     access-control-view: {{ arawi_ipv6_prefixes.oci_subnet }}::/64 local
+    access-control-tag: {{ arawi_ipv6_prefixes.oci_subnet }}::/64 "lan"
     #
     access-control-view: 10.23.128.0/20 guest
     access-control-view: fd83:b84c:aa57:0008::/64 guest
+
+# Internal answers for regulad.xyz names, for "lan" clients only. The zonefile is
+# a copy on the /var RAM disk that unbound-rpz-restore.sh recreates at boot;
+# Unbound will not start without it.
+rpz:
+    name: "split-horizon.rpz."
+    zonefile: "/var/unbound/split-horizon.rpz"
+    tags: "lan"
+
+# RPZ rewrites only while resolving, never on a cache hit, so a public chain
+# cached for a guest would reach "lan" clients. Nothing under regulad.xyz is
+# cached; serve-expired cannot cover it either.
+stub-zone:
+    name: "regulad.xyz."
+    stub-host: "art.ns.cloudflare.com."
+    stub-host: "zainab.ns.cloudflare.com."
+    stub-no-cache: yes
 
 forward-zone:
     name: "regulad.internal."

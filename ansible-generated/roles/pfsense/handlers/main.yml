@@ -1,0 +1,12 @@
+---
+# Re-read the zonefiles that changed in pfsense_files. Unbound keeps running,
+# and keeps its cache. Handlers run after the sections, so a zone added by the
+# dns_resolver section in the same run already exists.
+- name: Reload Unbound zones
+  ansible.builtin.command: >-
+    /usr/local/sbin/unbound-control -c /var/unbound/unbound.conf
+    auth_zone_reload {{ item.item.unbound_zone }}
+  loop: "{{ pfsense_files_result.results | selectattr('changed') | selectattr('item.unbound_zone', 'defined') }}"
+  loop_control:
+    label: "{{ item.item.unbound_zone }}"
+  changed_when: true

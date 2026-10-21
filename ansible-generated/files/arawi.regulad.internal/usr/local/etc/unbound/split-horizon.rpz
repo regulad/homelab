@@ -1,0 +1,21 @@
+; Split-horizon RPZ for Unbound on arawi, applied only to clients tagged "lan"
+; (the DNS Resolver custom options). Unbound applies a qname trigger to the
+; name a client asks for and to every CNAME target while resolving, so
+; nextcloud.regulad.xyz -> ingress.regulad.xyz is rewritten too.
+;
+; Owners are relative to the zone origin: "ingress.regulad.xyz" here triggers
+; on ingress.regulad.xyz. Only the name itself matches; "*.<name>" would match
+; its subdomains.
+;
+; The master copy lives at /usr/local/etc/unbound/split-horizon.rpz; Unbound
+; reads the copy in its chroot, /var/unbound/split-horizon.rpz, which
+; /usr/local/bin/unbound-rpz-restore.sh recreates at every boot.
+$ORIGIN split-horizon.rpz.
+$TTL 60
+@ IN SOA localhost. nobody.invalid. 1 3600 600 86400 60
+@ IN NS localhost.
+
+ingress.regulad.xyz IN CNAME ingress.regulad.internal.
+dodo.regulad.xyz IN CNAME dodo.regulad.internal.
+mail.regulad.xyz IN CNAME mail.pubsub.wahlecloud.oraclevcn.com.
+livekit.regulad.xyz IN CNAME livekit.pubsub.wahlecloud.oraclevcn.com.

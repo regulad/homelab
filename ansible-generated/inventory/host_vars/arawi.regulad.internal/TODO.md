@@ -62,7 +62,7 @@ its patches run from an `earlyshellcmd`.
 
 Each is written by pfSense or a package, so the repository does not own it.
 
-- `system/earlyshellcmd`: the System Patches and WireGuard packages each install their own boot command
+- `system/earlyshellcmd`: the System Patches and WireGuard packages each install their own boot command; only the `/usr/local/bin/unbound-rpz-restore.sh` entry is the repository's, in section `unbound_rpz_boot`
 - `installedpackages/shellcmdsettings`: WireGuard's entry for its boot command
 - `installedpackages/package`, `menu` and `service`: package bookkeeping, written by the installers
 - `ifgroups`: the WireGuard interface group

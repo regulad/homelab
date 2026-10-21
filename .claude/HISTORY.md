@@ -962,3 +962,29 @@ domain-override servers. The account left a 👍 on #128, #164 and #265 and
 posted no comments. `arawi`'s `TODO.md` links every issue. The project has no
 policy on AI-assisted contributions; its maintainer wrote on #153 that there is
 none.
+
+## arawi: split-horizon regulad.xyz through an Unbound RPZ (2026-10-20)
+
+Parker approved the first configuration change made through the `pfsense`
+role, from a handoff by another agent. LAN clients now reach `regulad.xyz`
+names at their internal addresses through CNAME chains too, which view
+`local-data` could not do. A `lan`-tagged RPZ replaces the four `regulad.xyz`
+view overrides. A `stub-no-cache` stub zone keeps cached public answers from
+reaching LAN clients, and `module-config` adds `respip`. The zonefile's master
+lives at `/usr/local/etc/unbound/`, and its copy in the chroot on the `/var`
+RAM disk is recreated at boot by `unbound-rpz-restore.sh`. That script runs from
+the repository's one `earlyshellcmd`, in its own `unbound_rpz_boot` section. The
+role gained its first handler, which reloads changed zones through
+`unbound-control`.
+- Pre-flight on `arawi` found Unbound 1.26.1, not the 1.24.2 the handoff
+  tested offline, and `/usr/local/etc/unbound` owned `unbound:wheel`, so it
+  stays out of `pfsense_directories`. `unbound-checkconf` passed a copy of
+  `unbound.conf` with the new custom options.
+- The run wrote the three files and both sections, restarted Unbound, and
+  reloaded `split-horizon.rpz.`. As a `lan` client, `prodingus` resolved
+  `nextcloud.regulad.xyz` through `ingress.regulad.xyz` and
+  `ingress.regulad.internal` to 10.23.2.31, and `ingress`, `dodo`, `mail` and
+  `livekit` to their internal addresses. Untagged, `arawi` got the public chain
+  to 173.54.15.27, with `ad` when it asked with DNSSEC OK. No guest client was
+  tested. A second `--check` reported `changed=0`, and the snapshot was
+  refreshed from live. The reboot test is still to do.

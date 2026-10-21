@@ -609,6 +609,20 @@ pfsense_files:
   - path: /root/.ssh/known_hosts
     mode: "0644"
     src: root/.ssh/known_hosts
+  # Unbound's split-horizon RPZ: the master copy, and the copy Unbound reads in
+  # its chroot on the /var RAM disk. Both come from one file here, and the copy
+  # must exist before the dns_resolver section restarts Unbound.
+  - path: /usr/local/etc/unbound/split-horizon.rpz
+    mode: "0644"
+    src: usr/local/etc/unbound/split-horizon.rpz
+  - path: /var/unbound/split-horizon.rpz
+    mode: "0644"
+    src: usr/local/etc/unbound/split-horizon.rpz
+    unbound_zone: split-horizon.rpz.
+  # Recreates /var/unbound/split-horizon.rpz at boot, from the unbound_rpz_boot earlyshellcmd.
+  - path: /usr/local/bin/unbound-rpz-restore.sh
+    mode: "0755"
+    src: usr/local/bin/unbound-rpz-restore.sh
 
 # Parts of config.xml with no pfsensible module, replaced whole from config/.
 pfsense_config_sections:
@@ -652,6 +666,14 @@ pfsense_config_sections:
       - dhcpd
     template: dhcp.xml.j2
     reload: dhcpd
+  # One earlyshellcmd; the packages own the others. It has its own section
+  # because pfSense groups all earlyshellcmd elements together when it writes
+  # config.xml, which would reorder it against boot_commands' element.
+  - name: unbound_rpz_boot
+    parent: system
+    select:
+      - earlyshellcmd[.='/usr/local/bin/unbound-rpz-restore.sh']
+    template: unbound_rpz_boot.xml.j2
   - name: dns_resolver
     select:
       - unbound

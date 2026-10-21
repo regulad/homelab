@@ -134,7 +134,9 @@ pfsense_config_section_reloads:
 
 # Files outside config.xml, such as scripts that cron or shell commands run,
 # owned by root:wheel. Each file has a path, a mode, and either src, relative
-# to pfsense_files_dir, or content.
+# to pfsense_files_dir, or content. A file Unbound reads as an auth or RPZ
+# zonefile also names the zone in unbound_zone, which is reloaded at the end
+# of the play when the file changed, after the sections have restarted Unbound.
 pfsense_directories: []
 pfsense_files: []
 pfsense_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"

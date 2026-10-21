@@ -196,6 +196,8 @@
   loop_control:
     label: "{{ item.path }}"
   no_log: "{{ item.content is defined }}"
+  register: pfsense_files_result
+  notify: Reload Unbound zones
 
 - name: Render sections with no pfsensible module
   ansible.builtin.set_fact:
