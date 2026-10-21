@@ -1093,3 +1093,12 @@ root, so only emSign ECC Root CA - G3 changed. With Parker's approval, the
 `changed=0`. `/etc/ssl/cert.pem`, which PHP, Unbound and LDAP read, no longer
 contains emSign, and the web GUI answered. The `ca_root_nss` package's bundle
 in `/usr/local/share/certs` still contains it until that package is updated.
+
+## bpg/proxmox: cloud-init replacement reported upstream (2026-10-21)
+
+With Parker's approval, his GitHub account commented on
+[bpg/terraform-provider-proxmox#2901](https://github.com/bpg/terraform-provider-proxmox/issues/2901),
+the open request to stop replacing VMs when their cloud-init files change,
+noting that Proxmox changes `cicustom` in place and that a vendor-data-only
+change keeps the nocloud instance-id, disclosing that Claude drafted it.
+`TODO.md` makes the issue a precondition for moving more VMs to cloud-init.

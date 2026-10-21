@@ -55,6 +55,11 @@ Ansible, an identical configuration for the switch scripts). See
 
 ## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
 
+**Precondition:** [bpg/terraform-provider-proxmox#2901](https://github.com/bpg/terraform-provider-proxmox/issues/2901).
+The provider replaces a VM whenever its `*_data_file_id` changes, although
+Proxmox changes `cicustom` in place. Move no further VMs to cloud-init until
+it is resolved.
+
 Configured by a cloud-init vendor file instead of Ansible, so they need no SSH.
 
 - [ ] `aboriginal` (100)
