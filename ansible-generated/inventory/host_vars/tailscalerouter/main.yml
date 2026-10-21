@@ -1,0 +1,3 @@
+---
+# Two hosts are named tailscalerouter; this one is the OCI instance in pubsub.
+mail_relay_account: null-tailscalerouter-pubsub

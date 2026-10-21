@@ -1147,3 +1147,49 @@ prodingus, each host changing one file. On prodingus, a dry run pinned
 now installs updates and reboots when needed, and vkasm and ncsusplitt now
 reboot automatically. The cloud-init VMs are out of scope until
 bpg/terraform-provider-proxmox#2901 is resolved.
+
+## Mail relayed through FreeIPA null- accounts (2026-10-21)
+
+aboriginal and prodingus already relayed through mail.regulad.xyz
+(docker-mailserver 15 on the mail instance, authenticating against FreeIPA) as
+per-host FreeIPA users named `null-<host>`, rewriting only root's sender.
+sudo's SECURITY mails bounced (`553 5.7.1`) because sudo mails as the invoking
+user, whose address the host's login does not own, and prodingus had delivered
+nothing since about Oct 16: its relay logged in as `null-prodingus.home.arpa`,
+not `null-prodingus`, and got `535 5.7.8`.
+
+While reading docker-mailserver's settings, an unredacted `LDAP_BIND_PW`, the
+`svc-mail` bind password, reached the session transcript. With Parker's
+approval it was rotated: a new random password in `/root/mailserver/mailserver.env`
+(backed up beside it), set on `svc-mail` in FreeIPA with an expiry in 2038, and
+the container recreated; directory lookups failed for about two minutes in
+between. The password is in `host_vars/mail/secrets.sops.yml`. Parker also had
+Claude create `svc-ansible`, a FreeIPA user holding only the User Administrator
+role, whose password is in both stages' `group_vars/all.sops.yml`, and install
+`community.general` 13.5.0 for `ipa_user`.
+
+A `mail_relay` role in `ansible-common` now creates each host's
+`null-<short hostname>` account through FreeIPA's API (delegated to freeipa,
+the only host that resolves `freeipa.home.arpa` and trusts its CA), with a
+random password from the host's `secrets.sops.yml`, and sets Postfix up as on
+aboriginal: loopback only (checked against Postfix's listening sockets),
+implicit TLS to `[mail.regulad.xyz]:465`, a `texthash:` login, every sender
+rewritten to the account's address and every recipient to
+regulad@regulad.xyz. The automatic updaters mail from the account's address.
+The two tailscalerouters are `null-tailscalerouter-pubsub` (the renamed
+`null-tailscalerouter`, used by the OCI instance) and
+`null-tailscalerouter-gonkputer`. The existing accounts in scope
+(`null-timemachine`, `null-livekit`, `null-tailscalerouter-pubsub`,
+`null-prodingus`) had their passwords reset to the SOPS values by hand.
+
+With Parker's approval it was applied in stages, prodingus last: pihole, then
+the other 18 containers, then vkasm, doppelgangerhq.com and the four OCI
+instances, then prodingus. Test messages, including one submitted as `nobody`
+as sudo does, arrived as `from=<null-<host>@regulad.xyz>`,
+`to=<regulad@regulad.xyz>` with `status=sent`, and prodingus began
+delivering its deferred backlog. A second check reported `changed=0` on all 26
+hosts. With `forks = 30`, prodingus's sshd dropped container connections at
+its `MaxStartups` of 10:30:100 (logged as `drop connection … Maxstartups`), so
+both stages now run 10 forks; a full check of the generated stage takes about
+ten minutes, because each task on a container costs several `pct exec` round
+trips.

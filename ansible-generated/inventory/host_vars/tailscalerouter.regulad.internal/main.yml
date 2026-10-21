@@ -1,0 +1,3 @@
+---
+# Two hosts are named tailscalerouter; this one is the gonkputer container.
+mail_relay_account: null-tailscalerouter-gonkputer

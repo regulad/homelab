@@ -1,0 +1,7 @@
+---
+# Each host's FreeIPA mail account, null-<short hostname> by convention; a
+# host_vars mail_relay_account overrides it where two hosts share a name.
+mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
+# The updaters mail their reports from that account's address, the only sender
+# mail.regulad.xyz accepts from its login.
+auto_updates_mail_from: "{{ mail_relay_account }}@regulad.xyz"

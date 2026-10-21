@@ -16,6 +16,15 @@
   roles:
     - ca_trust
 
+# Each Linux host's mail, relayed through mail.regulad.xyz as its FreeIPA
+# null- account, by OS group.
+- name: Mail relay
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - mail_relay
+
 # Each Linux host's own automatic updater, by OS group.
 - name: Automatic updates
   hosts: debian:ubuntu:rhel

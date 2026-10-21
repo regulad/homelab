@@ -25,8 +25,8 @@ auto_updates_unattended_upgrade: {}
 # file stays the package's.
 auto_updates_dnf_automatic: []
 
-# Where the updater mails its reports, and the per-host sender it mails from.
-# FIXME: no host runs a mailer, and the sender is not a deliverable address.
-# Revisit when the hosts' outbound mail is settled.
+# Where the updater mails its reports, and the sender it mails from: an address
+# the host's mail relay may send as (group_vars/all.yml sets it from
+# mail_relay_account).
 auto_updates_mail_to: regulad@regulad.xyz
 auto_updates_mail_from: root@{{ inventory_hostname }}

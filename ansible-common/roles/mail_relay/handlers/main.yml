@@ -1,0 +1,12 @@
+---
+# inet_interfaces only changes on a restart; the other settings and the
+# texthash login are reread on a reload.
+- name: Restart Postfix
+  ansible.builtin.systemd_service:
+    name: postfix
+    state: restarted
+
+- name: Reload Postfix
+  ansible.builtin.systemd_service:
+    name: postfix
+    state: reloaded

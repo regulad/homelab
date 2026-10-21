@@ -1,0 +1,16 @@
+mail_relay_freeipa_password: ENC[AES256_GCM,data:86boI8g+GoflxXAK35/mO1bysAmVVuM7Y8iJMP1MWjYElm09Ao0lbvKObNhCy5zk,iv:HUivImKlhezFsvDn969sX69ZCw1Q5zYEzwNlW2jDghs=,tag:ePuTmL16WGi8PR0iy0qk0Q==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBlRy82YUFBTFkwUDh3MXdK
+            VlZsZEJFbTM4cm9CY3dFWm5uQ1BKUFZnMXc4CndwSWxaNGVJRWlOaEpEeElVRjEx
+            ZEFwekw4RUpGdTRuVGlRajlIaHQ5dHcKLS0tIExPQ3RKQWRKOHRaUithZU1LYVhZ
+            TGJLMTdXd2U5UEU1Y3lzeW9RK1VaVGsK/UzX7rv6EZSzhCvBNUDTjiXPOdT2SuwD
+            KrYMnRW5hDxHo2XOvV240pka+eg4fyF0n1Cn+x0sndt83zapOx9wQQ==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
+    lastmodified: "2026-10-21T16:13:19Z"
+    mac: ENC[AES256_GCM,data:5CrH3cZm080CzO5CsOXwfOgEuXciGOYBV78JJ3GoavIh2yLChd7rplqfNroNbb6GhtHIVHo7pgxo8lf5VaFwhEX3BH5acO9Bxp4t0kvW9f5CdFEmiINEv+5YPkhgWe77xxacG6ZWl1I8IH72ue65pX7ta3+2yHKYER3R+C3IEUw=,iv:Il9pNYfDBZlc5U7lKYXbyP7icNNIezaZki/pEL9ArZw=,tag:YFK6DznaiwdzNx3yxt9N5g==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.13.3

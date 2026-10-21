@@ -13,3 +13,5 @@ auto_updates_dnf_automatic:
   - {section: emitters, key: emit_via, value: "stdio,email"}
   - {section: email, key: email_from, value: "{{ auto_updates_mail_from }}"}
   - {section: email, key: email_to, value: "{{ auto_updates_mail_to }}"}
+
+mail_relay_family: rhel

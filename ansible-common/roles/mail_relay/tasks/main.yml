@@ -1,0 +1,105 @@
+---
+# Send the host's mail through mail.regulad.xyz as its FreeIPA null- account.
+# Runs on hardware hosts (Phase 2) and generated hosts (Phase 4) in an OS group.
+- name: Check the relay settings
+  ansible.builtin.assert:
+    that:
+      - mail_relay_family in ['debian', 'rhel']
+      - mail_relay_password | length > 0
+      - mail_relay_freeipa_password | length > 0
+    fail_msg: Set mail_relay_family through the OS group, and both passwords through SOPS.
+    quiet: true
+
+- name: Mail account in FreeIPA
+  # Sets the password only when it creates the account; an existing account's
+  # password is reset to the SOPS value by hand.
+  community.general.ipa_user:
+    name: "{{ mail_relay_account }}"
+    givenname: "Null"
+    sn: Client
+    mail:
+      - "{{ mail_relay_address }}"
+    password: "{{ mail_relay_password }}"
+    update_password: on_create
+    krbpasswordexpiration: "20380119031407"
+    state: present
+    ipa_host: "{{ mail_relay_freeipa_host }}"
+    ipa_user: "{{ mail_relay_freeipa_user }}"
+    ipa_pass: "{{ mail_relay_freeipa_password }}"
+    validate_certs: true
+  delegate_to: "{{ mail_relay_freeipa_delegate }}"
+  become: false
+  no_log: true
+
+- name: Install Postfix
+  ansible.builtin.package:
+    name: "{{ ['postfix', 'libsasl2-modules'] if mail_relay_family == 'debian' else ['postfix', 'cyrus-sasl-plain'] }}"
+    state: present
+
+- name: Relay login
+  ansible.builtin.copy:
+    dest: /etc/postfix/sasl_passwd
+    content: "{{ mail_relay_relayhost }} {{ mail_relay_account }}:{{ mail_relay_password }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Reload Postfix
+
+- name: Postfix settings
+  # Postfix uses the last occurrence of a setting in main.cf, the one
+  # lineinfile replaces.
+  ansible.builtin.lineinfile:
+    path: /etc/postfix/main.cf
+    regexp: '^\s*{{ item.key | regex_escape }}\s*='
+    line: "{{ item.key }} ={{ (' ' ~ item.value) if item.value else '' }}"
+    insertafter: EOF
+  loop: "{{ mail_relay_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Restart Postfix
+  vars:
+    mail_relay_settings:
+      relayhost: "{{ mail_relay_relayhost }}"
+      smtp_tls_wrappermode: "yes"
+      smtp_tls_security_level: encrypt
+      smtp_tls_CAfile: "{{ '/etc/ssl/certs/ca-certificates.crt' if mail_relay_family == 'debian' else '/etc/pki/tls/certs/ca-bundle.crt' }}"
+      smtp_sasl_auth_enable: "yes"
+      smtp_sasl_password_maps: texthash:/etc/postfix/sasl_passwd
+      smtp_sasl_security_options: noanonymous
+      inet_interfaces: loopback-only
+      mydestination: ""
+      mydomain: "{{ mail_relay_domain }}"
+      myorigin: $mydomain
+      sender_canonical_maps: static:{{ mail_relay_address }}
+      recipient_canonical_maps: static:{{ mail_relay_recipient }}
+
+- name: Postfix service
+  ansible.builtin.systemd_service:
+    name: postfix
+    enabled: true
+    state: started
+
+- name: Flush handlers so the check sees the running configuration
+  ansible.builtin.meta: flush_handlers
+
+- name: Read Postfix's listening sockets
+  ansible.builtin.command: ss --listening --tcp --numeric --processes --no-header
+  register: mail_relay_sockets
+  changed_when: false
+  check_mode: false
+
+- name: Check Postfix listens only on loopback
+  # Postfix's own daemons run under its master process; other software on the
+  # host, such as a mail server in a container, is not checked.
+  ansible.builtin.assert:
+    that: mail_relay_exposed | length == 0
+    fail_msg: "Postfix listens beyond loopback: {{ mail_relay_exposed | join(', ') }}"
+    quiet: true
+  vars:
+    mail_relay_exposed: >-
+      {{ mail_relay_sockets.stdout_lines
+         | select('search', '\(\"master\",')
+         | map('split') | map(attribute=3)
+         | reject('match', '^(127\.0\.0\.1|\[::1\]):')
+         | list }}

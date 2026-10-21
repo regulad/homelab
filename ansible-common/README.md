@@ -11,6 +11,7 @@ lists `../ansible-common/roles` after its own `roles/`.
 | `tailscale` | Tailscale client; joins only when `tailscale_join` is set |
 | `ca_trust` | Root certificates distrusted in the system trust store, by OS group |
 | `auto_updates` | The distribution's automatic updater (unattended-upgrades or dnf-automatic), by OS group |
+| `mail_relay` | Postfix relaying every message to regulad@regulad.xyz through mail.regulad.xyz, as the host's FreeIPA `null-` account |
 
 A role here runs against both hardware and generated hosts, so it must handle
 both. Any collection it needs is pinned in both stages' `requirements.yml`.

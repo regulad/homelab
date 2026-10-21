@@ -4,3 +4,6 @@ collections:
   # The sops vars plugin, which decrypts *.sops.yml in host_vars and group_vars.
   - name: community.sops
     version: 2.5.0
+  # ipa_user, which manages each host's FreeIPA mail account over the JSON-RPC API.
+  - name: community.general
+    version: 13.5.0

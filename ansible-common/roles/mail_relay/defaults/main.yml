@@ -1,0 +1,28 @@
+---
+# Which packages and paths Postfix uses here, set by the host's OS group: debian
+# or rhel.
+mail_relay_family: ""
+
+# The host's mail account in FreeIPA, following the null-<short hostname>
+# convention; mail.regulad.xyz lets it log in and send as <account>@<domain>.
+mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
+mail_relay_domain: regulad.xyz
+# The account's password, from the host's secrets.sops.yml.
+mail_relay_password: ""
+# Implicit TLS submission on mail.regulad.xyz.
+mail_relay_relayhost: "[mail.{{ mail_relay_domain }}]:465"
+
+# Every local sender, root, sudo's invoking user, cron, is rewritten to the
+# account's address, the only one mail.regulad.xyz accepts from this login.
+mail_relay_address: "{{ mail_relay_account }}@{{ mail_relay_domain }}"
+# Every recipient, envelope and header, is rewritten to this one mailbox: the
+# host only relays its own reports, and addresses such as root@ do not exist.
+mail_relay_recipient: regulad@{{ mail_relay_domain }}
+
+# FreeIPA's API, which manages the account. The calls are delegated to the
+# FreeIPA server, the one host that resolves its name and trusts its CA, and
+# authenticate as svc-ansible (User Administrator), from group_vars/all.sops.yml.
+mail_relay_freeipa_delegate: freeipa
+mail_relay_freeipa_host: freeipa.home.arpa
+mail_relay_freeipa_user: svc-ansible
+mail_relay_freeipa_password: ""

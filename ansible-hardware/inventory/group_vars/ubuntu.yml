@@ -18,3 +18,5 @@ auto_updates_unattended_upgrade:
   Remove-Unused-Dependencies: "true"
   Automatic-Reboot: "true"
   Sender: "{{ auto_updates_mail_from }}"
+
+mail_relay_family: debian
