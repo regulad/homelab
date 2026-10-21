@@ -4,10 +4,20 @@
 # declared state and is safe to rerun. Hardware hosts are configured from
 # ../ansible-hardware.
 - name: Generated host baseline
-  hosts: generated
+  hosts: generated:!arawi
   roles:
     - base
     - tailscale
+
+# arawi runs pfSense, whose config.xml the pfsense role converges through
+# pfsensible.core; the baseline roles do not apply to it. Its group is its own,
+# because another pfSense host would not share its configuration.
+- name: Arawi
+  hosts: arawi
+  gather_facts: false
+  become: true
+  roles:
+    - pfsense
 
 - name: Podman hosts
   hosts: podman_hosts

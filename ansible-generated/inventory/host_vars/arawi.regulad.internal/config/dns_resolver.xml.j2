@@ -1,0 +1,236 @@
+<unbound>
+	<enable></enable>
+	<dnssec></dnssec>
+	<active_interface>all</active_interface>
+	<outgoing_interface>all</outgoing_interface>
+	<custom_options>{% filter b64encode %}
+view:
+    name: "guest"
+    view-first: yes
+    local-zone: "regulad.internal." always_nxdomain
+    local-zone: "23.10.in-addr.arpa." always_nxdomain
+    local-zone: "0.0.7.5.a.a.c.4.8.b.3.8.d.f.ip6.arpa." always_nxdomain
+
+view:
+    name: "local"
+    view-first: yes
+    #
+    local-zone: "ingress.regulad.xyz." redirect
+    local-data: "ingress.regulad.xyz. 60 IN CNAME ingress.regulad.internal."
+    local-zone: "dodo.regulad.xyz." redirect
+    local-data: "dodo.regulad.xyz. 60 IN CNAME dodo.regulad.internal."
+    #
+    local-zone: "mail.regulad.xyz." redirect
+    local-data: "mail.regulad.xyz. 60 IN CNAME mail.pubsub.wahlecloud.oraclevcn.com."
+    local-zone: "livekit.regulad.xyz." redirect
+    local-data: "livekit.regulad.xyz. 60 IN CNAME livekit.pubsub.wahlecloud.oraclevcn.com."
+    #
+    local-zone: "mynetworksettings.com." redirect
+    local-data: "mynetworksettings.com. 60 IN CNAME cr1000b.regulad-verizon-livingston.internal."
+
+server:
+    do-not-query-localhost: no
+    #
+    private-domain: "regulad.internal."
+    domain-insecure: "regulad.internal."
+    local-zone: "regulad.internal." static
+    #
+    private-domain: "regulad-verizon-livingston.internal."
+    domain-insecure: "regulad-verizon-livingston.internal."
+    #
+    access-control-view: 10.23.0.0/16 local
+    access-control-view: fd83:b84c:aa57:0001::/64 local
+    access-control-view: 100.64.0.0/10 local
+    access-control-view: fd7a:115c:a1e0::/48 local
+    access-control-view: 10.131.80.239/24 local
+    access-control-view: {{ arawi_ipv6_prefixes.oci_subnet }}::/64 local
+    #
+    access-control-view: 10.23.128.0/20 guest
+    access-control-view: fd83:b84c:aa57:0008::/64 guest
+
+forward-zone:
+    name: "regulad.internal."
+    forward-addr: 127.0.0.1
+
+server:
+    serve-expired: yes
+    serve-expired-ttl: 86400
+    serve-expired-ttl-reset: yes
+    serve-expired-reply-ttl: 30
+    serve-expired-client-timeout: 1800
+    ede: yes
+    ede-serve-expired: yes
+    prefetch: yes{% endfilter %}</custom_options>
+	<hideidentity></hideidentity>
+	<hideversion></hideversion>
+	<dnssecstripped></dnssecstripped>
+	<qname-minimisation></qname-minimisation>
+	<port></port>
+	<tlsport></tlsport>
+	<sslcertref>6aa9795253013</sslcertref>
+	<system_domain_local_zone_type>transparent</system_domain_local_zone_type>
+	<domainoverrides>
+		<domain>regulad-verizon-livingston.internal.</domain>
+		<ip>10.23.0.1</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>1.0.23.10.in-addr.arpa.</domain>
+		<ip>10.23.0.1</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>tail11540.ts.net.</domain>
+		<ip>100.100.100.100</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>100.in-addr.arpa.</domain>
+		<ip>100.100.100.100</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>pubsub.wahlecloud.oraclevcn.com.</domain>
+		<ip>10.131.80.239</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>80.131.10.in-addr.arpa.</domain>
+		<ip>10.131.80.239</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>0.e.1.a.c.5.1.1.a.7.d.f.ip6.arpa.</domain>
+		<ip>100.100.100.100</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>tail11540.ts.net.</domain>
+		<ip>fd7a:115c:a1e0::53</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>0.e.1.a.c.5.1.1.a.7.d.f.ip6.arpa.</domain>
+		<ip>fd7a:115c:a1e0::53</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>100.in-addr.arpa.</domain>
+		<ip>fd7a:115c:a1e0::53</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>32.2.23.10.in-addr.arpa.</domain>
+		<ip>10.23.0.1</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>0.5.e.a.6.1.0.4.0.2.0.c.3.0.6.2.ip6.arpa.</domain>
+		<ip>10.131.80.239</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>pubsub.wahlecloud.oraclevcn.com.</domain>
+		<ip>{{ arawi_ipv6_prefixes.oci_subnet }}:0:efc0:c547:1a01</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>80.131.10.in-addr.arpa.</domain>
+		<ip>{{ arawi_ipv6_prefixes.oci_subnet }}:0:efc0:c547:1a01</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<domainoverrides>
+		<domain>0.5.e.a.6.1.0.4.0.2.0.c.3.0.6.2.ip6.arpa.</domain>
+		<ip>{{ arawi_ipv6_prefixes.oci_subnet }}:0:efc0:c547:1a01</ip>
+		<descr></descr>
+		<tls_hostname></tls_hostname>
+	</domainoverrides>
+	<regovpnclients></regovpnclients>
+	<prefetchkey></prefetchkey>
+	<sock_queue_timeout>0</sock_queue_timeout>
+	<msgcachesize>4</msgcachesize>
+	<outgoing_num_tcp>10</outgoing_num_tcp>
+	<incoming_num_tcp>10</incoming_num_tcp>
+	<edns_buffer_size>auto</edns_buffer_size>
+	<num_queries_per_thread>512</num_queries_per_thread>
+	<jostle_timeout>200</jostle_timeout>
+	<cache_max_ttl>86400</cache_max_ttl>
+	<cache_min_ttl>0</cache_min_ttl>
+	<infra_keep_probing>enabled</infra_keep_probing>
+	<infra_host_ttl>900</infra_host_ttl>
+	<infra_cache_numhosts>10000</infra_cache_numhosts>
+	<unwanted_reply_threshold>10000000</unwanted_reply_threshold>
+	<log_verbosity>1</log_verbosity>
+	<acls>
+		<aclname>WireGuard</aclname>
+		<aclaction>allow</aclaction>
+		<description>WireGuard Unbound ACL (DO NOT EDIT/DELETE!)</description>
+		<aclid>3</aclid>
+		<row>
+			<acl_network>fdc5:4979:78da::</acl_network>
+			<mask>126</mask>
+			<description>tun_wg0</description>
+		</row>
+		<row>
+			<acl_network>172.16.31.128</acl_network>
+			<mask>30</mask>
+			<description>tun_wg1</description>
+		</row>
+	</acls>
+	<acls>
+		<aclid>0</aclid>
+		<aclname>ipv6</aclname>
+		<aclaction>allow</aclaction>
+		<description></description>
+		<row>
+			<acl_network>::</acl_network>
+			<mask>0</mask>
+			<description></description>
+		</row>
+	</acls>
+	<acls>
+		<aclid>1</aclid>
+		<aclname>lan</aclname>
+		<aclaction>allow</aclaction>
+		<description></description>
+		<row>
+			<acl_network>10.23.0.0</acl_network>
+			<mask>16</mask>
+			<description></description>
+		</row>
+	</acls>
+	<acls>
+		<aclid>2</aclid>
+		<aclname>tailscale</aclname>
+		<aclaction>allow</aclaction>
+		<description></description>
+		<row>
+			<acl_network>10.131.80.0</acl_network>
+			<mask>24</mask>
+			<description>pubsub.wahlecloud</description>
+		</row>
+		<row>
+			<acl_network>100.64.0.0</acl_network>
+			<mask>10</mask>
+			<description>CGNAT</description>
+		</row>
+	</acls>
+	<prefetch></prefetch>
+	<disable_auto_added_access_control></disable_auto_added_access_control>
+	<use_caps></use_caps>
+	<enablessl></enablessl>
+</unbound>

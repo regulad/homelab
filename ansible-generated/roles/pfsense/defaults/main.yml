@@ -1,0 +1,94 @@
+---
+# Knobs for pfsense. Each object list or settings dict is passed to the
+# pfsensible.core module of the same name; an empty value leaves that part of
+# config.xml alone.
+pfsense_setup: {}
+pfsense_log_settings: {}
+pfsense_cas: []
+pfsense_certs: []
+pfsense_groups: []
+pfsense_users: []
+pfsense_gateways: []
+pfsense_routes: []
+pfsense_dhcp_servers: []
+pfsense_dhcp_statics: []
+
+# Applied together by pfsense_aggregate, which deletes objects not listed when
+# the matching purge knob is true and the list is not empty.
+pfsense_vlans: []
+pfsense_interfaces: []
+pfsense_aliases: []
+pfsense_rules: []
+pfsense_nat_outbounds: []
+pfsense_purge_vlans: true
+pfsense_purge_interfaces: true
+pfsense_purge_aliases: true
+pfsense_purge_rules: true
+pfsense_purge_nat_outbounds: true
+
+# Parts of config.xml with no pfsensible module, replaced whole by
+# pfsense_config_section after the pfsensible tasks. Each item has a name, the
+# parent path, the select paths of the children it owns, a template rendering
+# those children, and optionally a reload key from pfsense_config_section_reloads.
+pfsense_config_sections: []
+# Where each section's template lives.
+pfsense_config_section_dir: "{{ inventory_dir }}/host_vars/{{ inventory_hostname }}/config"
+
+# PHP run after a changed section is written, as pfSense's own pages do.
+pfsense_config_section_reloads:
+  wireguard: |
+    require_once("wireguard/includes/wg.inc");
+    wg_resync();
+    if (wg_is_service_running()) {
+        wg_tunnel_sync(array_column(config_get_path("installedpackages/wireguard/tunnels/item", []), "name"), true, true);
+    }
+  gre: |
+    require_once("interfaces.inc");
+    foreach (config_get_path("gres/gre", []) as $gre) {
+        interface_gre_configure($gre);
+        foreach (config_get_path("interfaces", []) as $ifname => $iface) {
+            if ($iface["if"] == $gre["greif"]) {
+                interface_configure($ifname);
+            }
+        }
+    }
+  routing: |
+    require_once("gwlb.inc");
+    require_once("system.inc");
+    require_once("filter.inc");
+    system_routing_configure();
+    setup_gateways_monitor();
+    filter_configure();
+  filter: |
+    require_once("filter.inc");
+    filter_configure();
+  radvd: |
+    require_once("services.inc");
+    services_radvd_configure();
+  dhcpd: |
+    require_once("services.inc");
+    services_dhcpd_configure();
+  unbound: |
+    require_once("services.inc");
+    services_unbound_configure();
+  certificates: |
+    require_once("services.inc");
+    require_once("system.inc");
+    services_unbound_configure();
+    system_webgui_start();
+  cron: |
+    require_once("services.inc");
+    configure_cron();
+  dyndns: |
+    require_once("services.inc");
+    services_dyndns_configure();
+  snmpd: |
+    require_once("services.inc");
+    services_snmpd_configure();
+
+# Files outside config.xml, such as scripts that cron or shell commands run,
+# owned by root:wheel. Each file has a path, a mode, and either src, relative
+# to pfsense_files_dir, or content.
+pfsense_directories: []
+pfsense_files: []
+pfsense_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"

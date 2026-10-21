@@ -1,3 +1,6 @@
 ---
 # Collections, each pinned to an exact version when a role first needs it.
-collections: []
+collections:
+  # The sops vars plugin, which decrypts *.sops.yml in host_vars and group_vars.
+  - name: community.sops
+    version: 2.5.0

@@ -7,3 +7,9 @@ collections:
   # The proxmox_pct_remote connection plugin, for LXC containers.
   - name: community.proxmox
     version: 2.1.0
+  # The sops vars plugin, which decrypts *.sops.yml in host_vars and group_vars.
+  - name: community.sops
+    version: 2.5.0
+  # Modules that edit pfSense's config.xml, for arawi.
+  - name: pfsensible.core
+    version: 0.7.1

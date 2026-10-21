@@ -788,3 +788,105 @@ bind mounts are unchanged.
 - Parker approved the apply: 0 added, 20 changed, 0 destroyed. A fresh plan is a
   no-op. Proxmox recorded the options as current, not pending, and `act`'s root
   filesystem showed `relatime,lazytime,discard` without a restart.
+
+## Ansible reads secrets through SOPS (2026-10-20)
+
+Parker chose SOPS for Ansible secrets, read by the `community.sops.sops` vars
+plugin, over Ansible Vault and over decrypting to gitignored files. Both stages
+pin `community.sops` 2.5.0 and enable the plugin in `ansible.cfg`; the pinned
+copy is installed into each stage's `collections/` even though Homebrew's
+`ansible` 14.5.0 bundles the same version. He also ruled that salted, adaptive
+password hashes such as bcrypt may be committed in plaintext, and that WireGuard
+private keys stay SOPS-encrypted.
+
+## arawi discovery for pfsensible (2026-10-20)
+
+`arawi` runs pfSense CE 2.9.0-RELEASE with `python3.11` and the sudo package;
+SSH is key-only. Parker chose `pfsensible.core` for its configuration, and
+`ansible-generated` pins 0.7.1 (supports pfSense 2.8.0+). He gave the
+`group:admins` sudo row `NOPASSWD`, replacing the `user:root` and `user:admin`
+rows, so `regulad` can become root unattended. The collection has no modules for
+the GRE tunnel, WireGuard or the Cron package.
+
+## arawi: pfsensible scaffold and route descriptions (2026-10-20)
+
+Parker chose per-object `pfsensible.core` modules over templating the whole
+`config.xml`, with sections that have no module merged into `config.xml` and
+reloaded through PHP. The new `pfsense` role and `arawi`'s generated `host_vars`
+check cleanly for setup, log settings, CAs, certificates, groups, users, VLANs,
+interfaces, aliases and 7 of 8 gateways; rules need names first. The gaps are
+listed in `ansible-generated/inventory/host_vars/arawi.regulad.internal/TODO.md`.
+`secrets.sops.yml` keeps both `arawi.regulad.internal` keys and drops the other
+certificate and CA keys.
+- Parker declared the operator's `config.xml` snapshot authoritative over live
+  `arawi`. It gained descriptions for the 6 static routes, named as in the
+  role's `host_vars`, and was pushed to `/cf/conf/config.xml` with the config
+  cache cleared and Unbound reconfigured. This reverted a DNS Resolver
+  custom-options change made on `arawi` after the snapshot. The live file then
+  matched the snapshot byte for byte, and `pfsense_route` reported all 6 routes
+  unchanged.
+
+## arawi: sections without a pfsensible module (2026-10-20)
+
+Parker asked for the parts of `config.xml` that `pfsensible.core` cannot manage
+to be merged into `config.xml` and reloaded through PHP. The `pfsense` role's
+new `pfsense_config_section` module, in its `library/`, replaces the children
+each section owns when they differ, ignoring whitespace. It writes `config.xml`
+through pfsensible's own writer, then runs each changed section's reload from
+`pfsense_config_section_reloads`, using pfSense 2.9's own functions, verified on
+`arawi`. `arawi` has 15 sections, rendered from
+`host_vars/arawi.regulad.internal/config/*.xml.j2`. They also cover outbound NAT,
+the DNS Resolver, the two `arawi.regulad.internal` certificates and the
+`tailscalerouter6` gateway, which the collection's modules fail on.
+- A full `--check` run against `arawi` reported every section unchanged. What
+  remains is the rule naming and two DHCP fields pfsensible fills with pfSense's
+  effective defaults. No write or reload has run yet.
+- A subagent searched `pfsensible/core`'s issues and PRs for the problems we
+  found, read-only. The matches are linked from `arawi`'s `TODO.md`.
+
+## Public GUAs in plaintext (2026-10-20)
+
+Parker allowed publicly known GUAs, such as public DNS resolvers, in plaintext.
+The `no-gua-ipv6` hook exempts each by an exact-match allowlist, starting with
+Cloudflare's `2606:4700:4700::1111` and `::1001` and Quad9's `2620:fe::fe`, and
+`AGENTS.md` rule 4 says so. `arawi`'s gateway monitors now name them directly;
+`arawi_public_ipv6` left `secrets.sops.yml`.
+
+## arawi: files outside config.xml (2026-10-20)
+
+A read-only scan of `arawi` for files no package owns found six hand-made ones,
+which the `pfsense` role now copies as `root:wheel` from
+`ansible-generated/files/arawi.regulad.internal/`. They are
+`u5g-gre6-sync.php` (cron, every 2 minutes), `tmpfscheck.sh` (the watchdogd
+check `afterbootupshellcmd` starts), `rc.d/qemu-agent.sh`, `/etc/rc.conf.local`,
+and `/root/.ssh/u5g.pub` and `known_hosts`. The `u5g` private key moved into
+`secrets.sops.yml`. The files live outside `inventory/` because `host_group_vars`
+loads extensionless files under `host_vars` and every file in `inventory/` is
+read as an inventory source. A `--check` run reported all of them unchanged.
+- `u5g-gre6-sync.php` rewrites the GRE tunnel's IPv6 addresses in `config.xml`
+  when the carrier's `/64` moves. `pfsense_config_section` gained an `ignore`
+  option, and the `gre` section ignores `tunnel-local-addr6` and
+  `tunnel-remote-addr6`. The stale `tmobile_u5g` prefix left SOPS.
+- With Parker's approval, `/root/update_dynamic_npt.php`, which nothing
+  referenced, was deleted from `arawi`; the operator's snapshot keeps a copy.
+
+## arawi: rule names, site.yml, docs (2026-10-20)
+
+- With Parker's approval, the snapshot gained descriptions for `arawi`'s 19
+  firewall rules, as in `main.yml`, and the aliases `home_ipv6` and
+  `tailnet_subnet_ipv6`, which the three rules with IPv6 literal sources now use.
+  It was pushed over SSH and the filter reloaded. The live file then matched the
+  snapshot, and a full `--check` run left only the two DHCP fields. The WAN rule
+  "Allow home IPv6 to any" is not compiled because WAN is not enabled; it was not
+  before either.
+- `site.yml` runs the `pfsense` role on a new `arawi` group and keeps that group
+  out of the baseline play. Parker chose a group for `arawi` alone over a
+  `pfsense` group, since another pfSense host would not share its
+  configuration. `arawi`'s `ansible_host` gained the group. Parker approved the
+  apply: 0 added, 1 changed, 0 destroyed, and a fresh plan is a no-op.
+- `AGENTS.md` documents the `pfsense` role, `ansible-generated/files/`, and the
+  pfSense conventions. The unused `arawi_ntopng_redis_password` left SOPS.
+- `arawi`'s `main.yml` now indents sequences and writes certificates as PEM and
+  authorized keys as text, except `internal-ca`, whose CRLF PEM stays base64.
+  Both stages' `.ansible-lint` exclude `*.sops.yml`, whose ciphertext cannot be
+  wrapped.

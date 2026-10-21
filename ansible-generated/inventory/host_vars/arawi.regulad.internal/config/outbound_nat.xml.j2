@@ -1,0 +1,196 @@
+<nat>
+	<outbound>
+		<mode>advanced</mode>
+		<rule>
+			<source>
+				<network>lan</network>
+			</source>
+			<sourceport></sourceport>
+			<descr>Required due to some weird state-tracking issue on the Verizon router</descr>
+			<target>lanip</target>
+			<target_subnet></target_subnet>
+			<interface>lan</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<protocol>tcp</protocol>
+			<destination>
+				<any></any>
+			</destination>
+			<created>
+				<time>1785806385</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</created>
+			<updated>
+				<time>1786052768</time>
+				<username>regulad@{{ arawi_ipv6_prefixes.changelog_b }}:1928:cb14:d0f9:51 (Local Database)</username>
+			</updated>
+		</rule>
+		<rule>
+			<source>
+				<network>opt3</network>
+			</source>
+			<sourceport></sourceport>
+			<descr></descr>
+			<target>lanip</target>
+			<target_subnet></target_subnet>
+			<interface>lan</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<ipprotocol>inet6</ipprotocol>
+			<destination>
+				<any></any>
+			</destination>
+			<created>
+				<time>1785994139</time>
+				<username>admin@{{ arawi_ipv6_prefixes.changelog_b }}:1833:8e45:6bb3:4ebc (Local Database)</username>
+			</created>
+			<updated>
+				<time>1786132215</time>
+				<username>admin@{{ arawi_ipv6_prefixes.changelog_b }}:1833:8e45:6bb3:4ebc (Local Database)</username>
+			</updated>
+		</rule>
+		<rule>
+			<source>
+				<network>opt2</network>
+			</source>
+			<sourceport></sourceport>
+			<descr></descr>
+			<target>lanip</target>
+			<target_subnet></target_subnet>
+			<interface>lan</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<destination>
+				<any></any>
+			</destination>
+			<created>
+				<time>1785689856</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</created>
+			<updated>
+				<time>1785991395</time>
+				<username>admin@{{ arawi_ipv6_prefixes.changelog_a }}:1833:8e45:6bb3:4ebc (Local Database)</username>
+			</updated>
+		</rule>
+		<rule>
+			<source>
+				<network>lan</network>
+			</source>
+			<sourceport></sourceport>
+			<descr>VCN peering</descr>
+			<target>opt3ip</target>
+			<target_subnet></target_subnet>
+			<interface>lan</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<ipprotocol>inet6</ipprotocol>
+			<destination>
+				<network>{{ arawi_ipv6_prefixes.oci_subnet }}::/64</network>
+			</destination>
+			<created>
+				<time>1786902934</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</created>
+			<updated>
+				<time>1786902978</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</updated>
+		</rule>
+		<rule>
+			<source>
+				<network>any</network>
+			</source>
+			<sourceport></sourceport>
+			<descr></descr>
+			<target>opt4ip</target>
+			<target_subnet></target_subnet>
+			<interface>opt4</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<staticnatport></staticnatport>
+			<protocol>udp</protocol>
+			<destination>
+				<any></any>
+			</destination>
+			<updated>
+				<time>1786887931</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</updated>
+			<created>
+				<time>1786887931</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</created>
+		</rule>
+		<rule>
+			<source>
+				<network>any</network>
+			</source>
+			<sourceport></sourceport>
+			<descr></descr>
+			<target>opt4ip</target>
+			<target_subnet></target_subnet>
+			<interface>opt4</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<destination>
+				<any></any>
+			</destination>
+			<created>
+				<time>1786140549</time>
+				<username>admin@10.23.1.115 (Local Database)</username>
+			</created>
+			<updated>
+				<time>1786887939</time>
+				<username>admin@100.65.59.124 (Local Database)</username>
+			</updated>
+		</rule>
+		<rule>
+			<source>
+				<network>any</network>
+			</source>
+			<sourceport></sourceport>
+			<descr></descr>
+			<target>opt5ip</target>
+			<target_subnet></target_subnet>
+			<interface>opt5</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<ipprotocol>inet6</ipprotocol>
+			<destination>
+				<any></any>
+			</destination>
+			<updated>
+				<time>1786329726</time>
+				<username>admin@10.23.1.130 (Local Database)</username>
+			</updated>
+			<created>
+				<time>1786329726</time>
+				<username>admin@10.23.1.130 (Local Database)</username>
+			</created>
+		</rule>
+		<rule>
+			<source>
+				<network>any</network>
+			</source>
+			<sourceport></sourceport>
+			<descr></descr>
+			<target>opt6ip</target>
+			<target_subnet></target_subnet>
+			<interface>opt6</interface>
+			<poolopts></poolopts>
+			<source_hash_key></source_hash_key>
+			<ipprotocol>inet</ipprotocol>
+			<destination>
+				<any></any>
+			</destination>
+			<updated>
+				<time>1786329752</time>
+				<username>admin@10.23.1.130 (Local Database)</username>
+			</updated>
+			<created>
+				<time>1786329752</time>
+				<username>admin@10.23.1.130 (Local Database)</username>
+			</created>
+		</rule>
+	</outbound>
+</nat>

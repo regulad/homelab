@@ -1,0 +1,176 @@
+---
+# Converge config.xml on pfSense hosts through pfsensible.core, in dependency
+# order: certificates before the services that use them, VLANs and interfaces
+# before gateways, gateways before routes and rules.
+- name: General setup
+  pfsensible.core.pfsense_setup:
+    hostname: "{{ pfsense_setup.hostname | default(omit) }}"
+    domain: "{{ pfsense_setup.domain | default(omit) }}"
+    timezone: "{{ pfsense_setup.timezone | default(omit) }}"
+    timeservers: "{{ pfsense_setup.timeservers | default(omit) }}"
+    language: "{{ pfsense_setup.language | default(omit) }}"
+    dns_addresses: "{{ pfsense_setup.dns_addresses | default(omit) }}"
+    dns_gateways: "{{ pfsense_setup.dns_gateways | default(omit) }}"
+    dnsallowoverride: "{{ pfsense_setup.dnsallowoverride | default(omit) }}"
+    webguicss: "{{ pfsense_setup.webguicss | default(omit) }}"
+    dashboardcolumns: "{{ pfsense_setup.dashboardcolumns | default(omit) }}"
+    logincss: "{{ pfsense_setup.logincss | default(omit) }}"
+  when: pfsense_setup | length > 0
+
+- name: Log settings
+  pfsensible.core.pfsense_log_settings:
+    filterdescriptions: "{{ pfsense_log_settings.filterdescriptions | default(omit) }}"
+  when: pfsense_log_settings | length > 0
+
+- name: Certificate authorities
+  pfsensible.core.pfsense_ca:
+    name: "{{ item.name }}"
+    certificate: "{{ item.certificate }}"
+    key: "{{ item.key | default(omit) }}"
+  loop: "{{ pfsense_cas }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Certificates
+  pfsensible.core.pfsense_cert:
+    name: "{{ item.name }}"
+    ca: "{{ item.ca | default(omit) }}"
+    method: "{{ item.method | default('import') }}"
+    certificate: "{{ item.certificate }}"
+    key: "{{ item.key | default(omit) }}"
+  loop: "{{ pfsense_certs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Groups
+  pfsensible.core.pfsense_group:
+    name: "{{ item.name }}"
+    state: present
+    descr: "{{ item.descr | default(omit) }}"
+    scope: "{{ item.scope | default(omit) }}"
+    gid: "{{ item.gid | default(omit) }}"
+    priv: "{{ item.priv | default(omit) }}"
+  loop: "{{ pfsense_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Users
+  pfsensible.core.pfsense_user:
+    name: "{{ item.name }}"
+    descr: "{{ item.descr | default(omit) }}"
+    scope: "{{ item.scope | default(omit) }}"
+    uid: "{{ item.uid | default(omit) }}"
+    groups: "{{ item.groups | default(omit) }}"
+    password: "{{ item.password | default(omit) }}"
+    priv: "{{ item.priv | default(omit) }}"
+    authorizedkeys: "{{ item.authorizedkeys | default(omit) }}"
+  loop: "{{ pfsense_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: VLANs, interfaces, aliases, rules and outbound NAT
+  pfsensible.core.pfsense_aggregate:
+    aggregated_vlans: "{{ pfsense_vlans }}"
+    aggregated_interfaces: "{{ pfsense_interfaces }}"
+    aggregated_aliases: "{{ pfsense_aliases }}"
+    aggregated_rules: "{{ pfsense_rules }}"
+    aggregated_nat_outbounds: "{{ pfsense_nat_outbounds }}"
+    order_rules: true
+    purge_vlans: "{{ pfsense_purge_vlans and pfsense_vlans | length > 0 }}"
+    purge_interfaces: "{{ pfsense_purge_interfaces and pfsense_interfaces | length > 0 }}"
+    purge_aliases: "{{ pfsense_purge_aliases and pfsense_aliases | length > 0 }}"
+    purge_rules: "{{ pfsense_purge_rules and pfsense_rules | length > 0 }}"
+    purge_nat_outbounds: "{{ pfsense_purge_nat_outbounds and pfsense_nat_outbounds | length > 0 }}"
+
+- name: Gateways
+  pfsensible.core.pfsense_gateway:
+    name: "{{ item.name }}"
+    interface: "{{ item.interface }}"
+    ipprotocol: "{{ item.ipprotocol }}"
+    gateway: "{{ item.gateway }}"
+    descr: "{{ item.descr | default(omit) }}"
+    weight: "{{ item.weight | default(omit) }}"
+    monitor: "{{ item.monitor | default(omit) }}"
+  loop: "{{ pfsense_gateways }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Static routes
+  pfsensible.core.pfsense_route:
+    descr: "{{ item.descr }}"
+    network: "{{ item.network }}"
+    gateway: "{{ item.gateway }}"
+  loop: "{{ pfsense_routes }}"
+  loop_control:
+    label: "{{ item.descr }}"
+
+- name: DHCP servers
+  pfsensible.core.pfsense_dhcp_server:
+    interface: "{{ item.interface }}"
+    enable: "{{ item.enable | default(omit) }}"
+    range_from: "{{ item.range_from | default(omit) }}"
+    range_to: "{{ item.range_to | default(omit) }}"
+  loop: "{{ pfsense_dhcp_servers }}"
+  loop_control:
+    label: "{{ item.interface }}"
+
+- name: DHCP static mappings
+  pfsensible.core.pfsense_dhcp_static:
+    netif: "{{ item.netif }}"
+    macaddr: "{{ item.macaddr }}"
+    ipaddr: "{{ item.ipaddr }}"
+    hostname: "{{ item.hostname | default(omit) }}"
+    descr: "{{ item.descr | default(omit) }}"
+    gateway: "{{ item.gateway | default(omit) }}"
+    dnsserver: "{{ item.dnsserver | default(omit) }}"
+    arp_table_static_entry: "{{ item.arp_table_static_entry | default(omit) }}"
+  loop: "{{ pfsense_dhcp_statics }}"
+  loop_control:
+    label: "{{ item.hostname | default(item.macaddr) }}"
+
+- name: Directories outside config.xml
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: wheel
+    mode: "{{ item.mode }}"
+  loop: "{{ pfsense_directories }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Files outside config.xml
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    src: "{{ (pfsense_files_dir ~ '/' ~ item.src) if item.src is defined else omit }}"
+    content: "{{ item.content | default(omit) }}"
+    owner: root
+    group: wheel
+    mode: "{{ item.mode }}"
+  loop: "{{ pfsense_files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  no_log: "{{ item.content is defined }}"
+
+- name: Render sections with no pfsensible module
+  ansible.builtin.set_fact:
+    pfsense_rendered_sections: >-
+      {{ pfsense_rendered_sections | default([]) + [{
+        'name': item.name,
+        'parent': item.parent | default(''),
+        'select': item.select,
+        'ignore': item.ignore | default([]),
+        'xml': lookup('ansible.builtin.template', pfsense_config_section_dir ~ '/' ~ item.template),
+        'reload': pfsense_config_section_reloads[item.reload] if item.reload is defined else '',
+      }] }}
+  loop: "{{ pfsense_config_sections }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Sections with no pfsensible module
+  pfsense_config_section:
+    sections: "{{ pfsense_rendered_sections }}"
+  when: pfsense_config_sections | length > 0

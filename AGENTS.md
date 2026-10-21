@@ -19,7 +19,8 @@ Where this file and the plan disagree, this file wins.
 3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
 4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
    - OCIDs owned by our tenancy or compartments link resources to the tenancy, so they stay encrypted, including router next-hop IDs. Verified Oracle-defined OCIDs may be plaintext as entries in a module's `platform_image_ids` or `backup_policy_ids` map, keyed by their exact Oracle name. Verify ownership before publishing an unfamiliar OCID.
-   - GUA IPv6 `/64` prefixes stay encrypted; derive host addresses and enclosing prefixes from them. IPv4, ULA and Tailscale ranges, IPv6 host suffixes, and SSH public keys are plaintext.
+   - GUA IPv6 `/64` prefixes stay encrypted; derive host addresses and enclosing prefixes from them. IPv4, ULA and Tailscale ranges, IPv6 host suffixes, and SSH public keys are plaintext, as are publicly known GUAs such as public DNS resolvers, each listed in the `no-gua-ipv6` hook's allowlist.
+   - Password hashes may be plaintext when salted and from an adaptive algorithm such as bcrypt. Private keys, including WireGuard keys, stay encrypted.
 5. **Don't invent facts.** Discover with read-only commands, keep raw output in the gitignored `docs/snapshot/`, and ask about anything unknown. Verify provider and tool details (resource names, import ID formats, flags) against current docs.
 6. **Stop and ask** when a plan shows any destroy or replace, when an Ansible `--check` shows unexpected changes on a production host, or at an auth or permission wall.
 7. **Pin everything:** providers with a committed `.terraform.lock.hcl`, Ansible collections in `requirements.yml`, container image tags (never `latest`), and pre-commit hook revisions.
@@ -56,9 +57,10 @@ homelab/
 └── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
     ├── bin/                     # tofu-<root>: the inventory plugin's tofu, with that root's state encryption
+    ├── files/                   # <host>/: files roles copy onto a host, at their paths there
     ├── inventory/               # <root>.terraform_state.yml (OpenTofu state), group_vars/, host_vars/<host>/{main,services}.yml
     ├── playbooks/               # site.yml
-    ├── roles/                   # podman, avahi, quadlet
+    ├── roles/                   # podman, avahi, quadlet, pfsense
     └── requirements.yml         # pinned collections
 ```
 
@@ -115,6 +117,8 @@ plan shows an unintended destroy or replace.
 - **Tags:** every guest is marked as managed by OpenTofu: `managed-by=opentofu` on OCI instances, and the tag `terraform` on Proxmox guests, whose tags cannot contain `=`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
 - **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
 - **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
+- **pfSense:** the `pfsense` role converges `config.xml` through `pfsensible.core` modules wherever one works. Each part they cannot manage is a `pfsense_config_section` section, a template in `host_vars/<host>/config/` that replaces the elements it owns; paths something on the host rewrites are listed in its `ignore`. Files outside `config.xml` come from `files/<host>/`. Each host's gaps are tracked in `host_vars/<host>/TODO.md`. The operator's `config.xml` snapshot is authoritative over the live file: a fix the role cannot make is edited into the snapshot, pushed over SSH, and applied through pfSense's PHP.
+- **Ansible secrets:** SOPS-encrypted `host_vars/<host>/secrets.sops.yml` or `group_vars/<group>.sops.yml`, loaded by the `community.sops.sops` vars plugin each stage enables in its `ansible.cfg`; never Ansible Vault or decrypted copies on disk. Plaintext vars reference secrets by name, and tasks that pass them set `no_log: true`.
 - **Quadlets:** one file per unit; image tags pinned; volumes named, not bind-mounted from ad hoc paths.
 - **File names:** where `-` delimits parts of a file name (`instance-<name>.tf`, `subnet-<name>.tf`, `vm-<name>.tf`, `lxc-<name>.tf`), write each `-` inside a part as `--`. For example, subnet `subnet-20230331-2242` lives in `subnet-subnet--20230331--2242.tf`, and VM `resolute-template` in `vm-resolute--template.tf`.
 

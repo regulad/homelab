@@ -1,0 +1,809 @@
+---
+# arawi: pfSense CE, applied by the pfsense role through pfsensible.core.
+ansible_python_interpreter: /usr/local/bin/python3.11
+pfsense_setup:
+  hostname: arawi
+  domain: regulad.internal
+  timezone: America/New_York
+  timeservers: 2.pfsense.pool.ntp.org
+  language: en_US
+  dns_addresses: 10.23.0.1 fe80::1ef4:3fff:fe14:4bee%vtnet0
+  dns_gateways: none none
+  dnsallowoverride: true
+  webguicss: pfSense.css
+  dashboardcolumns: 2
+pfsense_cas:
+  - name: internal-ca
+    # yamllint disable-line rule:line-length
+    certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tDQpNSUlGTmpDQ0F4NmdBd0lCQWdJSVFxa2Q4dDdlM3dRd0RRWUpLb1pJaHZjTkFRRUxCUUF3RmpFVU1CSUdBMVVFDQpBeE1MYVc1MFpYSnVZV3d0WTJFd0hoY05Nall3T0RBeU1EVXlOakUyV2hjTk16WXdOek13TURVeU5qRTJXakFXDQpNUlF3RWdZRFZRUURFd3RwYm5SbGNtNWhiQzFqWVRDQ0FpSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnSVBBRENDDQpBZ29DZ2dJQkFLOENEaGZCTEgzNXAzaUNLT3NGRFgwTk9TYk5kWXBjYUNEdUZWSUdVcXFuRWdwcGRoa1I1YzVhDQpkdWhnVmh3di9qRDdVWkM5VTlzV3A0Mjh4L2FvdnhLQU1XUnB3Y2J1UlRNYVNkTVJIazZ5MUZsYlc1NGJOUWJSDQpIaFEyNHdkVGNqUVBRN1J1cVJINzBOTWNKcnFyaGg3MTErL2Z3ZUZwdjNZenR3T1FnUUlqWjJ6KzVjY0F4b0tzDQo0T3ZsM0lzcEEvcFU2TlYwNk5lYlhHbmpiNkVORVE3VUZQZ0IvTjBSNWVaMzNuQUYrNkVJdTVZeDNoZDdGeEpYDQpaZlhBK28rdVFKV0luUEdrU094b0o3NmJJOEhhSHlyRTBjYkEzS2NRRmQycVFOdTQrWnRscUFNYzBDSEUvSFd2DQpkZW5namVKTjhzREQ4UE9QWHhWTEI1WlRQTXBaekZucmtPV2ZEYjA0VmlZbTF3ekZZMHRGcTB4TkpXK2x4a214DQpuZWZHS3R6eEtyRGlNVVdJYVpGWFZheVdmSE1BU05MYVIrUGRoaFRQcWFEY0prd1lwSmJzRzBHdDBQay9JQXVPDQpTWDR6TE9sU0hDcDZiTC9ROFE4eW9TM2tDcGw4WEs5MGFpN2ppTy82L0ZhdldHZUMyQXNmdWp3bGNSWWJQSlpxDQpPWU5JNlg1cTVFamc0ZkhvRzNYZEszQnB6WTVFanVYVGNNWDlzdUdCdHlnT09LaEd4dEdDKzFMbFk1UHlXeUpTDQpXdVlKektLemVnSkxnbXB1dThHSi9NMTQ3YTJ6dXFVMWNaRURDcWFLVlNyNVpTSVh5S2RrbUNFZHJrSkFUdTF4DQpra2lCazdXWGJJSVZucVdFUGhoN3I4V3FrVkJDRUhDejh6UEJCWGFFRlNMa3NZT0RHRnhmQWdNQkFBR2pnWWN3DQpnWVF3SFFZRFZSME9CQllFRkY2VStjQlBnNFVUSXJmZ2l2enh3a2txMjVSZ01FVUdBMVVkSXdRK01EeUFGRjZVDQorY0JQZzRVVElyZmdpdnp4d2trcTI1UmdvUnFrR0RBV01SUXdFZ1lEVlFRREV3dHBiblJsY201aGJDMWpZWUlJDQpRcWtkOHQ3ZTN3UXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QUxCZ05WSFE4RUJBTUNBUVl3RFFZSktvWklodmNODQpBUUVMQlFBRGdnSUJBQ0d4cjUrWXJVMjJwbktnbys3ZFM2dHFlMWd6L2wvTGFpVU5ZNnY4d2dSUzcvUG1iTjZCDQpQTUVmMGQya0RkRDQrVm1jNVJJa0NKUG0zRVdjY0w4dFdXeW9sWHBWdTZkL1dGREJpdXFPZHNXQlIzN051VWNBDQp1cnpaN3grTnVkV2hKUVNVUHZuWk5KS1ZnTHBSbzROZ3ltZXJBZjZ0WXU3eUdMZGRxNGNqOVhKd1E5Ukd5VGF3DQpjVmRCZ0ZzMTNPY01kL1BJUU52VDRFUG1qeDJrSFV4NExUWjFZOXp1cGluanFTeGhVdXFPeE1uRkNjbTk5aFQrDQp5QktROWgvVWc2MDI5TVhZWjBkbElCbEFZVWg3SGw5bkxITEZUUXN3OWthYUJ1YlVXdExmR214cU9GMnFpZU5XDQpUOHNWNDNTWjlDMTlCa1V2VG9RVmRFcC9xcWNZVDBJUlhpb3pBc1NSOWtIN2JiOS9DTWNOK2Ixa0lERlJBMnBSDQpJdWg4STJBc3RrT0w4K3FTTHZWemhESHpZNmxwcXV5U095TER1a05rZUZxZ0pna0tsME55Z01yZWpEa2JCRFY1DQpQSG1nczZkRDd5TzVNMHdoc3EwY25MY09ZUngzN2hMMTBDRkVUVkFSMjI5NkorUEtGYXJjWndwVDhNSjhLWGlSDQpJNFU3dlRDWlRhdnBQK2U4UTMyZnVTNHE2VVFLQmpFbUtubFo3SVJHOGVUc0NiVjFtaVNoaWtoc1E1S1dBYnpxDQpOd1BLWEg5L1p5SkdFTDJoU1ZJRFRxOEZza2owdksvb1FzU0JhcGs2bFBFVFAra3FQanRrSUlsUU44Mi8zR0hRDQpTT3VmUHJjekw3VlhiQ1kzQW9nSmJlRzZMZ3UyaThDRDdWNmVDZkVWSDBYVVdSa0x2djRENXVtYg0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ0K
+  - name: regulad.internal
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      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
+      InmT3ba7
+      -----END CERTIFICATE-----
+pfsense_certs:
+  - name: pihole.regulad.internal
+    ca: internal-ca
+    method: import
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      MIIE2TCCAsGgAwIBAgIBAzANBgkqhkiG9w0BAQsFADAWMRQwEgYDVQQDEwtpbnRl
+      cm5hbC1jYTAeFw0yNjA4MDMyMzI2MzJaFw0yNzA5MDUyMzI2MzJaMC8xIDAeBgNV
+      BAMTF3BpaG9sZS5yZWd1bGFkLmludGVybmFsMQswCQYDVQQGEwJVUzCCASIwDQYJ
+      KoZIhvcNAQEBBQADggEPADCCAQoCggEBAKgdV9mzwEk6TBxxHr2/oETZARthfbt4
+      D0MXE/mBV/dpnLqKlIHP1opfSNrD38NG3blsxMbVK8vCenNn81FUXgLbPbO6jgQ8
+      oT6jM18g85KhJReNPwOz1Hy03Ygma8smrmn066RZS9MvlkYdvW+X+3/MS53YSQxd
+      gwqIB9eRvyz+ZRRFQYIlOGSX652b9PUfmaj8+4DKmvByOGY4EUpay5dWwcKJLSJn
+      iCu7i5yAe99NAD7iQMg71Rym8GboRPFXXN8o5JdjJrpbiOp2e3+y7WszjqIVOOjy
+      IQGhz5gIIpBTmu50pp011WpEqg1y52OH4yn+8QjoATZ5GINRJXvab4ECAwEAAaOC
+      ARcwggETMAkGA1UdEwQCMAAwEQYJYIZIAYb4QgEBBAQDAgZAMAsGA1UdDwQEAwIF
+      oDAzBglghkgBhvhCAQ0EJhYkT3BlblNTTCBHZW5lcmF0ZWQgU2VydmVyIENlcnRp
+      ZmljYXRlMB0GA1UdDgQWBBSDBP52NwiPPV7GiNcu0tsnh4WRdzBFBgNVHSMEPjA8
+      gBRelPnAT4OFEyK34Ir88cJJKtuUYKEapBgwFjEUMBIGA1UEAxMLaW50ZXJuYWwt
+      Y2GCCEKpHfLe3t8EMCcGA1UdJQQgMB4GCCsGAQUFBwMBBggrBgEFBQcDAgYIKwYB
+      BQUIAgIwIgYDVR0RBBswGYIXcGlob2xlLnJlZ3VsYWQuaW50ZXJuYWwwDQYJKoZI
+      hvcNAQELBQADggIBAAyKYcwCUV/FUxRiaLkDsZFB3mwC1XjQiWXUhAQeomLuC+DR
+      x3QsoeMWNZ9oR0opvPMSxFt4OUYVCYHc70mr1jJspWsHpOCCthiOnSVc+n+bSAnb
+      55dTRCUv2h5+pP4NpfRvL/DGjt61mqAwj3yvZ44K5TyHtEmcXzsZ/oisNVKBfaxo
+      zh8oZL99YxXlAxo1Ya1TCxjcF7rEq9eEasKknszQdhKybaJTx+Azxq7GrxpfoLTx
+      xYabdtsfmfLf3JGQh6Ay317a/k1O6pS0l4W6Hxt6uOxAnmuOiZHhk8KCzXWAuSdm
+      F3kOO85cyxCO+a3WnylEGS+mVEntLn+gQEw59E5S3Gi69ZtZK0jOtTPBpUjSTfSm
+      KEv9y0R3/Ld8t6nLeAdldZ3KGd0K/jCJS4EpCb1E+Wy5VYeo0AzVgKpZ2vm2kTWC
+      DZq9YEb+9XltHIOGUWYaEDeMD2tDn/b/eA3Wdolb09Sp960TmFAzxhffB2aQq0Yp
+      gUjnD2Xk6ZatrhLXmZjQCL56LoV0qVU1b8dTIxINxSlK8XPt5FQxVft/WizkoHmc
+      hp8SAdYPdGDLKcvyecRPD0XPU4AxDp02FCsoUd+nEnNry3ZA5srGcjiut0oqKDqm
+      WemWJxczwtSijeq3oFryB4wgaKeUCiuM2klRet0bCO4vv8mopzjyQNNNn1lb
+      -----END CERTIFICATE-----
+  - name: unifi.regulad.internal
+    ca: internal-ca
+    method: import
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      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
+      -----END CERTIFICATE-----
+  - name: dotfiles
+    ca: regulad.internal
+    method: import
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      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
+      aCaag/bJSB4+DviwYB+sbw==
+      -----END CERTIFICATE-----
+  - name: uptime
+    ca: regulad.internal
+    method: import
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      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
+      -----END CERTIFICATE-----
+  - name: prodingus.regulad.internal
+    ca: regulad.internal
+    method: import
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      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
+      9983qR3qkpK3WGsUjspQjJ6TMTw=
+      -----END CERTIFICATE-----
+  - name: mail.pubsub.wahlecloud.oraclevcn.com
+    ca: regulad.internal
+    method: import
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      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
+      -----END CERTIFICATE-----
+pfsense_groups:
+  - name: all
+    descr: All Users
+    scope: system
+    gid: '1998'
+  - name: admins
+    descr: System Administrators
+    scope: system
+    gid: '1999'
+    priv:
+      - page-all
+pfsense_users:
+  - name: admin
+    descr: System Administrator
+    scope: system
+    uid: '0'
+    groups:
+      - admins
+    password: $2y$10$X6XflLDeDbG0xSidgSYi6e9vjobjjiWVcNaee2gSWeAeksZ/rnHb6
+    priv:
+      - user-shell-access
+  - name: regulad
+    descr: Parker Wahle
+    scope: user
+    uid: '2000'
+    groups:
+      - admins
+    password: $2y$10$TmRCXVNi7YwgQbPeckqR2OJs9b5YKzf6CIJ0iLygmCxmLJ/yFlPLO
+    # yamllint disable-line rule:line-length
+    authorizedkeys: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMcSNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhkduWYAwg8utchrqloVGd7NDd+BphSDJ8u/4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56HgjN/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzGsPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlpQUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcXTPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQSAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE=
+pfsense_vlans:
+  - interface: vtnet0
+    vlan_id: 16
+    descr: intercom
+  - interface: vtnet0
+    vlan_id: 8
+    descr: guest
+pfsense_interfaces:
+  - descr: WAN
+    interface: vtnet1
+    enable: false
+    ipv4_type: none
+    ipv6_type: none
+    mtu: 9000
+    blockpriv: true
+    blockbogons: true
+  - descr: LAN
+    interface: vtnet0
+    enable: true
+    ipv4_type: static
+    ipv4_address: 10.23.0.254
+    ipv4_prefixlen: 20
+    ipv4_gateway: LANGW
+    ipv6_type: slaac
+    mtu: 9000
+  - descr: INTERCOM
+    interface: vtnet0.16
+    enable: true
+    ipv4_type: static
+    ipv4_address: 10.23.16.254
+    ipv4_prefixlen: 20
+    ipv6_type: static
+    ipv6_address: fd83:b84c:aa57:0010:be24:11ff:feaf:e1cf
+    ipv6_prefixlen: 64
+  - descr: GUEST
+    interface: vtnet0.8
+    enable: true
+    ipv4_type: static
+    ipv4_address: 10.23.128.254
+    ipv4_prefixlen: 20
+    ipv6_type: static
+    ipv6_address: fd83:b84c:aa57:0008:be24:11ff:feaf:e1cf
+    ipv6_prefixlen: 64
+    mtu: 9000
+  - descr: LAN2
+    interface: vtnet2
+    enable: true
+    ipv4_type: none
+    ipv6_type: static
+    ipv6_address: fd83:b84c:aa57:0001:be24:11ff:fe08:e4e8
+    ipv6_prefixlen: 64
+    mtu: 9000
+  - descr: U5G_GRE
+    interface: gre0
+    enable: true
+    ipv4_type: none
+    ipv6_type: none
+    mtu: 1400
+    mss: 1360
+  - descr: BAILOUT646
+    interface: tun_wg0
+    enable: true
+    ipv4_type: none
+    ipv6_type: static
+    ipv6_address: fdc5:4979:78da::2
+    ipv6_prefixlen: 126
+    ipv6_gateway: BAILOUT646GW
+    mtu: 1400
+  - descr: BAILOUT464
+    interface: tun_wg1
+    enable: true
+    ipv4_type: static
+    ipv4_address: 172.16.31.130
+    ipv4_prefixlen: 30
+    ipv4_gateway: BAILOUT464GW
+    ipv6_type: none
+    mtu: 1400
+pfsense_gateways:
+  - name: LANGW
+    interface: LAN
+    ipprotocol: inet
+    gateway: 10.23.0.1
+    descr: ''
+    weight: 1
+    monitor: 1.1.1.1
+  - name: LAN_SLAAC
+    interface: LAN
+    ipprotocol: inet6
+    gateway: dynamic
+    descr: Interface LAN_SLAAC Gateway
+    weight: 1
+    monitor: 2606:4700:4700::1111
+  - name: tailscalerouter
+    interface: LAN
+    ipprotocol: inet
+    gateway: 10.23.2.171
+    descr: ''
+    weight: 1
+  - name: U5G_GRE_TUNNELV4
+    interface: U5G_GRE
+    ipprotocol: inet
+    gateway: dynamic
+    descr: Interface U5G_GRE_TUNNELV4 Gateway
+    weight: 1
+    monitor: 1.0.0.1
+  - name: U5G_GRE_TUNNELV6
+    interface: U5G_GRE
+    ipprotocol: inet6
+    gateway: dynamic
+    descr: Interface U5G_GRE_TUNNELV6 Gateway
+    weight: 1
+    monitor: 2606:4700:4700::1001
+  - name: BAILOUT646GW
+    interface: BAILOUT646
+    ipprotocol: inet6
+    gateway: fdc5:4979:78da::1
+    descr: ''
+    weight: 1
+    monitor: 2620:fe::fe
+  - name: BAILOUT464GW
+    interface: BAILOUT464
+    ipprotocol: inet
+    gateway: 172.16.31.129
+    descr: ''
+    weight: 1
+    monitor: 9.9.9.9
+pfsense_routes:
+  - descr: Tailnet IPv4
+    network: 100.64.0.0/10
+    gateway: tailscalerouter
+  - descr: VCN IPv4
+    network: 10.131.80.0/24
+    gateway: tailscalerouter
+  - descr: Tailnet IPv6
+    network: fd7a:115c:a1e0::/48
+    gateway: tailscalerouter6
+  - descr: Bailout IPv4 via LAN
+    network: 129.213.123.169/32
+    gateway: LANGW
+  - descr: Bailout IPv6 via LAN
+    network: '{{ arawi_ipv6_prefixes.oci_subnet }}:0:e821:108d:b201/128'
+    gateway: LAN_SLAAC
+  - descr: VCN IPv6
+    network: '{{ arawi_ipv6_prefixes.oci_subnet }}::/64'
+    gateway: tailscalerouter6
+pfsense_aliases:
+  - name: wifi_calling
+    type: port
+    address: 500 4500
+    descr: Wi-Fi Calling
+    detail: IPsec - IKE||IPsec - NAT Traversal
+  - name: home_ipv6
+    type: network
+    address: '{{ arawi_ipv6_prefixes.verizon_56 }}::/56'
+    descr: Home IPv6 prefix
+    detail: ''
+  - name: tailnet_subnet_ipv6
+    type: network
+    address: fd7a:115c:a1e0:ab12::/64
+    descr: Tailnet subnet
+    detail: ''
+pfsense_rules:
+  - name: Allow home IPv6 to any
+    action: pass
+    interface: WAN
+    ipprotocol: inet6
+    protocol: any
+    source: home_ipv6
+    destination: any
+  - name: Allow LAN to LAN address
+    action: pass
+    interface: LAN
+    ipprotocol: inet46
+    protocol: any
+    source: NET:LAN
+    destination: IP:LAN
+  - name: Allow LAN to any
+    action: pass
+    interface: LAN
+    ipprotocol: inet46
+    protocol: any
+    source: NET:LAN
+    destination: any
+  - name: Allow tailnet to LAN address
+    action: pass
+    interface: LAN
+    ipprotocol: inet
+    protocol: any
+    source: 100.64.0.0/10
+    destination: IP:LAN
+  - name: Allow VCN to LAN address
+    action: pass
+    interface: LAN
+    ipprotocol: inet
+    protocol: any
+    source: 10.131.80.0/24
+    destination: IP:LAN
+  - name: Block GUEST to LAN
+    action: block
+    interface: GUEST
+    ipprotocol: inet
+    protocol: any
+    source: NET:GUEST
+    destination: NET:LAN
+  - name: Block GUEST to LAN2
+    action: block
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: any
+    source: NET:GUEST
+    destination: NET:LAN2
+  - name: Allow GUEST DNS
+    action: pass
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: tcp/udp
+    source: NET:GUEST
+    destination: IP:GUEST
+    destination_port: '53'
+  - name: Allow GUEST HTTP
+    action: pass
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: tcp/udp
+    source: NET:GUEST
+    destination: any
+    destination_port: '80'
+    in_queue: guest_up
+    out_queue: guest_down
+  - name: Allow GUEST HTTPS
+    action: pass
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: tcp/udp
+    source: NET:GUEST
+    destination: any
+    destination_port: '443'
+    in_queue: guest_up
+    out_queue: guest_down
+  - name: Allow GUEST NTP
+    action: pass
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: udp
+    source: NET:GUEST
+    destination: any
+    destination_port: '123'
+    in_queue: guest_up
+    out_queue: guest_down
+  - name: Allow GUEST IKE
+    action: pass
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: udp
+    source: NET:GUEST
+    destination: any
+    destination_port: '500'
+    in_queue: guest_up
+    out_queue: guest_down
+  - name: Allow GUEST IPsec NAT-T
+    action: pass
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: udp
+    source: NET:GUEST
+    destination: any
+    destination_port: '4500'
+    in_queue: guest_up
+    out_queue: guest_down
+  - name: Allow LAN2 to LAN2 address
+    action: pass
+    interface: LAN2
+    ipprotocol: inet6
+    protocol: any
+    source: NET:LAN2
+    destination: IP:LAN2
+  - name: Allow LAN2 to any
+    action: pass
+    interface: LAN2
+    ipprotocol: inet6
+    protocol: any
+    source: NET:LAN2
+    destination: any
+  - name: Allow LAN to any via LAN2
+    action: pass
+    interface: LAN2
+    ipprotocol: inet6
+    protocol: any
+    source: NET:LAN
+    destination: any
+  - name: Allow tailnet subnet to LAN2 address
+    action: pass
+    interface: LAN2
+    ipprotocol: inet6
+    protocol: any
+    source: tailnet_subnet_ipv6
+    destination: IP:LAN2
+  - name: Allow ping to U5G_GRE address
+    action: pass
+    interface: U5G_GRE
+    ipprotocol: inet46
+    protocol: icmp
+    source: NET:U5G_GRE
+    destination: IP:U5G_GRE
+    icmptype: echoreq
+  - name: Allow tailnet subnet to LAN2 address
+    action: pass
+    interface: LAN
+    ipprotocol: inet6
+    protocol: any
+    source: tailnet_subnet_ipv6
+    destination: IP:LAN2
+pfsense_dhcp_servers:
+  - interface: LAN
+    enable: true
+    range_from: 10.23.1.11
+    range_to: 10.23.1.245
+  - interface: GUEST
+    enable: true
+    range_from: 10.23.129.11
+    range_to: 10.23.129.245
+pfsense_dhcp_statics:
+  - netif: lan
+    macaddr: 00:18:dd:01:ca:34
+    ipaddr: 10.23.1.6
+    hostname: hdhr-101ca340
+    descr: Broken HDHR discovery
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: bc:24:11:4a:25:fa
+    ipaddr: 10.23.2.31
+    hostname: ingress
+    descr: Port forwarding
+    gateway: 10.23.0.1
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: bc:24:11:7d:6f:9b
+    ipaddr: 10.23.2.32
+    hostname: freeipa
+    descr: Legacy DNS
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: bc:24:11:0b:76:9e
+    ipaddr: 10.23.2.33
+    hostname: dodo
+    descr: Port forwarding
+    gateway: 10.23.0.1
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: bc:24:11:c8:9b:09
+    ipaddr: 10.23.2.41
+    hostname: pihole
+    arp_table_static_entry: true
+    dnsserver:
+      - 10.23.0.254
+  - netif: lan
+    macaddr: bc:24:11:d8:56:c2
+    ipaddr: 10.23.2.68
+    hostname: ncsusplitt
+    descr: Asymmetric route
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: bc:24:11:5d:be:75
+    ipaddr: 10.23.2.145
+    hostname: aboriginal
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: bc:24:11:53:2c:15
+    ipaddr: 10.23.2.171
+    hostname: tailscalerouter
+    descr: IPv4 static routing
+    gateway: 10.23.0.254
+    arp_table_static_entry: true
+  - netif: lan
+    macaddr: 74:f9:2c:b2:96:cf
+    ipaddr: 10.23.2.229
+    hostname: u5g-us
+    gateway: 10.23.0.254
+    arp_table_static_entry: true
+pfsense_log_settings:
+  filterdescriptions: 1
+
+# Files outside config.xml, from ../../../files/arawi.regulad.internal/.
+pfsense_directories:
+  - path: /root/.ssh
+    mode: "0700"
+pfsense_files:
+  # Run by cron every 2 minutes; rewrites the GRE tunnel's IPv6 addresses.
+  - path: /usr/local/bin/u5g-gre6-sync.php
+    mode: "0700"
+    src: usr/local/bin/u5g-gre6-sync.php
+  # The watchdogd health check started by afterbootupshellcmd.
+  - path: /usr/local/bin/tmpfscheck.sh
+    mode: "0755"
+    src: usr/local/bin/tmpfscheck.sh
+  - path: /usr/local/etc/rc.d/qemu-agent.sh
+    mode: "0755"
+    src: usr/local/etc/rc.d/qemu-agent.sh
+  - path: /etc/rc.conf.local
+    mode: "0644"
+    src: etc/rc.conf.local
+  # The key u5g-gre6-sync.php reads the U5G modem with, and the modem's host key.
+  # Templating drops the key's final newline, so it is written back here.
+  - path: /root/.ssh/u5g
+    mode: "0600"
+    content: "{{ arawi_u5g_ssh_private_key | trim }}\n"
+  - path: /root/.ssh/u5g.pub
+    mode: "0644"
+    src: root/.ssh/u5g.pub
+  - path: /root/.ssh/known_hosts
+    mode: "0644"
+    src: root/.ssh/known_hosts
+
+# Parts of config.xml with no pfsensible module, replaced whole from config/.
+pfsense_config_sections:
+  - name: wireguard
+    parent: installedpackages
+    select:
+      - wireguard
+    template: wireguard.xml.j2
+    reload: wireguard
+  - name: gre
+    select:
+      - gres
+    ignore:
+      - gre/tunnel-local-addr6
+      - gre/tunnel-remote-addr6
+    template: gre.xml.j2
+    reload: gre
+  - name: gateway_groups
+    parent: gateways
+    select:
+      - gateway_item[name='tailscalerouter6']
+      - defaultgw4
+      - defaultgw6
+      - gateway_group
+    template: gateway_groups.xml.j2
+    reload: routing
+  - name: limiters
+    select:
+      - dnshaper
+    template: limiters.xml.j2
+    reload: filter
+  - name: router_advertisements
+    select:
+      - dhcpdv6
+    template: router_advertisements.xml.j2
+    reload: radvd
+  - name: kea
+    select:
+      - kea
+    template: kea.xml.j2
+    reload: dhcpd
+  - name: kea_lan
+    parent: dhcpd/lan
+    select:
+      - custom_kea_config
+    template: kea_lan.xml.j2
+    reload: dhcpd
+  - name: kea_guest
+    parent: dhcpd/opt2
+    select:
+      - custom_kea_config
+    template: kea_guest.xml.j2
+    reload: dhcpd
+  - name: dns_resolver
+    select:
+      - unbound
+    template: dns_resolver.xml.j2
+    reload: unbound
+  - name: outbound_nat
+    select:
+      - nat
+    template: outbound_nat.xml.j2
+    reload: filter
+  - name: certificates
+    select:
+      - cert[descr='arawi.regulad.internal']
+    template: certificates.xml.j2
+    reload: certificates
+  - name: cron
+    select:
+      - cron
+    template: cron.xml.j2
+    reload: cron
+  - name: dyndns
+    select:
+      - dyndnses
+    template: dyndns.xml.j2
+    reload: dyndns
+  - name: autoconfigbackup
+    parent: system
+    select:
+      - acb
+    template: autoconfigbackup.xml.j2
+  - name: snmp
+    select:
+      - snmpd
+    template: snmp.xml.j2
+    reload: snmpd
