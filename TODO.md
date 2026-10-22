@@ -50,8 +50,8 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `timemachine` (104)
 - [ ] `tsexit` (124)
 - [ ] `tvheadend` (127)
-- [ ] `uptime` (117)
-- [ ] `vaultwarden` (128)
+- [x] `uptime` (117)
+- [x] `vaultwarden` (128)
 
 ## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
 

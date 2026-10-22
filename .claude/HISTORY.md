@@ -1300,3 +1300,24 @@ started from the copied data, port 3001 answered, monitors recorded 116 up
 heartbeats in the first three minutes, and `podman auto-update --dry-run`
 listed the container. A second check reported `changed=0`, and
 `/root/uptime-kuma` was then deleted; Proxmox backups still hold it.
+
+## uptime and vaultwarden cleared of leftovers (2026-10-21)
+
+Both hosts were checked for anything running beyond their Quadlet and the
+managed base services; nothing else listens, runs from cron, or lives in
+`/opt`, `/srv` or `/home`. With Parker's approval, the leftovers were removed:
+on uptime, `/var/lib/containerd` (2.4 GB) and `/opt/containerd`, dangling
+`containerd.service` and `ubuntu-fan.service` wants links, the config remnants
+of bridge-utils, containerd, dnsmasq-base, git and ubuntu-fan, an untagged old
+Uptime Kuma image, and podman-compose with python3-dotenv; on vaultwarden, the
+unused `watchtower:latest` image, the empty `systemd-vaultwarden-data` volume,
+the compose network `vaultwarden_default` (`podman1`), the podman-docker
+remnant, and podman-compose with python3-dotenv. Both services stayed active
+with no failed units, and uptime's check reported `changed=0`.
+
+Dropping `podman1` changed vaultwarden's Avahi `allow-interfaces` to
+`eth0,podman0`. The approved `site.yml` run wrote it, then lost its SSH
+connection to an agent authentication timeout before the restart handler ran,
+so avahi-daemon was restarted by hand; it joined mDNS on `eth0` and `podman0`
+only, prodingus resolved `vaultwarden.local`, and a second check reported
+`changed=0`. Both hosts are checked off in `TODO.md`.
