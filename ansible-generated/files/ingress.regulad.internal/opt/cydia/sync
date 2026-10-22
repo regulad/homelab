@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="https://repo.regulad.xyz/repository/ios"
+ARCHES=(iphoneos-arm iphoneos-arm64 iphoneos-arm64e)
+OUT="/srv/cydia"
+KEYFILE="/etc/cydia/ios.asc"
+PASSFILE="/etc/cydia/ios.txt"
+GH_USER="regulad"
+
+mkdir -p "$OUT"
+
+GNUPGHOME=$(mktemp -d)
+chmod 700 "$GNUPGHOME"
+export GNUPGHOME
+echo "allow-loopback-pinentry" > "$GNUPGHOME/gpg-agent.conf"
+
+TMP=$(mktemp -d)
+
+cleanup() {
+  gpgconf --kill gpg-agent 2>/dev/null || true
+  rm -rf "$GNUPGHOME" "$TMP"
+}
+trap cleanup EXIT
+
+gpg --batch --import "$KEYFILE"
+KEYID=$(gpg --with-colons --list-secret-keys | awk -F: '/^fpr:/{print $10; exit}')
+
+# --- package indices ---
+: > "$TMP/Packages"
+for arch in "${ARCHES[@]}"; do
+  curl -fsS "$BASE/dists/stable/main/binary-$arch/Packages" >> "$TMP/Packages"
+  echo >> "$TMP/Packages"
+done
+cp "$TMP/Packages" "$OUT/Packages"
+gzip -9 -kf "$OUT/Packages" -c > "$OUT/Packages.gz"
+bzip2 -9 -c "$OUT/Packages" > "$OUT/Packages.bz2"
+
+# --- repo icon, pulled from GitHub avatar ---
+curl -fsSL "https://github.com/${GH_USER}.png?size=256" -o "$TMP/avatar"
+convert "$TMP/avatar" -resize 64x64^ -gravity center -extent 64x64 "$OUT/CydiaIcon.png"
+
+# --- Release ---
+{
+  echo "Origin: regulad"
+  echo "Label: regulad's iOS repo"
+  echo "Suite: stable"
+  echo "Version: 1.0"
+  echo "Codename: stable"
+  echo "Architectures: ${ARCHES[*]}"
+  echo "Components: main"
+  echo "Description: Flat mirror of $BASE (stable main)"
+  echo "Date: $(date -u '+%a, %d %b %Y %H:%M:%S UTC')"
+  for algo in md5sum sha1sum sha256sum; do
+    case "$algo" in
+      md5sum) label="MD5Sum" ;;
+      sha1sum) label="SHA1" ;;
+      sha256sum) label="SHA256" ;;
+    esac
+    echo "${label}:"
+    for f in Packages Packages.gz Packages.bz2; do
+      printf ' %s %s %s\n' "$($algo "$OUT/$f" | cut -d' ' -f1)" "$(stat -c%s "$OUT/$f")" "$f"
+    done
+  done
+} > "$OUT/Release"
+
+rm -f "$OUT/Release.gpg" "$OUT/InRelease"
+gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+    --local-user "$KEYID" --detach-sign --armor -o "$OUT/Release.gpg" "$OUT/Release" < "$PASSFILE"
+gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+    --local-user "$KEYID" --clearsign -o "$OUT/InRelease" "$OUT/Release" < "$PASSFILE"
+
+# --- permissions ---
+chmod 755 "$OUT"
+chmod 644 "$OUT"/Packages "$OUT"/Packages.gz "$OUT"/Packages.bz2 \
+          "$OUT"/Release "$OUT"/Release.gpg "$OUT"/InRelease "$OUT"/CydiaIcon.png

@@ -1,0 +1,210 @@
+{
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	ech ingress.regulad.xyz
+	
+	# WebSockets-over-h3 is broken in Chrome from Caddy, somehow
+	servers {
+		protocols h1 h2
+	}
+}
+
+(hsts) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+	}
+}
+
+(common) {
+	tls {
+		issuer acme {
+			profile shortlived
+		}
+	}
+}
+
+(cache) {
+	cache
+}
+
+(mtls) {
+	tls {
+		client_auth {
+			mode require_and_verify
+			trusted_ca_cert_file /etc/ssl/certs/ca-certificates.crt
+		}
+	}
+}
+
+http://kodi.regulad.xyz, https://kodi.regulad.xyz {
+	# legacy
+	
+	import common
+	import hsts
+
+	root * /srv/kodi
+	file_server	
+}
+
+http://ios.regulad.xyz, https://ios.regulad.xyz {
+	# legacy	
+
+	import common
+	import hsts
+
+	encode zstd gzip
+
+	@onDisk {
+		file {
+			root /srv/cydia
+		}
+	}
+
+	handle @onDisk {
+		root * /srv/cydia
+		file_server
+	}
+
+	handle {
+		rewrite * /repository/ios{uri}
+
+		reverse_proxy https://repo.regulad.xyz {
+			header_up Host repo.regulad.xyz
+		}
+	}
+
+}
+
+kasm.regulad.xyz {
+	import common
+	import hsts
+
+	reverse_proxy https://vkasm.regulad.internal:443 {
+		transport http {
+			tls_insecure_skip_verify
+			read_timeout 0
+			write_timeout 0
+		}
+		header_up Host {host}
+		flush_interval -1
+		header_up X-Forwarded-Port "443"
+	}
+}
+
+pterodactyl.regulad.xyz {
+	import hsts
+	import common
+
+	@needs_cert {
+		not path /api/remote/*
+		expression {tls_client_subject} == ""
+	}
+#	respond @needs_cert "Client certificate required" 495	
+
+	reverse_proxy pterodactyl.regulad.internal:80 {
+	}
+}
+
+openclaw.regulad.xyz {
+	import hsts
+	import mtls
+	import common	
+	
+	reverse_proxy openclaw.regulad.internal:18789 {
+	}
+}
+
+tvheadend-livingston.regulad.xyz {
+	import hsts
+	import common
+	
+	reverse_proxy tvheadend.regulad.internal:9981 {
+	}
+}
+
+nextcloud.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	@wellknown_dav path /.well-known/carddav /.well-known/caldav
+	redir @wellknown_dav /remote.php/dav/ 301
+
+	@wellknown_webfinger path /.well-known/webfinger
+	redir @wellknown_webfinger /index.php/.well-known/webfinger
+
+	handle /.well-known/* {
+		respond 404
+	}
+
+	reverse_proxy aboriginal.regulad.internal:12378 {
+	}
+}
+
+# Using verify_if_given breaks Jellyfin Media Player
+jf.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy aboriginal.regulad.internal:8096 {
+	}
+}
+
+immich.regulad.xyz {
+	import hsts
+	import common
+	import mtls
+
+	reverse_proxy immich.regulad.internal:2283 {
+	}
+}
+
+vw.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy vaultwarden.regulad.internal:8000 {
+	}
+}
+
+ai.regulad.xyz {
+	import hsts
+	import common
+	import cache
+	
+	reverse_proxy openwebui.regulad.internal:8080 {
+	}
+}
+
+uptime.regulad.xyz {
+	import common
+	import cache
+
+	reverse_proxy uptime.regulad.internal:3001 {
+	}
+}
+
+s3.regulad.xyz, *.s3.regulad.xyz {
+	import common
+
+	reverse_proxy tcp4/prodingus.regulad.internal:7480 {
+		lb_policy round_robin
+		health_uri /
+		health_interval 10s
+		health_status 404
+		flush_interval -1
+	}
+}
+
+gonkputer.regulad.xyz {
+	import common
+	import mtls
+
+	reverse_proxy https://prodingus:8006 {
+		lb_policy round_robin
+		health_uri /
+		health_interval 10s
+		health_status 200
+		flush_interval -1
+	}
+}

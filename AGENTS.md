@@ -62,7 +62,7 @@ homelab/
 └── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
     ├── bin/                     # tofu-<root>: the inventory plugin's tofu, with that root's state encryption
-    ├── files/                   # <host>/: files roles copy onto a host, at their paths there
+    ├── files/                   # <host>/: byte copies roles place on a host, at their paths there; exempt from the whitespace hooks
     ├── inventory/               # <root>.terraform_state.yml (OpenTofu state), group_vars/, host_vars/<host>/{main,services}.yml
     ├── playbooks/               # site.yml
     ├── roles/                   # host_files, podman, avahi, quadlet, pfsense, php_fpm

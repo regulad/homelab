@@ -36,7 +36,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `act` (123)
 - [ ] `cordpepperer` (118): a mirror of `peppercord`
 - [ ] `immich` (116)
-- [ ] `ingress` (121)
+- [x] `ingress` (121)
 - [ ] `llamarpcmaster` (119): in the inventory only while its HA resource is requested. Low priority
 - [ ] `mastodon` (105)
 - [ ] `ncsusplitt` (125)

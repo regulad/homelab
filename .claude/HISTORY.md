@@ -1512,3 +1512,41 @@ lists the unit. A second check reported `changed=0`. `/root/open-webui`,
 `/root/ipa-ca.crt`, the fork image, podman-compose with python3-dotenv and a
 `tailscale` package remnant were then removed. LDAP login and image-returning
 tools are left for Parker to confirm.
+
+## ingress described; cloudflare-ddns moved from Docker to a Quadlet (2026-10-22)
+
+ingress runs Caddy from a unit that rebuilds it with xcaddy (cache-handler,
+caddy-dns/cloudflare, caddy-l4) at every start, cydia-sync (a 15-minute timer
+that mirrors and GPG-signs the iOS repository Caddy serves), and ran
+cloudflare-ddns in Docker Compose plus an HAProxy with no frontends. Caddy's
+unit, drop-in, Caddyfile, xcaddy's apt source and key, and cydia-sync's script
+and units are now byte copies under `files/ingress.regulad.internal/`;
+Caddy's Cloudflare token, the cydia signing key and its passphrase are in SOPS.
+`host_files` gained `packages` and `reloads`: a Caddyfile change is checked by
+`caddy validate` (with the token sourced, which its DNS provider needs) and
+applied with `caddy reload`, while a unit or token change restarts and
+rebuilds. The first check reported `changed=0`.
+
+Parker moved cloudflare-ddns to Podman, an exception to keeping a host's
+runtime. With his approval, the `tofu/gonkputer` plan adding `podman_hosts` to
+ingress was applied (1 changed; a fresh plan was a no-op); its Quadlet tracks
+`favonia/cloudflare-ddns:1` with the compose file's hardening (user 1000:1000,
+read-only, all capabilities dropped, no new privileges; the quadlet role
+gained `drop_capabilities` and `no_new_privileges`), its token and the Discord
+webhook in SOPS, and `DELETE_ON_STOP=false` so restarts and auto-updates keep
+the record. The Docker container's restart policy was cleared and it was
+killed, so its own DELETE_ON_STOP never ran; the Quadlet found the A and AAAA
+records for `ingress.regulad.xyz` already current, and public DNS kept
+answering them throughout. A second check reported `changed=0`.
+
+HAProxy, docker.io, containerd and their dependencies were purged with
+`/var/lib/docker`, `/var/lib/containerd`, `/opt/containerd`, the `docker0`
+bridge, `/root/cloudflare-ddns`, the old `/root/caddy` binary and `/root/go`
+(a 2.7 GB build cache last written on 2026-05-21; Caddy's unit uses
+`/var/lib/caddy/go` and `/var/cache/caddy`), `/root/.config/cni`, the
+avahi-daemon and libnss-mdns remnants, and an orphaned
+`eth0-default-route.service` wants link from 2026-08-02 whose unit no longer
+existed. Caddy, cydia-sync and cloudflare-ddns stayed active, sites answered,
+the mirror's `Release` served, and a final check reported `changed=0`. During
+the work the GPG signing key, which is passphrase-protected, was printed once
+in the session; Parker judged that acceptable.

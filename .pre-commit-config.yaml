@@ -15,14 +15,17 @@ repos:
       - id: check-json
       - id: check-yaml
       - id: detect-private-key
+      # Snippets and files/ are byte-exact copies of the files OpenTofu
+      # uploads and Ansible places, so these hooks never rewrite them.
       - id: end-of-file-fixer
+        exclude: ^(tofu/gonkputer/snippets|ansible-generated/files)/
       - id: fix-byte-order-marker
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: ^(tofu/gonkputer/snippets|ansible-generated/files)/
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        # Snippets are byte-exact copies of the files OpenTofu uploads.
-        exclude: ^tofu/gonkputer/snippets/
+        exclude: ^(tofu/gonkputer/snippets|ansible-generated/files)/
 
   # --- OpenTofu -------------------------------------------------------------
   - repo: local

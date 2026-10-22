@@ -1,0 +1,57 @@
+---
+# Caddy, rebuilt with its plugins by xcaddy at every start, and cydia-sync,
+# which mirrors and signs the iOS repository Caddy serves on ios.regulad.xyz.
+host_files_directories:
+  - path: /etc/caddy
+    mode: "0755"
+  - path: /etc/systemd/system/caddy.service.d
+    mode: "0755"
+  - path: /opt/cydia
+    mode: "0755"
+  - path: /etc/cydia
+    mode: "0400"
+  - path: /srv/cydia
+    mode: "0755"
+host_files_list:
+  # xcaddy's apt repository.
+  - path: /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
+    mode: "0644"
+  - path: /etc/apt/sources.list.d/caddy-xcaddy.list
+    mode: "0644"
+  - path: /etc/caddy/cloudflare.env
+    mode: "0600"
+    # The SOPS value loses its final newline on the way in.
+    content: "{{ caddy_cloudflare_env }}\n"
+    secret: true
+    restarts: [caddy.service]
+  - path: /etc/caddy/Caddyfile
+    mode: "0644"
+    # Caddy's own check, with the token its DNS provider needs.
+    validate: >-
+      sh -c 'set -a; . /etc/caddy/cloudflare.env; exec /usr/local/bin/caddy validate --adapter caddyfile --config "$1"' validate %s
+    reloads: [caddy.service]
+  - path: /etc/systemd/system/caddy.service
+    mode: "0644"
+    restarts: [caddy.service]
+  - path: /etc/systemd/system/caddy.service.d/override.conf
+    mode: "0644"
+    restarts: [caddy.service]
+  - path: /opt/cydia/sync
+    mode: "0755"
+  - path: /etc/cydia/ios.asc
+    mode: "0400"
+    content: "{{ cydia_signing_key }}\n"
+    secret: true
+  - path: /etc/cydia/ios.txt
+    mode: "0400"
+    content: "{{ cydia_signing_passphrase }}\n"
+    secret: true
+  - path: /etc/systemd/system/cydia-sync.service
+    mode: "0644"
+  - path: /etc/systemd/system/cydia-sync.timer
+    mode: "0644"
+    restarts: [cydia-sync.timer]
+# xcaddy builds Caddy with Go; cydia-sync signs with gpg and draws the icon
+# with ImageMagick.
+host_files_packages: [xcaddy, golang-go, gnupg, imagemagick, bzip2, curl]
+host_files_units: [caddy.service, cydia-sync.timer]

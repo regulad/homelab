@@ -14,3 +14,16 @@
   failed_when:
     - host_files_units_restarted.failed | default(false)
     - "'Could not find the requested service' not in host_files_units_restarted.msg | default('')"
+
+# Reload, without restarting, the units whose files list them in reloads.
+- name: Reload changed host units
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: reloaded
+  loop: >-
+    {{ (host_files_written.results | default([]) + host_files_templated.results | default([])) | selectattr('changed')
+       | map(attribute='item') | map(attribute='reloads', default=[]) | flatten | unique | list }}
+  register: host_files_units_reloaded
+  failed_when:
+    - host_files_units_reloaded.failed | default(false)
+    - "'Could not find the requested service' not in host_files_units_reloaded.msg | default('')"

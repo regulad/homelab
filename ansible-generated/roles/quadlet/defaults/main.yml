@@ -8,7 +8,8 @@
 #   image           a major-version or channel tag, or latest only where
 #                   upstream has no other; with auto_update: registry,
 #                   podman-auto-update pulls new releases of that tag
-#   container_name, user, auto_update, read_only (ReadOnly), network
+#   container_name, user, auto_update, read_only (ReadOnly), drop_capabilities
+#   (DropCapability), no_new_privileges (NoNewPrivileges), network
 #   (Network, such as host), ports (PublishPort), volumes (Volume), tmpfs
 #   (Tmpfs), ulimits (Ulimit, as name=soft:hard), exec (Exec, the arguments
 #   after the image's entrypoint)

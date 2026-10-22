@@ -1,0 +1,21 @@
+[Unit]
+Description=Caddy
+After=network-online.target
+
+[Service]
+EnvironmentFile=/etc/caddy/cloudflare.env
+Environment=GOPATH=/var/lib/caddy/go
+Environment=GOMODCACHE=/var/cache/caddy/go/pkg/mod
+Environment=GOCACHE=/var/cache/caddy/go/cache
+ExecStartPre=/usr/bin/xcaddy build \
+    --with github.com/caddyserver/cache-handler \
+    --with github.com/caddy-dns/cloudflare \
+    --with github.com/mholt/caddy-l4 \
+    --output /usr/local/bin/caddy
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile
+TimeoutStopSec=5s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

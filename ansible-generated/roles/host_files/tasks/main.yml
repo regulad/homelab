@@ -27,7 +27,7 @@
   no_log: "{{ item.secret | default(false) }}"
   diff: "{{ not (item.secret | default(false)) }}"
   register: host_files_written
-  notify: Restart changed host units
+  notify: [Restart changed host units, Reload changed host units]
 
 - name: Host templates
   ansible.builtin.template:
@@ -41,7 +41,15 @@
   loop_control:
     label: "{{ item.path }}"
   register: host_files_templated
-  notify: Restart changed host units
+  notify: [Restart changed host units, Reload changed host units]
+
+# After the files, which can include an apt source a package comes from.
+- name: Host packages
+  ansible.builtin.apt:
+    name: "{{ host_files_packages }}"
+    state: present
+    update_cache: "{{ host_files_written is changed }}"
+  when: host_files_packages | length > 0
 
 - name: Host units running
   ansible.builtin.systemd_service:

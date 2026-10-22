@@ -21,6 +21,12 @@ AutoUpdate={{ item.auto_update }}
 {% if item.read_only | default(false) %}
 ReadOnly=true
 {% endif %}
+{% for capability in item.drop_capabilities | default([]) %}
+DropCapability={{ capability }}
+{% endfor %}
+{% if item.no_new_privileges | default(false) %}
+NoNewPrivileges=true
+{% endif %}
 {% if item.network is defined %}
 Network={{ item.network }}
 {% endif %}

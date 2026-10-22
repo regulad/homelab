@@ -1,0 +1,9 @@
+# Source: Caddy
+# Site: https://github.com/caddyserver/xcaddy
+# Repository: Caddy / xcaddy
+# Description: Build Caddy with plugins (requires Go installed)
+
+
+deb [signed-by=/usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/xcaddy/deb/debian any-version main
+
+deb-src [signed-by=/usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/xcaddy/deb/debian any-version main

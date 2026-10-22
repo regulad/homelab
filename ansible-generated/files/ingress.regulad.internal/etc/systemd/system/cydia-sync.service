@@ -1,0 +1,13 @@
+[Unit]
+Description=Regenerate flat Cydia repo mirror from repo.regulad.xyz
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/cydia/sync
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/cydia
