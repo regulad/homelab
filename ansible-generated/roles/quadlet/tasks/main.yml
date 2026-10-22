@@ -57,10 +57,13 @@
 
 - name: Quadlet services running
   # Quadlet units are generated, so systemd cannot enable them; [Install]
-  # WantedBy starts them at boot.
+  # WantedBy starts them at boot. A new unit exists only once systemd reloads.
   ansible.builtin.systemd_service:
     name: "{{ item.name }}.service"
     state: started
+    daemon_reload: "{{ quadlet_units is changed }}"
+  # In check mode a new unit is not written, so systemd cannot find it.
+  ignore_errors: "{{ ansible_check_mode and quadlet_units is changed }}"
   loop: "{{ quadlet_present }}"
   loop_control:
     label: "{{ item.name }}"

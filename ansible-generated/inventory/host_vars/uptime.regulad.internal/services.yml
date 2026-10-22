@@ -1,0 +1,20 @@
+---
+quadlet_services:
+  - name: uptime-kuma
+    description: Uptime Kuma
+    after: [network-online.target]
+    wants: [network-online.target]
+    image: docker.io/louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    auto_update: registry
+    # Listens on 3001 on every address, and probes the LAN and tailnet directly.
+    network: host
+    volumes:
+      - uptime-kuma_data:/app/data
+      # The host's trust store, which the ca_trust role maintains.
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-certificates.crt
+    restart: always
+    wanted_by: [multi-user.target, default.target]

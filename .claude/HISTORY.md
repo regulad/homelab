@@ -1278,3 +1278,25 @@ pair: each installed avahi-daemon and changed only the reflector and
 `allow-interfaces`, Avahi joined mDNS on `eth0` and the bridges in use, and
 prodingus resolved `vaultwarden.local`, `cordpepperer.local` and
 `peppercord.local`. A second check reported `changed=0` on all three.
+
+## uptime's Uptime Kuma moved to a Quadlet (2026-10-21)
+
+Uptime Kuma ran as a podman-compose project in `/root/uptime-kuma`, on host
+networking with `./data` bind-mounted, and started at boot only through
+`podman-restart`. It is now the `uptime-kuma` Quadlet in
+`host_vars/uptime.regulad.internal/services.yml`: the same image tag
+(`louislam/uptime-kuma:2`) with `AutoUpdate=registry`, the same environment and
+read-only trust store and localtime mounts, and the data in the named volume
+`uptime-kuma_data`. The `quadlet` role gained a `network` key, reloads systemd
+before starting a newly written unit (vaultwarden's unit already existed, so
+it never hit this), and tolerates the missing unit in check mode.
+
+With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
+uptime's `ansible_host` was applied (1 changed) and a fresh plan was a no-op.
+The compose container and its pod were removed, `./data` was copied into the
+volume with `cp -a` while stopped (`diff -r` identical), and `site.yml` wrote
+the unit, started it and enabled `podman-auto-update.timer`. Embedded MariaDB
+started from the copied data, port 3001 answered, monitors recorded 116 up
+heartbeats in the first three minutes, and `podman auto-update --dry-run`
+listed the container. A second check reported `changed=0`, and
+`/root/uptime-kuma` was then deleted; Proxmox backups still hold it.

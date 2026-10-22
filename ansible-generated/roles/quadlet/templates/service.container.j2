@@ -18,6 +18,9 @@ User={{ item.user }}
 {% if item.auto_update is defined %}
 AutoUpdate={{ item.auto_update }}
 {% endif %}
+{% if item.network is defined %}
+Network={{ item.network }}
+{% endif %}
 {% for port in item.ports | default([]) %}
 PublishPort={{ port }}
 {% endfor %}
