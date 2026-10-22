@@ -12,6 +12,11 @@ them. Parker supervises and approves.
 
 Where this file and the plan disagree, this file wins.
 
+## Priorities
+
+- **IPv6-first.** The homelab is IPv6-first: wherever a service, route or resolver has an IPv6 address, configure it, and treat IPv4 as the fallback rather than the default.
+- **DRY.** Derive values from their single source instead of restating them: compose from OpenTofu state or outputs where possible, then from another host's declared variables, and write a literal only where no source exists.
+
 ## Hard rules
 
 1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `pvesh set|create|delete`, `ceph config set` and other Ceph changes, `podman rm|stop`, and `oci ... delete|update`. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
