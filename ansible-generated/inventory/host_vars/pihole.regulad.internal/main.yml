@@ -1,0 +1,15 @@
+---
+# blocky's configuration, which its Quadlet mounts read-only.
+host_files_directories:
+  - path: /etc/blocky
+    mode: "0755"
+host_files_list:
+  - path: /etc/blocky/config.yml
+    mode: "0644"
+    template: true
+    # blocky's own validator, in its image: a config blocky rejects never
+    # replaces a working one. Skipped until Podman has the image.
+    validate: >-
+      sh -c 'command -v podman >/dev/null && podman image exists ghcr.io/0xerr0r/blocky:latest || exit 0;
+      exec podman run --rm --user 0 -v "$1":/app/config.yml:ro ghcr.io/0xerr0r/blocky:latest validate --config /app/config.yml' validate %s
+    restarts: [blocky.service]

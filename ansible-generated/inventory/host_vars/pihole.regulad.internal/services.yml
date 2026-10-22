@@ -1,0 +1,15 @@
+---
+quadlet_services:
+  - name: blocky
+    description: blocky DNS resolver
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream publishes only exact releases and main.
+    image: ghcr.io/0xerr0r/blocky:latest
+    container_name: blocky
+    auto_update: registry
+    # DNS on 53 at every address.
+    network: host
+    volumes: ["/etc/blocky/config.yml:/app/config.yml:ro"]
+    restart: always
+    wanted_by: [multi-user.target, default.target]

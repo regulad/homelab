@@ -35,6 +35,10 @@ compose:
   ansible_host: >-
     display_name if display_name == 'doppelgangerhq.com'
     else create_vnic_details[0].hostname_label ~ '.pubsub.wahlecloud.oraclevcn.com'
+  # The primary VNIC's IPv6 address, where it has one, for other hosts to
+  # reference; a GUA, so it stays out of the repository.
+  ipv6_address: >-
+    (create_vnic_details[0].ipv6address_ipv6subnet_cidr_pair_details | default([{}], true))[0].ipv6address | default('')
 # One group per OS, from each instance's "os" freeform tag in tofu/oracle.
 keyed_groups:
   - key: freeform_tags.os

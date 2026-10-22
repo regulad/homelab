@@ -1441,3 +1441,48 @@ host_vars carry the debian group's `auto_updates_unattended_upgrade` with
 guests' morning update window. Applied with his approval (`changed=1`, that
 line only); `apt-config dump` shows it, and a second check reported
 `changed=0`.
+
+## pihole: Pi-hole replaced by blocky (2026-10-22)
+
+Parker chose to replace Pi-hole on pihole (the container keeps its name) with
+blocky in a Quadlet, dropping the web UI, query history and statistics, and
+to simplify rather than reproduce Pi-hole's quirks. A survey and a
+side-by-side test instance on loopback, replaying Pi-hole's 91-day query log,
+mapped its behaviour; the differences were Pi-hole's own names, its
+dnsmasq-generated routing of unqualified names to every conditional
+upstream, and blocked non-A/AAAA types (NXDOMAIN instead of empty). The
+config Parker settled on is an idiomatic forwarder: arawi upstream,
+conditional forwarding of `regulad.internal`, `tail11540.ts.net` and the OCI
+pubsub zone with their reverse zones, StevenBlack's two lists answered with
+`0.0.0.0`/`::`, empty answers for Firefox's DoH canary and iCloud Private
+Relay (both vendors treat no-answer as NXDOMAIN; checked in Firefox's
+`DoHHeuristics.sys.mjs` and Apple's network guidance), `bootstrapDns` through
+arawi, and no query log. Unqualified names get arawi's NXDOMAIN.
+
+AGENTS.md gained a Priorities section: IPv6-first, and DRY with OpenTofu state
+as the first source. The config is a template: arawi's addresses and domain
+come from its declared `pfsense_interfaces` and `pfsense_setup`,
+tailscalerouter's from OpenTofu state through a new `ipv6_address` composed in
+the OCI inventory (its GUA stays out of the repository), and reverse zones
+from a `reverse_zone` filter. The OCI resolver behind tailscalerouter has no
+IPv6 PTR records, so no IPv6 reverse zone is forwarded there. `host_files`
+gained templates and per-file `validate`; blocky's config is checked with
+`blocky validate` in its own image. The `podman` role, an empty stub until
+now, installs Podman, and the quadlet role's timer task tolerates a host
+without Podman in check mode.
+
+With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
+pihole was applied (1 changed; a fresh plan was a no-op), `site.yml` put
+Podman, the config and the unit in place while Pi-hole served, and
+`systemctl disable --now pihole-FTL` followed by a restart of blocky switched
+port 53. Lists first failed to load because blocky resolved their URLs
+through the host's resolver, itself; `bootstrapDns` fixed it. Disabling query
+logging then went in twice, because an interrupted edit had already been
+written; blocky rejected the duplicate key and tailnet DNS was down from
+15:52 to 15:58, until the live file was corrected on pihole (Ansible needs
+DNS to read OpenTofu state). freeipa (113) and cordpepperer (118) were
+rebooted through Proxmox by root@pam at about 15:58, outside this work. After
+verification over IPv4 and the ULA, Pi-hole was purged (`pihole-meta` and
+nine dependencies, its directories, unit, cron and logrotate files, and the
+`pihole` user) along with the test instance. Check runs on pihole, aameter and
+vaultwarden reported `changed=0`.

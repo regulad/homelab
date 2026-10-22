@@ -1,4 +1,7 @@
 ---
-# Install Podman and configure registries; enable podman.socket only where it is
-# already used. Runs on generated hosts in podman_hosts (Phase 4).
-[]
+# Install Podman, whose Quadlet generator and auto-update timer the quadlet role
+# uses. Runs on generated hosts in podman_hosts (Phase 4).
+- name: Install Podman
+  ansible.builtin.package:
+    name: "{{ podman_packages }}"
+    state: present

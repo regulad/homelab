@@ -17,10 +17,11 @@
     dest: "{{ item.path }}"
     src: "{{ omit if item.content is defined else host_files_dir ~ (item.src | default(item.path)) }}"
     content: "{{ item.content | default(omit) }}"
+    validate: "{{ item.validate | default(omit) }}"
     owner: "{{ item.owner | default('root') }}"
     group: "{{ item.group | default('root') }}"
     mode: "{{ item.mode }}"
-  loop: "{{ host_files_list }}"
+  loop: "{{ host_files_list | rejectattr('template', 'defined') | list }}"
   loop_control:
     label: "{{ item.path }}"
   no_log: "{{ item.secret | default(false) }}"
@@ -28,12 +29,26 @@
   register: host_files_written
   notify: Restart changed host units
 
+- name: Host templates
+  ansible.builtin.template:
+    dest: "{{ item.path }}"
+    src: "{{ host_files_dir ~ (item.src | default(item.path ~ '.j2')) }}"
+    validate: "{{ item.validate | default(omit) }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ host_files_list | selectattr('template', 'defined') | selectattr('template') | list }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_templated
+  notify: Restart changed host units
+
 - name: Host units running
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     enabled: true
     state: started
-    daemon_reload: "{{ host_files_written is changed }}"
+    daemon_reload: "{{ host_files_written is changed or host_files_templated is changed }}"
   loop: "{{ host_files_units }}"
   register: host_files_units_started
   # In check mode a new unit is not written, so systemd cannot find it.

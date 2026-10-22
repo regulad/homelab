@@ -6,10 +6,11 @@
     state: restarted
     daemon_reload: true
   loop: >-
-    {{ host_files_written.results | default([]) | selectattr('changed')
+    {{ (host_files_written.results | default([]) + host_files_templated.results | default([])) | selectattr('changed')
        | map(attribute='item') | map(attribute='restarts', default=[]) | flatten | unique | list }}
   register: host_files_units_restarted
-  # In check mode a new unit is not written, so systemd cannot find it.
+  # A unit another role creates later in the run, such as a Quadlet, does not
+  # exist yet on its first run; it starts with the new files.
   failed_when:
     - host_files_units_restarted.failed | default(false)
-    - not (ansible_check_mode and 'Could not find the requested service' in host_files_units_restarted.msg | default(''))
+    - "'Could not find the requested service' not in host_files_units_restarted.msg | default('')"

@@ -76,4 +76,9 @@
     name: podman-auto-update.timer
     enabled: true
     state: started
+  register: quadlet_timer
+  # In check mode on a new Podman host, the package that ships it is not installed.
+  failed_when:
+    - quadlet_timer.failed | default(false)
+    - not (ansible_check_mode and 'Could not find the requested service' in quadlet_timer.msg | default(''))
   when: quadlet_present | selectattr('auto_update', 'defined') | list | length > 0

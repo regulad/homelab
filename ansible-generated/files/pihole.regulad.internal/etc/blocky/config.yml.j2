@@ -1,0 +1,68 @@
+{# blocky's configuration, from the hosts that own each value: arawi's
+   declared interfaces and domain, and tailscalerouter's addresses from
+   OpenTofu state. #}
+{% set arawi = hostvars['arawi.regulad.internal'] %}
+{% set arawi_lan = arawi.pfsense_interfaces | selectattr('descr', 'eq', 'LAN') | first %}
+{% set arawi_lan2 = arawi.pfsense_interfaces | selectattr('descr', 'eq', 'LAN2') | first %}
+{% set arawi_v6 = '[' ~ arawi_lan2.ipv6_address ~ ']' %}
+{% set arawi_v4 = arawi_lan.ipv4_address %}
+{% set router = hostvars['tailscalerouter'] %}
+{% set router_v6 = '[' ~ router.ipv6_address ~ ']' %}
+{% set router_v4 = router.create_vnic_details[0].private_ip %}
+{% set router_domain = router.ansible_host.split('.', 1)[1] %}
+{# Tailscale's fixed MagicDNS resolver and address ranges. #}
+{% set magicdns_v6 = '[fd7a:115c:a1e0::53]' %}
+{% set magicdns_v4 = '100.100.100.100' %}
+# blocky on pihole: the tailnet's DNS resolver, with ad blocking. Rendered by
+# Ansible from arawi's and tailscalerouter's declared addresses.
+ports:
+  dns: 53
+
+upstreams:
+  groups:
+    default:
+      # arawi
+      - "{{ arawi_v6 }}"
+      - {{ arawi_v4 }}
+
+# blocky's own lookups, such as list downloads, through arawi: the host
+# resolves through blocky itself, which is not listening yet at startup.
+bootstrapDns:
+  - upstream: "{{ arawi_v6 }}"
+  - upstream: {{ arawi_v4 }}
+
+# Zones, and their reverse zones, to the resolvers that own them.
+conditional:
+  mapping:
+    {{ arawi.pfsense_setup.domain }}: "{{ arawi_v6 }},{{ arawi_v4 }}"
+    {{ (arawi_lan2.ipv6_address ~ '/' ~ arawi_lan2.ipv6_prefixlen) | reverse_zone }}: "{{ arawi_v6 }}"
+    {{ (arawi_v4 ~ '/16') | reverse_zone }}: {{ arawi_v4 }}
+    tail11540.ts.net: "{{ magicdns_v6 }},{{ magicdns_v4 }}"
+    {{ 'fd7a:115c:a1e0::/48' | reverse_zone }}: "{{ magicdns_v6 }}"
+    {{ '100.64.0.0/8' | reverse_zone }}: {{ magicdns_v4 }}
+    # The OCI VCN resolver behind tailscalerouter has IPv4 PTR records only.
+    {{ router_domain }}: "{{ router_v6 }},{{ router_v4 }}"
+    {{ (router_v4 ~ '/24') | reverse_zone }}: {{ router_v4 }}
+
+# Firefox's DoH canary and iCloud Private Relay get an empty answer, which
+# turns both off on this network.
+customDNS:
+  zone: |
+    $ORIGIN .
+    $TTL 3600
+    use-application-dns.net. TXT "blocked"
+    mask.icloud.com. TXT "blocked"
+    mask-h2.icloud.com. TXT "blocked"
+
+blocking:
+  denylists:
+    ads:
+      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+      - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-only/hosts
+  clientGroupsBlock:
+    default: [ads]
+
+# No per-query logging: at the tailnet's query rate it would fill the journal
+# and the disk within days.
+queryLog:
+  type: none

@@ -43,7 +43,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `openclaw` (103): low priority
 - [ ] `openwebui` (115)
 - [ ] `peppercord` (126): a mirror of `cordpepperer`
-- [ ] `pihole` (112): low priority
+- [x] `pihole` (112)
 - [ ] `procontainer` (106): low priority
 - [ ] `pterodactyl` (120)
 - [ ] `tailscalerouter` (122)

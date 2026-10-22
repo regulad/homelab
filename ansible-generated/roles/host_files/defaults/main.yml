@@ -2,9 +2,12 @@
 # Files a host needs outside any other role, such as native systemd units and
 # their configuration. Each file has a path on the host, a mode, optionally an
 # owner and group (default root), and either src, relative to host_files_dir
-# (default: the same path), or content. Content from secrets.sops.yml sets
+# (default: the same path), or content; template: true renders src (default:
+# the path plus .j2) instead, with this host's variables and every host's
+# hostvars, and the reverse_zone filter. Content from secrets.sops.yml sets
 # secret: true, which keeps it out of logs and diffs. restarts lists the units
-# restarted when the file changes.
+# restarted when the file changes, and validate, a command run on the new
+# file (%s) before it replaces the old one.
 host_files_directories: []
 host_files_list: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
