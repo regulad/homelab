@@ -9,6 +9,19 @@
 auto_updates_unattended_upgrade_origins_pattern:
   - origin=*,component=[!p]*
   - origin=*,component=pve-no-subscription
+# The debian group's settings, with reboots held to 02:00: a reboot during the
+# guests' own morning updates cut off git's initramfs build on 2026-10-22.
+auto_updates_unattended_upgrade:
+  AutoFixInterruptedDpkg: "true"
+  MinimalSteps: "true"
+  Mail: "{{ auto_updates_mail_to }}"
+  MailReport: on-change
+  Remove-Unused-Kernel-Packages: "true"
+  Remove-New-Unused-Dependencies: "true"
+  Remove-Unused-Dependencies: "true"
+  Automatic-Reboot: "true"
+  Automatic-Reboot-Time: "02:00"
+  Sender: "{{ auto_updates_mail_from }}"
 
 tailscale_enabled: true
 tailscale_tags: [server]

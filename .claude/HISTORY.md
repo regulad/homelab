@@ -1412,3 +1412,32 @@ removed and `site.yml` started the Quadlet and enabled
 returned 200. A second check reported `changed=0`. `/root/aameterd`, five
 untagged images and podman-compose with python3-dotenv were then removed.
 aameter stayed Tailscale-protected; nothing logged it in.
+
+## git (VM 110) stuck in GRUB after the automatic reboots (2026-10-22)
+
+At 06:41 git's dnf-automatic installed kernel 6.12.0-211.67.1 and made it the
+default; dracut was still building its initramfs at 06:41:53 when prodingus
+rebooted itself for its own kernel update at about 06:44, so git came back to
+GRUB's "initramfs-6.12.0-211.67.1.el10_2.x86_64.img not found". The previous
+kernel did not boot either: every boot entry and `/etc/default/grub` still
+carried the OCI image's `netroot=iscsi:169.254.0.2…`, `ip=dhcp,dhcp6` and
+related options, so dracut waited on Oracle's iSCSI boot target. Root is
+local LVM (`ocivolume/root` on virtio).
+
+With Parker's approval: `qm reset 110`, then one boot of the previous kernel
+from GRUB's command line over the serial console without those options. On
+git, `/etc/default/grub` was backed up to `grub.bak-20261022`, `grubby
+--update-kernel=ALL --remove-args` and the same edit to `GRUB_CMDLINE_LINUX`
+removed `netroot`, `rd.iscsi.param`, `rd.net.timeout.carrier`, `ip`,
+`rd.net.timeout.dhcp` and `libiscsi.debug_libiscsi_eh`, and `dracut -f`
+rebuilt the 211.67.1 initramfs. git then rebooted into 211.67.1 in 16 s, with
+the guest agent, Forgejo (HTTP 200) and cloudflared up. `guest-exec` is
+disabled in git's agent, as RHEL ships it, so the work went over SSH through
+prodingus.
+
+prodingus keeps rebooting itself, as Parker decided, but now at 02:00: its
+host_vars carry the debian group's `auto_updates_unattended_upgrade` with
+`Automatic-Reboot-Time "02:00"`, so a host reboot no longer lands in the
+guests' morning update window. Applied with his approval (`changed=1`, that
+line only); `apt-config dump` shows it, and a second check reported
+`changed=0`.
