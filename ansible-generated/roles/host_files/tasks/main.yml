@@ -1,0 +1,42 @@
+---
+# Place each host's own files and keep its native units running. Runs on
+# generated Linux hosts (Phase 4).
+- name: Host directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ host_files_directories }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Host files
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    src: "{{ omit if item.content is defined else host_files_dir ~ (item.src | default(item.path)) }}"
+    content: "{{ item.content | default(omit) }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ host_files_list }}"
+  loop_control:
+    label: "{{ item.path }}"
+  no_log: "{{ item.secret | default(false) }}"
+  diff: "{{ not (item.secret | default(false)) }}"
+  register: host_files_written
+  notify: Restart changed host units
+
+- name: Host units running
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: "{{ host_files_written is changed }}"
+  loop: "{{ host_files_units }}"
+  register: host_files_units_started
+  # In check mode a new unit is not written, so systemd cannot find it.
+  failed_when:
+    - host_files_units_started.failed | default(false)
+    - not (ansible_check_mode and 'Could not find the requested service' in host_files_units_started.msg | default(''))

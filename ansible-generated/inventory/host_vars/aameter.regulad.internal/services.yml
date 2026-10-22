@@ -1,0 +1,20 @@
+---
+quadlet_services:
+  - name: aameterd
+    description: aameterd, a metering proxy for aaoracled
+    after: [network-online.target, thylacine-tunnel.service]
+    wants: [network-online.target, thylacine-tunnel.service]
+    # Built by regulad/aameterd's CI, which publishes no version tags yet.
+    image: ghcr.io/regulad/aameterd:latest
+    container_name: aameterd
+    auto_update: registry
+    # Listens on loopback only; Tailscale Serve publishes both ports.
+    network: host
+    volumes: ["aameterd_aameterd:/data"]
+    environment:
+      # aaoracled, through thylacine-tunnel.
+      AAORACLED_HOST: 127.0.0.1
+      AAMETERD_LISTEN: 127.0.0.1:8182
+      AAMETERD_STATS_LISTEN: 127.0.0.1:8183
+    restart: always
+    wanted_by: [multi-user.target, default.target]

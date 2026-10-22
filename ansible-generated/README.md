@@ -20,6 +20,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `base` (shared) | Packages, admin user, time sync, and sshd hardening only where it is already policy | `generated` |
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `generated` |
 | `podman` | Podman and its registries | `podman_hosts` |
+| `host_files` | Native files and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS | generated hosts except `arawi` |
 | `avahi` | mDNS reflection between the podman bridge and the LAN | `podman_hosts` |
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |
 

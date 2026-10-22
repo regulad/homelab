@@ -60,7 +60,7 @@ homelab/
     ├── files/                   # <host>/: files roles copy onto a host, at their paths there
     ├── inventory/               # <root>.terraform_state.yml (OpenTofu state), group_vars/, host_vars/<host>/{main,services}.yml
     ├── playbooks/               # site.yml
-    ├── roles/                   # podman, avahi, quadlet, pfsense, php_fpm
+    ├── roles/                   # host_files, podman, avahi, quadlet, pfsense, php_fpm
     └── requirements.yml         # pinned collections
 ```
 

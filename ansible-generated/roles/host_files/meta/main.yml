@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Native files and systemd units a host needs outside any other role
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

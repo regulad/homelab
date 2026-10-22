@@ -52,6 +52,14 @@
   roles:
     - php_fpm
 
+# Native files and systemd units from host_vars and files/<host>/.
+- name: Host files and units
+  hosts: generated:!arawi
+  gather_facts: false
+  become: true
+  roles:
+    - host_files
+
 - name: Podman hosts
   hosts: podman_hosts
   roles:

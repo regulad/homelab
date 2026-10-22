@@ -32,7 +32,7 @@ Ansible, an identical configuration for the switch scripts). See
 
 ## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
 
-- [ ] `aameter` (130)
+- [x] `aameter` (130)
 - [ ] `act` (123)
 - [ ] `cordpepperer` (118): a mirror of `peppercord`
 - [ ] `immich` (116)

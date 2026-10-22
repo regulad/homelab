@@ -1389,3 +1389,26 @@ The `tailscale` role gained `tailscale_after`, written as the drop-in
 With Parker's approval it was applied (`changed=2`, the directory and the
 drop-in) and `systemctl show tailscaled` lists pveproxy in `After`. It takes
 effect at the next boot.
+
+## aameter's aameterd moved to a Quadlet, its tunnel described (2026-10-22)
+
+aameterd ran as a podman-compose project from a checkout of
+`regulad/aameterd` in `/root/aameterd`, with one local edit (host networking
+and loopback listen addresses), started at boot only by `podman-restart`; the
+native `thylacine-tunnel.service` forwards 127.0.0.1:8181 to aaoracled on
+thylacine over SSH. It is now the `aameterd` Quadlet on the same
+`ghcr.io/regulad/aameterd:latest` (the CI publishes only `latest`, `master`
+and `sha-*`), with `AutoUpdate=registry` and the existing volume
+`aameterd_aameterd`. The new `host_files` role places the tunnel's unit,
+`known_hosts` and `id_rsa.pub` from `files/aameter.regulad.internal/` and its
+`id_rsa` from SOPS, the only secret on the host, and keeps the unit running.
+
+With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
+aameter's `ansible_host` was applied (1 changed). The check showed no change
+to any tunnel file, `id_rsa` included; the compose container and pod were
+removed and `site.yml` started the Quadlet and enabled
+`podman-auto-update.timer`. aameterd listened on 8182 and 8183, the tunnel on
+8181, both Serve ports reached it, and a proxied `getHealth` from uptime
+returned 200. A second check reported `changed=0`. `/root/aameterd`, five
+untagged images and podman-compose with python3-dotenv were then removed.
+aameter stayed Tailscale-protected; nothing logged it in.

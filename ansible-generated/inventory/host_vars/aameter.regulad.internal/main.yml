@@ -12,3 +12,24 @@ tailscale_serve:
   - port: 8443
     target: http://localhost:8183
     funnel: true
+
+# The SSH tunnel aameterd's upstream, aaoracled on thylacine, is reached through.
+host_files_directories:
+  - path: /etc/thylacine-tunnel
+    mode: "0700"
+host_files_list:
+  - path: /etc/systemd/system/thylacine-tunnel.service
+    mode: "0644"
+    restarts: [thylacine-tunnel.service]
+  - path: /etc/thylacine-tunnel/known_hosts
+    mode: "0644"
+    restarts: [thylacine-tunnel.service]
+  - path: /etc/thylacine-tunnel/id_rsa.pub
+    mode: "0644"
+  - path: /etc/thylacine-tunnel/id_rsa
+    mode: "0600"
+    # The SOPS value loses its final newline on the way in.
+    content: "{{ thylacine_tunnel_id_rsa }}\n"
+    secret: true
+    restarts: [thylacine-tunnel.service]
+host_files_units: [thylacine-tunnel.service]

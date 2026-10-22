@@ -1,0 +1,27 @@
+[Unit]
+Description=SSH tunnel: aameter 127.0.0.1:8181 -> thylacine 127.0.0.1:8181
+Wants=network-online.target
+After=network-online.target tailscaled.service
+StartLimitIntervalSec=0
+
+[Service]
+# Unprivileged throwaway user; also implies ProtectSystem=strict, so nothing
+# (including ssh's UpdateHostKeys) can modify the trusted host keys.
+DynamicUser=yes
+LoadCredential=id_rsa:/etc/thylacine-tunnel/id_rsa
+LoadCredential=known_hosts:/etc/thylacine-tunnel/known_hosts
+# -F none: ignore ssh_config entirely. Only the pinned keys in known_hosts are
+# trusted: no global known_hosts, no DNS, no TOFU, no learning new host keys.
+ExecStart=/usr/bin/ssh -F none -NT \
+    -i %d/id_rsa -o IdentitiesOnly=yes -o BatchMode=yes \
+    -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%d/known_hosts \
+    -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no \
+    -o CheckHostIP=no -o VerifyHostKeyDNS=no \
+    -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+    -L 127.0.0.1:8181:127.0.0.1:8181 \
+    mobile@thylacine.tail11540.ts.net
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
