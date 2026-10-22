@@ -47,9 +47,9 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `procontainer` (106): low priority
 - [ ] `pterodactyl` (120)
 - [ ] `tailscalerouter` (122)
-- [ ] `timemachine` (104)
+- [x] `timemachine` (104)
 - [ ] `tsexit` (124)
-- [ ] `tvheadend` (127)
+- [x] `tvheadend` (127)
 - [x] `uptime` (117)
 - [x] `vaultwarden` (128)
 

@@ -1354,3 +1354,21 @@ stored password, showing `overture.sparsebundle`; tvheadend answered on 9981
 and 9982 and loaded its existing configuration. Its DVR log still lists July
 recordings, such as "2026 FIFA World Cup", whose files were never in the
 recordings directory. A second check reported `changed=0` on both.
+
+## timemachine and tvheadend cleared of leftovers (2026-10-22)
+
+With Parker's approval, both hosts lost their compose directories,
+podman-compose with python3-dotenv, the config remnant of apparmor (already
+removed) and its dangling `apparmor.service` link. timemachine also lost the
+podman-docker remnant and the old `:smb` image; tvheadend lost
+`/var/lib/docker`, `/var/lib/containerd` (626 MB) and `/opt/containerd`,
+dangling `docker`, `containerd` and `ubuntu-fan` links, the remnants of
+bridge-utils, containerd, dnsmasq-base, docker.io, git and ubuntu-fan, the
+`tvheadend_recordings` volume definition (its CephFS directory untouched),
+and the old image. dpkg left `/etc/apparmor.d/local`, whose empty stubs other
+installed packages' maintainer scripts create. Both services stayed active
+with no failed units, a check reported `changed=0`, and both hosts are checked
+off in `TODO.md`. Parker noted that privileged containers must run without
+AppArmor; every running privileged container (timemachine, procontainer,
+immich, tsexit, ncsusplitt, tvheadend) had it removed, and AGENTS.md records
+the rule.
