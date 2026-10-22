@@ -1321,3 +1321,36 @@ connection to an agent authentication timeout before the restart handler ran,
 so avahi-daemon was restarted by hand; it joined mDNS on `eth0` and `podman0`
 only, prodingus resolved `vaultwarden.local`, and a second check reported
 `changed=0`. Both hosts are checked off in `TODO.md`.
+
+## timemachine and tvheadend moved to Quadlets (2026-10-22)
+
+Both ran as podman-compose projects started at boot only by `podman-restart`.
+Parker chose `latest` for both: mbentley/timemachine's only other tags are
+`smb` (the same image, AFP being gone) and dated daily builds, and
+tvheadend's are builds of `master` (`latest`, `edge`, `master` and their
+Debian variants), with no numbered releases. AGENTS.md now allows `latest`
+only in that case, prefers major-version tags with `AutoUpdate=registry` so
+containers get patches like their host, and allows bind mounts from
+`/mnt/cephfs` for shared data. The `quadlet` role gained `read_only`, `tmpfs`,
+`ulimits` and `exec`, and its check-mode tolerance for a not-yet-written unit
+moved from `ignore_errors` (which failed lint) to a `failed_when` matching
+only systemd's "Could not find the requested service".
+
+timemachine keeps host networking, its two CephFS bind mounts, tmpfs `/run`
+and `/tmp` and `nofile=65536:65536`; its existing `PASSWORD`, at Parker's
+request, was copied from the running container into `secrets.sops.yml` without
+being printed. tvheadend keeps its named volumes `tvheadend_config` and
+`tvheadend_lib`, read-only root, `1000:1000` and `--ipv6`; recordings, a
+podman volume binding `/mnt/cephfs/application/tvheadend`, are now that
+directory bind-mounted directly.
+
+With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
+both `ansible_host` resources was applied (2 changed) and a fresh plan was a
+no-op. After pulling the new images, the compose containers and pods were
+removed and `site.yml` wrote the units and timemachine's env file, started
+both, and enabled `podman-auto-update.timer`. timemachine listened on 445,
+advertised `_adisk._tcp` and `_smb._tcp`, and accepted an SMB login with the
+stored password, showing `overture.sparsebundle`; tvheadend answered on 9981
+and 9982 and loaded its existing configuration. Its DVR log still lists July
+recordings, such as "2026 FIFA World Cup", whose files were never in the
+recordings directory. A second check reported `changed=0` on both.

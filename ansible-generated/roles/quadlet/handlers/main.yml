@@ -10,8 +10,11 @@
     name: "{{ item }}.service"
     state: restarted
     daemon_reload: true
-  # In check mode a new unit is not written, so systemd cannot find it.
-  ignore_errors: "{{ ansible_check_mode }}"
   loop: >-
     {{ ((quadlet_units.results | default([])) + (quadlet_envs.results | default([])))
        | selectattr('changed') | map(attribute='item.name') | unique | list }}
+  register: quadlet_restarted
+  # In check mode a new unit is not written, so systemd cannot find it.
+  failed_when:
+    - quadlet_restarted.failed | default(false)
+    - not (ansible_check_mode and 'Could not find the requested service' in quadlet_restarted.msg | default(''))

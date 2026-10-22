@@ -1,0 +1,26 @@
+---
+quadlet_services:
+  - name: timemachine
+    description: Time Machine SMB share
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream's only other tags are dated daily builds; smb is the same image.
+    image: docker.io/mbentley/timemachine:latest
+    container_name: timemachine
+    auto_update: registry
+    # Samba and the image's own Avahi advertise the share on the LAN.
+    network: host
+    volumes:
+      - /mnt/cephfs/application/timemachine:/opt/timemachine:rw
+      - /mnt/cephfs/homes/regulad:/opt/regulad:rw
+    tmpfs: [/run, /tmp]
+    ulimits: ["nofile=65536:65536"]
+    environment:
+      TM_USERNAME: regulad
+      SHARE_NAME: TimeMachine
+      TM_UID: "1000"
+      TM_GID: "1000"
+    # PASSWORD, from secrets.sops.yml.
+    env_file: true
+    restart: always
+    wanted_by: [multi-user.target, default.target]

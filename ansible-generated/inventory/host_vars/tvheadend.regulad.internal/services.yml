@@ -1,0 +1,23 @@
+---
+quadlet_services:
+  - name: tvheadend
+    description: Tvheadend
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream publishes only builds of master (latest, edge, master).
+    image: ghcr.io/tvheadend/tvheadend:latest
+    container_name: tvheadend
+    user: "1000:1000"
+    auto_update: registry
+    read_only: true
+    # Web UI on 9981, HTSP on 9982, and SSDP discovery.
+    network: host
+    volumes:
+      - tvheadend_config:/.config:rw
+      - tvheadend_lib:/var/lib/tvheadend:rw
+      - /mnt/cephfs/application/tvheadend:/var/lib/tvheadend/recordings:rw
+    environment:
+      TZ: America/New_York
+    exec: --ipv6
+    restart: always
+    wanted_by: [multi-user.target, default.target]

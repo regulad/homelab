@@ -18,6 +18,9 @@ User={{ item.user }}
 {% if item.auto_update is defined %}
 AutoUpdate={{ item.auto_update }}
 {% endif %}
+{% if item.read_only | default(false) %}
+ReadOnly=true
+{% endif %}
 {% if item.network is defined %}
 Network={{ item.network }}
 {% endif %}
@@ -27,6 +30,15 @@ PublishPort={{ port }}
 {% for volume in item.volumes | default([]) %}
 Volume={{ volume }}
 {% endfor %}
+{% for path in item.tmpfs | default([]) %}
+Tmpfs={{ path }}
+{% endfor %}
+{% for ulimit in item.ulimits | default([]) %}
+Ulimit={{ ulimit }}
+{% endfor %}
+{% if item.exec is defined %}
+Exec={{ item.exec }}
+{% endif %}
 {% if item.environment | default({}) %}
 
 {% for name, value in item.environment.items() %}

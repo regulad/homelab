@@ -204,7 +204,7 @@ resources, without a manual inventory edit.
   # ansible-generated/inventory/host_vars/<host>/services.yml
   quadlet_services:
     - name: example
-      image: registry.example/app:1         # major-version or channel tag, no :latest
+      image: registry.example/app:1         # major-version or channel tag; :latest only where upstream has no other
       auto_update: registry                 # podman-auto-update pulls patch and minor releases
       ports: ["8080:8080"]
       volumes: ["example-data:/data"]

@@ -5,11 +5,13 @@
 #   state           present (default) or absent
 #   description     [Unit] Description
 #   after, wants    [Unit] ordering and wanted units
-#   image           a major-version or channel tag, never latest; with
-#                   auto_update: registry, podman-auto-update pulls patch and
-#                   minor releases of that tag
-#   container_name, user, auto_update, network (Network, such as host),
-#   ports (PublishPort), volumes (Volume)
+#   image           a major-version or channel tag, or latest only where
+#                   upstream has no other; with auto_update: registry,
+#                   podman-auto-update pulls new releases of that tag
+#   container_name, user, auto_update, read_only (ReadOnly), network
+#   (Network, such as host), ports (PublishPort), volumes (Volume), tmpfs
+#   (Tmpfs), ulimits (Ulimit, as name=soft:hard), exec (Exec, the arguments
+#   after the image's entrypoint)
 #   environment     Environment entries, in order
 #   env_file        true to write quadlet_env_files[name], from the host's
 #                   secrets.sops.yml, to /etc/containers/systemd/<name>.env
