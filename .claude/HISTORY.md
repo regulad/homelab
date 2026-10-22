@@ -1486,3 +1486,29 @@ verification over IPv4 and the ULA, Pi-hole was purged (`pihole-meta` and
 nine dependencies, its directories, unit, cron and logrotate files, and the
 `pihole` user) along with the test instance. Check runs on pihole, aameter and
 vaultwarden reported `changed=0`.
+At Parker's request the remaining config remnants on pihole, `auditd` and
+`libauparse0t64`, were purged; nothing else was left (no autoremovable
+packages, dangling units, stray images or volumes).
+
+## openwebui moved to a Quadlet on upstream 0.12 (2026-10-22)
+
+Open WebUI ran as a podman-compose project in `/root/open-webui` on
+`ghcr.io/regulad/open-webui:git-9db5b3e`, a build of Parker's fork carrying
+one commit (Anthropic tool_result content types, his PR #23004, closed and
+reworked by a maintainer as #23189, also closed). Upstream converts tool_result
+images, documents and search results itself since v0.9.0, so Parker chose
+upstream's `0.12` release-line tag, which has no major-only tag above it. The
+`open-webui` Quadlet keeps host networking, the volume `open-webui_open-webui`
+and the existing `WEBUI_SECRET_KEY`, copied into SOPS. The FreeIPA root CA that
+its LDAP login reads at `/ipa-ca.crt` is now placed at `/etc/ipa/ca.crt` by
+`host_files`, from the repository's only copy.
+
+With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` was
+applied (1 changed; a fresh plan was a no-op), the image was pulled first, and
+the compose container and pod were removed before `site.yml` started the
+Quadlet. The database migrated to the image's alembic head `0bd252b206fb` with
+its 2 users and 61 chats; `/health` answered 200 and `podman auto-update`
+lists the unit. A second check reported `changed=0`. `/root/open-webui`,
+`/root/ipa-ca.crt`, the fork image, podman-compose with python3-dotenv and a
+`tailscale` package remnant were then removed. LDAP login and image-returning
+tools are left for Parker to confirm.

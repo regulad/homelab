@@ -41,7 +41,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `mastodon` (105)
 - [ ] `ncsusplitt` (125)
 - [ ] `openclaw` (103): low priority
-- [ ] `openwebui` (115)
+- [x] `openwebui` (115)
 - [ ] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)
 - [ ] `procontainer` (106): low priority

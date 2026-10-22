@@ -1,0 +1,9 @@
+---
+# The FreeIPA root CA, which Open WebUI's LDAP login reads at /ipa-ca.crt.
+host_files_directories:
+  - path: /etc/ipa
+    mode: "0755"
+host_files_list:
+  - path: /etc/ipa/ca.crt
+    mode: "0644"
+    restarts: [open-webui.service]

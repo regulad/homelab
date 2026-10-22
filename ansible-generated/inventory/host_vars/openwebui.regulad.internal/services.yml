@@ -1,0 +1,19 @@
+---
+quadlet_services:
+  - name: open-webui
+    description: Open WebUI
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream's current release line; it publishes no major-only tag, and a
+    # new minor release is a deliberate change.
+    image: ghcr.io/open-webui/open-webui:0.12
+    container_name: open-webui
+    auto_update: registry
+    network: host
+    volumes:
+      - open-webui_open-webui:/app/backend/data
+      - /etc/ipa/ca.crt:/ipa-ca.crt:ro
+    # WEBUI_SECRET_KEY, from secrets.sops.yml.
+    env_file: true
+    restart: always
+    wanted_by: [multi-user.target, default.target]
