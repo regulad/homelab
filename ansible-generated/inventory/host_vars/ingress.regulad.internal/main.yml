@@ -4,6 +4,8 @@
 host_files_directories:
   - path: /etc/caddy
     mode: "0755"
+  - path: /etc/caddy/coraza
+    mode: "0755"
   - path: /etc/systemd/system/caddy.service.d
     mode: "0755"
   - path: /opt/cydia
@@ -24,6 +26,11 @@ host_files_list:
     content: "{{ caddy_cloudflare_env }}\n"
     secret: true
     restarts: [caddy.service]
+  # Coraza rules the php2shell snippet includes; before the Caddyfile, whose
+  # validation reads them.
+  - path: /etc/caddy/coraza/php2shell.conf
+    mode: "0644"
+    reloads: [caddy.service]
   - path: /etc/caddy/Caddyfile
     mode: "0644"
     # Caddy's own check, with the token its DNS provider needs.

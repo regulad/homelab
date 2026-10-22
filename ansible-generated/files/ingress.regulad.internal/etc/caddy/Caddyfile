@@ -2,6 +2,9 @@
 	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 	dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 	ech ingress.regulad.xyz
+
+	# Coraza runs before any other handler in the sites that import it.
+	order coraza_waf first
 	
 	# WebSockets-over-h3 is broken in Chrome from Caddy, somehow
 	servers {
@@ -25,6 +28,15 @@
 
 (cache) {
 	cache
+}
+
+# PHP2Shell and rawkey rules, for sites that front PHP.
+(php2shell) {
+	coraza_waf {
+		directives `
+			Include /etc/caddy/coraza/php2shell.conf
+		`
+	}
 }
 
 (mtls) {
@@ -125,6 +137,7 @@ tvheadend-livingston.regulad.xyz {
 nextcloud.regulad.xyz {
 	import hsts
 	import common
+	import php2shell
 	import cache
 
 	@wellknown_dav path /.well-known/carddav /.well-known/caldav

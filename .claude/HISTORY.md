@@ -1550,3 +1550,39 @@ existed. Caddy, cydia-sync and cloudflare-ddns stayed active, sites answered,
 the mirror's `Release` served, and a final check reported `changed=0`. During
 the work the GPG signing key, which is passphrase-protected, was printed once
 in the session; Parker judged that acceptable.
+
+## Coraza WAF for PHP2Shell on Caddy; pterodactyl's stopgaps pruned (2026-10-22)
+
+Caddy cannot inspect request bodies, so Parker chose the OWASP Coraza module
+(`corazawaf/coraza-caddy/v2`), added to the xcaddy build in `caddy.service`.
+`files/ingress.regulad.internal/etc/caddy/coraza/php2shell.conf` carries
+Abstract Security's published PHP2Shell (CVE-2026-109619) and rawkey
+(CVE-2026-109618) rules with their IDs, in `DetectionOnly`: a `PHPSESSID`
+multipart field, a PHP open tag or serialized syntax in an upload filename,
+form field names of 1,000 or more characters, and unparseable bodies, with the
+upload-progress field and strict multipart errors logged only; bodies are
+inspected up to 12.5 MB and larger ones pass on partially inspected. The
+Caddyfile orders `coraza_waf` first and imports the `(php2shell)` snippet only
+in `nextcloud.regulad.xyz`, whose PHP is on stopgaps; pterodactyl has Ubuntu's
+fixed `php8.3-common 8.3.6-0ubuntu0.24.04.13`. Neither Pterodactyl 1.15.0
+(CVE-2025-49132, CVE-2026-86177) nor Nextcloud 32.0.3 without the Collabora
+built-in server (CVE-2026-110447) needed further CVE rules.
+
+A test build on ingress validated the config, and on a loopback instance with
+the engine On every rule blocked its pattern while clean multipart, urlencoded
+and progress-field-only requests passed. With Parker's approval the new unit
+was installed and Caddy restarted (6 s, rebuilding with Coraza), then
+`site.yml` placed the rules and Caddyfile, validated by the new binary, and
+reloaded Caddy. A probe to Nextcloud was logged as rule 3201001 and passed;
+a check reported `changed=0`. At Parker's request `site.yml` then ran on
+pterodactyl, removing its `99-php2shell.ini` and the two stopgap pool
+settings now that PHP is fixed, and reloading PHP-FPM; a second check
+reported `changed=0`.
+
+Parker then had the rules switched to `SecRuleEngine On` at once, because both
+CVEs are exploited in the wild. The first apply did not take effect: `caddy
+reload` skips a reload when the Caddyfile is unchanged, and the rules are an
+included file. `caddy.service`'s `ExecReload` now passes `--force`; applying
+it restarted Caddy, after which the PHPSESSID probe to Nextcloud got 403, a
+clean login POST its usual 303, and the other sites answered. A check reported
+`changed=0`.
