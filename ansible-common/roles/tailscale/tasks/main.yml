@@ -16,6 +16,34 @@
         name: tailscale
         state: present
 
+    - name: Tailscale start order directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/tailscaled.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: tailscale_after | length > 0
+
+    - name: Tailscale start order
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/tailscaled.service.d/50-after.conf
+        content: |
+          [Unit]
+          After={{ tailscale_after | join(' ') }}
+        owner: root
+        group: root
+        mode: "0644"
+      when: tailscale_after | length > 0
+      notify: Reload systemd for Tailscale
+
+    - name: No Tailscale start order
+      ansible.builtin.file:
+        path: /etc/systemd/system/tailscaled.service.d/50-after.conf
+        state: absent
+      when: tailscale_after | length == 0
+      notify: Reload systemd for Tailscale
+
     - name: Tailscale daemon
       ansible.builtin.systemd_service:
         name: tailscaled

@@ -1372,3 +1372,20 @@ off in `TODO.md`. Parker noted that privileged containers must run without
 AppArmor; every running privileged container (timemachine, procontainer,
 immich, tsexit, ncsusplitt, tvheadend) had it removed, and AGENTS.md records
 the rule.
+
+## prodingus's pveproxy lost 8006 to Tailscale Serve (2026-10-22)
+
+At 06:41 unattended-upgrades installed proxmox-kernel 7.0.14-25 and, with
+`Automatic-Reboot` on, prodingus rebooted at about 06:44. On boot tailscaled
+started at 06:46:36 and Serve listened on the tailnet address's 8006; pveproxy
+then failed five times with "unable to create socket - Address already in use"
+and systemd stopped retrying, so the Proxmox API and web UI were down (guests
+were unaffected) and `tofu plan` failed with HTTP 502. On the previous boot
+(2026-10-15) tailscaled also started first and pveproxy came up, so what
+changed is not known.
+
+The `tailscale` role gained `tailscale_after`, written as the drop-in
+`tailscaled.service.d/50-after.conf`; prodingus sets `[pveproxy.service]`.
+With Parker's approval it was applied (`changed=2`, the directory and the
+drop-in) and `systemctl show tailscaled` lists pveproxy in `After`. It takes
+effect at the next boot.

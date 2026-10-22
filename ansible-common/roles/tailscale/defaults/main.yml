@@ -25,3 +25,8 @@ tailscale_tailnet: "-"
 # whatever tailscale_join says; a protected node that is not logged in fails the
 # run instead. Settings and Serve are still converged.
 tailscale_protected: false
+
+# Units tailscaled starts after, as a tailscaled.service.d drop-in; empty
+# removes it. A Proxmox node lists pveproxy.service: once Serve holds the
+# tailnet address's 8006, pveproxy's wildcard listener on 8006 cannot bind.
+tailscale_after: []

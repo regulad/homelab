@@ -1,0 +1,5 @@
+---
+# The start order applies from the next boot; tailscaled is not restarted.
+- name: Reload systemd for Tailscale
+  ansible.builtin.systemd_service:
+    daemon_reload: true

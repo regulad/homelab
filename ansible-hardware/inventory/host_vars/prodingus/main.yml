@@ -16,6 +16,9 @@ tailscale_settings:
   accept_dns: false
   stateful_filtering: false
   auto_update: true
+# Serve takes 8006 on the tailnet address, so pveproxy must bind its wildcard
+# listener first.
+tailscale_after: [pveproxy.service]
 # The Proxmox web UI on the tailnet, with a Tailscale certificate.
 tailscale_serve:
   - port: 8006
