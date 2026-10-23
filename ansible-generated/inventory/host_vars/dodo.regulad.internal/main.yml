@@ -1,0 +1,3 @@
+---
+# Its FreeIPA null- account carries pelican, dodo's legacy name.
+mail_relay_account: null-pelican

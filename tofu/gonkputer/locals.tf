@@ -10,6 +10,8 @@ locals {
   # The DNS zone every guest resolves in, from the control node too. Guests are
   # listed in the Ansible inventory under <name>.<guest_domain>.
   guest_domain = "regulad.internal"
+  # The tailnet's MagicDNS domain, for guests Ansible reaches over the tailnet.
+  tailnet_domain = "tail11540.ts.net"
 
   # Guest tags, by name. A guest lists the ones it carries in Proxmox's sorted
   # order; every guest carries `terraform`, marking it as managed by OpenTofu.

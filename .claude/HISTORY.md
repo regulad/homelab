@@ -1763,3 +1763,23 @@ health checks are in their image config, which Podman ignores for OCI images.
 Docker, containerd, the Compose plugin and their dependencies, their data,
 the `docker0` bridge, `/root/immich-app` and the AppArmor remnant were then
 removed, leaving the disk 18% used.
+
+## aboriginal and dodo: quasi-hardware VMs, now in the Ansible inventory (2026-10-23)
+
+Parker moved aboriginal (100) and dodo (101) out of the cloud-init list into
+their own TODO.md section: both were first installed on hardware and later
+imaged into VMs, so Ansible configures them; PLAN.md says the same. Each got an
+`ansible_host`, listed while it starts on boot, like vkasm. aboriginal is on
+the tailnet and answers LAN SSH over `tailscale0`, so its entry connects by its
+tailnet name, from a new `local.tailnet_domain`. Both had relayed mail by hand
+until now; guard host_vars keep their FreeIPA accounts (`null-dingus-server`,
+and `null-pelican` after dodo's legacy name), keep aboriginal Tailscale-protected
+with its `server` tag, and keep VM 100 from rebooting itself
+(`Automatic-Reboot "false"`, the ubuntu group's settings otherwise); their
+relay passwords were copied from the hosts into SOPS.
+
+With Parker's approval the plan (2 added) was applied, and `site.yml` on both
+updated the FreeIPA accounts (passwords untouched), Postfix's maps and
+rewriting, and unattended-upgrades. Test mails from both reached
+regulad@regulad.xyz from their null- addresses, and second checks reported
+`changed=0`. Their own services are still to be described.

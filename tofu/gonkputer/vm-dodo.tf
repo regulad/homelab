@@ -80,3 +80,12 @@ resource "proxmox_virtual_environment_vm" "dodo" {
     prevent_destroy = true
   }
 }
+
+# Listed in the Ansible inventory while it starts on boot. A quasi-hardware VM:
+# first installed on hardware, then imaged into a VM, so Ansible configures it.
+resource "ansible_host" "dodo" {
+  count = proxmox_virtual_environment_vm.dodo.on_boot ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.dodo.name}.${local.guest_domain}"
+  groups = ["gonkputer", "proxmox_vms", "ubuntu"]
+}

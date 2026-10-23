@@ -55,6 +55,21 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `uptime` (117)
 - [x] `vaultwarden` (128)
 
+## gonkputer quasi-hardware VMs (`ansible-generated/`, from `tofu/gonkputer`)
+
+First installed on hardware and later imaged into VMs, so each carries a
+hardware install rather than a cloud image. Ansible configures them, not
+cloud-init.
+
+- [ ] `aboriginal` (100)
+  - [x] Add its `ansible_host` to `tofu/gonkputer`
+  - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
+  - [ ] Describe its own services
+- [ ] `dodo` (101)
+  - [x] Add its `ansible_host` to `tofu/gonkputer`
+  - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
+  - [ ] Describe its own services
+
 ## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
 
 **Precondition:** [bpg/terraform-provider-proxmox#2901](https://github.com/bpg/terraform-provider-proxmox/issues/2901).
@@ -64,11 +79,7 @@ it is resolved.
 
 Configured by a cloud-init vendor file instead of Ansible, so they need no SSH.
 
-- [ ] `aboriginal` (100)
-  - [ ] Boot with cloud-init
 - [ ] `authentik` (109)
-- [ ] `dodo` (101)
-  - [ ] Boot with cloud-init
 - [ ] `freeipa` (113)
   - [ ] Add a vendor file
 - [ ] `git` (110)

@@ -1,0 +1,21 @@
+---
+# Its FreeIPA null- account predates the null-<short hostname> convention.
+mail_relay_account: null-dingus-server
+
+tailscale_enabled: true
+# Never joined, re-authenticated or logged out by Ansible.
+tailscale_protected: true
+tailscale_tags: [server]
+
+# The ubuntu group's settings, but never rebooting itself: VM 100's
+# passed-through GPU does not survive the VM restarting on its own.
+auto_updates_unattended_upgrade:
+  AutoFixInterruptedDpkg: "true"
+  MinimalSteps: "true"
+  Mail: "{{ auto_updates_mail_to }}"
+  MailReport: on-change
+  Remove-Unused-Kernel-Packages: "true"
+  Remove-New-Unused-Dependencies: "true"
+  Remove-Unused-Dependencies: "true"
+  Automatic-Reboot: "false"
+  Sender: "{{ auto_updates_mail_from }}"
