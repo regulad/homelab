@@ -13,7 +13,7 @@ auto_updates_unattended_upgrade:
   AutoFixInterruptedDpkg: "true"
   MinimalSteps: "true"
   Mail: "{{ auto_updates_mail_to }}"
-  MailReport: on-change
+  MailReport: only-on-error
   Remove-Unused-Kernel-Packages: "true"
   Remove-New-Unused-Dependencies: "true"
   Remove-Unused-Dependencies: "true"

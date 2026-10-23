@@ -1838,3 +1838,13 @@ cleaning it up; `rbd trash rm --force` finished the removal, the storage
 listed cleanly again, and a third plan destroyed VM 110 (1 destroyed); a
 fresh plan was a no-op. An expired `vm-111-disk-0` migration leftover from
 April remains in the trash.
+
+## unattended-upgrades mails only on errors (2026-10-23)
+
+At Parker's request, `MailReport` went from `on-change` to `only-on-error`
+in all six places it is set: the debian and ubuntu groups in both stages and
+the full copies in prodingus's and aboriginal's host_vars. dnf-automatic on the
+Oracle Linux hosts (no only-on-error mode) and cron were left as they are. A
+check across the 21 Debian and Ubuntu hosts in the generated stage showed only
+that setting changing, the apply changed exactly it on each, with no failures,
+and prodingus followed last through the hardware stage.

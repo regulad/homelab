@@ -5,14 +5,14 @@ ca_trust_family: debian
 auto_updates_family: debian
 # One unattended-upgrades setup for every host: every repository's updates,
 # the distribution's and third parties', installed and rebooted into
-# automatically, with a report mailed on change.
+# automatically, with a report mailed only when something fails.
 auto_updates_unattended_upgrade_origins_pattern:
   - origin=*
 auto_updates_unattended_upgrade:
   AutoFixInterruptedDpkg: "true"
   MinimalSteps: "true"
   Mail: "{{ auto_updates_mail_to }}"
-  MailReport: on-change
+  MailReport: only-on-error
   Remove-Unused-Kernel-Packages: "true"
   Remove-New-Unused-Dependencies: "true"
   Remove-Unused-Dependencies: "true"
