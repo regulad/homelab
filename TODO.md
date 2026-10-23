@@ -41,6 +41,8 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `mastodon` (105): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `ncsusplitt` (125)
 - [ ] `openclaw` (103): low priority
+  - [x] Baseline from the shared roles: mail relay as `null-openclaw`, automatic updates, CA trust
+  - [ ] Its application, not to be described declaratively for now
 - [x] `openwebui` (115)
 - [x] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)

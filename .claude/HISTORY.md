@@ -1723,3 +1723,12 @@ docker:dind, in Docker Compose under `/root/forgejo`), followed as unused: its
 HA resource is `disabled` and its container declares `started = false`; the
 apply (2 changed, its `ansible_host` destroyed) left ct:123 `disabled` and
 stopped, and a fresh plan was a no-op.
+
+## openclaw kept to the baseline (2026-10-23)
+
+Parker decided openclaw's application will not be described declaratively for
+now; it only gets the shared baseline. A check reported `changed=0`: the
+earlier rollouts had already given it the mail relay (`null-openclaw` through
+mail.regulad.xyz, loopback only, with `/bin/mail`), unattended-upgrades mailing
+regulad@regulad.xyz with automatic reboots, and the CA distrust. TODO.md lists
+the baseline as done and the application as an open subtask.
