@@ -11,6 +11,8 @@
 host_files_directories: []
 # Packages those files or units need, from the host's own repositories.
 host_files_packages: []
+# pipx applications, as pinned specifiers such as vpn-slice==0.16.1.
+host_files_pipx: []
 host_files_list: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 

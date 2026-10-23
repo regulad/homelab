@@ -6,3 +6,9 @@ tailscale_settings:
   accept_dns: false
   stateful_filtering: false
   operator: regulad
+
+# Forwarding for the exit node.
+host_files_list:
+  - path: /etc/sysctl.d/99-tailscale.conf
+    mode: "0644"
+    restarts: [systemd-sysctl.service]

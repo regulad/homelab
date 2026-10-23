@@ -1586,3 +1586,34 @@ included file. `caddy.service`'s `ExecReload` now passes `--force`; applying
 it restarted Caddy, after which the PHPSESSID probe to Nextcloud got 403, a
 clean login POST its usual 303, and the other sites answered. A check reported
 `changed=0`.
+
+## tsexit and ncsusplitt described and checked off (2026-10-22)
+
+tsexit is a Tailscale exit node whose settings were already described; its
+`/etc/sysctl.d/99-tailscale.conf` (IPv4 and IPv6 forwarding) is now a byte
+copy, re-applied through `systemd-sysctl` when it changes. ncsusplitt runs a
+split tunnel to NCSU: `ncsu-tun.service` (openconnect with Duo `push`, routing
+only 152.1/16, 152.7/16 and 152.14/16 through vpn-slice) and a five-minute
+`ncsu-keepalive` timer. Its units are byte copies, its VPN password moved to
+SOPS and its file was tightened from 0644 to 0600, and `host_files` gained
+`pipx`, which pins vpn-slice 0.16.1 in pipx's global install (Ubuntu does not
+package it). The tunnel had been down since prodingus's reboot at about 06:54:
+DNS was not up yet, and its start limit (4 in 10 minutes, 30 s apart) ran out.
+At Parker's direction the limit is now 3, and an `ExecStartPre` waits until
+`vpn.ncsu.edu` resolves (with no start timeout), so only real logins, each a
+Duo push, count. Unit changes do not restart the tunnel, to avoid extra pushes.
+
+With Parker's approval the run started the tunnel, he approved one push, and
+`tun0` came up with the three NCSU routes. The AppArmor remnants and their
+dangling links were removed on both, which stay without AppArmor as privileged
+containers, and unbound's remnant and two dangling links on ncsusplitt. Final
+checks reported `changed=0` on both.
+
+ncsusplitt alone has `tpm-udev`, whose `tpm-udev.path` and `tpm-udev.service`
+had failed (start limit hit; a container has no TPM). It cannot be removed:
+openconnect's `libopenconnect5` needs the libtss2 libraries that depend on it.
+Drop-ins setting `ConditionVirtualization=!container` now skip both, leaving no
+failed units. Parker asked for a boot delay so the tunnel starts after DNS, but
+Proxmox ignores startup order and delays for HA-managed guests (per the qm(1)
+docs), and ncsusplitt is HA-managed; he kept the tunnel's own wait for
+`vpn.ncsu.edu` instead.

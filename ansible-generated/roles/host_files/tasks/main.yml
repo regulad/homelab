@@ -51,6 +51,15 @@
     update_cache: "{{ host_files_written is changed }}"
   when: host_files_packages | length > 0
 
+# Python applications no distribution package provides, through pipx's
+# global install (/opt/pipx, commands in /usr/local/bin), each pinned.
+- name: Host pipx applications
+  community.general.pipx:
+    name: "{{ item }}"
+    state: present
+    global: true
+  loop: "{{ host_files_pipx }}"
+
 - name: Host units running
   ansible.builtin.systemd_service:
     name: "{{ item }}"

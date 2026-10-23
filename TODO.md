@@ -39,7 +39,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `ingress` (121)
 - [ ] `llamarpcmaster` (119): in the inventory only while its HA resource is requested. Low priority
 - [ ] `mastodon` (105)
-- [ ] `ncsusplitt` (125)
+- [x] `ncsusplitt` (125)
 - [ ] `openclaw` (103): low priority
 - [x] `openwebui` (115)
 - [ ] `peppercord` (126): a mirror of `cordpepperer`
@@ -48,7 +48,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `pterodactyl` (120)
 - [ ] `tailscalerouter` (122)
 - [x] `timemachine` (104)
-- [ ] `tsexit` (124)
+- [x] `tsexit` (124)
 - [x] `tvheadend` (127)
 - [x] `uptime` (117)
 - [x] `vaultwarden` (128)

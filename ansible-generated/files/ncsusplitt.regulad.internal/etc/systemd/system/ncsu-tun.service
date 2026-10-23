@@ -1,0 +1,24 @@
+[Unit]
+Description=NCSU VPN tunnel
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=exec
+LoadCredential=vpnpass:/etc/openconnect/ncsu.pass
+# Wait for DNS without contacting the VPN, so each of the 3 attempts, and
+# each Duo push, is a real login.
+ExecStartPre=/bin/sh -c 'until getent hosts vpn.ncsu.edu >/dev/null; do sleep 5; done'
+TimeoutStartSec=infinity
+ExecStart=/bin/sh -c 'exec /usr/sbin/openconnect \
+  --protocol=anyconnect --authgroup 2-Student --user pewahle \
+  --form-entry main:secondary_password=push --passwd-on-stdin \
+  --script "/usr/local/bin/vpn-slice 152.1.0.0/16 152.7.0.0/16 152.14.0.0/16" \
+  vpn.ncsu.edu < "$CREDENTIALS_DIRECTORY/vpnpass"'
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

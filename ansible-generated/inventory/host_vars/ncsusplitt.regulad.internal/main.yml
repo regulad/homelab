@@ -4,3 +4,36 @@ tailscale_tags: [edge-ncstate--net]
 tailscale_settings:
   accept_dns: false
   stateful_filtering: false
+
+# The split tunnel to NCSU: openconnect, with vpn-slice routing only NCSU's
+# networks, and a keepalive query through it.
+host_files_directories:
+  - path: /etc/openconnect
+    mode: "0755"
+  - path: /etc/systemd/system/tpm-udev.path.d
+    mode: "0755"
+  - path: /etc/systemd/system/tpm-udev.service.d
+    mode: "0755"
+host_files_list:
+  - path: /etc/openconnect/ncsu.pass
+    mode: "0600"
+    # The SOPS value loses its final newline on the way in.
+    content: "{{ ncsu_vpn_password }}\n"
+    secret: true
+  # Not restarted on change: each start is a Duo push. The new unit applies
+  # from the tunnel's next start.
+  - path: /etc/systemd/system/ncsu-tun.service
+    mode: "0644"
+  - path: /etc/systemd/system/ncsu-keepalive.service
+    mode: "0644"
+  - path: /etc/systemd/system/ncsu-keepalive.timer
+    mode: "0644"
+    restarts: [ncsu-keepalive.timer]
+  # tpm-udev, a dependency of openconnect's TPM libraries, skipped here.
+  - path: /etc/systemd/system/tpm-udev.path.d/no-container.conf
+    mode: "0644"
+  - path: /etc/systemd/system/tpm-udev.service.d/no-container.conf
+    mode: "0644"
+host_files_packages: [openconnect, pipx, bind9-dnsutils]
+host_files_pipx: [vpn-slice==0.16.1]
+host_files_units: [ncsu-tun.service, ncsu-keepalive.timer]

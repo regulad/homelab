@@ -1,0 +1,8 @@
+[Unit]
+Description=Keep NCSU tunnel session alive
+Requisite=ncsu-tun.service
+After=ncsu-tun.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/dig +time=3 +tries=1 @152.1.14.14 ncsudrive.ncsu.edu
