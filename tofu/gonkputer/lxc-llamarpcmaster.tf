@@ -72,7 +72,8 @@ resource "proxmox_virtual_environment_container" "llamarpcmaster" {
 resource "proxmox_haresource" "llamarpcmaster" {
   resource_id = "ct:${proxmox_virtual_environment_container.llamarpcmaster.vm_id}"
   type        = "ct"
-  state       = "stopped"
+  # Dormant: kept, but neither run nor restarted by HA.
+  state = "disabled"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

@@ -37,14 +37,14 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `cordpepperer` (118): a mirror of `peppercord`
 - [ ] `immich` (116)
 - [x] `ingress` (121)
-- [ ] `llamarpcmaster` (119): in the inventory only while its HA resource is requested. Low priority
-- [ ] `mastodon` (105)
+- [ ] `llamarpcmaster` (119): low priority; currently dormant (HA state `disabled`), so not in the inventory
+- [ ] `mastodon` (105): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `ncsusplitt` (125)
 - [ ] `openclaw` (103): low priority
 - [x] `openwebui` (115)
 - [x] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)
-- [ ] `procontainer` (106): low priority
+- [ ] `procontainer` (106): low priority; currently dormant (stopped, not started at boot), so not in the inventory
 - [x] `pterodactyl` (120)
 - [x] `tailscalerouter` (122)
 - [x] `timemachine` (104)

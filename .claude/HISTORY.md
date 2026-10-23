@@ -1701,3 +1701,20 @@ checks reported `changed=0`. `docker-compose-v2` was purged, `/root/PepperCord`
 deleted and unused volumes pruned on both. The mongo image's anonymous
 `/data/configdb` volume is recreated whenever the container is, so orphans of
 it will accumulate with auto-updates.
+Two more leftovers of the Docker Compose method were then removed on both:
+the `podman-docker` package (the `docker` command Compose went through) and
+Podman's API socket, `podman.socket`, disabled now that nothing talks to it.
+The stacks stayed up, with no remnants, failed units or dangling links, and
+checks reported `changed=0`.
+
+## mastodon, procontainer and llamarpcmaster made dormant (2026-10-23)
+
+At Parker's request the three became low priority and dormant. mastodon's and
+llamarpcmaster's HA resources went from `started` and `stopped` to
+`disabled`, and procontainer, which has no HA resource, got `start_on_boot =
+false` and `started = false`; mastodon's container also declares `started =
+false` now that HA keeps it stopped. The apply (3 changed) removed mastodon's
+and procontainer's `ansible_host` entries (2 destroyed), as both depend on the
+guest being requested; ha-manager showed ct:105 and ct:119 `disabled`, all
+three were stopped, and a fresh plan was a no-op. mastodon's sites are down
+while it is dormant.

@@ -2,7 +2,10 @@
 
 resource "proxmox_virtual_environment_container" "procontainer" {
   node_name = "prodingus"
-  tags      = [local.tags.amd64v3, local.tags.locally_backed, local.tags.terraform]
+  # Dormant: kept, but stopped and not started at boot.
+  start_on_boot = false
+  started       = false
+  tags          = [local.tags.amd64v3, local.tags.locally_backed, local.tags.terraform]
 
   console {}
 
