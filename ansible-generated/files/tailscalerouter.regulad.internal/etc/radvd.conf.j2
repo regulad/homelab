@@ -1,0 +1,17 @@
+{# The OCI pubsub subnet's /64, from the OCI tailscalerouter's address in
+   OpenTofu state; a GUA, so it stays out of the repository. #}
+interface eth0 {
+    AdvSendAdvert on;
+    AdvDefaultLifetime 0;
+
+    route fd7a:115c:a1e0::/48 {
+        AdvRouteLifetime 1800;
+        AdvRoutePreference medium;
+    };
+
+    route {{ (hostvars['tailscalerouter'].ipv6_address ~ '/64') | ip_network }} {
+        AdvRouteLifetime 1800;
+        AdvRoutePreference medium;
+    };
+};
+

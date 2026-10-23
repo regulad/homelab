@@ -1617,3 +1617,16 @@ failed units. Parker asked for a boot delay so the tunnel starts after DNS, but
 Proxmox ignores startup order and delays for HA-managed guests (per the qm(1)
 docs), and ncsusplitt is HA-managed; he kept the tunnel's own wait for
 `vpn.ncsu.edu` instead.
+
+## tailscalerouter (gonkputer) described and checked off (2026-10-22)
+
+Besides its already-described Tailscale settings, the container runs radvd,
+advertising the tailnet's `fd7a:115c:a1e0::/48` and the OCI pubsub subnet's
+`/64` to the LAN, with `99-tailscale.conf` and `99-radvd.conf` enabling
+forwarding. The sysctl files are byte copies, re-applied through
+`systemd-sysctl`; `radvd.conf` is a template whose OCI `/64` comes from the
+OCI tailscalerouter's address in OpenTofu state through a new `ip_network`
+filter (the filters now live in `network.py`), checked with `radvd
+--configtest` before it replaces the live file. The check reported
+`changed=0`, the template rendering the live file exactly; the host had no
+leftovers.

@@ -46,7 +46,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `pihole` (112)
 - [ ] `procontainer` (106): low priority
 - [ ] `pterodactyl` (120)
-- [ ] `tailscalerouter` (122)
+- [x] `tailscalerouter` (122)
 - [x] `timemachine` (104)
 - [x] `tsexit` (124)
 - [x] `tvheadend` (127)

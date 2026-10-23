@@ -16,3 +16,20 @@ tailscale_settings:
   operator: regulad
   auto_update: true
   relay_server_port: 37112
+
+# radvd advertises the tailnet's IPv6 range and the OCI pubsub subnet to the
+# LAN, through this router.
+host_files_list:
+  - path: /etc/sysctl.d/99-tailscale.conf
+    mode: "0644"
+    restarts: [systemd-sysctl.service]
+  - path: /etc/sysctl.d/99-radvd.conf
+    mode: "0644"
+    restarts: [systemd-sysctl.service]
+  - path: /etc/radvd.conf
+    mode: "0644"
+    template: true
+    validate: radvd --configtest --config %s
+    restarts: [radvd.service]
+host_files_packages: [radvd]
+host_files_units: [radvd.service]

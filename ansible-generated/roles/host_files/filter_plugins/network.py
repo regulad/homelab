@@ -1,4 +1,6 @@
-"""reverse_zone: the in-addr.arpa or ip6.arpa zone of a network.
+"""Network filters for host_files templates.
+
+reverse_zone: the in-addr.arpa or ip6.arpa zone of a network.
 
 '10.23.0.0/16' | reverse_zone is '23.10.in-addr.arpa', and a /64 gives its
 16-nibble ip6.arpa zone. The prefix must fall on an octet (IPv4) or nibble
@@ -21,6 +23,11 @@ def reverse_zone(network):
     return '.'.join(labels[host_labels:])
 
 
+def ip_network(network):
+    """'fd00::1/64' | ip_network is 'fd00::/64'."""
+    return str(ipaddress.ip_network(network, strict=False))
+
+
 class FilterModule:
     def filters(self):
-        return {'reverse_zone': reverse_zone}
+        return {'reverse_zone': reverse_zone, 'ip_network': ip_network}
