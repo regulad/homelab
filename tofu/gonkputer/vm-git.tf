@@ -1,8 +1,11 @@
-# git: VM 110 and its HA resource.
+# git_vm: VM 110, the former git host, and its HA resource. Dormant: its
+# Forgejo moved to the git container (lxc-git.tf).
 
 resource "proxmox_virtual_environment_vm" "git" {
   name      = "git"
   node_name = "prodingus"
+  # Dormant: HA keeps it stopped.
+  started = false
   description = chomp(<<EOT
 ⚠️ USES EARLYOOM
 
@@ -88,10 +91,11 @@ EOT
   }
 }
 
-resource "proxmox_haresource" "git" {
+resource "proxmox_haresource" "git_vm" {
   resource_id = "vm:${proxmox_virtual_environment_vm.git.vm_id}"
   type        = "vm"
-  state       = "started"
+  # Dormant: kept, but neither run nor restarted by HA.
+  state = "disabled"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

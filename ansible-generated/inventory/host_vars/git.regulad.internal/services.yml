@@ -1,0 +1,32 @@
+---
+quadlet_services:
+  - name: forgejo
+    description: Forgejo
+    after: [network-online.target]
+    wants: [network-online.target]
+    image: codeberg.org/forgejo/forgejo:12-rootless
+    container_name: forgejo
+    auto_update: registry
+    # Web UI on 3000 and the built-in SSH server on 2222, both reached through
+    # the Cloudflare tunnel on localhost.
+    network: host
+    volumes:
+      - forgejo_data:/var/lib/gitea
+      - /etc/forgejo/app.ini:/etc/gitea/app.ini:ro
+    restart: always
+    wanted_by: [multi-user.target, default.target]
+
+  - name: cloudflared
+    description: Cloudflare tunnel for git.regulad.xyz and git-ssh.regulad.xyz
+    after: [network-online.target, forgejo.service]
+    wants: [network-online.target]
+    # Upstream publishes only dated versions and latest.
+    image: docker.io/cloudflare/cloudflared:latest
+    container_name: cloudflared
+    auto_update: registry
+    network: host
+    exec: tunnel --no-autoupdate run
+    # TUNNEL_TOKEN, from secrets.sops.yml.
+    env_file: true
+    restart: always
+    wanted_by: [multi-user.target, default.target]

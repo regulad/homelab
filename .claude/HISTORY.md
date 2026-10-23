@@ -1783,3 +1783,35 @@ updated the FreeIPA accounts (passwords untouched), Postfix's maps and
 rewriting, and unattended-upgrades. Test mails from both reached
 regulad@regulad.xyz from their null- addresses, and second checks reported
 `changed=0`. Their own services are still to be described.
+
+## git: Forgejo moved from VM 110 to the git container (200) (2026-10-23)
+
+The git VM (AlmaLinux 10.2) ran EPEL's Forgejo 12.0.4 on SQLite (6.7 GB under
+`/var/lib/forgejo`), reached only through a token-based cloudflared tunnel for
+`git.regulad.xyz` and `git-ssh.regulad.xyz`, with git over SSH through the
+VM's sshd. Parker had it moved into a container named `git`, with Forgejo's SSH
+on 2222. The new `lxc-git.tf` comes from the skeleton (32 GB, 2-core limit,
+2 GiB, the VM's MAC) with the container as VMID 200; two Quadlets run
+`codeberg.org/forgejo/forgejo:12-rootless` (the built-in SSH server on 2222,
+reusing the VM's sshd host keys so clients' known_hosts still match, and clone
+URLs keeping the `forgejo` user) and `docker.io/cloudflare/cloudflared:latest`
+(only dated versions otherwise). `app.ini` is the VM's, templated with its
+secrets in SOPS and its paths under `/var/lib/gitea`; the tunnel token and a
+new `null-git` relay password are in SOPS too. The VM's host keys were
+confirmed against a screenshot Parker took of its console.
+
+With Parker's approval, Forgejo and cloudflared were stopped on the VM, its
+data and host keys were streamed into `/mnt/pve/cephfs/staging-git/git.tar`
+(7.1 GB, about 45 minutes through this machine), and the VM was made dormant:
+its HA resource, renamed `git_vm`, is `disabled` and the VM declares `started =
+false` (2 changed). A `moved` block for the rename could not stay, because the
+container's HA resource takes `proxmox_haresource.git`; a state from before
+this change would need a manual `state mv`. The container was created (3
+added), Podman installed, the archive restored into the `forgejo_data` volume
+(owned by uid 1000), and `site.yml` applied the baseline and started both
+Quadlets. DHCP gave it 10.23.1.157 despite the VM's MAC. The site answered 200
+through the tunnel as Forgejo 12.0.4, the API listed 206 repositories (229 on
+disk), an HTTPS `git ls-remote` worked, the ed25519 host key on 2222 matched
+the VM's, and a second check and a fresh plan reported no changes. Git over SSH
+through the tunnel waits on the tunnel's SSH target moving to 2222 in
+Cloudflare's dashboard.

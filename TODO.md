@@ -36,6 +36,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `act` (123): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `cordpepperer` (118): a mirror of `peppercord`
 - [x] `immich` (116)
+- [x] `git` (200): Forgejo and its Cloudflare tunnel, moved from the git VM (110)
 - [x] `ingress` (121)
 - [ ] `llamarpcmaster` (119): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [ ] `mastodon` (105): low priority; currently dormant (HA state `disabled`), so not in the inventory
@@ -75,7 +76,7 @@ cloud-init.
 Services to move off their VMs into containers.
 
 - [ ] `authentik` (109)
-- [ ] `git` (110)
+- [x] `git` (110): moved to the `git` container (200); the VM is dormant
 - [ ] `matrix` (107)
 
 ## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
