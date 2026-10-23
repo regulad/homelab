@@ -23,6 +23,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `host_files` | Native files, templates, links, packages, pinned pipx applications and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS; optional validation before a file is replaced, and reload instead of restart | generated hosts except `arawi` |
 | `avahi` | mDNS reflection between the podman bridge and the LAN | `podman_hosts` |
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |
+| `pterodactyl` | Installs the Pterodactyl panel where none exists and keeps its `.env`; `playbooks/maintenance.yml` upgrades it to `pterodactyl_version` | `pterodactyl` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
 which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks

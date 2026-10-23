@@ -1,0 +1,5 @@
+---
+- name: Restart the queue worker
+  ansible.builtin.systemd_service:
+    name: pteroq.service
+    state: restarted

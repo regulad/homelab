@@ -1,0 +1,73 @@
+---
+# Install the panel where none exists, by Pterodactyl's documented steps, and
+# keep its .env. Upgrades are playbooks/maintenance.yml. The packages,
+# nginx site, queue worker and crontab come from host_files.
+- name: Check the declared panel release
+  ansible.builtin.assert:
+    that:
+      - pterodactyl_version | length > 0
+      - pterodactyl_env | length > 0
+    fail_msg: Declare pterodactyl_version and pterodactyl_env.
+    quiet: true
+
+- name: Find an installed panel
+  ansible.builtin.stat:
+    path: "{{ pterodactyl_dir }}/artisan"
+  register: pterodactyl_artisan
+
+- name: Install the panel
+  when: not pterodactyl_artisan.stat.exists
+  block:
+    - name: Panel directory
+      ansible.builtin.file:
+        path: "{{ pterodactyl_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Download and extract the panel release
+      ansible.builtin.unarchive:
+        src: https://github.com/pterodactyl/panel/releases/download/v{{ pterodactyl_version }}/panel.tar.gz
+        dest: "{{ pterodactyl_dir }}"
+        remote_src: true
+
+    - name: Database and user
+      ansible.builtin.command:
+        argv:
+          - mariadb
+          - -e
+          - >-
+            CREATE DATABASE IF NOT EXISTS `{{ pterodactyl_env_db.DB_DATABASE }}`;
+            CREATE USER IF NOT EXISTS '{{ pterodactyl_env_db.DB_USERNAME }}'@'127.0.0.1'
+            IDENTIFIED BY '{{ pterodactyl_env_db.DB_PASSWORD }}';
+            GRANT ALL PRIVILEGES ON `{{ pterodactyl_env_db.DB_DATABASE }}`.* TO
+            '{{ pterodactyl_env_db.DB_USERNAME }}'@'127.0.0.1' WITH GRANT OPTION;
+      vars:
+        pterodactyl_env_db: >-
+          {{ dict(pterodactyl_env | regex_findall('(?m)^(DB_DATABASE|DB_USERNAME|DB_PASSWORD)=(.*)$')) }}
+      changed_when: true
+      no_log: true
+
+    - name: Panel .env for the install
+      ansible.builtin.copy:
+        dest: "{{ pterodactyl_dir }}/.env"
+        content: "{{ pterodactyl_env }}"
+        owner: root
+        group: www-data
+        mode: "0640"
+      no_log: true
+
+    - name: Build and migrate the panel
+      ansible.builtin.include_tasks: build.yml
+
+- name: Panel .env
+  ansible.builtin.copy:
+    dest: "{{ pterodactyl_dir }}/.env"
+    content: "{{ pterodactyl_env }}"
+    owner: root
+    group: www-data
+    mode: "0640"
+  no_log: true
+  diff: false
+  notify: Restart the queue worker

@@ -75,7 +75,7 @@ resource "ansible_host" "pterodactyl" {
   count = proxmox_haresource.pterodactyl.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_container.pterodactyl.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "php_fpm", "proxmox_containers", "ubuntu"]
+  groups = ["gonkputer", "php_fpm", "proxmox_containers", "pterodactyl", "ubuntu"]
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

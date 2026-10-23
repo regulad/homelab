@@ -1644,3 +1644,26 @@ Caddy, `artisan` ran as www-data, and a second check reported `changed=0`. The
 panel code (1.15.0, from a release tarball) and its database stay host data;
 panel upgrades remain Pterodactyl's manual procedure, so the panel itself does
 not auto-update.
+
+## Pterodactyl panel managed by a role; maintenance.yml; upgraded to 1.15.2 (2026-10-22)
+
+The new `pterodactyl` role installs the panel where none exists, by the
+official getting-started steps (pinned release tarball, permissions, database
+and user from `.env`'s DB values, composer, `migrate --seed`, ownership;
+`key:generate` and the interactive `p:environment:*` steps are replaced by
+the SOPS `.env`, and the first admin is made by hand), and owns `.env` on
+every run, moved out of `host_files`. Parker decided that maintenance that
+cannot be automated gets one playbook beside `site.yml`,
+`playbooks/maintenance.yml`, with one tagged play per task; AGENTS.md's
+Ansible scope says so. Its first play upgrades the panel to
+`pterodactyl_version` by the official update procedure, in maintenance mode
+that is always lifted, and does nothing when the version already matches.
+pterodactyl joined a `pterodactyl` group in OpenTofu (1 changed). `site.yml`
+checked `changed=0` with the role.
+
+With Parker's approval the panel database was dumped to
+`/root/panel-before-1.15.2.sql` and `maintenance.yml --tags pterodactyl`
+upgraded the panel from 1.15.0 to v1.15.2 (the php2shell security release).
+Migrations left none pending, maintenance mode was off, the panel answered
+200 locally and through Caddy, and nginx, PHP-FPM and pteroq were active. A
+second run of the play changed nothing, and `site.yml` checked `changed=0`.

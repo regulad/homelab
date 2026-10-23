@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Pterodactyl panel install, .env, and upgrades by its documented procedure
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

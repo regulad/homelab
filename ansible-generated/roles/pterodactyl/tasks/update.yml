@@ -1,0 +1,44 @@
+---
+# Upgrade an installed panel to pterodactyl_version by Pterodactyl's documented
+# procedure, in maintenance mode, which is always lifted at the end. Run from
+# playbooks/maintenance.yml.
+- name: Read the installed panel version
+  ansible.builtin.slurp:
+    src: "{{ pterodactyl_dir }}/config/app.php"
+  register: pterodactyl_app_config
+
+- name: Compare with the declared release
+  ansible.builtin.set_fact:
+    pterodactyl_installed: >-
+      {{ pterodactyl_app_config.content | b64decode
+         | regex_search("'version' => '([^']+)'", '\1') | first }}
+
+- name: Upgrade the panel
+  when: pterodactyl_installed != pterodactyl_version
+  block:
+    - name: Maintenance mode
+      ansible.builtin.command:
+        argv: [php, artisan, down]
+        chdir: "{{ pterodactyl_dir }}"
+      changed_when: true
+
+    - name: Download and extract the panel release over the install
+      ansible.builtin.unarchive:
+        src: https://github.com/pterodactyl/panel/releases/download/v{{ pterodactyl_version }}/panel.tar.gz
+        dest: "{{ pterodactyl_dir }}"
+        remote_src: true
+
+    - name: Build and migrate the panel
+      ansible.builtin.include_tasks: build.yml
+
+    - name: Restart queue workers on the new code
+      ansible.builtin.command:
+        argv: [php, artisan, queue:restart]
+        chdir: "{{ pterodactyl_dir }}"
+      changed_when: true
+  always:
+    - name: Out of maintenance mode
+      ansible.builtin.command:
+        argv: [php, artisan, up]
+        chdir: "{{ pterodactyl_dir }}"
+      changed_when: true

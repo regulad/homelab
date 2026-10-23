@@ -60,6 +60,15 @@
   roles:
     - host_files
 
+# Installs the panel where none exists and keeps its .env; upgrades are
+# playbooks/maintenance.yml.
+- name: Pterodactyl panel
+  hosts: pterodactyl
+  gather_facts: false
+  become: true
+  roles:
+    - pterodactyl
+
 - name: Podman hosts
   hosts: podman_hosts
   roles:

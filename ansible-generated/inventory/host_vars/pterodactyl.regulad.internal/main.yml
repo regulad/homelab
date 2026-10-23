@@ -17,8 +17,10 @@ php_fpm_stopgap_pool_admin_values:
     value: "-1"
 
 # The Pterodactyl panel: nginx serving it through PHP-FPM, MariaDB and Redis on
-# loopback, the queue worker, and the scheduler from root's crontab. The panel
-# code in /var/www/pterodactyl and its database are data, upgraded by hand.
+# loopback, the queue worker, and the scheduler from root's crontab. The
+# pterodactyl role installs the panel and keeps its .env (pterodactyl_env, in
+# secrets.sops.yml); playbooks/maintenance.yml upgrades it to:
+pterodactyl_version: "1.15.2"
 host_files_list:
   - path: /etc/nginx/sites-available/pterodactyl.conf
     mode: "0644"
@@ -29,13 +31,6 @@ host_files_list:
   - path: /var/spool/cron/crontabs/root
     group: crontab
     mode: "0600"
-  # The panel's secrets; readable by www-data, which runs PHP-FPM and pteroq.
-  - path: /var/www/pterodactyl/.env
-    group: www-data
-    mode: "0640"
-    content: "{{ pterodactyl_env }}"
-    secret: true
-    restarts: [pteroq.service]
 host_files_links:
   - path: /etc/nginx/sites-enabled/pterodactyl.conf
     target: /etc/nginx/sites-available/pterodactyl.conf

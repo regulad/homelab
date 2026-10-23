@@ -1,0 +1,9 @@
+---
+# The Pterodactyl panel release this host runs, without the leading v. site.yml
+# installs it where no panel exists; playbooks/maintenance.yml upgrades
+# an installed panel to it.
+pterodactyl_version: ""
+pterodactyl_dir: /var/www/pterodactyl
+# The panel's .env, from the host's secrets.sops.yml. Its DB_DATABASE,
+# DB_USERNAME and DB_PASSWORD also create the database on a new install.
+pterodactyl_env: ""

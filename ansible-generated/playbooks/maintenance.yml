@@ -1,0 +1,17 @@
+---
+# Maintenance that cannot be automated: each play here is a deliberate
+# operation, run by hand after its declared version or setting is bumped. Run a
+# single one with --tags.
+
+# The Pterodactyl panel cannot update itself; bump pterodactyl_version, then
+# run this play to upgrade by the panel's documented procedure.
+- name: Pterodactyl panel upgrade
+  hosts: pterodactyl
+  gather_facts: false
+  become: true
+  tags: [pterodactyl]
+  tasks:
+    - name: Upgrade to the declared release
+      ansible.builtin.include_role:
+        name: pterodactyl
+        tasks_from: update

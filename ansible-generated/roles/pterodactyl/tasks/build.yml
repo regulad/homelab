@@ -1,0 +1,34 @@
+---
+# The steps Pterodactyl's install and update procedures share, after a release
+# is extracted into pterodactyl_dir.
+- name: Storage and cache permissions
+  ansible.builtin.shell:
+    cmd: chmod -R 755 storage/* bootstrap/cache/
+    chdir: "{{ pterodactyl_dir }}"
+  changed_when: true
+
+- name: Composer dependencies
+  ansible.builtin.command:
+    argv: [composer, install, --no-dev, --optimize-autoloader, --no-interaction]
+    chdir: "{{ pterodactyl_dir }}"
+  environment:
+    COMPOSER_ALLOW_SUPERUSER: "1"
+  changed_when: true
+
+- name: Clear the view and config caches
+  ansible.builtin.command:
+    argv: [php, artisan, "{{ item }}"]
+    chdir: "{{ pterodactyl_dir }}"
+  loop: [view:clear, config:clear]
+  changed_when: true
+
+- name: Database migrations
+  ansible.builtin.command:
+    argv: [php, artisan, migrate, --seed, --force]
+    chdir: "{{ pterodactyl_dir }}"
+  changed_when: true
+
+- name: Panel ownership
+  ansible.builtin.shell:
+    cmd: chown -R www-data:www-data {{ pterodactyl_dir }}/*
+  changed_when: true
