@@ -45,7 +45,7 @@ resource "proxmox_virtual_environment_container" "ncsusplitt" {
   }
 
   memory {
-    swap = 1048576
+    swap = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 
   network_interface {

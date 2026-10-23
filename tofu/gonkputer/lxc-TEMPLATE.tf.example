@@ -1,0 +1,87 @@
+# Skeleton for a new container. Copy it to lxc-<name>.tf (each "-" inside the
+# name written as "--"), replace every <placeholder>, and drop what the guest
+# does not need. The .example suffix keeps OpenTofu from loading this file.
+#
+# Defaults every container shares: a root disk on Ceph (rbd) mounted with
+# discard and lazytime, DHCP for IPv4 and SLAAC for IPv6 on VLAN 1, effectively
+# unlimited swap, nesting (for Podman), all of the node's threads capped by
+# limit, and an HA resource that starts it. Proxmox generates the VMID and the
+# MAC address, so neither is stated.
+
+# <name>: container <vmid once created>, its HA resource and its Ansible host.
+
+resource "proxmox_virtual_environment_container" "<name_with_underscores>" {
+  node_name = "prodingus"
+  # HA starts the container, not Proxmox's own start on boot.
+  start_on_boot = false
+  unprivileged  = true
+  tags          = [local.tags.terraform]
+
+  console {}
+
+  cpu {
+    cores = local.cpu_threads
+    limit = <cpu limit, in cores>
+  }
+
+  disk {
+    datastore_id  = "rbd"
+    mount_options = ["discard", "lazytime"]
+    size          = <size in GiB>
+  }
+
+  features {
+    nesting = true
+  }
+
+  initialization {
+    hostname = "<name>"
+
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+
+      ipv6 {
+        address = "auto"
+      }
+    }
+  }
+
+  memory {
+    dedicated = <memory in MiB>
+    swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
+  }
+
+  network_interface {
+    firewall = true
+    name     = "eth0"
+    vlan_id  = 1
+  }
+
+  operating_system {
+    template_file_id = "cephfs:vztmpl/ubuntu-26.04-standard_26.04-1_amd64.tar.zst"
+    type             = "ubuntu"
+  }
+}
+
+resource "proxmox_haresource" "<name_with_underscores>" {
+  resource_id = "ct:${proxmox_virtual_environment_container.<name_with_underscores>.vm_id}"
+  type        = "ct"
+  state       = "started"
+}
+
+# Listed in the Ansible inventory while its HA resource is requested.
+resource "ansible_host" "<name_with_underscores>" {
+  count = proxmox_haresource.<name_with_underscores>.state == "started" ? 1 : 0
+
+  name = "${proxmox_virtual_environment_container.<name_with_underscores>.initialization[0].hostname}.${local.guest_domain}"
+  # Its OS group, plus groups such as podman_hosts for the roles it gets.
+  groups = ["gonkputer", "proxmox_containers", "ubuntu"]
+
+  # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
+  variables = {
+    ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.<name_with_underscores>.node_name]
+    proxmox_vmid = proxmox_virtual_environment_container.<name_with_underscores>.vm_id
+  }
+}

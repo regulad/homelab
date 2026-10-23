@@ -44,7 +44,7 @@ resource "proxmox_virtual_environment_container" "aameter" {
 
   memory {
     dedicated = 1024
-    swap      = 1048576
+    swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 
   network_interface {
