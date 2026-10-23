@@ -1815,3 +1815,26 @@ disk), an HTTPS `git ls-remote` worked, the ed25519 host key on 2222 matched
 the VM's, and a second check and a fresh plan reported no changes. Git over SSH
 through the tunnel waits on the tunnel's SSH target moving to 2222 in
 Cloudflare's dashboard.
+
+## git.regulad.xyz behind Caddy; the git VM destroyed (2026-10-23)
+
+Parker pointed the tunnel's `git-ssh.regulad.xyz` at SSH on 2222, dropped its
+`git.regulad.xyz` route, and made `git.regulad.xyz` a CNAME to
+`ingress.regulad.xyz`. Caddy gained a `git.regulad.xyz` site proxying to
+`git.regulad.internal:3000` and obtained its certificate; Forgejo's `app.ini`
+now trusts `X-Forwarded-For` from the LAN ranges (`REVERSE_PROXY_LIMIT = 1`).
+Through ingress the API answered 200 with a valid certificate. At first the
+CNAME did not resolve at Cloudflare's authoritative servers.
+
+With Parker's approval, `vm-git.tf` was removed. The first destroy removed
+`git_vm`'s HA resource but Proxmox refused the VM, which had its own
+protection flag; the staging archive on CephFS had already been deleted in
+the same command, before the VM was gone. `qm set 110 --protection 0` let the
+next destroy delete the VM's disks, but `qmdestroy` then failed listing the
+`rbd` storage: `rbd_ssd` held `vm-119-disk-0` in its trash, in the removing
+state since 2026-03-20, with an empty header and 47 data objects, unreferenced
+(llamarpcmaster's root disk is `vm-119-disk-1`, untouched). Parker approved
+cleaning it up; `rbd trash rm --force` finished the removal, the storage
+listed cleanly again, and a third plan destroyed VM 110 (1 destroyed); a
+fresh plan was a no-op. An expired `vm-111-disk-0` migration leftover from
+April remains in the trash.

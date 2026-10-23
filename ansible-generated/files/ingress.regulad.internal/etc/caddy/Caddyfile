@@ -172,6 +172,14 @@ immich.regulad.xyz {
 	}
 }
 
+git.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy git.regulad.internal:3000 {
+	}
+}
+
 vw.regulad.xyz {
 	import hsts
 	import common
