@@ -3,8 +3,10 @@
 resource "proxmox_virtual_environment_container" "act" {
   node_name     = "prodingus"
   start_on_boot = false
-  unprivileged  = true
-  tags          = [local.tags.terraform]
+  # Dormant: HA keeps it stopped.
+  started      = false
+  unprivileged = true
+  tags         = [local.tags.terraform]
 
   console {}
 
@@ -77,7 +79,8 @@ resource "proxmox_virtual_environment_container" "act" {
 resource "proxmox_haresource" "act" {
   resource_id = "ct:${proxmox_virtual_environment_container.act.vm_id}"
   type        = "ct"
-  state       = "started"
+  # Dormant: kept, but neither run nor restarted by HA.
+  state = "disabled"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

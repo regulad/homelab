@@ -1718,3 +1718,8 @@ and procontainer's `ansible_host` entries (2 destroyed), as both depend on the
 guest being requested; ha-manager showed ct:105 and ct:119 `disabled`, all
 three were stopped, and a fresh plan was a no-op. mastodon's sites are down
 while it is dormant.
+act, the Forgejo Actions runner (forgejo/runner:12 with a privileged
+docker:dind, in Docker Compose under `/root/forgejo`), followed as unused: its
+HA resource is `disabled` and its container declares `started = false`; the
+apply (2 changed, its `ansible_host` destroyed) left ct:123 `disabled` and
+stopped, and a fresh plan was a no-op.

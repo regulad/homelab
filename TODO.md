@@ -33,7 +33,7 @@ Ansible, an identical configuration for the switch scripts). See
 ## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
 
 - [x] `aameter` (130)
-- [ ] `act` (123)
+- [ ] `act` (123): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `cordpepperer` (118): a mirror of `peppercord`
 - [ ] `immich` (116)
 - [x] `ingress` (121)
