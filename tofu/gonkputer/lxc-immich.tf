@@ -15,7 +15,7 @@ resource "proxmox_virtual_environment_container" "immich" {
   disk {
     datastore_id  = "rbd"
     mount_options = ["discard", "lazytime"]
-    size          = 16
+    size          = 32
   }
 
   features {
@@ -80,7 +80,7 @@ resource "ansible_host" "immich" {
   count = proxmox_haresource.immich.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_container.immich.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_containers", "ubuntu"]
+  groups = ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"]
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

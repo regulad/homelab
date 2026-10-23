@@ -1,0 +1,21 @@
+---
+# Immich: its release compose stack in /opt/immich, run by podman-compose, with
+# uploads on CephFS and the .env (immich_env) from secrets.sops.yml.
+host_files_directories:
+  - path: /opt/immich
+    mode: "0755"
+host_files_list:
+  - path: /etc/systemd/system/podman-compose@.service
+    mode: "0644"
+    shared_src: etc/systemd/system/podman-compose@.service
+    restarts: [podman-compose@immich.service]
+  - path: /opt/immich/docker-compose.yml
+    mode: "0644"
+    restarts: [podman-compose@immich.service]
+  - path: /opt/immich/.env
+    mode: "0600"
+    content: "{{ immich_env }}\n"
+    secret: true
+    restarts: [podman-compose@immich.service]
+host_files_packages: [podman-compose]
+host_files_units: [podman-compose@immich.service, podman-auto-update.timer]

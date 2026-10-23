@@ -35,7 +35,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `aameter` (130)
 - [ ] `act` (123): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `cordpepperer` (118): a mirror of `peppercord`
-- [ ] `immich` (116)
+- [x] `immich` (116)
 - [x] `ingress` (121)
 - [ ] `llamarpcmaster` (119): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [ ] `mastodon` (105): low priority; currently dormant (HA state `disabled`), so not in the inventory

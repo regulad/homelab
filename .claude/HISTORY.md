@@ -1732,3 +1732,34 @@ earlier rollouts had already given it the mail relay (`null-openclaw` through
 mail.regulad.xyz, loopback only, with `/bin/mail`), unattended-upgrades mailing
 regulad@regulad.xyz with automatic reboots, and the CA distrust. TODO.md lists
 the baseline as done and the application as an open subtask.
+
+## immich moved from Docker Compose to podman-compose (2026-10-23)
+
+immich ran Immich's release compose stack (server and machine learning on
+`v3`, Valkey 9 and Postgres 14 with vector extensions pinned by digest) under
+Docker in `/root/immich-app`, with uploads on CephFS (87 GB) and Postgres
+bind-mounted from `./postgres`. Following PepperCord, the stack is now
+`files/immich.regulad.internal/opt/immich/docker-compose.yml`, from Immich
+v3.3.5's release compose file (Immich says to use the current release's), run
+by the shared `podman-compose@.service` as `podman-compose@immich` with the
+`.env` in SOPS. Every service carries podman-auto-update's label; Immich's
+maintainers allow dropping the digest pins, so Valkey tracks `9` and Postgres
+`14-vectorchord0.4.3-pgvectors0.2.0` (Postgres stays on major 14; it leaves
+support on 2026-11-12, and moving on is Immich's manual upgrade). ansible-lint
+now skips `files/`, which holds host files rather than Ansible content.
+
+With Parker's approval, immich joined `podman_hosts` (1 changed). Pre-pulling
+with Podman filled the 16 GB root disk; Docker's old `v2` images were removed
+at once, leaving the stack healthy throughout, and at Parker's direction the
+disk was grown to 32 GB in OpenTofu (an online in-place resize). After the
+pull, Docker's stack was stopped, the Postgres data renamed into
+`/opt/immich/postgres`, and `site.yml` started the stack. Immich v3.3.5
+answered `pong` locally and from ingress (the public site needs a client
+certificate), the database counts matched exactly (17,193 assets, 59 albums,
+152 people, 3,633 faces, 13,119 search embeddings, 2 users), all four
+containers were listed by `podman auto-update`, and checks reported
+`changed=0`. Only Valkey reports health under Podman: the other images'
+health checks are in their image config, which Podman ignores for OCI images.
+Docker, containerd, the Compose plugin and their dependencies, their data,
+the `docker0` bridge, `/root/immich-app` and the AppArmor remnant were then
+removed, leaving the disk 18% used.
