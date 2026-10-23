@@ -43,6 +43,17 @@
   register: host_files_templated
   notify: [Restart changed host units, Reload changed host units]
 
+- name: Host links
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    src: "{{ item.target }}"
+    state: link
+  loop: "{{ host_files_links }}"
+  loop_control:
+    label: "{{ item.path }}"
+  notify: [Restart changed host units, Reload changed host units]
+  register: host_files_linked
+
 # After the files, which can include an apt source a package comes from.
 - name: Host packages
   ansible.builtin.apt:

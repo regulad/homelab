@@ -1630,3 +1630,17 @@ filter (the filters now live in `network.py`), checked with `radvd
 --configtest` before it replaces the live file. The check reported
 `changed=0`, the template rendering the live file exactly; the host had no
 leftovers.
+
+## pterodactyl described and checked off (2026-10-22)
+
+The panel host runs nginx (one site, `pterodactyl.conf`), PHP-FPM 8.3, MariaDB
+and Redis (stock configs, loopback only), the `pteroq` queue worker, and the
+scheduler from root's crontab. The nginx site, the `sites-enabled` link (through
+a new `links` option in `host_files`), `pteroq.service` and the crontab are
+byte copies; the PHP, MariaDB, Redis and nginx packages are listed; `.env` is
+in SOPS, tightened from 0644 root:root to 0640 root:www-data, its only change
+on apply, which restarted pteroq. The panel answered 200 locally and through
+Caddy, `artisan` ran as www-data, and a second check reported `changed=0`. The
+panel code (1.15.0, from a release tarball) and its database stay host data;
+panel upgrades remain Pterodactyl's manual procedure, so the panel itself does
+not auto-update.

@@ -45,7 +45,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)
 - [ ] `procontainer` (106): low priority
-- [ ] `pterodactyl` (120)
+- [x] `pterodactyl` (120)
 - [x] `tailscalerouter` (122)
 - [x] `timemachine` (104)
 - [x] `tsexit` (124)

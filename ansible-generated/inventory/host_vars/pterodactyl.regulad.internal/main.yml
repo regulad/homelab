@@ -15,3 +15,45 @@ php_fpm_stopgap_pool_admin_values:
   - pool: www
     name: memory_limit
     value: "-1"
+
+# The Pterodactyl panel: nginx serving it through PHP-FPM, MariaDB and Redis on
+# loopback, the queue worker, and the scheduler from root's crontab. The panel
+# code in /var/www/pterodactyl and its database are data, upgraded by hand.
+host_files_list:
+  - path: /etc/nginx/sites-available/pterodactyl.conf
+    mode: "0644"
+    reloads: [nginx.service]
+  - path: /etc/systemd/system/pteroq.service
+    mode: "0644"
+    restarts: [pteroq.service]
+  - path: /var/spool/cron/crontabs/root
+    group: crontab
+    mode: "0600"
+  # The panel's secrets; readable by www-data, which runs PHP-FPM and pteroq.
+  - path: /var/www/pterodactyl/.env
+    group: www-data
+    mode: "0640"
+    content: "{{ pterodactyl_env }}"
+    secret: true
+    restarts: [pteroq.service]
+host_files_links:
+  - path: /etc/nginx/sites-enabled/pterodactyl.conf
+    target: /etc/nginx/sites-available/pterodactyl.conf
+    reloads: [nginx.service]
+host_files_packages:
+  - nginx
+  - mariadb-server
+  - redis-server
+  - composer
+  - php8.3-bcmath
+  - php8.3-cli
+  - php8.3-curl
+  - php8.3-fpm
+  - php8.3-gd
+  - php8.3-intl
+  - php8.3-mbstring
+  - php8.3-mysql
+  - php8.3-opcache
+  - php8.3-xml
+  - php8.3-zip
+host_files_units: [nginx.service, php8.3-fpm.service, mariadb.service, redis-server.service, pteroq.service]
