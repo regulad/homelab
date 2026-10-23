@@ -1,0 +1,19 @@
+# A podman-compose stack in /opt/<name>, supervised by systemd. podman-compose
+# labels its containers with this unit (PODMAN_SYSTEMD_UNIT), so
+# podman-auto-update restarts it, recreating the containers on new images.
+[Unit]
+Description=%i compose stack (podman-compose)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/%i
+ExecStart=/usr/bin/podman-compose up
+ExecStop=/usr/bin/podman-compose down
+Restart=always
+RestartSec=10
+# The first start can pull every image.
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target

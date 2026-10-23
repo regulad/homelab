@@ -1667,3 +1667,37 @@ upgraded the panel from 1.15.0 to v1.15.2 (the php2shell security release).
 Migrations left none pending, maintenance mode was off, the panel answered
 200 locally and through Caddy, and nginx, PHP-FPM and pteroq were active. A
 second run of the play changed nothing, and `site.yml` checked `changed=0`.
+
+## cordpepperer and peppercord: PepperCord run by podman-compose (2026-10-23)
+
+Both mirrors ran regulad/PepperCord's compose stack (PepperCord, `mongo:5`,
+`redis:8.4-alpine3.22`, an internal `backend` and an internet-facing
+`frontend` network) from a git checkout in `/root/PepperCord`, through Docker
+Compose v2 over Podman's socket, started at boot only by `podman-restart`, with
+MongoDB and Redis published on every interface. Parker kept the compose stack
+but wanted it simple: the compose file at `d5d7ce9` is now
+`files/shared/peppercord/docker-compose.yml`, changed only to publish MongoDB
+and Redis on `127.0.0.1` and `[::1]`, label every service for
+podman-auto-update (which needs fully qualified image names, so mongo and
+redis became `docker.io/library/...`), drop the build context, and set
+`x-podman: in_pod: false` so the two networks stay separate. PepperCord stays on
+`latest`, rolling to keep up with Discord's API. A shared
+`podman-compose@.service` runs `podman-compose up` from `/opt/%i`; podman-compose
+labels its containers with that unit, so `podman-auto-update` restarts it on new
+images. A new `peppercord` group carries all of it in `group_vars`, with each
+host's `.env` from its own SOPS file; `host_files` gained `shared_src` for files
+in `files/shared/`.
+
+With Parker's approval, the plan adding `peppercord` to both `ansible_host`
+resources was applied (2 changed). On each host in turn, cordpepperer first,
+`podman compose down` kept the `peppercord_db` and `peppercord_redis` volumes,
+and `site.yml` installed podman-compose and started the unit. The first start
+failed on the short image names, fixed as above. Both bots logged in
+(CordPepperer in 19 guilds, PepperCord in 95) and synced commands, MongoDB's
+document counts matched the pre-cutover counts exactly on both, 27017 and 6379
+listened on loopback only and refused LAN connections, 8080 still answered from
+the LAN, and `podman auto-update --dry-run` listed all three containers. Second
+checks reported `changed=0`. `docker-compose-v2` was purged, `/root/PepperCord`
+deleted and unused volumes pruned on both. The mongo image's anonymous
+`/data/configdb` volume is recreated whenever the container is, so orphans of
+it will accumulate with auto-updates.

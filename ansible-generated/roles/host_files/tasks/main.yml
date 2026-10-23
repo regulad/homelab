@@ -15,7 +15,10 @@
 - name: Host files
   ansible.builtin.copy:
     dest: "{{ item.path }}"
-    src: "{{ omit if item.content is defined else host_files_dir ~ (item.src | default(item.path)) }}"
+    src: >-
+      {{ omit if item.content is defined
+         else host_files_shared_dir ~ '/' ~ item.shared_src if item.shared_src is defined
+         else host_files_dir ~ (item.src | default(item.path)) }}
     content: "{{ item.content | default(omit) }}"
     validate: "{{ item.validate | default(omit) }}"
     owner: "{{ item.owner | default('root') }}"

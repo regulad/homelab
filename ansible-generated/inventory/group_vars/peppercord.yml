@@ -1,0 +1,23 @@
+---
+# The PepperCord mirrors (cordpepperer, peppercord): one podman-compose stack
+# in /opt/peppercord, its compose file shared and each host's .env
+# (peppercord_env) from its own secrets.sops.yml.
+host_files_directories:
+  - path: /opt/peppercord
+    mode: "0755"
+host_files_list:
+  - path: /etc/systemd/system/podman-compose@.service
+    mode: "0644"
+    shared_src: etc/systemd/system/podman-compose@.service
+    restarts: [podman-compose@peppercord.service]
+  - path: /opt/peppercord/docker-compose.yml
+    mode: "0644"
+    shared_src: peppercord/docker-compose.yml
+    restarts: [podman-compose@peppercord.service]
+  - path: /opt/peppercord/.env
+    mode: "0600"
+    content: "{{ peppercord_env }}\n"
+    secret: true
+    restarts: [podman-compose@peppercord.service]
+host_files_packages: [podman-compose]
+host_files_units: [podman-compose@peppercord.service, podman-auto-update.timer]

@@ -34,7 +34,7 @@ Ansible, an identical configuration for the switch scripts). See
 
 - [x] `aameter` (130)
 - [ ] `act` (123)
-- [ ] `cordpepperer` (118): a mirror of `peppercord`
+- [x] `cordpepperer` (118): a mirror of `peppercord`
 - [ ] `immich` (116)
 - [x] `ingress` (121)
 - [ ] `llamarpcmaster` (119): in the inventory only while its HA resource is requested. Low priority
@@ -42,7 +42,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `ncsusplitt` (125)
 - [ ] `openclaw` (103): low priority
 - [x] `openwebui` (115)
-- [ ] `peppercord` (126): a mirror of `cordpepperer`
+- [x] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)
 - [ ] `procontainer` (106): low priority
 - [x] `pterodactyl` (120)

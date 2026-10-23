@@ -18,6 +18,9 @@ host_files_links: []
 host_files_pipx: []
 host_files_list: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
+# Files several hosts share, for an item's shared_src (relative to this
+# directory), such as those a group's group_vars place.
+host_files_shared_dir: "{{ inventory_dir }}/../files/shared"
 
 # systemd units kept enabled and running, such as ones host_files installs.
 host_files_units: []
