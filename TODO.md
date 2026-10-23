@@ -70,6 +70,14 @@ cloud-init.
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
   - [ ] Describe its own services
 
+## gonkputer VMs to move into containers
+
+Services to move off their VMs into containers.
+
+- [ ] `authentik` (109)
+- [ ] `git` (110)
+- [ ] `matrix` (107)
+
 ## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
 
 **Precondition:** [bpg/terraform-provider-proxmox#2901](https://github.com/bpg/terraform-provider-proxmox/issues/2901).
@@ -79,13 +87,8 @@ it is resolved.
 
 Configured by a cloud-init vendor file instead of Ansible, so they need no SSH.
 
-- [ ] `authentik` (109)
 - [ ] `freeipa` (113)
   - [ ] Add a vendor file
-- [ ] `git` (110)
-  - [ ] Boot with cloud-init
-- [ ] `matrix` (107)
-  - [ ] Boot with cloud-init
 - [ ] `softether` (114)
 - [ ] `unifi` (102)
 - [ ] `urbackup` (111)
