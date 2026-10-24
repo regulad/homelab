@@ -1965,3 +1965,45 @@ Parker deleted the `matrix` tunnel and revoked the SendGrid key, and approved
 destroying the VM. `vm-matrix.tf` was removed; one apply destroyed VM 107 and
 `matrix_vm` (2 destroyed), leaving no `vm-107` images, and a fresh plan was a
 no-op.
+
+## Network switches become Ansible hosts; the Arista adopted (2026-10-24)
+
+Parker asked to manage the switches, with their password hashes treated as
+secrets and SSH public keys plaintext, and to look at prior art first. Ansible's
+network modules run on the control node and drive a switch's CLI over SSH
+(`network_cli`), so the plan's premise that the switches cannot use Ansible did
+not hold; Parker approved making them hosts in `ansible-hardware`, in a
+`switches` group outside `hardware`, and pinning `ansible.netcommon` 8.7.1,
+`ansible.utils` 6.1.1 and `arista.eos` 12.3.0 into the stage's `collections/`
+(the same versions as Homebrew's Ansible bundles). For the SG300s,
+`community.ciscosmb` can read configurations but its `edit_config` is a stub.
+
+The Arista (`JPE18280417`, DCS-7010T-48, EOS 4.28.10.1M) has no password hashes:
+`regulad` is `privilege 15 nopassword` with Parker's SSH key, and root login is
+off. Its running configuration, without the command and device header comments,
+is `files/JPE18280417/running-config`; the new `eos` role replaces the whole
+running configuration with it through `eos_config` (`replace: config`, one
+configuration session, saved to startup only when modified). `replace: config`
+still requires `src`, whose Jinja processing ansible.netcommon deprecates; the
+file has none. Loading it takes longer than the default 30-second command
+timeout, which is 240 in `group_vars/eos.yml`; the first, timed-out check left a
+pending session, removed by hand. A check against a copy missing one NTP line
+showed EOS's session diff, so the comparison is real. Parker approved applying
+in-band (he has a serial console, not on hand): check and apply reported no
+changes.
+
+At Parker's request the connected interfaces are annotated with comments, which
+EOS drops, so they cause no diff. tcpdump of the switch's LLDP frames put
+prodingus's eth0 on Ethernet47 and eth1 on Ethernet50, and overture's en5 on
+Ethernet11; the switch's own LLDP table has the SG300s on Ethernet17 and 29 (each
+from its gi1). Single-MAC ports were named from arawi's Kea leases: an
+HDHomeRun on Ethernet12 and `npi5433a7` on Ethernet18; Ethernet6's device has
+no DHCP hostname, Ethernet49 (10 GbE SR) has 18 addresses behind it, and
+Ethernet7, 31 and 32 are linked with none learned. turk was unreachable.
+
+The SG300s were reached read-only only partly: their 1024-bit RSA host keys need
+`RequiredRSASize=1024`, OpenSSL 3.5 needs a lowered security level for their
+`diffie-hellman-group1-sha1`, and Parker's agent then refuses the SHA-1
+`ssh-rsa` signature they require. A research pass found that SG300 firmware 1.4
+holds one SSH key per user (`user-key` replaces it), so an automation key needs
+its own local user, with its password hash in SOPS.

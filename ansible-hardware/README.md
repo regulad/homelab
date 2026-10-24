@@ -8,7 +8,8 @@ outputs. Generated hosts are configured from
 
 | Path | Contents |
 |---|---|
-| `inventory/hardware.yml` | Hardware hosts by tailnet MagicDNS name, under the `hardware` group |
+| `inventory/hardware.yml` | Hardware hosts by tailnet MagicDNS name, under the `hardware` group; network switches by SSH host, under the `switches` group |
+| `files/<switch>/running-config` | A network switch's whole running configuration |
 | `inventory/group_vars/`, `inventory/host_vars/<host>/` | Variables |
 | `playbooks/site.yml` | The stage's only playbook |
 | `roles/` | Roles only this stage uses |
@@ -19,6 +20,7 @@ outputs. Generated hosts are configured from
 | `base` (shared) | Packages, admin user, time sync, and sshd hardening only where it is already policy | `hardware` |
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `hardware` |
 | `proxmox_cluster` | Proxmox and Ceph cluster settings that `bpg/proxmox` cannot manage | `proxmox_nodes` |
+| `eos` | An Arista switch's whole running configuration, replaced in one EOS configuration session | `eos` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
 which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks

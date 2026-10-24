@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: An Arista EOS switch's whole running configuration, replaced in one configuration session
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

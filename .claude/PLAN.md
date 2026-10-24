@@ -25,7 +25,7 @@ Ansible runs in two phases, one on each side of OpenTofu, each in its own folder
 |---|---|
 | 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, pre-commit (file hygiene, OpenTofu, privacy guards), and the Ansible scaffold for both stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox: the `gonkputer` crawl is done, including cluster and Ceph settings, and its open questions are answered (local snapshot and `SUMMARY.md`). Hardware hosts and the per-host service inventory are not started. |
-| 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons, and the network switch scripts are not started. |
+| 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons. Network switches are Ansible hosts in a `switches` group: the Arista 7010T is adopted with no diff; the SG300s are not started. |
 | 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus its snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. |
 | 4. Ansible: generated hosts | Started: `ansible-generated/` reads both roots' state through the `terraform_state` inventory plugin, as one inventory that `site.yml` runs over once: the five OCI instances, which Ansible reaches, and the requested gonkputer guests Ansible manages. Proxmox VMs are moving to cloud-init where they can, and containers will be reached through `proxmox_pct_remote`. The roles are skeletons. |
 | 5. Portability proof | Not started. |
@@ -42,7 +42,7 @@ Parker asks.
 - Machines (Proxmox LXC/VM, OCI instances) are declared in **OpenTofu** and tracked in state.
 - Proxmox cluster-wide and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
 - Host configuration (podman, the Tailscale client, Avahi, service definitions) is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs. Proxmox VMs are the exception wherever they can boot with cloud-init: a cloud-init vendor file holds their whole setup, so they need no SSH. LXC containers stay in Ansible, reached through the `proxmox_pct_remote` connection plugin over SSH to their Proxmox node instead of SSH into each container.
-- Network switch configuration is applied by the repository's own **bash scripts**, because the switches cannot run Ansible's modules.
+- Network switch configuration is applied by **Ansible's network modules**, which run on the control node and drive each switch's CLI over SSH (`network_cli`).
 - Each containerized service is a **Podman Quadlet** (systemd-native), rendered from data, so moving a service between hosts is a `host_vars` edit plus a `site.yml` run.
 - Existing infrastructure is **adopted** (imported), not recreated.
 
@@ -121,15 +121,18 @@ hand and committed.
   - Every Ansible-owned cluster and Ceph setting is captured as code.
   - No service restarted unexpectedly.
 
-**Network switches (outside Ansible)**
-The two Cisco SG300 switches and the Arista 7010T run no Python, so Ansible's
-usual modules cannot manage them. They stay out of the Ansible inventory, and the
-repository's own bash scripts manage them over SSH instead.
-- The scripts connect through the operator's SSH configuration, which holds each switch's address, its user, and the legacy algorithms the SG300s need.
+**Network switches**
+The two Cisco SG300 switches and the Arista 7010T run no Python, but Ansible's
+network modules need none: they run on the control node and drive each switch's
+CLI over SSH (`ansible.netcommon.network_cli`). The switches are hosts in
+`ansible-hardware`'s `switches` group, outside `hardware`, whose baseline roles
+they cannot run.
+- They connect through the operator's SSH configuration, which holds each switch's address, its user, and the legacy algorithms the SG300s need.
+- Arista EOS: the `eos` role replaces the whole running configuration from `files/<switch>/running-config` with `arista.eos.eos_config` in one configuration session; `--check --diff` shows EOS's own session diff.
 - Capture each switch's running configuration read-only into `docs/snapshot/` first. Raw configurations can hold secrets such as password hashes, so only configuration derived from them is committed, with sensitive values in SOPS.
-- Adopt first: the scripts reproduce each switch's current configuration with **no diff**. Change settings only afterwards, each diff reviewed line by line by Parker.
+- Adopt first: each switch's committed configuration reproduces its current one with **no diff**. Change settings only afterwards, each diff reviewed line by line by Parker.
 - **Read-only until Parker confirms** a console path to each switch. A bad change can cut off a switch's management address or the hosts behind it.
-- **Accept:** for every switch, the configuration the scripts produce matches the running configuration, and Parker has reviewed both.
+- **Accept:** for every switch, the committed configuration matches the running configuration, and Parker has reviewed both.
 
 ### Phase 3 — OpenTofu
 OpenTofu declares the machines, and the cluster settings its providers support.
@@ -245,7 +248,7 @@ resources, without a manual inventory edit.
 
 ## Definition of done
 - Every hardware host is in the hand-written inventory, and its playbook run reports `changed=0`.
-- Every network switch's running configuration is reproduced by the repository's scripts with no diff.
+- Every network switch's running configuration is reproduced by its committed configuration with no diff.
 - Every in-scope guest is in OpenTofu state with a **no-op plan** in both provider roots (`tofu/oracle`, `tofu/gonkputer`).
 - Every in-scope Proxmox and Ceph cluster-wide setting is captured as code, with a no-op plan and a `changed=0` check run.
 - The generated hosts' inventory is built from OpenTofu outputs, with services defined only in `host_vars/`.

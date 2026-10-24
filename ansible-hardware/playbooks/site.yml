@@ -37,3 +37,10 @@
   hosts: proxmox_nodes
   roles:
     - proxmox_cluster
+
+# Each Arista switch's whole running configuration, from files/<switch>/.
+- name: Arista switches
+  hosts: eos
+  gather_facts: false
+  roles:
+    - eos

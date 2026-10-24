@@ -1,0 +1,10 @@
+---
+# Arista EOS through its CLI over SSH. The regulad user has privilege 15 and no
+# enable password, so enable mode needs none.
+ansible_connection: ansible.netcommon.network_cli
+ansible_network_os: arista.eos.eos
+ansible_become: true
+ansible_become_method: ansible.netcommon.enable
+# Loading the whole configuration into a session over the CLI takes longer than
+# the default 30 seconds.
+ansible_command_timeout: 240

@@ -20,3 +20,12 @@ hardware:
     macos:
       hosts:
         overture:
+
+# Network switches: configured over SSH by Ansible's network modules, which run
+# on the control node, through each platform's CLI. Kept outside the hardware
+# group, whose baseline roles they cannot run; named by their SSH host.
+switches:
+  children:
+    eos:
+      hosts:
+        JPE18280417:  # Arista DCS-7010T-48, EOS 4.28

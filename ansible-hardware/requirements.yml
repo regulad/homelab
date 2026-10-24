@@ -7,3 +7,12 @@ collections:
   # ipa_user, which manages each host's FreeIPA mail account over the JSON-RPC API.
   - name: community.general
     version: 13.5.0
+  # Network switches over SSH: network_cli and the EOS cliconf and config modules.
+  - name: ansible.netcommon
+    version: 8.7.1
+  # ansible.netcommon's dependency.
+  - name: ansible.utils
+    version: 6.1.1
+  # eos_config, for the Arista 7010T.
+  - name: arista.eos
+    version: 12.3.0

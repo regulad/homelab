@@ -1,0 +1,11 @@
+---
+# EOS applies the file in a configuration session and commits it only if every
+# line is accepted. In check mode the session's diff is reported and the session
+# aborted. The startup configuration is saved only when the running one changed.
+# replace: config still requires src, not content, so ansible.netcommon warns
+# that src's Jinja processing is deprecated; the file holds no Jinja.
+- name: Running configuration
+  arista.eos.eos_config:
+    src: "{{ eos_running_config }}"
+    replace: config
+    save_when: modified

@@ -2,7 +2,7 @@
 
 Every host still configured by hand. Check one off once its configuration is
 captured as code and a run against it reports no changes (`changed=0` for
-Ansible, an identical configuration for the switch scripts). See
+Ansible, including the network switches). See
 [`.claude/PLAN.md`](.claude/PLAN.md) for each phase.
 
 ## Hardware hosts (`ansible-hardware/`)
@@ -11,11 +11,11 @@ Ansible, an identical configuration for the switch scripts). See
 - [ ] `turk`: Ubuntu 24.04 with VMware Workstation
 - [ ] `overture`: macOS
 
-## Network switches (repository scripts)
+## Network switches (`ansible-hardware/`, the `switches` group)
 
 - [ ] Cisco SG300 `switch45f304`
 - [ ] Cisco SG300 `switch070e26`
-- [ ] Arista 7010T
+- [x] Arista 7010T `JPE18280417`: `ansible-hardware`'s `eos` role, its interfaces annotated from LLDP and DHCP leases
 
 ## OCI instances (`ansible-generated/`, from `tofu/oracle`)
 

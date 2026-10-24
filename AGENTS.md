@@ -55,9 +55,10 @@ homelab/
 │   └── roles/                   # roles both stages apply: base, tailscale, ca_trust, auto_updates, mail_relay
 ├── ansible-hardware/            # Phase 2, before OpenTofu; reads only the hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
-│   ├── inventory/               # hardware.yml (by hand), group_vars/, host_vars/<host>/main.yml
+│   ├── files/                   # <switch>/running-config: each network switch's whole configuration
+│   ├── inventory/               # hardware.yml (by hand; hardware hosts and the switches group), group_vars/, host_vars/<host>/main.yml
 │   ├── playbooks/               # site.yml
-│   ├── roles/                   # proxmox_cluster
+│   ├── roles/                   # proxmox_cluster, eos
 │   └── requirements.yml         # pinned collections
 └── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles

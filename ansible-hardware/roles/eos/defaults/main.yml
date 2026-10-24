@@ -1,0 +1,5 @@
+---
+# The switch's whole configuration, as show running-config prints it without
+# its two header comments. It replaces the running configuration in one
+# configuration session, so a line missing here is removed from the switch.
+eos_running_config: "{{ inventory_dir }}/../files/{{ inventory_hostname }}/running-config"

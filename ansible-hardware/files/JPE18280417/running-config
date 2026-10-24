@@ -1,0 +1,213 @@
+!
+! Interface comments come from LLDP frames captured on the hosts and the switch,
+! its MAC address table and arawi's DHCP leases, on 2026-10-24.
+!
+! boot system flash:/EOS.swi
+!
+no aaa root
+!
+username regulad privilege 15 nopassword
+username regulad ssh-key ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMcSNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhkduWYAwg8utchrqloVGd7NDd+BphSDJ8u/4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56HgjN/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzGsPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlpQUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcXTPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQSAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE=
+!
+transceiver qsfp default-mode 4x10G
+!
+service routing protocols model ribd
+!
+hostname JPE18280417
+ip name-server vrf default 8.8.4.4
+ip name-server vrf default 8.8.8.8
+!
+spanning-tree mode rstp
+!
+service unsupported-transceiver EMC 677096c7
+!
+clock timezone America/New_York
+!
+vlan 2-7,9-4094
+!
+vlan 8
+   name guest
+!
+interface Ethernet1
+   switchport mode trunk
+!
+interface Ethernet2
+   switchport mode trunk
+!
+interface Ethernet3
+   switchport mode trunk
+!
+interface Ethernet4
+   switchport mode trunk
+!
+interface Ethernet5
+   switchport mode trunk
+!
+! Unidentified: one device, b0:09:da:6c:5e:fe (10.23.1.231, no DHCP hostname).
+interface Ethernet6
+   switchport mode trunk
+!
+! Guest VLAN access port: linked, no MAC address learned on 2026-10-24.
+interface Ethernet7
+   switchport access vlan 8
+!
+interface Ethernet8
+   switchport mode trunk
+!
+interface Ethernet9
+   switchport mode trunk
+!
+interface Ethernet10
+   switchport mode trunk
+!
+! overture, its en5 (LLDP seen on overture).
+interface Ethernet11
+   switchport mode trunk
+!
+! HDHomeRun hdhr-101ca340 (DHCP lease for 00:18:dd:01:ca:34).
+interface Ethernet12
+   switchport mode trunk
+!
+interface Ethernet13
+   switchport mode trunk
+!
+interface Ethernet14
+   switchport mode trunk
+!
+interface Ethernet15
+   switchport mode trunk
+!
+interface Ethernet16
+   switchport mode trunk
+!
+! switch45f304 (Cisco SG300-10), its gi1 (LLDP).
+interface Ethernet17
+   switchport mode trunk
+!
+! npi5433a7 (DHCP lease for 00:68:eb:54:33:a7).
+interface Ethernet18
+   switchport mode trunk
+!
+interface Ethernet19
+   switchport mode trunk
+!
+interface Ethernet20
+   switchport mode trunk
+!
+interface Ethernet21
+   switchport mode trunk
+!
+interface Ethernet22
+   switchport mode trunk
+!
+interface Ethernet23
+   switchport mode trunk
+!
+interface Ethernet24
+   switchport mode trunk
+!
+interface Ethernet25
+   switchport mode trunk
+!
+interface Ethernet26
+   switchport mode trunk
+!
+interface Ethernet27
+   switchport mode trunk
+!
+interface Ethernet28
+   switchport mode trunk
+!
+! switch070e26 (Cisco SG300-10PP), its gi1 (LLDP).
+interface Ethernet29
+   switchport mode trunk
+!
+interface Ethernet30
+   switchport mode trunk
+!
+! Linked, no MAC address learned on 2026-10-24.
+interface Ethernet31
+   switchport mode trunk
+!
+! Linked, no MAC address learned on 2026-10-24.
+interface Ethernet32
+   switchport mode trunk
+!
+interface Ethernet33
+   switchport mode trunk
+!
+interface Ethernet34
+   switchport mode trunk
+!
+interface Ethernet35
+   switchport mode trunk
+!
+interface Ethernet36
+   switchport mode trunk
+!
+interface Ethernet37
+   switchport mode trunk
+!
+interface Ethernet38
+   switchport mode trunk
+!
+interface Ethernet39
+   switchport mode trunk
+!
+interface Ethernet40
+   switchport mode trunk
+!
+interface Ethernet41
+   switchport mode trunk
+!
+interface Ethernet42
+   switchport mode trunk
+!
+interface Ethernet43
+   switchport mode trunk
+!
+interface Ethernet44
+   switchport mode trunk
+!
+interface Ethernet45
+   switchport mode trunk
+!
+interface Ethernet46
+   switchport mode trunk
+!
+! prodingus, its eth0 (1 GbE, vmbr0) (LLDP seen on prodingus).
+interface Ethernet47
+   switchport mode trunk
+!
+interface Ethernet48
+   switchport mode trunk
+!
+! 10 GbE (SR optic) with 18 MAC addresses behind it, among them Ring cameras; the device on it is unidentified.
+interface Ethernet49
+!
+! prodingus, its eth1 (10 GbE) (LLDP seen on prodingus).
+interface Ethernet50
+   switchport mode trunk
+!
+interface Ethernet51
+   switchport mode trunk
+!
+interface Ethernet52
+   switchport mode trunk
+!
+interface Management1
+   ip address dhcp
+   dhcp client accept default-route
+!
+event-handler backup-to-usb
+   trigger on-startup-config
+   action bash cp /mnt/flash/startup-config /mnt/usb1/startup-config
+   delay 0
+!
+no ip routing
+!
+ntp local-interface Management1
+ntp server 0.pool.ntp.org prefer iburst
+ntp server 1.pool.ntp.org iburst
+!
+end
