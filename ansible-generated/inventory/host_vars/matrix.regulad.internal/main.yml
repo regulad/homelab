@@ -1,0 +1,184 @@
+---
+# Synapse and its bridges, moved here from the matrix VM. Synapse comes from
+# matrix.org's repository through the matrix role; its configuration, the
+# bridges' units and their release binaries come from here, with secrets from
+# secrets.sops.yml. Each bridge keeps its config and database in /opt/mautrix-*,
+# data the bridge itself migrates and rewrites on upgrade. nginx routes the
+# Matrix paths to Synapse; Caddy on ingress serves it as matrix.regulad.xyz.
+
+matrix_synapse_modules:
+  - synapse-s3-storage-provider==1.7.0
+  # Released on GitHub only; PyPI stops at 2.0.1.
+  - shared_secret_authenticator @ https://github.com/devture/matrix-synapse-shared-secret-auth/archive/refs/tags/2.0.3.tar.gz
+# The VM's cluster was created in en_US.UTF-8; Synapse's own database uses C.
+matrix_postgres_locales: [en_US.UTF-8]
+matrix_bridge_users:
+  - {name: mautrix-discord, home: /opt/mautrix-discord}
+  - {name: mautrix-gmessages, home: /opt/mautrix-gmessages}
+  - {name: mautrix-messenger, home: /opt/mautrix-messenger}
+  - {name: mautrix-meta, home: /opt/mautrix-meta}
+  - {name: mautrix-slack, home: /opt/mautrix-slack}
+  - {name: mautrix-telegram, home: /opt/mautrix-telegram}
+  - {name: mautrix-whatsapp, home: /opt/mautrix-whatsapp}
+matrix_compressor_version: "0.1.4"
+matrix_compressor_database_url: "postgresql://synapse_user:{{ synapse_secrets.database_password }}@localhost/synapse"
+
+# Synapse sends mail through mail.regulad.xyz as svc-synapse, the FreeIPA
+# account it also binds to LDAP as, with the same password.
+synapse_smtp_user: svc-synapse
+
+host_files_directories:
+  - path: /etc/postgresql-common/createcluster.d
+    mode: "0755"
+  - path: /mnt/synapse/postgresql
+    mode: "0755"
+  # Ahead of the nginx package, for the site placed before it installs.
+  - path: /etc/nginx/sites-available
+    mode: "0755"
+  - path: /etc/nginx/sites-enabled
+    mode: "0755"
+  - path: /opt/mautrix-discord
+    owner: mautrix-discord
+    group: mautrix-discord
+    mode: "0755"
+  - path: /opt/mautrix-gmessages
+    owner: mautrix-gmessages
+    group: mautrix-gmessages
+    mode: "0755"
+  - path: /opt/mautrix-messenger
+    owner: mautrix-messenger
+    group: mautrix-messenger
+    mode: "0755"
+  - path: /opt/mautrix-meta
+    owner: mautrix-meta
+    group: mautrix-meta
+    mode: "0755"
+  - path: /opt/mautrix-slack
+    owner: mautrix-slack
+    group: mautrix-slack
+    mode: "0755"
+  - path: /opt/mautrix-telegram
+    owner: mautrix-telegram
+    group: mautrix-telegram
+    mode: "0755"
+  - path: /opt/mautrix-whatsapp
+    owner: mautrix-whatsapp
+    group: mautrix-whatsapp
+    mode: "0755"
+host_files_list:
+  # Ahead of the postgresql package, which creates its cluster from it.
+  - path: /etc/postgresql-common/createcluster.d/synapse.conf
+    mode: "0644"
+  - path: /etc/matrix-synapse/homeserver.yaml
+    group: matrix-synapse
+    mode: "0640"
+    template: true
+    restarts: [matrix-synapse.service]
+  - path: /etc/matrix-synapse/log.yaml
+    mode: "0644"
+    restarts: [matrix-synapse.service]
+  - path: /etc/matrix-synapse/conf.d/report_stats.yaml
+    mode: "0644"
+    restarts: [matrix-synapse.service]
+  - path: /etc/matrix-synapse/conf.d/server_name.yaml
+    mode: "0644"
+    restarts: [matrix-synapse.service]
+  - path: /etc/matrix-synapse/homeserver.signing.key
+    owner: matrix-synapse
+    mode: "0600"
+    content: "{{ synapse_signing_key }}\n"
+    secret: true
+    restarts: [matrix-synapse.service]
+  - path: /etc/matrix-synapse/doublepuppet.yaml
+    group: matrix-synapse
+    mode: "0640"
+    content: "{{ synapse_doublepuppet_registration }}\n"
+    secret: true
+    restarts: [matrix-synapse.service]
+  - path: /etc/matrix-synapse/heisenbridge.yaml
+    group: matrix-synapse
+    mode: "0640"
+    content: "{{ synapse_heisenbridge_registration }}\n"
+    secret: true
+    restarts: [matrix-synapse.service, heisenbridge.service]
+  - path: /etc/systemd/system/heisenbridge.service
+    mode: "0644"
+    restarts: [heisenbridge.service]
+  - path: /etc/systemd/system/mautrix-discord.service
+    mode: "0644"
+    restarts: [mautrix-discord.service]
+  - path: /etc/systemd/system/mautrix-gmessages.service
+    mode: "0644"
+    restarts: [mautrix-gmessages.service]
+  - path: /etc/systemd/system/mautrix-messenger.service
+    mode: "0644"
+    restarts: [mautrix-messenger.service]
+  - path: /etc/systemd/system/mautrix-meta.service
+    mode: "0644"
+    restarts: [mautrix-meta.service]
+  - path: /etc/systemd/system/mautrix-slack.service
+    mode: "0644"
+    restarts: [mautrix-slack.service]
+  - path: /etc/systemd/system/mautrix-telegram.service
+    mode: "0644"
+    restarts: [mautrix-telegram.service]
+  - path: /etc/systemd/system/mautrix-whatsapp.service
+    mode: "0644"
+    restarts: [mautrix-whatsapp.service]
+  - path: /etc/nginx/sites-available/matrix
+    mode: "0644"
+    reloads: [nginx.service]
+host_files_links:
+  - path: /etc/nginx/sites-enabled/matrix
+    target: /etc/nginx/sites-available/matrix
+    reloads: [nginx.service]
+host_files_downloads:
+  - path: /opt/mautrix-discord/mautrix-discord
+    url: https://github.com/mautrix/discord/releases/download/v0.7.7/mautrix-discord-amd64
+    checksum: sha256:1f3b6953b4eae00d141ce706f6e97c1b5d0e50268a447bc605df2fa4f44c5d9d
+    mode: "0755"
+    restarts: [mautrix-discord.service]
+  - path: /opt/mautrix-gmessages/mautrix-gmessages
+    url: https://github.com/mautrix/gmessages/releases/download/v0.2610.0/mautrix-gmessages-amd64
+    checksum: sha256:2693000227748869f12c922e659313c20077bb59acecd52903cabcb0d9484a4f
+    mode: "0755"
+    restarts: [mautrix-gmessages.service]
+  - path: /opt/mautrix-messenger/mautrix-meta
+    url: https://github.com/mautrix/meta/releases/download/v0.2610.0/mautrix-meta-amd64
+    checksum: sha256:17b8fd89ee8bb71796b9406aad37fd871110efbb22ace26801034dab9c5a3843
+    mode: "0755"
+    restarts: [mautrix-messenger.service]
+  - path: /opt/mautrix-meta/mautrix-meta
+    url: https://github.com/mautrix/meta/releases/download/v0.2610.0/mautrix-meta-amd64
+    checksum: sha256:17b8fd89ee8bb71796b9406aad37fd871110efbb22ace26801034dab9c5a3843
+    mode: "0755"
+    restarts: [mautrix-meta.service]
+  - path: /opt/mautrix-slack/mautrix-slack
+    url: https://github.com/mautrix/slack/releases/download/v0.2610.0/mautrix-slack-amd64
+    checksum: sha256:f3efbd43081f313b8ab458c0f14c250e60cca899dfac045213a5ee4828ff83f8
+    mode: "0755"
+    restarts: [mautrix-slack.service]
+  - path: /opt/mautrix-telegram/mautrix-telegram
+    url: https://github.com/mautrix/telegram/releases/download/v0.2610.0/mautrix-telegram-amd64
+    checksum: sha256:a021ac51e648fbaabac7933a881c182723d32faff95aab42023f290d15d5d4c5
+    mode: "0755"
+    restarts: [mautrix-telegram.service]
+  - path: /opt/mautrix-whatsapp/mautrix-whatsapp
+    url: https://github.com/mautrix/whatsapp/releases/download/v0.2610.0/mautrix-whatsapp-amd64
+    checksum: sha256:6ae3dade4888a2ea6ccc87f6902b0faabe47f143ca50c43eb011ad94745bfec8
+    mode: "0755"
+    restarts: [mautrix-whatsapp.service]
+host_files_packages: [nginx, pipx, postgresql]
+host_files_pipx: [heisenbridge==1.15.4]
+host_files_units:
+  - postgresql.service
+  - matrix-synapse.service
+  - nginx.service
+  - heisenbridge.service
+  - mautrix-discord.service
+  - mautrix-gmessages.service
+  - mautrix-messenger.service
+  - mautrix-meta.service
+  - mautrix-slack.service
+  - mautrix-telegram.service
+  - mautrix-whatsapp.service

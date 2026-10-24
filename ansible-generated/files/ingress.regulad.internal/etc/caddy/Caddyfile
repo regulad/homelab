@@ -188,6 +188,14 @@ authentik.regulad.xyz {
 	}
 }
 
+matrix.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy matrix.regulad.internal:80 {
+	}
+}
+
 vw.regulad.xyz {
 	import hsts
 	import common

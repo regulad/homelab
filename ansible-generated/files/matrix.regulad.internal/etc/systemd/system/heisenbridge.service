@@ -1,0 +1,15 @@
+[Unit]
+Description=Heisenbridge - A bouncer-style Matrix IRC bridge
+After=network.target matrix-synapse.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root
+ExecStart=/usr/local/bin/heisenbridge -c /etc/matrix-synapse/heisenbridge.yaml
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

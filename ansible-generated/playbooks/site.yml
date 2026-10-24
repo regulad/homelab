@@ -52,6 +52,14 @@
   roles:
     - php_fpm
 
+# Synapse from matrix.org's repository, its modules, the bridges' users and
+# the state compressor, ahead of the host files that configure them.
+- name: Matrix homeserver
+  hosts: matrix
+  become: true
+  roles:
+    - matrix
+
 # Native files and systemd units from host_vars and files/<host>/.
 - name: Host files and units
   hosts: generated:!arawi

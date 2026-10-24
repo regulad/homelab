@@ -1,0 +1,19 @@
+---
+# matrix.org's repository suite: the host's Ubuntu or Debian codename, from
+# its facts.
+matrix_synapse_suite: "{{ ansible_facts['distribution_release'] }}"
+# Locales the Postgres databases were created with, generated so the server
+# accepts connections to them.
+matrix_postgres_locales: []
+# Synapse modules the package does not bundle, installed into its own
+# virtualenv as pinned pip specifiers.
+matrix_synapse_modules: []
+# System users for bridges that run as their own user, each with its home,
+# where its config and database live.
+matrix_bridge_users: []
+# rust-synapse-compress-state's release, built with cargo, whose
+# synapse_auto_compressor runs nightly against matrix_compressor_database_url
+# (from secrets.sops.yml).
+matrix_compressor_version: ""
+matrix_compressor_database_url: ""
+matrix_compressor_schedule: "30 19 * * *"

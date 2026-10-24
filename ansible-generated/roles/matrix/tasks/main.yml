@@ -1,0 +1,111 @@
+---
+# Synapse comes from matrix.org's repository, as Synapse's docs install it;
+# host_files then places its configuration and keeps its units running.
+- name: Check the inputs
+  ansible.builtin.assert:
+    that:
+      - matrix_synapse_suite | length > 0
+      - matrix_compressor_version | length > 0
+      - matrix_compressor_database_url | length > 0
+    fail_msg: Set matrix_synapse_suite and matrix_compressor_version, and matrix_compressor_database_url through SOPS.
+
+- name: Signing key for matrix.org's repository
+  ansible.builtin.copy:
+    src: matrix-org-archive-keyring.gpg
+    dest: /usr/share/keyrings/matrix-org-archive-keyring.gpg
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Repository for matrix.org's packages
+  ansible.builtin.copy:
+    content: "deb [signed-by=/usr/share/keyrings/matrix-org-archive-keyring.gpg] https://packages.matrix.org/debian/ {{ matrix_synapse_suite }} main\n"
+    dest: /etc/apt/sources.list.d/matrix-org.list
+    owner: root
+    group: root
+    mode: "0644"
+  register: matrix_repository
+
+# The package asks for the server name on install, and keeps it in
+# conf.d/server_name.yaml.
+- name: Synapse
+  ansible.builtin.apt:
+    name: matrix-synapse-py3
+    state: present
+    update_cache: "{{ matrix_repository is changed }}"
+
+- name: Locale generator
+  ansible.builtin.apt:
+    name: locales
+    state: present
+  when: matrix_postgres_locales | length > 0
+
+- name: Database locales
+  community.general.locale_gen:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ matrix_postgres_locales }}"
+
+# Ansible's pip module needs packaging in the host's own Python.
+- name: Python packaging for the pip module
+  ansible.builtin.apt:
+    name: python3-packaging
+    state: present
+
+- name: Synapse modules
+  ansible.builtin.pip:
+    name: "{{ matrix_synapse_modules }}"
+    executable: /opt/venvs/matrix-synapse/bin/pip
+  when: matrix_synapse_modules | length > 0
+  notify: Restart Synapse
+
+- name: Bridge users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    home: "{{ item.home }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+    system: true
+  loop: "{{ matrix_bridge_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: State compressor build tools
+  ansible.builtin.apt:
+    name: [cargo, make, pkg-config, libssl-dev]
+    state: present
+
+# Installed under its version, so a new version builds beside the old one.
+- name: State compressor
+  ansible.builtin.command:
+    argv:
+      - cargo
+      - install
+      - --locked
+      - --git
+      - https://github.com/matrix-org/rust-synapse-compress-state
+      - --tag
+      - "v{{ matrix_compressor_version }}"
+      - --root
+      - "/opt/synapse-compress-state/{{ matrix_compressor_version }}"
+      - synapse_auto_compressor
+    creates: "/opt/synapse-compress-state/{{ matrix_compressor_version }}/bin/synapse_auto_compressor"
+  # Linked against the system's OpenSSL, which apt keeps patched, rather than
+  # a vendored copy built into the binary.
+  environment:
+    OPENSSL_NO_VENDOR: "1"
+
+- name: State compressor schedule
+  ansible.builtin.copy:
+    content: |
+      # Compresses Synapse's state groups nightly, keeping its database from growing unchecked.
+      {{ matrix_compressor_schedule }} root {{ matrix_compressor_command }} | systemd-cat -t synapse_auto_compressor
+    dest: /etc/cron.d/synapse-auto-compressor
+    owner: root
+    group: root
+    mode: "0600"
+  vars:
+    matrix_compressor_command: >-
+      /opt/synapse-compress-state/{{ matrix_compressor_version }}/bin/synapse_auto_compressor
+      -p "{{ matrix_compressor_database_url }}" -c 50 -n 100
+  no_log: true

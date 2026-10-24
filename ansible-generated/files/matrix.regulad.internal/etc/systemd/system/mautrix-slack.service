@@ -1,0 +1,37 @@
+[Unit]
+Description=mautrix-slack bridge
+
+[Service]
+Type=exec
+User=mautrix-slack
+WorkingDirectory=/opt/mautrix-slack
+ExecStart=/opt/mautrix-slack/mautrix-slack
+Restart=on-failure
+RestartSec=30s
+
+# Optional hardening to improve security
+ReadWritePaths=/opt/mautrix-slack
+NoNewPrivileges=yes
+# This may cause issues with libsignal.
+# Should be safe for other bridges
+#MemoryDenyWriteExecute=true
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+ProtectKernelLogs=true
+ProtectKernelTunables=true
+ProtectHostname=true
+ProtectKernelModules=true
+PrivateUsers=true
+ProtectClock=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

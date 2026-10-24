@@ -65,7 +65,7 @@ homelab/
     ├── files/                   # <host>/: byte copies roles place on a host, at their paths there; exempt from the whitespace hooks
     ├── inventory/               # <root>.terraform_state.yml (OpenTofu state), group_vars/, host_vars/<host>/{main,services}.yml
     ├── playbooks/               # site.yml; maintenance.yml
-    ├── roles/                   # host_files, podman, avahi, quadlet, pfsense, php_fpm, pterodactyl
+    ├── roles/                   # host_files, podman, avahi, quadlet, pfsense, php_fpm, pterodactyl, matrix
     └── requirements.yml         # pinned collections
 ```
 

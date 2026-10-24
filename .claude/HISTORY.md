@@ -1895,3 +1895,73 @@ connection" himself, and approved destroying the VM. `vm-authentik.tf` was
 removed; the VM carried no protection flag and the `rbd` trash was empty, so
 one apply destroyed VM 109 and `authentik_vm` (2 destroyed), leaving no
 `vm-109` images, and a fresh plan was a no-op.
+
+## matrix: Synapse and its bridges moved from VM 107 to the matrix container (202) (2026-10-24)
+
+The matrix VM (Debian 12) ran Synapse 1.154 from matrix.org's packages on
+Postgres 17 (a 62 GB database on its own disk, beside an unused 7 GB Postgres
+18 copy), with media also in the `synapse-media` bucket on s3.regulad.xyz;
+ten hand-written bridge units under `/opt` (discord, gmessages, messenger,
+meta, slack, whatsapp, syncproxy and wsproxy as Go binaries, telegram and
+heisenbridge in Python environments); nginx; a nightly
+`synapse_auto_compressor` from a debug build; and a token-based Cloudflare
+tunnel for `matrix.regulad.xyz` and `ssh-matrix.regulad.xyz`. Two Synapse
+modules, `synapse-s3-storage-provider` and `shared_secret_authenticator`,
+were pip-installed into the package's own environment. Discovery went through
+the guest agent, Parker's SSH agent having refused to sign; its output exposed
+the database password and the SendGrid key in this session.
+
+Parker decided: Ubuntu 26.04 (the newest release Synapse builds for, supported
+to 2030-10-31), the newest release of everything, imessage and android_sms
+(which no bridge had connected to in 30 days) dropped with wsproxy and
+syncproxy, the compressor kept, Caddy on ingress instead of the tunnel,
+`ssh-matrix` dropped, Synapse's mail sent through mail.regulad.xyz as
+`svc-synapse` (its LDAP bind account) instead of SendGrid, and, mid-cutover,
+the database on its own volume, `/mnt/synapse`. A new `matrix` role installs
+Synapse from matrix.org's repository (key fingerprint checked against Synapse's
+docs), its modules into its environment (shared_secret_authenticator 2.0.3 from
+its GitHub release archive; PyPI stops at 2.0.1), the bridge users, the
+database locale, and the compressor, v0.1.4 built by cargo against the system
+OpenSSL, with its cron entry. host_files gained `host_files_downloads`, which
+fetches each bridge's release binary pinned by sha256. The bridge units were
+copied byte for byte, except telegram's (the Go bridges' unit) and
+heisenbridge's `ExecStart` (pipx, 1.15.4); nginx lost its wsproxy route.
+Synapse's config is a template with its secrets, the signing key and two
+registrations in SOPS; the database password is new. A createcluster.d drop-in
+puts the cluster on `/mnt/synapse`.
+
+With Parker's approval, telegram was run once at 0.15.3 on the VM, the stale
+Postgres 18 cluster dropped, and 17 upgraded to 18.4 with `pg_upgradecluster
+--method=link`; the VM's crontab was commented out, and stage one made it
+dormant (2 changed). The container was created (3 added); adding the
+`/mnt/synapse` volume and shrinking the root disk to 32 GB then replaced it
+while it held only the baseline (Parker approved the replace), and its HA
+resource, which Proxmox removed with it, was created again. First runs failed
+on missing `python3-packaging`, git (hence the archive URL), `make`, the vendored
+OpenSSL build, nginx's site directories and pipx, each fixed in the repository.
+A restart handler lost to one of those failures left the package's default
+Synapse running on SQLite, unreachable from outside, until the data moved.
+
+On prodingus, with the container stopped, the VM's Postgres disk was mapped
+read-only through krbd and its root disk through `qemu-nbd --read-only` (krbd
+cannot map its feature set); `/var/lib/postgresql/18/main` (62 GB), the seven
+bridges' `/opt` directories without their old binaries, telegram's Python
+environment or logs, and the 2.4 GB of local media were copied in with the
+container's ownership. The VM's `postgres` database needed `en_US.UTF-8`,
+which the role now generates. `synapse_user`'s password was set to the new
+one and `mautrix_syncproxy` dropped. Synapse 1.163.1 then answered on client
+and federation paths; telegram's Go bridge (v26.09) migrated the Python
+bridge's database, after its legacy `relaybot` and `full` permission levels
+were mapped to `relay` and `user` (a copy of the old config is
+`config.yaml.python-permissions`), and later moved to v26.10. Every bridge
+started; errors seen were from a Postgres restart under Synapse, and none
+followed. Through Cloudflare's API, `matrix.regulad.xyz` became a DNS-only
+CNAME to ingress and `ssh-matrix.regulad.xyz` was deleted; Caddy serves the
+site. The federation tester passed over IPv4 but timed out on ingress's IPv6
+address. Checks on matrix and ingress reported `changed=0`, and a fresh plan
+was a no-op.
+
+Parker deleted the `matrix` tunnel and revoked the SendGrid key, and approved
+destroying the VM. `vm-matrix.tf` was removed; one apply destroyed VM 107 and
+`matrix_vm` (2 destroyed), leaving no `vm-107` images, and a fresh plan was a
+no-op.
