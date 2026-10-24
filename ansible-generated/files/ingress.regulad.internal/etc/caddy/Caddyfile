@@ -180,6 +180,14 @@ git.regulad.xyz {
 	}
 }
 
+authentik.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy authentik.regulad.internal:9000 {
+	}
+}
+
 vw.regulad.xyz {
 	import hsts
 	import common

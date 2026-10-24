@@ -1848,3 +1848,50 @@ Oracle Linux hosts (no only-on-error mode) and cron were left as they are. A
 check across the 21 Debian and Ubuntu hosts in the generated stage showed only
 that setting changing, the apply changed exactly it on each, with no failures,
 and prodingus followed last through the hardware stage.
+
+## authentik: moved from VM 109 to the authentik container (201) (2026-10-23)
+
+The authentik VM (Ubuntu 24.04) ran upstream's Docker Compose stack, authentik
+2026.2.0 with Postgres 16 (a 142 MB database; the bind-mounted `data`, `certs`
+and `custom-templates` directories were empty), reached only through a
+token-based Cloudflare tunnel for `authentik.regulad.xyz`. Only the embedded
+outpost ran, with no service connection, and its one source is freeipa's LDAP
+(80 active users); Immich is its one application. Parker had it moved into a
+container named `authentik`, served by Caddy on ingress, with podman-compose
+running upstream's compose file and podman-auto-update following its release
+tag. `lxc-authentik.tf` comes from the skeleton (16 GB, 2-core limit, 4 GiB,
+the VM's MAC); the compose file is upstream's, changed for the auto-update
+labels, the release tag, named volumes, and no Docker socket or `/certs`; the
+VM's `.env` and a new `null-authentik` relay password are in SOPS.
+
+Parker had the git.regulad.xyz CNAME added through Cloudflare's API: it had
+never existed (only the JitPack TXT, which stays, and Caddy's ECH HTTPS record
+were there), and Cloudflare accepted the DNS-only CNAME to ingress beside them;
+git.regulad.xyz then answered 200 through ingress. `authentik.regulad.xyz`
+went from the proxied tunnel CNAME to a DNS-only CNAME to ingress, as the other
+ingress sites are; until Caddy carried the site, authentik was unreachable, and
+applying ingress's new `authentik.regulad.xyz` site first brought it back
+through Caddy to the VM.
+
+With Parker's approval, the VM's stack and cloudflared were stopped and its
+database dumped (`pg_dump -Fc`, 15 MB) to the operator's machine. Stage one
+renamed the VM's HA resource to `authentik_vm` through a `moved` block and made
+it dormant (`disabled`, `started = false`; 2 changed); as with git, the block
+was then dropped, because the container's HA resource takes
+`proxmox_haresource.authentik`. Stage two created container 201 (3 added),
+which DHCP gave 10.23.1.100. `site.yml` installed Podman and started the stack,
+which initialized an empty database; that was dropped and the dump restored
+(80 users). Ingress's systemd-resolved still held the VM's 10.23.1.91, giving a
+502 until its cache was flushed. Through ingress authentik answered ready, an
+LDAP sync and a test email ran on the worker, the host relay delivered as
+`null-authentik`, and Immich's OIDC issuer is unchanged. The release tag then
+moved one release at a time, with a dump before each: 2026.2 (2026.2.7),
+2026.5 (2026.5.8) and 2026.8 (2026.8.5), each ready with no server errors.
+The worker logs a failing monitor for the unused "Local Docker connection",
+which has no socket now. Checks on authentik and ingress reported `changed=0`.
+
+Parker deleted the `authentik` tunnel and the unused "Local Docker
+connection" himself, and approved destroying the VM. `vm-authentik.tf` was
+removed; the VM carried no protection flag and the `rbd` trash was empty, so
+one apply destroyed VM 109 and `authentik_vm` (2 destroyed), leaving no
+`vm-109` images, and a fresh plan was a no-op.
