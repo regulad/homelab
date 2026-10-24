@@ -27,27 +27,21 @@ sed -i 's/^#KDUMP_NUM_DUMPS=.*/KDUMP_NUM_DUMPS=1/' /etc/default/kdump-tools
 
 ### Subnets
 
-ULA: `fd83:b84c:aa57::/48`
+| VLAN | IPv4 | IPv6 | DNS | Use |
+|---|---|---|---|---|
+| 1 (native) | `10.23.0.0/20` | `fd83:b84c:aa57:1::/64`, GUA by SLAAC | `regulad.internal`; `regulad-verizon-livingston.internal` (deprecated) | LAN |
+| 8 | `10.23.128.0/20` | `fd83:b84c:aa57:8::/64` | N/A | Guest |
+| 16 | `10.23.16.0/20` | `fd83:b84c:aa57:10::/64` | N/A | Corosync and Ceph |
+| N/A | `10.131.80.0/24` | GUA | `pubsub.wahlecloud.oraclevcn.com` | OCI VCN |
+| N/A | `100.64.0.0/10` | `fd7a:115c:a1e0::/48` | `ts.net` | Tailnet |
 
-- `10.23.0.0/20`: Entire (untagged) network (no VLAN; VLAN 1 
-  - `0000hhhh hhhhhhhh`
-  - `10.23.0.1`: `cr1000b.home.arpa`
-- VLAN 16: `10.23.16.0/20` `fd83:b84c:aa57:0010:::/64`: PVE corosync intercom & Ceph (VLAN 16)
-  - `0001hhhh hhhhhhhh`
-  - `10.23.16.3` `prodingus`
+No VLAN above 16 exists. Homelab ULA: `fd83:b84c:aa57::/48`.
 
-regulad-verizon-livingston.internal - 10.23.0.0/20 (router/DNS server; fixed IP 10.23.0.1) + IPv6 (dynamic block, globally routable)
+### VLAN IDs in addresses
 
-pubsub.wahlecloud.oraclevcn.com - 10.131.80.0/24 (router/DNS server; fixed IP 10.131.80.239) + IPv6 (fixed block, globally routable)
+IPv4: `10.23.0.0/20` OR'd with the VLAN ID in the third octet's upper 4 bits, so VLAN 8 is `1000`: `10.23.128.0/20`. VLAN 1 is native, `0000`; VLAN 16 takes `0001`, the slot VLAN 1 leaves free.
 
-tail11540.ts.net - 100.64.0.0/10 + fd7a:115c:a1e0::/48 
-
-### VLANs
-
-Do not use VLAN tags outside of 16-31. 
-IPv4: upper 4 bits of third octet encode VLAN tag So 0d10 -> 0b1010: 10.23.160.0/20 network. IPv6: verbatim in fourth stanza. 0d10 -> 0x000a fd83:b84c:aa57:000a::1/64
-
-Previously, interfaces had tagged subinterfaces. Now, the bridge has the tagged subinterface. This is much better: STP actually works now. Previosuly, VLAN 1 carried the traffic VLAN 16 now carries. However, VLAN 1 is hardcoded to be the self tag for vlan-aware bridges. Since we only use VLAN-unaware bridges, it had to be changed. 16 was chosen to be consistent with the IPv4 addresses, leaving VLANs 1-15 unused.
+IPv6: the VLAN ID in hex as the homelab ULA's fourth hextet, so VLAN 16 is `fd83:b84c:aa57:10::/64`.
 
 ### Misc.
 

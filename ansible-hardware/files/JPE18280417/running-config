@@ -23,7 +23,7 @@ service unsupported-transceiver EMC 677096c7
 !
 clock timezone America/New_York
 !
-vlan 2-7,9-4094
+vlan 2-7,9-16
 !
 vlan 8
    name guest
@@ -43,11 +43,11 @@ interface Ethernet4
 interface Ethernet5
    switchport mode trunk
 !
-! Unidentified: one device, b0:09:da:6c:5e:fe (10.23.1.231, no DHCP hostname).
+! Ring security system: b0:09:da:6c:5e:fe, a Ring Solutions address (IEEE OUI), 10.23.1.231. Access port on VLAN 1, admitting only its MAC address.
 interface Ethernet6
-   switchport mode trunk
+   switchport port-security
 !
-! Guest VLAN access port: linked, no MAC address learned on 2026-10-24.
+! Guest access point, on the guest VLAN.
 interface Ethernet7
    switchport access vlan 8
 !
@@ -64,9 +64,9 @@ interface Ethernet10
 interface Ethernet11
    switchport mode trunk
 !
-! HDHomeRun hdhr-101ca340 (DHCP lease for 00:18:dd:01:ca:34).
+! HDHomeRun hdhr-101ca340 (DHCP lease for 00:18:dd:01:ca:34). Access port on VLAN 1, admitting only its MAC address.
 interface Ethernet12
-   switchport mode trunk
+   switchport port-security
 !
 interface Ethernet13
    switchport mode trunk
@@ -84,9 +84,9 @@ interface Ethernet16
 interface Ethernet17
    switchport mode trunk
 !
-! npi5433a7 (DHCP lease for 00:68:eb:54:33:a7).
+! HP printer npi5433a7 (00:68:eb:54:33:a7). Access port on VLAN 1, admitting only its MAC address.
 interface Ethernet18
-   switchport mode trunk
+   switchport port-security
 !
 interface Ethernet19
    switchport mode trunk
@@ -125,13 +125,11 @@ interface Ethernet29
 interface Ethernet30
    switchport mode trunk
 !
-! Linked, no MAC address learned on 2026-10-24.
+! Android device running Octo4a for a 3D printer (10/100 only). Access port on VLAN 1; not bound to a MAC address, none having been learned yet.
 interface Ethernet31
-   switchport mode trunk
 !
-! Linked, no MAC address learned on 2026-10-24.
+! Android device running Octo4a for a 3D printer (10/100 only). Access port on VLAN 1; not bound to a MAC address, none having been learned yet.
 interface Ethernet32
-   switchport mode trunk
 !
 interface Ethernet33
    switchport mode trunk
@@ -182,22 +180,30 @@ interface Ethernet47
 interface Ethernet48
    switchport mode trunk
 !
-! 10 GbE (SR optic) with 18 MAC addresses behind it, among them Ring cameras; the device on it is unidentified.
+! Uplink to the Verizon router, through a 10GBASE-T SFP+ transceiver. Access port on VLAN 1.
 interface Ethernet49
 !
-! prodingus, its eth1 (10 GbE) (LLDP seen on prodingus).
+! prodingus, its eth1 (10 GbE), over an Arista SFP+ DAC (LLDP seen on prodingus).
 interface Ethernet50
    switchport mode trunk
 !
+! Unused SFP+ port, shut down to save power.
 interface Ethernet51
+   shutdown
    switchport mode trunk
 !
+! Unused SFP+ port, shut down to save power.
 interface Ethernet52
+   shutdown
    switchport mode trunk
 !
 interface Management1
    ip address dhcp
    dhcp client accept default-route
+!
+mac address-table static 0018.dd01.ca34 vlan 1 interface Ethernet12
+mac address-table static 0068.eb54.33a7 vlan 1 interface Ethernet18
+mac address-table static b009.da6c.5efe vlan 1 interface Ethernet6
 !
 event-handler backup-to-usb
    trigger on-startup-config

@@ -2018,3 +2018,42 @@ and its SOPS key are gone. A review found no secrets in them. The plan changed
 only the attribute's sensitive marking; the apply reported 1 changed, a fresh
 plan was a no-op, and the live notes match the file. Parker noted the notes'
 VLAN section is out of date: he chose VLAN 8 for guests independently of it.
+
+## Arista ports, VLANs and the datacenter notes' subnets (2026-10-24)
+
+Parker identified the Arista's remaining ports: Ethernet49 is the uplink to the
+Verizon router (a 10GBASE-T SFP+ transceiver), Ethernet50 prodingus's 10 GbE
+over an Arista SFP+ DAC, Ethernet7 the guest access point, Ethernet6 the Ring
+security system (its address is Ring Solutions', by IEEE OUI), Ethernet18 the
+HP printer (`npi5433a7`; its last DHCP lease, for `10.23.1.55`, expired on
+2026-10-13 and the address now belongs to pterodactyl), and Ethernet31 and 32
+Android devices running Octo4a for 3D printers (10/100). Those two stay silent:
+Ethernet32 has never received a frame, Ethernet31 none recently, and neither
+answered an nmap ARP scan of VLAN 1 from prodingus.
+
+With his approval, applied in-band from `files/JPE18280417/running-config`;
+each check's session diff matched the edit, each apply was followed by a
+`changed=0` check, and no session was left over:
+- Ethernet6, 12 (the HDHomeRun) and 18 are access ports on VLAN 1 with port
+  security and a static MAC address entry, each admitting only its device
+  (`Secure-up`).
+- Ethernet31 and 32 are access ports on VLAN 1, not yet bound to an address.
+- Ethernet51 and 52, unused SFP+ ports, are shut down to save power.
+- Ethernet49 was already an access port on VLAN 1; overture's Ethernet11 stays
+  a trunk, since overture hosts generated resources, as do the unknown 1 GbE
+  ports.
+- The VLANs went from `2-7,9-4094` (and 8) to VLANs 1-16 only. Parker first
+  asked for 1-15, then corrected that VLAN 16 exists: the corosync and Ceph
+  intercom (prodingus's `vmbr0.16`, arawi's INTERCOM). Before the change only
+  prodingus's own address was learned on VLAN 16 and above.
+
+Parker had the datacenter notes' network sections cut to subnets and VLAN IDs
+alone, leaving ports and access modes to the running configuration: a Subnets
+table (VLAN, IPv4, IPv6, DNS name, use) for VLAN 1 (native; `regulad.internal`,
+with `regulad-verizon-livingston.internal` deprecated), 8 (guest), 16, the OCI
+VCN and the tailnet (`ts.net`, since nodes may be shared from other tailnets),
+the homelab ULA named as such, and the rule for VLAN IDs in addresses: the ID
+in the third octet's upper four bits (VLAN 1, native, is `0000`; VLAN 16 takes
+`0001`) and in hex as the homelab ULA's fourth hextet. The rule replaces the
+notes' "16-31" range, which was out of date. Applied with one change; the live
+notes match the file, and a fresh plan was a no-op.
