@@ -39,6 +39,7 @@ Ansible, an identical configuration for the switch scripts). See
 - [x] `immich` (116)
 - [x] `git` (200): Forgejo, served by Caddy on ingress, with its Cloudflare tunnel for SSH; moved from the git VM (110)
 - [x] `ingress` (121)
+  - [ ] Inbound IPv6: on 2026-10-24 Matrix's federation tester passed over ingress's IPv4 address but timed out on its IPv6 one; Caddy listens on both. Cause not yet found
 - [x] `matrix` (202): Synapse 1.163 and its bridges as native units, the database on `/mnt/synapse`, served by Caddy on ingress; moved from the matrix VM (107)
 - [ ] `llamarpcmaster` (119): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [ ] `mastodon` (105): low priority; currently dormant (HA state `disabled`), so not in the inventory
