@@ -2007,3 +2007,14 @@ The SG300s were reached read-only only partly: their 1024-bit RSA host keys need
 `ssh-rsa` signature they require. A research pass found that SG300 firmware 1.4
 holds one SSH key per user (`user-key` replaces it), so an automation key needs
 its own local user, with its password hash in SOPS.
+
+## Datacenter notes in plaintext (2026-10-24)
+
+At Parker's request the datacenter's Markdown notes left SOPS: they are now
+`tofu/gonkputer/cluster-notes.md`, read by `file()`, byte for byte as Proxmox
+stores them (five lines end in spaces, so the file is exempt from the
+whitespace hooks, like the snippets), and the `cluster_description` variable
+and its SOPS key are gone. A review found no secrets in them. The plan changed
+only the attribute's sensitive marking; the apply reported 1 changed, a fresh
+plan was a no-op, and the live notes match the file. Parker noted the notes'
+VLAN section is out of date: he chose VLAN 8 for guests independently of it.

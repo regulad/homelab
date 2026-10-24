@@ -4,11 +4,13 @@ resource "proxmox_cluster_options" "cluster" {
   crs_ha                    = "dynamic"
   crs_ha_auto_rebalance     = true
   crs_ha_rebalance_on_start = true
-  description               = var.cluster_description
-  ha_shutdown_policy        = "migrate"
-  keyboard                  = "en-us"
-  mac_prefix                = "BC:24:11"
-  migration_type            = "secure"
+  # The datacenter's Markdown notes, byte for byte as Proxmox stores them, so
+  # cluster-notes.md is exempt from the whitespace hooks.
+  description        = file("${path.module}/cluster-notes.md")
+  ha_shutdown_policy = "migrate"
+  keyboard           = "en-us"
+  mac_prefix         = "BC:24:11"
+  migration_type     = "secure"
   next_id = {
     lower = 200 # New guests get IDs from 200, setting them apart from the adopted ones
     upper = 1000
