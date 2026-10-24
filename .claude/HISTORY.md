@@ -2057,3 +2057,55 @@ in the third octet's upper four bits (VLAN 1, native, is `0000`; VLAN 16 takes
 `0001`) and in hex as the homelab ULA's fourth hextet. The rule replaces the
 notes' "16-31" range, which was out of date. Applied with one change; the live
 notes match the file, and a fresh plan was a no-op.
+
+## The SG300s become Ansible hosts (2026-10-24)
+
+Each SG300 got a privilege-15 `svc-ansible` user with its own RSA 3072 key,
+unencrypted, the private key and a random password in the switch's
+`ansible-hardware` `secrets.sops.yml`, the public key in its `main.yml`; the
+switches hold one key per user (`user-key` replaces it). With Parker's leave,
+this session set them up over SSH as `regulad`, with his key file and a
+passphrase he provided for the purpose and shredded afterwards; both now have
+`svc-ansible`, `ip ssh pubkey-auth auto-login` and `passwords aging 0`, saved.
+
+Their firmware (1.4.11.5) and SSH server (OpenSSH 5.9) need care:
+- Their CPUs are slow: `show running-config` can take over 30 seconds, so the
+  command timeout is 120. Attempt one connection at a time; each switch holds
+  only a few SSH sessions, idle ones lasting ten minutes (`exec-timeout`), and
+  a run started while slots are taken times out. The playbook runs them
+  `serial: 1`.
+- They answer SSH only after a ping.
+- `terminal width` defaults to 77 characters; input reaching that column
+  stalls the line editor over SSH. `terminal width 0` (per session) avoids it;
+  community.ciscosmb's terminal plugin sends it.
+- A second Enter arriving while they print stalls their output.
+  community.ciscosmb's cliconf ends each command with a newline and
+  network_cli's carriage return, so `plugins/cliconf/ciscosmb.py` overrides it
+  to send network_cli's alone.
+- `username <name> privilege 15 <password>`, the CLI guide's form, is rejected;
+  `username <name> password <password> privilege 15` works. `write` asks
+  `(Y/N)[N] ?`, and any other key cancels.
+- They need `diffie-hellman-group1-sha1`, 1024-bit RSA host keys and SHA-1
+  `ssh-rsa` signatures. OpenSSL 3.5 refuses SHA-1 signatures at its default
+  security level, in ssh-agent too, so `bin/openssl-legacy.cnf` lowers it for
+  the commands `bin/with-switch-keys` runs. Fedora's crypto policy sets
+  `RequiredRSASize 2048`, which libssh reads after the user's configuration
+  and pylibssh cannot override; Parker added `RequiredRSASize 1024` to their
+  block in his SSH configuration. paramiko 5.0 has neither algorithm.
+
+Their stored password hashes are unsalted SHA-1 (the enable password bare
+MD5), as Cisco's notes for the newer Sx350 code line say of its predecessors,
+so they are secrets: `files/<switch>/running-config.j2` takes them from each
+switch's `ciscosmb_password_hashes` in SOPS. Parker set a new `regulad`
+password before they were captured.
+
+`community.ciscosmb` 1.0.12 is pinned. The switches are a `ciscosmb` group
+under `switches`, reached with network_cli over libssh as `svc-ansible`, whose
+keys `bin/with-switch-keys` loads from SOPS into a throwaway ssh-agent. The
+new `ciscosmb` role reads the running configuration and compares it with the
+template, showing the diff with hashes masked and comparing them separately;
+it does not push changes yet. Both switches matched with no diff. A check
+against a template missing one line reported it, and a real run on both
+reported no changes. Sessions left stalled at the line-width limit never idle
+out, and the firmware has no command to clear another session; with Parker's
+approval, reloading switch45f304 freed the slots they held.

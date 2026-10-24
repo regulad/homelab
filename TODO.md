@@ -13,8 +13,8 @@ Ansible, including the network switches). See
 
 ## Network switches (`ansible-hardware/`, the `switches` group)
 
-- [ ] Cisco SG300 `switch45f304`
-- [ ] Cisco SG300 `switch070e26`
+- [x] Cisco SG300 `switch45f304`: `ansible-hardware`'s `ciscosmb` role (compared, not pushed yet)
+- [x] Cisco SG300 `switch070e26`: `ansible-hardware`'s `ciscosmb` role (compared, not pushed yet)
 - [x] Arista 7010T `JPE18280417`: `ansible-hardware`'s `eos` role, its interfaces annotated from LLDP and DHCP leases
 
 ## OCI instances (`ansible-generated/`, from `tofu/oracle`)

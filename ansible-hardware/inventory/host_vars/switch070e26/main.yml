@@ -1,0 +1,6 @@
+---
+# svc-ansible, the account Ansible logs in as: its own key per switch, since
+# the SG300s hold one key per user and accept only SHA-1 ssh-rsa signatures.
+# The private key and the account's password are in secrets.sops.yml.
+# yamllint disable-line rule:line-length
+svc_ansible_public_key: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC9fAfBs3vg6QMkPeCN+jFJrvd54Cq2YRmBIR7TVgyCKtB45WALF6JwqD60kbQTg8qG2viPq8NwpyL0hflUuy+rbnEITPt5fdKy4YZakXczujIbfov2w09Qi7VZdufEbOts5KY47BZnWTLVubs/hxqUaeOCb1gXno4pK08KMj8E+uw1HUGGEpJOmn+hi/Sn1vuAOjX0bLSeuitd/E2Jr3avSoXbL+OQEM/2qIscxraCOAn0y5uIj6UUSPKmQuYW0XHntyrMxpqcWUJEqJoxzuQVOEW1GI1Z34A+86231eK6jxsNx6a0sO7TFSJNavUYsVcHhTz7Qud3heupvwTkEWNSQNYZQJapRFXLCNxyVIlGee+lyC8ZqiuLzfFAqJYqvpwvQu5GvBbObqEPwCOSM8WhZke14FGA+pDWM8QutP9Xf5B6nalNeRi9fd8C/aItF4we3ogGyr2RlO9oLZtGrvWx6RgNSxMSzE1cR/i2ETPCmj71d2HRWQuk4t6wFfO5nnE= svc-ansible@switch070e26

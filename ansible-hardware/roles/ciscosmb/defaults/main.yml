@@ -1,0 +1,5 @@
+---
+# The switch's whole configuration, as show running-config prints it, rendered
+# with its password hashes (ciscosmb_password_hashes, from secrets.sops.yml:
+# unsalted SHA-1 on this firmware, so secret).
+ciscosmb_running_config: "{{ inventory_dir }}/../files/{{ inventory_hostname }}/running-config.j2"

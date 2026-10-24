@@ -29,3 +29,7 @@ switches:
     eos:
       hosts:
         JPE18280417:  # Arista DCS-7010T-48, EOS 4.28
+    ciscosmb:
+      hosts:
+        switch45f304:  # Cisco SG300-10, firmware 1.4.11.5
+        switch070e26:  # Cisco SG300-10PP, firmware 1.4.11.5

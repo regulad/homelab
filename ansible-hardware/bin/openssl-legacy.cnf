@@ -1,0 +1,18 @@
+# OpenSSL settings for talking to the Cisco SG300s only, set by with-switch-keys
+# through OPENSSL_CONF for that one command. Their SSH server (OpenSSH 5.9)
+# needs diffie-hellman-group1-sha1 and SHA-1 ssh-rsa signatures, which OpenSSL
+# 3.5 refuses at its default security level.
+openssl_conf = legacy_init
+
+[legacy_init]
+ssl_conf = legacy_ssl
+alg_section = legacy_alg
+
+[legacy_ssl]
+system_default = legacy_system
+
+[legacy_system]
+CipherString = DEFAULT:@SECLEVEL=0
+
+[legacy_alg]
+rh-allow-sha1-signatures = yes

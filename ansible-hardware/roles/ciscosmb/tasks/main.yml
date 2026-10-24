@@ -1,0 +1,33 @@
+---
+# Compares the switch's running configuration with the declared one; it does
+# not push changes yet. The diff masks password hashes; they are compared
+# separately, out of the log.
+- name: Read the running configuration
+  ansible.netcommon.cli_command:
+    command: show running-config
+  register: ciscosmb_running
+  check_mode: false
+  changed_when: false
+
+- name: Running configuration matches the declared one
+  ansible.utils.fact_diff:
+    before: "{{ ciscosmb_running.stdout | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
+    after: "{{ lookup('ansible.builtin.template', ciscosmb_running_config) | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
+  vars:
+    ciscosmb_hash_re: '(password encrypted )\S+'
+  register: ciscosmb_diff
+
+- name: Password hashes match the declared ones
+  ansible.builtin.assert:
+    that: >-
+      ciscosmb_running.stdout | ciscosmb_normalize
+      == lookup('ansible.builtin.template', ciscosmb_running_config) | ciscosmb_normalize
+    fail_msg: The running configuration's password hashes differ from secrets.sops.yml.
+    quiet: true
+  when: not ciscosmb_diff.changed
+  no_log: true
+
+- name: Stop where the switch differs
+  ansible.builtin.fail:
+    msg: The running configuration differs from files/{{ inventory_hostname }}/running-config.j2; pushing changes is not implemented yet.
+  when: ciscosmb_diff.changed and not ansible_check_mode

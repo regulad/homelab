@@ -44,3 +44,13 @@
   gather_facts: false
   roles:
     - eos
+
+# Each Cisco SG300's whole running configuration, compared with
+# files/<switch>/running-config.j2. Run through bin/with-switch-keys, which
+# holds their keys; one switch at a time, as they are slow and few-sessioned.
+- name: Cisco SG300 switches
+  hosts: ciscosmb
+  gather_facts: false
+  serial: 1
+  roles:
+    - ciscosmb

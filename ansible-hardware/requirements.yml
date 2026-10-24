@@ -16,3 +16,7 @@ collections:
   # eos_config, for the Arista 7010T.
   - name: arista.eos
     version: 12.3.0
+  # The ciscosmb cliconf and terminal plugins and facts and command modules,
+  # for the Cisco SG300s.
+  - name: community.ciscosmb
+    version: 1.0.12

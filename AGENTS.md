@@ -55,10 +55,12 @@ homelab/
 │   └── roles/                   # roles both stages apply: base, tailscale, ca_trust, auto_updates, mail_relay
 ├── ansible-hardware/            # Phase 2, before OpenTofu; reads only the hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
-│   ├── files/                   # <switch>/running-config: each network switch's whole configuration
+│   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent
+│   ├── files/                   # <switch>/running-config(.j2): each network switch's whole configuration
 │   ├── inventory/               # hardware.yml (by hand; hardware hosts and the switches group), group_vars/, host_vars/<host>/main.yml
 │   ├── playbooks/               # site.yml
-│   ├── roles/                   # proxmox_cluster, eos
+│   ├── plugins/                 # cliconf, terminal and filter plugins for the SG300s
+│   ├── roles/                   # proxmox_cluster, eos, ciscosmb
 │   └── requirements.yml         # pinned collections
 └── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles

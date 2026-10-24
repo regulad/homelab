@@ -1,0 +1,104 @@
+config-file-header
+switch45f304
+v1.4.11.5 / R800_NIK_1_4_220_026
+CLI v1.0
+set system mode switch
+
+file SSD indicator encrypted
+@
+ssd-control-start
+ssd config
+ssd file passphrase control unrestricted
+no ssd file integrity control
+ssd-control-end cb0a3fdb1f3a1af4e4430033719968c0
+!
+port jumbo-frame
+vlan database
+vlan 2-16
+exit
+voice vlan oui-table add 0001e3 Siemens_AG_phone________
+voice vlan oui-table add 00036b Cisco_phone_____________
+voice vlan oui-table add 00096e Avaya___________________
+voice vlan oui-table add 000fe2 H3C_Aolynk______________
+voice vlan oui-table add 0060b9 Philips_and_NEC_AG_phone
+voice vlan oui-table add 00d01e Pingtel_phone___________
+voice vlan oui-table add 00e075 Polycom/Veritel_phone___
+voice vlan oui-table add 00e0bb 3Com_phone______________
+hostname switch45f304
+passwords aging 0
+username regulad password encrypted {{ ciscosmb_password_hashes['regulad'] }} privilege 15
+username svc-ansible password encrypted {{ ciscosmb_password_hashes['svc-ansible'] }} privilege 15
+ip ssh server
+ip ssh pubkey-auth auto-login
+crypto key pubkey-chain ssh
+user-key regulad rsa
+key-string row AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli
+key-string row 8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMc
+key-string row SNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhk
+key-string row duWYAwg8utchrqloVGd7NDd+BphSDJ8u
+key-string row /4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56Hgj
+key-string row N/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzG
+key-string row sPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlp
+key-string row QUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA
+key-string row 1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla
+key-string row 6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcX
+key-string row TPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQ
+key-string row SAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi
+key-string row 7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj
+key-string row 2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE=
+exit
+user-key svc-ansible rsa
+key-string row AAAAB3NzaC1yc2EAAAADAQABAAABgQCP04bwIuaG
+key-string row xRn/Vx51G3lXABYwuBiA++OWFAYLZJx+JIRvWvb5
+key-string row DSyv7trxnB9tsd3shvgUHpe015pAfZjX5MurOHwZ
+key-string row KBkD37TuU3xi405I6tsiZJGx1YEkLOlR
+key-string row dgtzbez/hXDimd9BNaJp8qbdYz+uCodW1a6DXBzm
+key-string row 1OG20D3lNK7KU7CxmiejpVN0WmS8xX27GEHhx7RB
+key-string row JXHC310bFUyYS8cXwYtF0KVl4O9oeJ/JcWjuasrx
+key-string row d9AEkTUIGPfcm+9MpiBtvAeNRX7RaA2k8q09UpPc
+key-string row ENCjvwnCEofEEOKlM51c48qklUolD5ogH7DAcPek
+key-string row +wb1R5cWgZzYAsYxJHMA3L8Mef8P9XTq8HOuY3Rb
+key-string row AYRUAi8W6VdCv9mjP8xGr9YOM0ybFE1Lxp8czQ9i
+key-string row dBRudAn+z6wW+9djuz6+V3B6ZWvIhSj2a24EQjfo
+key-string row mCWkRgPpLTcGJGK9OMIZQgkYhxT9ph2P9pkGpcht
+key-string row zowIfoP5w95dT/wUi77eyIRwxhH3QUc=
+exit
+exit
+clock timezone EST -5
+clock summer-time EDT recurring usa
+clock source sntp
+sntp unicast client enable
+sntp unicast client poll
+sntp server pool.ntp.org poll
+!
+interface gigabitethernet1
+ switchport trunk allowed vlan add 2-16
+!
+interface gigabitethernet2
+ switchport mode access
+!
+interface gigabitethernet3
+ switchport mode access
+!
+interface gigabitethernet4
+ switchport mode access
+!
+interface gigabitethernet5
+ switchport mode access
+!
+interface gigabitethernet6
+ switchport mode access
+!
+interface gigabitethernet7
+ switchport mode access
+!
+interface gigabitethernet8
+ switchport mode access
+!
+interface gigabitethernet9
+ switchport mode access
+!
+interface gigabitethernet10
+ switchport mode access
+!
+exit

@@ -1,0 +1,18 @@
+---
+# Cisco SG300s through their CLI over SSH, as svc-ansible, whose key
+# bin/with-switch-keys loads into a throwaway agent; auto-login skips the CLI's
+# own login. libssh, because it takes the legacy algorithms the switches' SSH
+# server (OpenSSH 5.9) needs. Their names resolve under regulad.internal, where
+# known_hosts pins their 1024-bit RSA host keys.
+ansible_connection: ansible.netcommon.network_cli
+# The local plugins/cliconf/ciscosmb.py, a fixed community.ciscosmb.ciscosmb.
+ansible_network_os: ciscosmb
+ansible_network_cli_ssh_type: libssh
+ansible_host: "{{ inventory_hostname }}.regulad.internal"
+ansible_user: svc-ansible
+ansible_libssh_key_exchange_algorithms: diffie-hellman-group1-sha1
+ansible_libssh_hostkeys: ssh-rsa
+ansible_libssh_publickey_algorithms: ssh-rsa
+# Showing the running configuration takes longer than the default 30 seconds
+# on switch45f304.
+ansible_command_timeout: 120

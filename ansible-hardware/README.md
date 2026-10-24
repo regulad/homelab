@@ -9,7 +9,9 @@ outputs. Generated hosts are configured from
 | Path | Contents |
 |---|---|
 | `inventory/hardware.yml` | Hardware hosts by tailnet MagicDNS name, under the `hardware` group; network switches by SSH host, under the `switches` group |
-| `files/<switch>/running-config` | A network switch's whole running configuration |
+| `files/<switch>/running-config`, `running-config.j2` | A network switch's whole running configuration; the SG300s' as templates taking their password hashes from SOPS |
+| `bin/with-switch-keys` | Runs a command with each SG300's `svc-ansible` key in a throwaway ssh-agent and OpenSSL's security level lowered (`openssl-legacy.cnf`) |
+| `plugins/` | The SG300s' cliconf (community.ciscosmb's, sending one end of line per command), terminal and filter plugins |
 | `inventory/group_vars/`, `inventory/host_vars/<host>/` | Variables |
 | `playbooks/site.yml` | The stage's only playbook |
 | `roles/` | Roles only this stage uses |
@@ -21,6 +23,7 @@ outputs. Generated hosts are configured from
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `hardware` |
 | `proxmox_cluster` | Proxmox and Ceph cluster settings that `bpg/proxmox` cannot manage | `proxmox_nodes` |
 | `eos` | An Arista switch's whole running configuration, replaced in one EOS configuration session | `eos` |
+| `ciscosmb` | A Cisco SG300's running configuration, compared with the declared one (not pushed yet) | `ciscosmb` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
 which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks
@@ -40,5 +43,7 @@ cd ansible-hardware
 ansible-inventory --graph
 ansible-playbook playbooks/site.yml --syntax-check
 ansible-lint --offline
+# The SG300s' plays need their keys; run them through the wrapper:
+bin/with-switch-keys ansible-playbook playbooks/site.yml --limit ciscosmb --check --diff
 ansible-playbook playbooks/site.yml --check --diff --limit <node>
 ```
