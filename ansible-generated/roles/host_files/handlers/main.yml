@@ -6,7 +6,8 @@
     state: restarted
     daemon_reload: true
   loop: >-
-    {{ (host_files_written.results | default([]) + host_files_templated.results | default([]) + host_files_linked.results | default([])) | selectattr('changed')
+    {{ (host_files_written.results | default([]) + host_files_templated.results | default([])
+        + host_files_linked.results | default([]) + host_files_downloaded.results | default([])) | selectattr('changed')
        | map(attribute='item') | map(attribute='restarts', default=[]) | flatten | unique | list }}
   register: host_files_units_restarted
   # A unit another role creates later in the run, such as a Quadlet, does not
@@ -21,7 +22,8 @@
     name: "{{ item }}"
     state: reloaded
   loop: >-
-    {{ (host_files_written.results | default([]) + host_files_templated.results | default([]) + host_files_linked.results | default([])) | selectattr('changed')
+    {{ (host_files_written.results | default([]) + host_files_templated.results | default([])
+        + host_files_linked.results | default([]) + host_files_downloaded.results | default([])) | selectattr('changed')
        | map(attribute='item') | map(attribute='reloads', default=[]) | flatten | unique | list }}
   register: host_files_units_reloaded
   failed_when:

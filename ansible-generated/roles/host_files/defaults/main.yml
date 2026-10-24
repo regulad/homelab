@@ -14,6 +14,10 @@ host_files_packages: []
 # Symbolic links, each with a path and its target, and optionally restarts
 # or reloads as for files.
 host_files_links: []
+# Release files fetched over HTTPS, each with a path, its url, its checksum
+# (sha256:<hex>), a mode, and optionally restarts or reloads as for files. A new
+# checksum fetches the file again.
+host_files_downloads: []
 # pipx applications, as pinned specifiers such as vpn-slice==0.16.1.
 host_files_pipx: []
 host_files_list: []

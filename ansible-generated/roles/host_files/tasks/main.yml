@@ -57,6 +57,20 @@
   notify: [Restart changed host units, Reload changed host units]
   register: host_files_linked
 
+- name: Host downloads
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.path }}"
+    checksum: "{{ item.checksum }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ host_files_downloads }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_downloaded
+  notify: [Restart changed host units, Reload changed host units]
+
 # After the files, which can include an apt source a package comes from.
 - name: Host packages
   ansible.builtin.apt:
