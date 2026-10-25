@@ -1,0 +1,20 @@
+---
+# Files in /etc/sysctl.d, each a name without .conf mapped to its settings.
+# 99-panic belongs to the kdump role, and files packages ship stay theirs.
+kernel_params_sysctl_files: {}
+
+# Per-task delay accounting (kernel.task_delayacct), written as 99-acct.conf:
+# I/O and scheduling delays per task for tools such as iotop and getdelays, for
+# a nearly trivial cost. On wherever the host runs its own kernel, so not in
+# the Proxmox containers, which share the node's.
+kernel_params_task_delayacct: "{{ 'proxmox_containers' not in group_names }}"
+
+# IPv4 and IPv6 forwarding, written as 99-tailscale.conf, the file Tailscale's
+# documentation names, on hosts that route for others.
+kernel_params_ip_forwarding: false
+
+# Files in /etc/default/grub.d (Debian and Ubuntu), each a name without .cfg
+# mapped to the kernel arguments it appends to GRUB_CMDLINE_LINUX_DEFAULT.
+# kdump-tools belongs to the kdump role. A change takes effect on the next boot;
+# the role never reboots.
+kernel_params_grub_dropins: {}

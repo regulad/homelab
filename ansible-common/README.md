@@ -12,6 +12,7 @@ lists `../ansible-common/roles` after its own `roles/`.
 | `ca_trust` | The homelab's roots of trust (arawi's two CAs, FreeIPA's and the Proxmox cluster's, from `files/trusted/`) trusted, and compromised roots distrusted, in the system trust store, by OS group |
 | `auto_updates` | The distribution's automatic updater (unattended-upgrades or dnf-automatic), by OS group |
 | `kdump` | Kernel crash dumps through kdump-tools: the crash kernel's memory reservation, kdump-tools' settings, and the sysctls that turn hangs and oopses into panics |
+| `kernel_params` | Sysctl drop-ins in `/etc/sysctl.d` and GRUB kernel-argument drop-ins in `/etc/default/grub.d`, as each host declares, plus per-task delay accounting on every host with its own kernel and IP forwarding for hosts that route |
 | `mail_relay` | Postfix relaying every message to regulad@regulad.xyz through mail.regulad.xyz, as the host's FreeIPA `null-` account, plus `/usr/bin/mail` |
 
 A role here runs against both hardware and generated hosts, so it must handle

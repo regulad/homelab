@@ -1,0 +1,9 @@
+---
+- name: Apply sysctl files
+  ansible.builtin.systemd_service:
+    name: systemd-sysctl.service
+    state: restarted
+
+- name: Update GRUB
+  ansible.builtin.command: update-grub
+  changed_when: true

@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Sysctl drop-ins and GRUB kernel command-line drop-ins
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

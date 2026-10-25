@@ -42,3 +42,21 @@ tailscale_serve:
 kdump_crashkernel: 1024M
 kdump_sysctls_host:
   kernel.hardlockup_panic: 1
+
+# Memory and CPU topology: 64 boot-time 1 GB hugepages back the VMs'
+# hugepages = "1024", and up to 2048 overcommitted 2 MB pages serve anonymous
+# hugepages in containers, such as PostgreSQL's. CPUs 8-15 and 24-31 are
+# isolated for the pinned VMs (OpenTofu's cpu.affinity: aboriginal 8-11,24-27,
+# dodo 12-15,28-31); IRQs stay on 0-7 and 16-23.
+kernel_params_sysctl_files:
+  90-hugepages:
+    vm.nr_overcommit_hugepages: 2048
+kernel_params_grub_dropins:
+  99-cpu-isolation:
+    - isolcpus=domain,managed_irq,8-15,24-31
+    - irqaffinity=0-7,16-23
+  99-mem-isolation:
+    - default_hugepagesz=2M
+    - hugepagesz=1G
+    - hugepages=64
+kernel_params_ip_forwarding: true

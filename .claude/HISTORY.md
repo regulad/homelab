@@ -584,3 +584,15 @@ findings that would help a future session. Append new entries at the end.
 - pfSense trusts its own CAs from each `<ca>`'s `<trust>enabled</trust>`, as `/usr/local/etc/ssl/certs/<subject hash>.crt`, so arawi's `ca_trust_trusted` lists only ipa-ca and pve-root-ca.
 - Several hosts already trusted some of the four by hand, some with CRLF copies or mode 0444. aboriginal's `ipa-ca.crt` was a directory holding `ipa-ca.crt`, which `update-ca-certificates` reads recursively; it was removed before the role wrote the file. aboriginal's `cohensstore003.internal.crt` stays unmanaged. turk was unreachable.
 - With OpenSSL 4, `openssl x509 -fingerprint` without a digest flag prints SHA-256. Settle any doubt about a fingerprint with `openssl x509 -outform DER | sha256sum`.
+
+## kernel_params: sysctl and GRUB drop-ins declared (2026-10-25)
+
+- A shared `kernel_params` role writes `/etc/sysctl.d/<name>.conf` and `/etc/default/grub.d/<name>.cfg` from host variables, plus `99-acct.conf` (`kernel.task_delayacct = 1`) on every host outside `proxmox_containers` and `99-tailscale.conf` (forwarding) where `kernel_params_ip_forwarding` is set: aboriginal, prodingus and tsexit, though only tsexit advertises anything to Tailscale.
+- prodingus's memory and CPU topology is intentional:
+  - 64 boot-time 1 GB hugepages back the VMs;
+  - `vm.nr_overcommit_hugepages = 2048` (2 MB) serves anonymous hugepages in containers, such as PostgreSQL's;
+  - `isolcpus` and `irqaffinity` keep 8-15 and 24-31 for the pinned VMs.
+- Debian 13's `systemd-sysctl` does not read `/etc/sysctl.conf`; prodingus's `ignore_routes_with_linkdown` lines there had never applied.
+- `99-ping.conf`'s `ping_group_range` duplicated systemd's `50-default.conf`.
+- A YAML flow list splits a kernel argument such as `isolcpus=domain,managed_irq,8-15,24-31` at its commas; write each argument as a block-list item.
+- aboriginal's `cgroup_enable=memory swapaccount=1` is also in GRUB's debconf answer `grub2/linux_cmdline_default` and in ucf's copy of `/etc/default/grub`, from which GRUB's postinst rebuilds the file.

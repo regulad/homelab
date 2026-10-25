@@ -1,0 +1,52 @@
+---
+# Converge sysctl and GRUB drop-ins the host declares. Runs on Linux hosts in an
+# OS group, hardware (Phase 2) and generated (Phase 4); with nothing declared it
+# changes nothing.
+- name: Gather the sysctl files
+  ansible.builtin.set_fact:
+    kernel_params_sysctl: >-
+      {{ kernel_params_sysctl_files
+         | combine({'99-acct': {'kernel.task_delayacct': 1}} if kernel_params_task_delayacct | bool else {})
+         | combine({'99-tailscale': {'net.ipv4.ip_forward': 1, 'net.ipv6.conf.all.forwarding': 1}}
+                   if kernel_params_ip_forwarding else {}) }}
+
+- name: Check no file belongs to another role
+  ansible.builtin.assert:
+    that:
+      - "'99-panic' not in kernel_params_sysctl_files"
+      - "'99-acct' not in kernel_params_sysctl_files"
+      - "'99-tailscale' not in kernel_params_sysctl_files"
+      - "'kdump-tools' not in kernel_params_grub_dropins"
+      - kernel_params_grub_dropins | length == 0 or 'rhel' not in group_names
+    fail_msg: >-
+      99-panic and kdump-tools are the kdump role's, 99-acct and 99-tailscale come
+      from this role's own settings, and Enterprise Linux has no grub.d.
+    quiet: true
+
+- name: Sysctl files
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/{{ item.key }}.conf
+    content: |
+      {% for name, value in item.value.items() %}
+      {{ name }} = {{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ kernel_params_sysctl | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Apply sysctl files
+
+- name: GRUB drop-ins
+  ansible.builtin.copy:
+    dest: /etc/default/grub.d/{{ item.key }}.cfg
+    content: |
+      GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT {{ item.value | join(' ') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ kernel_params_grub_dropins | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Update GRUB

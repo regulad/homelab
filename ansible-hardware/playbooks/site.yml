@@ -33,6 +33,14 @@
   roles:
     - auto_updates
 
+# Sysctl and GRUB drop-ins each host declares.
+- name: Kernel parameters
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - kernel_params
+
 # Kernel crash dumps through kdump-tools, on the hosts in the kdump group.
 - name: Kernel crash dumps
   hosts: kdump
