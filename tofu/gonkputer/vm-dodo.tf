@@ -89,7 +89,7 @@ resource "ansible_host" "dodo" {
   name = "${proxmox_virtual_environment_vm.dodo.name}.${local.guest_domain}"
   # The watchdog group, for the watchdog daemon, follows the VM's watchdog device.
   groups = sort(concat(
-    ["certbot", "gonkputer", "kdump", "proxmox_vms", "ubuntu"],
+    ["certbot", "gonkputer", "kdump", "proxmox_vms", "ubuntu", "wings"],
     [for device in proxmox_virtual_environment_vm.dodo.watchdog : "watchdog" if device.enabled],
   ))
 }
