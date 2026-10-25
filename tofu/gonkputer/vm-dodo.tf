@@ -92,4 +92,9 @@ resource "ansible_host" "dodo" {
     ["certbot", "docker_hosts", "gonkputer", "kdump", "podman_hosts", "proxmox_vms", "ubuntu", "wings"],
     [for device in proxmox_virtual_environment_vm.dodo.watchdog : "watchdog" if device.enabled],
   ))
+
+  # For its netplan configuration, which matches eth0 by MAC address.
+  variables = {
+    eth0_mac_address = lower(proxmox_virtual_environment_vm.dodo.network_device[0].mac_address)
+  }
 }

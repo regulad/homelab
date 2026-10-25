@@ -29,11 +29,13 @@ hostnames:
   - name
 strict: true
 # The plugin keeps an ansible_host's variables as one host variable, and state
-# stores that dynamic attribute as {type, value}, so lift the connection details
-# out of variables.value. VMs have none and keep their DNS name.
+# stores that dynamic attribute as {type, value}, so lift the connection details,
+# and the NIC addresses a guest's netplan matches, out of variables.value. VMs
+# have no connection details and keep their DNS name.
 compose:
   ansible_host: variables.value.ansible_host | default(name)
   proxmox_vmid: variables.value.proxmox_vmid | default(None)
+  eth0_mac_address: variables.value.eth0_mac_address | default(None)
 # Each entry of an ansible_host's groups becomes a group of the same name.
 keyed_groups:
   - key: groups

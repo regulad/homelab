@@ -194,5 +194,7 @@ resource "ansible_host" "aboriginal" {
   # connection only works by its tailnet name.
   variables = {
     ansible_host = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.tailnet_domain}"
+    # For its netplan configuration, which matches eth0 by MAC address.
+    eth0_mac_address = lower(proxmox_virtual_environment_vm.aboriginal.network_device[0].mac_address)
   }
 }
