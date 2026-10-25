@@ -75,3 +75,11 @@ netplan_networkd_dropins:
     # UseGateway. The default routes themselves are netplan's.
     [IPv6AcceptRA]
     UseGateway=no
+
+# Swap: zram at half the RAM, then a swapfile on the root's btrfs, on the SATA
+# SSD passed through to this VM.
+swap_files:
+  - path: /swap/swapfile
+    size_mib: 16384
+    priority: 10
+    discard: true

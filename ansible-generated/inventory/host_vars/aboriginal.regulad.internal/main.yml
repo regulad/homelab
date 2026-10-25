@@ -97,3 +97,11 @@ netplan_networkd_dropins:
     # This drop-in exists because netplan has no multicast DNS setting.
     [Network]
     MulticastDNS=yes
+
+# Swap: zram at half the RAM, then a swapfile on the root's btrfs, on the SATA
+# SSD passed through to this VM.
+swap_files:
+  - path: /swap/swapfile
+    size_mib: 16384
+    priority: 10
+    discard: true

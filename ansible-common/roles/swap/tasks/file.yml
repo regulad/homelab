@@ -1,0 +1,42 @@
+---
+# One disk swapfile, from main.yml: created where missing, listed in fstab, and
+# swapped on. An existing file keeps its size.
+- name: Find {{ swap_file.path }}
+  ansible.builtin.stat:
+    path: "{{ swap_file.path }}"
+  register: swap_file_stat
+
+# btrfs needs a file without copy-on-write, which mkswapfile makes.
+- name: Create {{ swap_file.path }}
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      umask 077
+      if [ "$(stat -f -c %T "$(dirname '{{ swap_file.path }}')")" = btrfs ]; then
+        btrfs filesystem mkswapfile --size {{ swap_file.size_mib }}m '{{ swap_file.path }}'
+      else
+        fallocate -l {{ swap_file.size_mib }}MiB '{{ swap_file.path }}'
+        mkswap '{{ swap_file.path }}'
+      fi
+  when: not swap_file_stat.stat.exists
+  changed_when: true
+
+- name: The fstab line for {{ swap_file.path }}
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^{{ swap_file.path | regex_escape }}\s'
+    line: "{{ swap_file.path }} none swap defaults,pri={{ swap_file.priority }}{{ ',discard' if swap_file.discard | default(false) else '' }} 0 0"
+  notify: Reload systemd
+
+- name: Read the active swap
+  ansible.builtin.command:
+    argv: [swapon, --show=NAME, --noheadings]
+  register: swap_active
+  changed_when: false
+  check_mode: false
+
+- name: Swap on {{ swap_file.path }}
+  ansible.builtin.command:
+    argv: [swapon, "{{ swap_file.path }}"]
+  when: swap_file.path not in swap_active.stdout_lines
+  changed_when: true

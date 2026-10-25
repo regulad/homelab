@@ -40,3 +40,16 @@
       ansible.builtin.include_role:
         name: base
         tasks_from: hostname
+
+# Set zram up again to its configuration where what it holds fits back into
+# RAM; elsewhere, and on the hardware hosts, it changes at the next boot.
+- name: Zram to its configuration
+  hosts: debian:ubuntu:!proxmox_containers
+  gather_facts: false
+  become: true
+  tags: [zram]
+  tasks:
+    - name: Set zram up again
+      ansible.builtin.include_role:
+        name: swap
+        tasks_from: resize

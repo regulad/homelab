@@ -43,11 +43,13 @@ kdump_crashkernel: 1024M
 kdump_sysctls_host:
   kernel.hardlockup_panic: 1
 
-# Memory and CPU topology: 64 boot-time 1 GB hugepages back the VMs'
-# hugepages = "1024", and up to 2048 overcommitted 2 MB pages serve anonymous
-# hugepages in containers, such as PostgreSQL's. CPUs 8-15 and 24-31 are
-# isolated for the pinned VMs (OpenTofu's cpu.affinity: aboriginal 8-11,24-27,
-# dodo 12-15,28-31); IRQs stay on 0-7 and 16-23.
+# Memory and CPU topology: boot-time 1 GiB hugepages back the VMs' memory
+# (OpenTofu's hugepages = "1024": aboriginal's and dodo's 32 GiB each), and up
+# to 2048 overcommitted 2 MiB pages serve anonymous hugepages in containers,
+# such as PostgreSQL's. CPUs 8-15 and 24-31 are isolated for the pinned VMs
+# (OpenTofu's cpu.affinity: aboriginal 8-11,24-27, dodo 12-15,28-31); IRQs stay
+# on 0-7 and 16-23.
+vm_hugepages_1gib: 64
 kernel_params_sysctl_files:
   90-hugepages:
     vm.nr_overcommit_hugepages: 2048
@@ -58,8 +60,17 @@ kernel_params_grub_dropins:
   99-mem-isolation:
     - default_hugepagesz=2M
     - hugepagesz=1G
-    - hugepages=64
+    - hugepages={{ vm_hugepages_1gib }}
 kernel_params_ip_forwarding: true
 
 # Postfix's name as it was; a Proxmox node's naming is Debian's and Proxmox's.
 mail_relay_myhostname: prodingus.home.arpa
+
+# zram is half of the RAM left after the VMs' hugepages, which MemTotal still
+# counts, above the NVMe root's swapfile.
+swap_zram_size: (ram - {{ vm_hugepages_1gib * 1024 }}) / 2
+swap_zram_priority: 1000
+swap_files:
+  - path: /swapfile
+    size_mib: 8192
+    priority: 100

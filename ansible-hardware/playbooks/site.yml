@@ -49,6 +49,14 @@
   roles:
     - kernel_params
 
+# zram, and disk swapfiles on real drives, on hosts with their own kernel.
+- name: Swap
+  hosts: debian:ubuntu:!proxmox_containers
+  gather_facts: false
+  become: true
+  roles:
+    - swap
+
 # Netplan as the only network configuration, where a host declares it.
 - name: Network configuration
   hosts: ubuntu

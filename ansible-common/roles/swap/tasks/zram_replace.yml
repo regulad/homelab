@@ -1,0 +1,145 @@
+---
+# Set /dev/zram0 up again from the configuration, the new swap first so the
+# host always has somewhere to page out to: the configuration comes up on a
+# transitional zram1, zram0's old swap goes off (what it holds moves back into
+# RAM) with the replaced tools purged (swap_zram_purge), zram0 is set up from
+# the configuration, and zram1 goes. Needs zram_state.yml first. A replacement
+# interrupted midway, its transitional configuration still in /run, resumes.
+- name: Check turning zram0 off leaves room
+  ansible.builtin.assert:
+    that: swap_zram_room | bool
+    fail_msg: >-
+      zram0 holds {{ swap_zram_state.held }} MiB in {{ swap_zram_state.compressed }} MiB with
+      {{ swap_zram_state.available }} MiB available, short of an eighth of the memory outside
+      hugepages to spare; the new configuration waits for the next boot.
+    quiet: true
+
+- name: Check zram1 is free, or this transition's own
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -c
+      - >-
+        swapon --show=NAME --noheadings | grep -qx /dev/zram1
+        && [ ! -e /run/systemd/zram-generator.conf.d/90-homelab-transition.conf ] && exit 1; exit 0
+  changed_when: false
+
+- name: Transitional configuration directory
+  ansible.builtin.file:
+    path: /run/systemd/zram-generator.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Transitional zram1, configured as zram0 will be
+  ansible.builtin.copy:
+    dest: /run/systemd/zram-generator.conf.d/90-homelab-transition.conf
+    content: |
+      # Written by Ansible (swap) while zram0 is replaced; removed after.
+      [zram1]
+      zram-size = {{ swap_zram_size }}
+      compression-algorithm = {{ swap_zram_algorithm }}
+      swap-priority = {{ swap_zram_priority }}
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Generate zram1's units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Start the new swap on zram1
+  ansible.builtin.systemd_service:
+    name: dev-zram1.swap
+    state: started
+
+# The old tool's stop turns its swap off. For the generator's own zram0, its
+# setup service is stopped rather than the swap unit: the swap, requiring it,
+# stops first and the service's stop then resets the device, in one job. A
+# stop of the swap unit alone can be overtaken where the device has alias
+# swap units (by label, UUID and diskseq), and the swap comes straight back.
+- name: Turn zram0's old swap off
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+  loop: "{{ swap_zram_state.tools + ['systemd-zram-setup@zram0.service'] }}"
+
+- name: Check zram0's swap is off
+  ansible.builtin.command:
+    argv: [awk, '$1 == "/dev/zram0" {on = 1} END {exit on}', /proc/swaps]
+  register: swap_zram0_off
+  until: swap_zram0_off.rc == 0
+  retries: 5
+  delay: 2
+  changed_when: false
+
+- name: Purge the replaced zram tools
+  ansible.builtin.apt:
+    name: "{{ swap_zram_purge }}"
+    state: absent
+    purge: true
+  when: swap_zram_purge | default([]) | length > 0
+
+# zram-tools resets its device only by unloading the zram module, which
+# zram1 keeps in use, so zram0 can be left set up though off.
+- name: Reset zram0 if its old tool left it set up
+  ansible.builtin.shell:
+    cmd: |
+      if [ "$(cat /sys/block/zram0/initstate)" = 1 ] \
+        && ! awk '$1 == "/dev/zram0" {on = 1} END {exit !on}' /proc/swaps; then
+        echo 1 > /sys/block/zram0/reset; echo reset
+      fi
+  register: swap_zram0_reset
+  changed_when: "'reset' in swap_zram0_reset.stdout"
+
+- name: Reload systemd for the generator's zram0 units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Set zram0 up from its configuration
+  ansible.builtin.systemd_service:
+    name: dev-zram0.swap
+    state: started
+
+- name: Turn the transitional zram1 off
+  ansible.builtin.systemd_service:
+    name: dev-zram1.swap
+    state: stopped
+
+- name: Remove the transitional configuration
+  ansible.builtin.file:
+    path: /run/systemd/zram-generator.conf.d/90-homelab-transition.conf
+    state: absent
+
+- name: Drop zram1's units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Remove the zram1 device
+  ansible.builtin.shell:
+    cmd: |
+      if [ -e /sys/block/zram1 ]; then echo 1 > /sys/class/zram-control/hot_remove; echo removed; fi
+  register: swap_zram1_removed
+  changed_when: "'removed' in swap_zram1_removed.stdout"
+
+- name: Read zram again
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -c
+      - >-
+        echo $(( $(cat /sys/block/zram0/disksize) / 1048576 ))
+        $(sed -n "s/.*\[\(.*\)\].*/\1/p" /sys/block/zram0/comp_algorithm)
+        $(swapon --show=NAME --noheadings | grep -c "^/dev/zram")
+  register: swap_zram_after
+  changed_when: false
+
+- name: Check zram matches its configuration
+  ansible.builtin.assert:
+    that:
+      - ((swap_zram_after.stdout.split()[0] | int) - swap_zram_state.size) | abs <= 1
+      - swap_zram_after.stdout.split()[1] == swap_zram_algorithm
+      - swap_zram_after.stdout.split()[2] == '1'
+    fail_msg: "zram0 came up as {{ swap_zram_after.stdout }} (size, algorithm, zram swaps), not {{ swap_zram_state.size }} MiB {{ swap_zram_algorithm }}."
+    quiet: true

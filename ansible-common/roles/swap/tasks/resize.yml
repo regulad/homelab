@@ -1,0 +1,14 @@
+---
+# Set /dev/zram0 up again to its configuration, from playbooks/maintenance.yml,
+# where what it holds fits back into RAM (zram_replace.yml); without the room,
+# the change waits for the next boot.
+- name: Skip hosts whose swap is left alone
+  ansible.builtin.meta: end_host
+  when: not swap_enabled
+
+- name: Read zram's state
+  ansible.builtin.include_tasks: zram_state.yml
+
+- name: Set zram up again
+  ansible.builtin.include_tasks: zram_replace.yml
+  when: swap_zram_stale | bool and not ansible_check_mode

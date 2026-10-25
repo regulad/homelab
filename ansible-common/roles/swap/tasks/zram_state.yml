@@ -1,0 +1,62 @@
+---
+# Read /dev/zram0, the zram tools still running it, memory, and the size the
+# configuration gives, into swap_zram_state; decide whether zram needs setting
+# up again (swap_zram_stale) and whether there is room to (swap_zram_room).
+- name: Read memory, zram and the configured size
+  ansible.builtin.command:
+    argv:
+      - bash
+      - -c
+      - |
+        set -e
+        mem() { awk -v k="$1:" '$1 == k {print int($2 / 1024)}' /proc/meminfo; }
+        # zram-generator's expression, evaluated for ram as it would be.
+        size=$(python3 -I -c '
+        import sys
+        names = {"ram": int(sys.argv[2]), "min": min, "max": max}
+        print(int(eval(sys.argv[1], {"__builtins__": {}}, names)))' "$1" "$(mem MemTotal)")
+        cur_size=0; cur_algo=; held=0; compressed=0
+        if [ -e /sys/block/zram0/disksize ]; then
+          cur_size=$(( $(cat /sys/block/zram0/disksize) / 1048576 ))
+          cur_algo=$(sed -n 's/.*\[\(.*\)\].*/\1/p' /sys/block/zram0/comp_algorithm)
+          held=$(( $(awk '{print $1}' /sys/block/zram0/mm_stat) / 1048576 ))
+          compressed=$(( $(awk '{print $3}' /sys/block/zram0/mm_stat) / 1048576 ))
+        fi
+        hugetlb=$(awk '$1 == "Hugetlb:" {print int($2 / 1024)}' /proc/meminfo); hugetlb=${hugetlb:-0}
+        tools=$(for s in zramswap.service zram-config.service; do [ "$(systemctl is-active "$s" 2>/dev/null)" = active ] && printf '"%s",' "$s"; done; true)
+        fmt='{"total": %s, "hugetlb": %s, "available": %s, "held": %s, "compressed": %s,'
+        fmt="$fmt"' "size": %s, "current_size": %s, "current_algorithm": "%s", "tools": [%s]}\n'
+        printf "$fmt" \
+          "$(mem MemTotal)" "$hugetlb" "$(mem MemAvailable)" "$held" "$compressed" "$size" "$cur_size" "$cur_algo" "${tools%,}"
+      - bash
+      - "{{ swap_zram_size }}"
+  register: swap_zram_read
+  changed_when: false
+  check_mode: false
+
+- name: Decide whether zram needs setting up again
+  ansible.builtin.set_fact:
+    swap_zram_state: "{{ swap_zram_read.stdout | from_json }}"
+    swap_zram_stale: >-
+      {{ ((swap_zram_read.stdout | from_json).current_size - (swap_zram_read.stdout | from_json).size) | abs > 1
+         or (swap_zram_read.stdout | from_json).current_algorithm != swap_zram_algorithm
+         or (swap_zram_read.stdout | from_json).tools | length > 0 }}
+    # Turning zram0 off decompresses what it holds back into RAM, growing use
+    # by what it holds less its compressed size; the new swap, up first, takes
+    # what the kernel then pages out. That growth must leave an eighth of the
+    # memory outside hugepages available, for a host with vm.panic_on_oom set.
+    swap_zram_room: >-
+      {{ (swap_zram_read.stdout | from_json).available
+         - ((swap_zram_read.stdout | from_json).held - (swap_zram_read.stdout | from_json).compressed)
+         >= ((swap_zram_read.stdout | from_json).total - (swap_zram_read.stdout | from_json).hugetlb) // 8 }}
+
+- name: Show zram's state
+  ansible.builtin.debug:
+    msg: >-
+      zram0 {{ swap_zram_state.current_size }} MiB {{ swap_zram_state.current_algorithm }}
+      holding {{ swap_zram_state.held }} MiB in {{ swap_zram_state.compressed }} MiB
+      {{- ' from ' ~ swap_zram_state.tools | join(', ') if swap_zram_state.tools else '' }};
+      configured {{ swap_zram_state.size }} MiB {{ swap_zram_algorithm }};
+      MemAvailable {{ swap_zram_state.available }} of {{ swap_zram_state.total }} MiB,
+      {{ swap_zram_state.hugetlb }} MiB of it hugepages
+  changed_when: swap_zram_stale | bool

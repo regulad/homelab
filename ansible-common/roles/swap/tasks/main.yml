@@ -1,0 +1,102 @@
+---
+# Converge zram and disk swap on Debian and Ubuntu hosts with their own kernel,
+# hardware (Phase 2) and generated (Phase 4). A swap device in use goes off only
+# after its replacement is up, and only where there is room.
+- name: Swap
+  when: swap_enabled
+  block:
+    - name: Install systemd-zram-generator
+      ansible.builtin.apt:
+        name: systemd-zram-generator
+        state: present
+
+    # The candidate is generated in a scratch root first (zram-generator's
+    # test mode, against this host's MemTotal): a bad expression, or a size of
+    # zero or less, fails here instead of at the next boot.
+    - name: Zram configuration
+      ansible.builtin.copy:
+        dest: /etc/systemd/zram-generator.conf
+        content: |
+          # Managed by Ansible (swap).
+          [zram0]
+          zram-size = {{ swap_zram_size }}
+          compression-algorithm = {{ swap_zram_algorithm }}
+          swap-priority = {{ swap_zram_priority }}
+        owner: root
+        group: root
+        mode: "0644"
+        validate: >-
+          sh -c 'd=$(mktemp -d) && trap "rm -rf $d" EXIT
+          && mkdir -p $d/etc/systemd $d/proc $d/out && cp /proc/meminfo $d/proc/meminfo
+          && cp "$1" $d/etc/systemd/zram-generator.conf
+          && ZRAM_GENERATOR_ROOT=$d {{ swap_zram_generator }} $d/out >/dev/null 2>&1
+          && test -e $d/out/dev-zram0.swap' validate %s
+      notify: Reload systemd
+
+    - name: Read the installed packages
+      ansible.builtin.package_facts:
+
+    - name: Gather the replaced zram tools still installed
+      ansible.builtin.set_fact:
+        swap_zram_purge: "{{ swap_replaced_zram_tools | selectattr('package', 'in', ansible_facts.packages) | map(attribute='package') | list }}"
+
+    - name: Find an interrupted replacement
+      ansible.builtin.stat:
+        path: /run/systemd/zram-generator.conf.d/90-homelab-transition.conf
+      register: swap_zram_transition
+
+    - name: Read zram's state
+      ansible.builtin.include_tasks: zram_state.yml
+      when: swap_zram_purge | length > 0 or swap_zram_transition.stat.exists
+
+    # A tool that still runs zram0 is replaced in place, the new swap first,
+    # where there is room (zram_replace.yml). Otherwise it is only purged.
+    - name: Replace the zram tools in place
+      ansible.builtin.include_tasks: zram_replace.yml
+      when:
+        - swap_zram_purge | length > 0 or swap_zram_transition.stat.exists
+        - swap_zram_state.tools | length > 0 or swap_zram_transition.stat.exists
+        - swap_zram_room | bool
+        - not ansible_check_mode
+
+    - name: Report a replacement that has no room
+      ansible.builtin.debug:
+        msg: >-
+          {{ swap_zram_state.tools | join(', ') }} still runs zram0, which holds
+          {{ swap_zram_state.held }} MiB in {{ swap_zram_state.compressed }} MiB with
+          {{ swap_zram_state.available }} MiB available: too little room to turn it off
+          here. It changes at the next boot.
+      when:
+        - swap_zram_purge | length > 0 or swap_zram_transition.stat.exists
+        - swap_zram_state.tools | length > 0 or swap_zram_transition.stat.exists
+        - not swap_zram_room | bool
+      changed_when: true
+
+    - name: Replace the zram tools (check mode)
+      ansible.builtin.debug:
+        msg: >-
+          The generator's zram would start on zram1, then {{ swap_zram_state.tools | join(', ') }}
+          stop and {{ swap_zram_purge | join(', ') }} be purged, then zram0 replace zram1.
+      when:
+        - swap_zram_purge | length > 0 or swap_zram_transition.stat.exists
+        - swap_zram_state.tools | length > 0 or swap_zram_transition.stat.exists
+        - swap_zram_room | bool
+        - ansible_check_mode
+      changed_when: true
+
+    - name: Purge the replaced zram tools no longer running
+      ansible.builtin.apt:
+        name: "{{ swap_zram_purge }}"
+        state: absent
+        purge: true
+      when:
+        - swap_zram_purge | length > 0
+        - swap_zram_state.tools | length == 0
+        - not swap_zram_transition.stat.exists
+
+    - name: Disk swapfiles
+      ansible.builtin.include_tasks: file.yml
+      loop: "{{ swap_files }}"
+      loop_control:
+        loop_var: swap_file
+        label: "{{ swap_file.path }}"

@@ -1,7 +1,8 @@
 ---
 # A special case: a self-contained VM image from Kasm, which carries its own
 # installation and configuration. Ansible applies the shared baseline only and
-# leaves the rest, its hostname and /etc/hosts included, to the image.
+# leaves the rest, its hostname, /etc/hosts and swap included, to the image.
+swap_enabled: false
 
 # vkasm's login user. The operator's SSH configuration sets it only for the
 # short name, and Ansible connects by the DNS name.

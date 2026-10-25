@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: zram swap through systemd-zram-generator, and disk swapfiles on hosts with real drives
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

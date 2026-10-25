@@ -1,0 +1,27 @@
+---
+# Swap on Debian and Ubuntu hosts with their own kernel. zram, through
+# systemd-zram-generator, is every such host's swap, at half its RAM. Disk swap
+# exists only on storage backed by a real drive, never on Ceph RBD (AGENTS.md).
+# false leaves the host's swap alone.
+swap_enabled: true
+
+# zram-generator's zram-size: an expression of ram, MemTotal in MiB, giving the
+# device's size in MiB. A change takes effect when the device is set up again:
+# at boot, or through playbooks/maintenance.yml --tags zram.
+swap_zram_size: ram / 2
+swap_zram_algorithm: zstd
+# Above any disk swapfile's priority, so zram fills first.
+swap_zram_priority: 100
+
+# Disk swapfiles, each a path, size_mib, priority and optional discard. The role
+# creates a missing one and owns its fstab line, but never resizes one in use.
+swap_files: []
+
+# zram tools replaced by systemd-zram-generator, each by package and service.
+# One still running zram0 is replaced in place, the new swap first, where there
+# is room to turn the old device off; otherwise at the next boot.
+swap_replaced_zram_tools:
+  - {package: zram-config, service: zram-config.service}
+  - {package: zram-tools, service: zramswap.service}
+
+swap_zram_generator: /usr/lib/systemd/system-generators/zram-generator

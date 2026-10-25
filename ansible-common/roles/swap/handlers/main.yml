@@ -1,0 +1,5 @@
+---
+# Regenerates the zram and fstab swap units; a swap in use keeps running.
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
