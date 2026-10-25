@@ -34,6 +34,14 @@
   roles:
     - auto_updates
 
+# Kernel crash dumps through kdump-tools, on the hosts in the kdump group.
+- name: Kernel crash dumps
+  hosts: kdump
+  gather_facts: false
+  become: true
+  roles:
+    - kdump
+
 # arawi runs pfSense, whose config.xml the pfsense role converges through
 # pfsensible.core; the baseline roles do not apply to it. Its group is its own,
 # because another pfSense host would not share its configuration.

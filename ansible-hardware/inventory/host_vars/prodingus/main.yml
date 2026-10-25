@@ -36,3 +36,9 @@ tailscale_after: [pveproxy.service]
 tailscale_serve:
   - port: 8006
     target: https+insecure://localhost:8006
+
+# A fixed reservation rather than Ubuntu's sized one, and a panic on hard
+# lockups, which the hardware's NMI watchdog detects.
+kdump_crashkernel: 1024M
+kdump_sysctls_host:
+  kernel.hardlockup_panic: 1

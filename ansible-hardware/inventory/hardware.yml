@@ -20,6 +20,10 @@ hardware:
     macos:
       hosts:
         overture:
+    # Kernel crash dumps through kdump-tools.
+    kdump:
+      hosts:
+        prodingus:
 
 # Network switches: configured over SSH by Ansible's network modules, which run
 # on the control node, through each platform's CLI. Kept outside the hardware

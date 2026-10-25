@@ -33,6 +33,14 @@
   roles:
     - auto_updates
 
+# Kernel crash dumps through kdump-tools, on the hosts in the kdump group.
+- name: Kernel crash dumps
+  hosts: kdump
+  gather_facts: false
+  become: true
+  roles:
+    - kdump
+
 - name: Proxmox and Ceph cluster settings owned by Ansible
   hosts: proxmox_nodes
   roles:

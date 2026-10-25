@@ -19,3 +19,7 @@ auto_updates_unattended_upgrade:
   Remove-Unused-Dependencies: "true"
   Automatic-Reboot: "false"
   Sender: "{{ auto_updates_mail_from }}"
+
+# Out of memory kills a process rather than panicking.
+kdump_sysctls_host:
+  vm.panic_on_oom: 0
