@@ -639,3 +639,13 @@ findings that would help a future session. Append new entries at the end.
 - `systemd-zram-generator`'s maintainer scripts only run `daemon-reload`, and its swap unit merely `Requires` the setup service, so installing it beside an active `zramswap` changes nothing live. Its preinst `rm_conffile`s `/etc/systemd/zram-generator.conf` when upgrading from before 1.1.2-5, as dodo's 1.1.2-3 would.
 - The OCI Oracle Linux swapfiles came from cloud-init's `cc_mounts`, via Oracle's `oci-linux-config` (`99_oci.cfg`: `swap: {filename: /.swapfile, size: auto}`), sized from RAM. mail, bailout and tailscalerouter were later rebuilt at 6 GiB by hand, and their fstab lines lack cloud-init's `comment=cloudconfig`; they stay as they are.
 - doppelgangerhq.com's Android container runs Android's own `init`, which writes host sysctls such as `kernel.pid_max` (65535 live, against 4194304 in `99-android.conf`).
+
+## restic: repository access managed; doppelgangerhq.com and pelican out of the repository (2026-10-25)
+
+- prodingus, aboriginal, dodo and (unreachable) turk back up to one Backblaze B2 repository (`s3:s3.<region>.backblazeb2.com/<bucket>`), and every host used the same B2 key and the same password.
+- The `restic` role writes `/etc/restic-env` and `/etc/restic-password` at mode 0400. The env file is in systemd `EnvironmentFile=` form without `export`, so shell scripts must read it with `set -a`; dodo's `backup.sh` still uses a plain `source`, pending its rewrite. Bucket, region and password are shared in `ansible-common/group_vars/all.sops.yml`; each host's key is in its own `secrets.sops.yml`, so keys can be split per host.
+- prodingus had both files at mode 644.
+- aboriginal's `mnt-restic.service` FUSE-mounts the repository and binds the latest `nas` snapshot at `/mnt/nas`, the lower layer of `/mnt/nextcloud` and `/mnt/media`; it needs `HOME=/root` in the env file for restic's cache.
+- `RESTIC_HOST` arrived in restic 0.17.0, `forget` honours it from 0.18.1, and `--host=` overrides it from 0.19.0. The scripts set it without exporting it; exported, it would have narrowed aboriginal's global `forget.sh` to aboriginal alone.
+- Move secrets between a host and SOPS without printing them: a remote script prints JSON, piped into a local script that calls `sops set`; verify afterwards by comparing hashes.
+- doppelgangerhq.com's backups moved to OCI's backup policy, so restic, its script, cron line and cache came off it. Its 8 snapshots and dodo's 2 from before the rename (host `pelican`, never pruned, since dodo's forget matches `--host dodo`) were forgotten by ID and pruned from aboriginal under `forget.sh`'s flock, removing 17.5 GiB of 5.78 TiB.
