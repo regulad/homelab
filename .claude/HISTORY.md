@@ -509,3 +509,28 @@ findings that would help a future session. Append new entries at the end.
 - `sony-player` never answers ping.
 - Automating these switches is markedly non-deterministic. The same command in the same state may succeed or stall, sessions stall at random (often on the read after a burst of commands), and a push's result must be read back rather than inferred from the task. Reruns get through.
 - Parker listed the AirPort Extreme and a CR1000B as access points to declarativize.
+
+## dodo: probed; the compromised www-data removed (2026-10-24)
+
+- dodo (formerly pelican) ran a Pelican panel under nginx and PHP as www-data, which was compromised; Parker moved nginx to `pterodactyl` and removed the web stack on 2026-08-04, but www-data's persistence survived it (cron jobs in auth.log from at least 2026-09-20).
+- The persistence was a www-data crontab running an obfuscated Perl loader in `/var/tmp` every 5 and 6 minutes. It fetched tasks from its C2 hosts, ran Perl processes named `init` (listening on 52400 and 30175) and memfd ELF processes named `/usr/bin/php`, and sent spam straight to public mail servers on port 25.
+- Removed: the crontab, the processes, the loader, the packages' leftover configuration (apache2, libapache2-mod-php8.3, nginx-common), `/var/lib/nginx`, `/var/log/nginx`, `/etc/php`, `/var/www`, and the www-data user and group. Nothing respawned after a cron cycle. Nothing showed root was reached; root-only secrets were not rotated, at Parker's call.
+- Exclude `/var/lib/docker` and `/var/lib/containerd` when searching by owner: uid 33 in image layers is the containers' own user.
+- Left for describing dodo: `wings` fails since boot; certbot's `dodo.regulad.xyz` uses the manual plugin with no auth hook, so renewals fail; Docker runs `cloudflare-ddns` (`favonia/cloudflare-ddns:latest`) and one stopped Pterodactyl server; root's crontab runs a restic backup at 05:15 (`/root/backup.sh`) and a `certbot renew` that restarts nginx, which no longer exists.
+
+## dodo: services inventoried (2026-10-24)
+
+- dodo is a Pterodactyl Wings node (`/usr/local/bin/wings`, config `/etc/pterodactyl/config.yml`, panel `https://pterodactyl.regulad.xyz`). It hosts one server, `9af70676-…`: Fabric Minecraft 26.3 in `ghcr.io/pterodactyl/yolks:java_25`, 31 GB in `/var/lib/pterodactyl/volumes`, with BlueMap, on ports 45510 and 45511 (TCP and UDP). Wings serves its API on 8080 and SFTP on 2022, with TLS from the `dodo.regulad.xyz` certificate.
+- Wings has been down since boot on 2026-10-22: the panel timed out, then answered 404 on `/api/remote/servers`, and systemd stopped retrying after the start limit. The panel answers now.
+- `dodo.regulad.xyz` is kept current by `favonia/cloudflare-ddns` (Docker Compose in `/root/cloudflare-ddns`, host network, unproxied). Its certificate came from certbot's manual DNS-01 and cannot renew; it expires 2026-11-02.
+- The 05:15 job in the VM's description is `/root/backup.sh`: restic over S3 (`/etc/restic-env`), backing up `/` and `/boot/efi`, keeping 2 weeklies.
+- Postfix relays through `mail.regulad.xyz:465` as `null-pelican`; `myhostname` and `/etc/hosts` still say `pelican`. tailscaled is masked. The guest runs a watchdog daemon against the VM's watchdog, kdump, panic-on-hang sysctls, a 16 GB swapfile plus 8 GB zram, AIDE daily, and auditd with no rules.
+- Leftovers from the original hardware install: open-vm-tools, ModemManager, thermald, multipathd, snapd with no snaps, lxd-installer, a disabled cloudflared-update timer with no cloudflared, and configuration from about 45 removed kernels.
+- Probe output that prints compose files needs `SHOUTRRR` in its redaction pattern: the DDNS compose holds a Discord webhook URL.
+
+## kdump: a shared role on prodingus, aboriginal and dodo (2026-10-24)
+
+- The `kdump` role mirrors the hand setup on prodingus and dodo, whose `/etc/default/kdump-tools` were byte-identical. prodingus reserves `crashkernel=1024M` and panics on hard lockups; the Ubuntu guests use the package's sized reservation and leave hard lockups alone.
+- The hand-written `99-panic.conf` set `hung_task_timeout_secs` without its `kernel.` prefix, which systemd-sysctl rejects at every boot, so the timeout stayed 120 s; the role drops the line rather than starting a 30-second hung-task panic.
+- aboriginal (Ubuntu 26.04) had no kdump. Its package ships the same GRUB snippet and runs `update-grub` itself. It keeps `vm.panic_on_oom = 0`. The crash kernel loads only once a boot reserves its memory, and VM 100 boots only with the host; until then `kdump-config show` says "Not ready to kdump". The package starts the oneshot unit on install, which then shows active (exited) without loading anything.
+- aboriginal answers SSH only by its tailnet name (`aboriginal.tail11540.ts.net`); its LAN name times out.
