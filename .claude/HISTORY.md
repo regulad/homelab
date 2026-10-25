@@ -549,3 +549,10 @@ findings that would help a future session. Append new entries at the end.
 - `i6300esb` ships in the base modules package on Ubuntu 26.04 and in lowlatency kernels, and in `linux-modules-extra` only on 24.04 generic. Ubuntu has no package that tracks only the extra modules: `linux-image-extra-virtual` depends on the full `linux-image-generic`.
 - aboriginal's watchdog action is `pause`, so a lapse leaves VM 100 frozen for inspection rather than resetting it. Proxmox holds the change as pending until the VM next starts; the running VM got it through `qm monitor 100` and `watchdog_action pause`, which QEMU cannot read back.
 - aboriginal lists `linux-firmware` in `host_files_packages`. It was already installed as a dependency of `linux-image-generic`, and Ansible's `apt` does not mark it manual.
+
+## dodo: its certificate renews by Cloudflare DNS-01; linux-firmware declared (2026-10-25)
+
+- `dodo.regulad.xyz` had been issued with certbot's manual DNS-01 plugin, which cannot renew unattended. `certbot reconfigure --cert-name … --authenticator dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini` tests a renewal against staging before rewriting the renewal configuration; it then renewed to 2027-01-23. certbot owns `/etc/letsencrypt` except the credentials file and the deploy hook, which `host_files` writes.
+- certbot uses the same Cloudflare token as cloudflare-ddns, now `cloudflare_api_token` in dodo's SOPS file; the DDNS compose file still carries its own copy until cloudflare-ddns is adopted.
+- The deploy hook `try-restart`s Wings, which reads its certificate only at start, so a renewal never starts a stopped Wings. Root's old `certbot renew … restart nginx` cron line is gone; certbot's timer renews twice a day.
+- dodo lists `linux-firmware` in `host_files_packages`, as aboriginal does.
