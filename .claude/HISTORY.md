@@ -602,3 +602,19 @@ findings that would help a future session. Append new entries at the end.
 
 - `/etc/apt/apt.conf.d/99enable-amd64v3` (`APT::Architecture-Variants "amd64v3";`) was already on aboriginal and 15 containers by hand; authentik, matrix and git lacked it. The `apt_amd64v3` role sets it on Ubuntu 25.10 and later where `/lib64/ld-linux-x86-64.so.2 --help` reports `x86-64-v3 (supported`, removes it elsewhere, and refreshes the lists without upgrading.
 - Every gonkputer guest reports x86-64-v3, containers included, because the loader reads the host's CPU. Of the OCI instances, doppelgangerhq.com does not; it runs 24.04 anyway.
+
+## Hostnames: Postfix named from NSS or DHCP; Subiquity's /etc/hosts line on hardware installs (2026-10-25)
+
+- Postfix cannot take its name from NSS or networkd: `myhostname` defaults to `gethostname()`, plus `.$mydomain` when that has no dot. `mail_relay` therefore sets it at run time:
+  - to `hostname --fqdn` when that has a domain: Proxmox's `/etc/hosts` gives the containers `<name>.regulad.internal`, and cloud-init gives OCI `<name>.pubsub.wahlecloud.oraclevcn.com`;
+  - otherwise to `<short>.<DHCP domain>`, from `resolvectl domain` on the first default route, by metric, whose link has one;
+  - otherwise it removes `myhostname`.
+  mail.regulad.xyz accepted relayed mail under both kinds of name.
+- aboriginal has two default routes. eth0 (networkd, from the installer's netplan) passes no DHCP domain to resolved, because networkd's `UseDomains` defaults to off; wlan0 (NetworkManager) does. That is a netplan fix. dodo's resolver currently cannot resolve `regulad.internal` names at all: its current DNS server is the upstream router's address in the LAN's GUA /64, which does not know the internal zone.
+- Ubuntu's Server installer (Subiquity) writes `127.0.1.1 <short name>`; cloud images write no such line. With it in place, `hostname -f` stops at the short name, which is why the DHCP fallback exists.
+- `playbooks/maintenance.yml --tags hostname` (`base`'s `hostname.yml`) sets that line and the static hostname where `base_hostname_managed` is set: dodo, aboriginal and turk.
+- aboriginal's `/etc/hosts` held a stale `10.23.0.247 dingus-server.home.arpa dingus-server`, the source of its Postfix name `dingus-server.home.arpa`; the line was removed by hand.
+- Excluded from naming:
+  - prodingus, which keeps `prodingus.home.arpa` pinned, its naming being Debian's and Proxmox's;
+  - vkasm, a self-contained Kasm image;
+  - doppelgangerhq.com, whose network configuration Oracle furnished at install time.

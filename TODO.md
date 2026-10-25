@@ -26,7 +26,7 @@ What to add once everything here is declarative is in [`NEW.md`](NEW.md).
 ## OCI instances (`ansible-generated/`, from `tofu/oracle`)
 
 - [ ] `bailout`
-- [ ] `doppelgangerhq.com` (legacy `web`)
+- [ ] `doppelgangerhq.com` (legacy `web`): a special case, its network configuration (hostname and `/etc/hosts` included) furnished by Oracle at install time and left as Oracle wrote it
 - [ ] `livekit`
 - [ ] `mail`
 - [ ] `tailscalerouter`
@@ -34,7 +34,7 @@ What to add once everything here is declarative is in [`NEW.md`](NEW.md).
 ## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
 
 - [x] `arawi` (108)
-- [ ] `vkasm` (129)
+- [ ] `vkasm` (129): a special case, a self-contained VM image from Kasm; only the shared baseline is declared
 
 ## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
 
