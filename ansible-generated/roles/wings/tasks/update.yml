@@ -1,0 +1,38 @@
+---
+# Upgrade an installed Wings to wings_version by Pterodactyl's documented
+# procedure: replace the binary and restart. The new binary is downloaded and
+# verified before Wings stops. Run from playbooks/maintenance.yml.
+- name: Read the installed Wings version
+  ansible.builtin.command:
+    argv: [/usr/local/bin/wings, version]
+  register: wings_installed
+  changed_when: false
+  check_mode: false
+
+- name: Upgrade Wings
+  # wings version prints "wings v<version>", with a doubled v in some releases.
+  when: wings_installed.stdout_lines[0] | regex_replace('^wings v+', '') != wings_version
+  block:
+    - name: Download the declared release
+      ansible.builtin.get_url:
+        url: "{{ wings_url }}"
+        dest: /usr/local/bin/wings.new
+        checksum: sha256:{{ wings_sha256 }}
+        owner: root
+        group: root
+        mode: "0744"
+
+    - name: Stop Wings
+      ansible.builtin.systemd_service:
+        name: wings
+        state: stopped
+
+    - name: Replace the binary
+      ansible.builtin.command:
+        argv: [mv, /usr/local/bin/wings.new, /usr/local/bin/wings]
+      changed_when: true
+
+    - name: Start Wings
+      ansible.builtin.systemd_service:
+        name: wings
+        state: started

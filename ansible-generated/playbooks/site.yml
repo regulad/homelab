@@ -51,6 +51,14 @@
   roles:
     - certbot
 
+# Pterodactyl Wings, which runs the panel's game servers.
+- name: Pterodactyl Wings
+  hosts: wings
+  gather_facts: false
+  become: true
+  roles:
+    - wings
+
 # The watchdog daemon, on VMs whose virtual watchdog device OpenTofu enables.
 - name: Watchdog daemon
   hosts: watchdog

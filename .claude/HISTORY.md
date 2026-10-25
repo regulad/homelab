@@ -557,3 +557,12 @@ findings that would help a future session. Append new entries at the end.
 - The deploy hook `try-restart`s Wings, which reads its certificate only at start, so a renewal never starts a stopped Wings. Root's old `certbot renew … restart nginx` cron line is gone; certbot's timer renews twice a day.
 - dodo lists `linux-firmware` in `host_files_packages`, as aboriginal does.
 - A `certbot` role in ansible-generated now owns this, on a `certbot` group from OpenTofu: it issues a listed certificate only when certbot has no renewal file for it, then keeps only `authenticator` and `dns_cloudflare_credentials` in that file (`community.general.ini_file`, section `renewalparams`) and `certbot.timer`. The package's `/etc/cron.d/certbot` does nothing under systemd. dodo's ACME accounts have no contact address, so the role registers without one unless `certbot_email` is set.
+
+## dodo: Wings adopted at v1.13.2; Docker's boot links restored (2026-10-25)
+
+- The `wings` role installs Wings by Pterodactyl's guide on the distribution's `docker.io`, pinned by version and the release asset's sha256, which GitHub lists per asset (`gh api repos/pterodactyl/wings/releases/tags/v<version>`). The live binary matched v1.13.2's `wings_linux_amd64`. `wings version` prints `wings vv1.13.2`.
+- `/etc/pterodactyl/config.yml` is the panel's, and Ansible never writes it.
+- `Prompt=never` in `/etc/update-manager/release-upgrades`, because Wings supports Ubuntu up to 24.04.
+- `playbooks/maintenance.yml --tags wings` upgrades to the declared release, verifying the new binary before stopping Wings. Game servers keep running across a Wings restart.
+- Purging the removed `docker-ce` and `containerd.io` packages' leftover configuration disabled `docker.service`, `docker.socket` and `containerd.service`, which `docker.io` ships under the same names, though Docker kept running. The role keeps them enabled. Check `systemctl is-enabled` for same-named units before purging a removed package.
+- Wings had failed at boot on 2026-10-22, because the panel timed out and then answered 404 while it moved. Started again, it restored the Minecraft server to its recorded `running` state.

@@ -1,0 +1,9 @@
+---
+# The Wings release this host runs, without the leading v, and the sha256 of
+# its wings_linux_<arch> asset, which GitHub lists for each release. site.yml
+# installs it where no Wings exists; playbooks/maintenance.yml upgrades an
+# installed Wings to it.
+wings_version: ""
+wings_sha256: ""
+wings_arch: amd64
+wings_url: https://github.com/pterodactyl/wings/releases/download/v{{ wings_version }}/wings_linux_{{ wings_arch }}

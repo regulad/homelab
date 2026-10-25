@@ -15,3 +15,16 @@
       ansible.builtin.include_role:
         name: pterodactyl
         tasks_from: update
+
+# Wings is pinned; bump wings_version and wings_sha256, then run this play to
+# upgrade by Wings' documented procedure.
+- name: Pterodactyl Wings upgrade
+  hosts: wings
+  gather_facts: false
+  become: true
+  tags: [wings]
+  tasks:
+    - name: Upgrade to the declared release
+      ansible.builtin.include_role:
+        name: wings
+        tasks_from: update

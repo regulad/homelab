@@ -1,0 +1,7 @@
+---
+# Game servers keep running in their containers while Wings restarts.
+- name: Restart Wings
+  ansible.builtin.systemd_service:
+    name: wings
+    state: restarted
+    daemon_reload: true

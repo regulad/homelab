@@ -16,3 +16,8 @@ certbot_certificates:
   - name: dodo.regulad.xyz
     domains: [dodo.regulad.xyz]
 certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
+
+# Wings v1.13.2; the sha256 is its wings_linux_amd64 asset's. Bump both, then
+# run playbooks/maintenance.yml --tags wings.
+wings_version: 1.13.2
+wings_sha256: 93ea7d952b7b847682b090bde2246e6543c2a36d103a8f93329abb94a1c30eaa
