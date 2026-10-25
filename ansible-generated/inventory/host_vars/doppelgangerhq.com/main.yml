@@ -1,0 +1,9 @@
+---
+# The Android container's kernel settings, moved out of /etc/sysctl.conf.
+# Android's own init, sharing the kernel, also writes kernel.pid_max. zram is
+# the host's only swap, so it may swap as readily as it drops cache.
+kernel_params_sysctl_files:
+  99-android:
+    vm.swappiness: 100
+    fs.file-max: 2097152
+    kernel.pid_max: 4194304
