@@ -86,6 +86,10 @@ resource "proxmox_virtual_environment_vm" "dodo" {
 resource "ansible_host" "dodo" {
   count = proxmox_virtual_environment_vm.dodo.on_boot ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_vm.dodo.name}.${local.guest_domain}"
-  groups = ["gonkputer", "kdump", "proxmox_vms", "ubuntu"]
+  name = "${proxmox_virtual_environment_vm.dodo.name}.${local.guest_domain}"
+  # The watchdog group, for the watchdog daemon, follows the VM's watchdog device.
+  groups = sort(concat(
+    ["gonkputer", "kdump", "proxmox_vms", "ubuntu"],
+    [for device in proxmox_virtual_environment_vm.dodo.watchdog : "watchdog" if device.enabled],
+  ))
 }

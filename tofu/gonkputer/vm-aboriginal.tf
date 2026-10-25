@@ -144,8 +144,10 @@ EOT
     mapping      = proxmox_hardware_mapping_dir.cephfs.name
   }
 
+  # Pauses instead of resetting, because the GPU does not survive VM 100
+  # restarting on its own; a lapsed VM stays paused for inspection by hand.
   watchdog {
-    action  = "reset"
+    action  = "pause"
     enabled = true
   }
 
@@ -181,8 +183,12 @@ resource "proxmox_virtual_environment_firewall_options" "aboriginal" {
 resource "ansible_host" "aboriginal" {
   count = proxmox_virtual_environment_vm.aboriginal.on_boot ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.guest_domain}"
-  groups = ["gonkputer", "kdump", "proxmox_vms", "ubuntu"]
+  name = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.guest_domain}"
+  # The watchdog group, for the watchdog daemon, follows the VM's watchdog device.
+  groups = sort(concat(
+    ["gonkputer", "kdump", "proxmox_vms", "ubuntu"],
+    [for device in proxmox_virtual_environment_vm.aboriginal.watchdog : "watchdog" if device.enabled],
+  ))
 
   # On the tailnet itself, it answers LAN SSH over tailscale0, so the
   # connection only works by its tailnet name.
