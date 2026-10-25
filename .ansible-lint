@@ -1,0 +1,6 @@
+---
+# Configuration for linting ansible-common from the repository root, as
+# AGENTS.md runs it; each stage keeps its own .ansible-lint.
+exclude_paths:
+  # SOPS ciphertext cannot be wrapped or linted.
+  - "**/*.sops.yml"
