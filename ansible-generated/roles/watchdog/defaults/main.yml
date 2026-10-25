@@ -1,0 +1,20 @@
+---
+# The kernel module for the VM's watchdog device: i6300esb drives Proxmox's
+# default model, the i6300ESB.
+watchdog_module: i6300esb
+
+# The package's debconf answers, from which its postinst rebuilds
+# /etc/default/watchdog on every upgrade: run the daemon, fall back to
+# wd_keepalive when it stops, preload watchdog_module, and never restart the
+# daemon from the package's scripts.
+watchdog_run: true
+watchdog_run_keepalive: true
+watchdog_restart_on_upgrade: false
+
+# Settings uncommented or changed where the package's /etc/watchdog.conf lists
+# them; the rest of the file stays the package's. The daemon pings the device
+# every second and checks nothing else.
+watchdog_conf:
+  watchdog-device: /dev/watchdog
+  realtime: "yes"
+  priority: "1"

@@ -1,0 +1,7 @@
+---
+# The daemon closes the device cleanly on stop, so the restart does not let
+# the VM's watchdog fire.
+- name: Restart the watchdog daemon
+  ansible.builtin.systemd_service:
+    name: watchdog
+    state: restarted

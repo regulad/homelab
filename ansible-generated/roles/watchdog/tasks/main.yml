@@ -1,0 +1,69 @@
+---
+# Converge the watchdog daemon on VMs with a virtual watchdog device, whose
+# reset action OpenTofu sets: if the guest stops pinging it, Proxmox resets
+# the VM.
+- name: Answer the watchdog package's questions
+  ansible.builtin.debconf:
+    name: watchdog
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: "{{ item.vtype }}"
+  loop:
+    - { question: watchdog/run, value: "{{ watchdog_run }}", vtype: boolean }
+    - { question: watchdog/run_keepalive, value: "{{ watchdog_run_keepalive }}", vtype: boolean }
+    - { question: watchdog/module, value: "{{ watchdog_module }}", vtype: string }
+    - { question: watchdog/restart, value: "{{ watchdog_restart_on_upgrade }}", vtype: boolean }
+  loop_control:
+    label: "{{ item.question }}"
+
+- name: Install the watchdog daemon
+  ansible.builtin.package:
+    name: watchdog
+    state: present
+
+# The same three lines the package's postinst writes from those answers.
+- name: Watchdog daemon defaults
+  ansible.builtin.lineinfile:
+    path: /etc/default/watchdog
+    regexp: '^{{ item.key }}='
+    line: "{{ item.key }}={{ item.value }}"
+  loop:
+    - { key: run_watchdog, value: "{{ watchdog_run | ternary(1, 0) }}" }
+    - { key: run_wd_keepalive, value: "{{ watchdog_run_keepalive | ternary(1, 0) }}" }
+    - { key: watchdog_module, value: '"{{ watchdog_module }}"' }
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Restart the watchdog daemon
+
+- name: Read the package's watchdog.conf
+  ansible.builtin.slurp:
+    src: /etc/watchdog.conf
+  register: watchdog_conf_file
+
+- name: Check each setting is listed once in watchdog.conf
+  ansible.builtin.assert:
+    that: >-
+      watchdog_conf_file.content | b64decode
+      | regex_findall('(?m)^#?\s*' ~ (item | regex_escape) ~ '\s*=')
+      | length == 1
+    fail_msg: "{{ item }} is not a single line in /etc/watchdog.conf."
+    quiet: true
+  loop: "{{ watchdog_conf.keys() | list }}"
+
+# Keeps the package's own spacing, so an uncommented line reads as it ships.
+- name: Watchdog daemon settings
+  ansible.builtin.lineinfile:
+    path: /etc/watchdog.conf
+    regexp: '^#?(\s*{{ item.key | regex_escape }}\s*=)'
+    line: '\1 {{ item.value }}'
+    backrefs: true
+  loop: "{{ watchdog_conf | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Restart the watchdog daemon
+
+- name: Watchdog daemon running
+  ansible.builtin.systemd_service:
+    name: watchdog
+    enabled: true
+    state: started
