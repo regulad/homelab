@@ -42,6 +42,15 @@
   roles:
     - kdump
 
+# Let's Encrypt certificates by Cloudflare DNS-01, ahead of the host files
+# whose renewal hooks act on them.
+- name: Certificates
+  hosts: certbot
+  gather_facts: false
+  become: true
+  roles:
+    - certbot
+
 # The watchdog daemon, on VMs whose virtual watchdog device OpenTofu enables.
 - name: Watchdog daemon
   hosts: watchdog

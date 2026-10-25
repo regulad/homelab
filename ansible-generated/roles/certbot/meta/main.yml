@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Let's Encrypt certificates through certbot's Cloudflare DNS-01 plugin, renewed by certbot's timer
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

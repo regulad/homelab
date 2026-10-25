@@ -1,0 +1,72 @@
+---
+# Converge certbot's DNS-01 certificates. Hooks that act on a renewal, such as
+# restarting the service that serves a certificate, are the host's own files
+# under /etc/letsencrypt/renewal-hooks/.
+- name: Check the Cloudflare token
+  ansible.builtin.assert:
+    that: certbot_cloudflare_api_token | length > 0
+    fail_msg: Set certbot_cloudflare_api_token through the host's secrets.sops.yml.
+    quiet: true
+
+- name: Install certbot and its Cloudflare DNS plugin
+  ansible.builtin.package:
+    name:
+      - certbot
+      - python3-certbot-dns-cloudflare
+    state: present
+
+- name: Cloudflare credentials
+  ansible.builtin.copy:
+    dest: "{{ certbot_cloudflare_credentials }}"
+    content: "dns_cloudflare_api_token = {{ certbot_cloudflare_api_token }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Read each certificate's renewal file
+  ansible.builtin.stat:
+    path: /etc/letsencrypt/renewal/{{ item.name }}.conf
+  loop: "{{ certbot_certificates }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: certbot_renewal
+
+- name: Issue the certificates certbot does not have
+  ansible.builtin.command:
+    argv: >-
+      {{ ['certbot', 'certonly', '--non-interactive', '--agree-tos',
+          '--authenticator', 'dns-cloudflare',
+          '--dns-cloudflare-credentials', certbot_cloudflare_credentials,
+          '--cert-name', item.item.name]
+         + (['--email', certbot_email] if certbot_email else ['--register-unsafely-without-email'])
+         + (item.item.domains | map('regex_replace', '^', '--domain=') | list) }}
+  loop: "{{ certbot_renewal.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: not item.stat.exists
+  changed_when: true
+
+# The settings that choose how certbot.timer renews each certificate.
+- name: Renew by Cloudflare DNS-01
+  community.general.ini_file:
+    path: /etc/letsencrypt/renewal/{{ item.0.name }}.conf
+    section: renewalparams
+    option: "{{ item.1.option }}"
+    value: "{{ item.1.value }}"
+    create: false
+  loop: >-
+    {{ certbot_certificates | product([
+         {'option': 'authenticator', 'value': 'dns-cloudflare'},
+         {'option': 'dns_cloudflare_credentials', 'value': certbot_cloudflare_credentials},
+       ]) | list }}
+  loop_control:
+    label: "{{ item.0.name }}: {{ item.1.option }}"
+  # A check run cannot read a renewal file a pending issue would write.
+  when: not ansible_check_mode or (certbot_renewal.results | selectattr('item.name', '==', item.0.name) | first).stat.exists
+
+- name: Renewal timer
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    enabled: true
+    state: started

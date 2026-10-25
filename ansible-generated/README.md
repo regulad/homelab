@@ -21,6 +21,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `generated` |
 | `podman` | Installs Podman | `podman_hosts` |
 | `host_files` | Native files, templates, links, packages, pinned pipx applications and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS; files shared by several hosts from `files/shared/`; optional validation before a file is replaced, and reload instead of restart | generated hosts except `arawi` |
+| `certbot` | Let's Encrypt certificates through certbot's Cloudflare DNS-01 plugin: issues each listed certificate certbot lacks, keeps its challenge settings, and leaves renewal to `certbot.timer` | `certbot` |
 | `watchdog` | The watchdog daemon pinging the VM's virtual watchdog device, with the package's debconf answers kept in step so upgrades keep the module | `watchdog`, the VMs whose watchdog device OpenTofu enables |
 | `avahi` | mDNS reflection between the podman bridge and the LAN | `podman_hosts` |
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |

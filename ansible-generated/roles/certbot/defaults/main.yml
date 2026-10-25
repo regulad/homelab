@@ -1,0 +1,17 @@
+---
+# Certificates this host keeps, each a certbot certificate name and the
+# domains it covers. certbot issues one only when it has no renewal file yet;
+# afterwards certbot.timer renews it, and the role keeps only its challenge
+# settings. The certificate files and the ACME account stay certbot's.
+certbot_certificates: []
+#  - name: host.regulad.xyz
+#    domains: [host.regulad.xyz]
+
+# A Cloudflare API token that can edit the zones' DNS records, from the host's
+# secrets.sops.yml, and the root-only file certbot reads it from.
+certbot_cloudflare_api_token: ""
+certbot_cloudflare_credentials: /etc/letsencrypt/cloudflare.ini
+
+# The ACME account's contact address; empty registers without one, as Let's
+# Encrypt no longer sends expiry mail.
+certbot_email: ""

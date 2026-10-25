@@ -2,17 +2,17 @@
 # Its FreeIPA null- account carries pelican, dodo's legacy name.
 mail_relay_account: null-pelican
 
-# Firmware for hardware the kernel initializes, which no task needs; and
-# certbot's Cloudflare DNS plugin, which renews dodo.regulad.xyz.
-host_files_packages: [linux-firmware, python3-certbot-dns-cloudflare]
+# Firmware for hardware the kernel initializes; no task needs it.
+host_files_packages: [linux-firmware]
 
 host_files_list:
-  # The DNS-01 challenge's credentials, the token cloudflare-ddns also uses.
-  # certbot's renewal configuration names this file; certbot owns the rest
-  # of /etc/letsencrypt.
-  - path: /etc/letsencrypt/cloudflare.ini
-    mode: "0600"
-    content: "dns_cloudflare_api_token = {{ cloudflare_api_token }}\n"
-    secret: true
+  # Restarts Wings, if running, when certbot renews its certificate.
   - path: /etc/letsencrypt/renewal-hooks/deploy/wings
     mode: "0755"
+
+# The certificate Wings serves its API and SFTP with, through the token
+# cloudflare-ddns also uses.
+certbot_certificates:
+  - name: dodo.regulad.xyz
+    domains: [dodo.regulad.xyz]
+certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
