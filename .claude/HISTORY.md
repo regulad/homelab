@@ -596,3 +596,4 @@ findings that would help a future session. Append new entries at the end.
 - `99-ping.conf`'s `ping_group_range` duplicated systemd's `50-default.conf`.
 - A YAML flow list splits a kernel argument such as `isolcpus=domain,managed_irq,8-15,24-31` at its commas; write each argument as a block-list item.
 - aboriginal's `cgroup_enable=memory swapaccount=1` is also in GRUB's debconf answer `grub2/linux_cmdline_default` and in ucf's copy of `/etc/default/grub`, from which GRUB's postinst rebuilds the file.
+- Removed by hand afterwards: prodingus's `/etc/sysctl.conf` and `99-ping.conf`; dodo's `vm.swappiness=10` (`dpkg --verify procps` clean again, live value back to 60); aboriginal's `99-local.conf` and `cgroup_enable=memory swapaccount=1`. For the GRUB arguments, `grub2/linux_cmdline_default` was set to empty with `debconf-set-selections`, and the line was emptied in both `/etc/default/grub` and `/var/lib/ucf/cache/:etc:default:grub`, followed by `update-grub`.
