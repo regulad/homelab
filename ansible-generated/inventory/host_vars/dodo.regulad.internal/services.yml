@@ -1,0 +1,32 @@
+---
+quadlet_services:
+  - name: cloudflare-ddns
+    description: Cloudflare DDNS for dodo.regulad.xyz
+    after: [network-online.target]
+    wants: [network-online.target]
+    image: docker.io/favonia/cloudflare-ddns:1
+    container_name: cloudflare-ddns
+    user: "1000:1000"
+    auto_update: registry
+    read_only: true
+    drop_capabilities: [all]
+    no_new_privileges: true
+    # Sees the host's own addresses, IPv6 included.
+    network: host
+    environment:
+      DOMAINS: dodo.regulad.xyz
+      PROXIED: "false"
+      IPV6_PROVIDER: cloudflare.trace
+      # Keep the record across restarts and auto-updates.
+      DELETE_ON_STOP: "false"
+      DELETE_ON_FAILURE: "true"
+    # CLOUDFLARE_API_TOKEN and SHOUTRRR, below.
+    env_file: true
+    restart: always
+    wanted_by: [multi-user.target, default.target]
+
+# The token certbot also uses, and the Discord webhook, from secrets.sops.yml.
+quadlet_env_files:
+  cloudflare-ddns: |-
+    CLOUDFLARE_API_TOKEN={{ cloudflare_api_token }}
+    SHOUTRRR={{ cloudflare_ddns_shoutrrr }}

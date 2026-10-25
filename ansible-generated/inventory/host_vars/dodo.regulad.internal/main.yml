@@ -2,6 +2,10 @@
 # Its FreeIPA null- account carries pelican, dodo's legacy name.
 mail_relay_account: null-pelican
 
+# Reached over SSH as regulad, unlike the Podman containers reached through pct
+# as root, so plays written for those, such as Podman's, escalate here.
+ansible_become: true
+
 # Firmware for hardware the kernel initializes; no task needs it.
 host_files_packages: [linux-firmware]
 

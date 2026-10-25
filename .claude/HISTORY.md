@@ -566,3 +566,13 @@ findings that would help a future session. Append new entries at the end.
 - `playbooks/maintenance.yml --tags wings` upgrades to the declared release, verifying the new binary before stopping Wings. Game servers keep running across a Wings restart.
 - Purging the removed `docker-ce` and `containerd.io` packages' leftover configuration disabled `docker.service`, `docker.socket` and `containerd.service`, which `docker.io` ships under the same names, though Docker kept running. The role keeps them enabled. Check `systemctl is-enabled` for same-named units before purging a removed package.
 - Wings had failed at boot on 2026-10-22, because the panel timed out and then answered 404 while it moved. Started again, it restored the Minecraft server to its recorded `running` state.
+
+## dodo: cloudflare-ddns moved to a Podman quadlet; unneeded packages removed (2026-10-25)
+
+- cloudflare-ddns is a quadlet in `podman_hosts`, as on ingress. Its env file is built in `services.yml` from `cloudflare_api_token` (shared with certbot) and `cloudflare_ddns_shoutrrr`.
+- The old compose stack had `DELETE_ON_STOP=true`; it was stopped with `docker compose kill`, so its updater never ran the delete and the A and AAAA records survived. The quadlet keeps `DELETE_ON_STOP=false`.
+- The `podman_hosts` plays have no `become`, because the containers they were written for are reached through `pct` as root; dodo sets `ansible_become: true`.
+- Purged auditd, AIDE (171 MB database), sysstat, apport, open-iscsi, lvm2, mdadm, ufw, udisks2, fwupd, pollinate, tpm-udev and ubuntu-drivers-common, plus `docker-compose-v2` and the stale images. Afterwards `systemctl reset-failed` clears the removed units still listed as failed.
+- Keep `ubuntu-pro-client`, whose removal takes `ubuntu-minimal`, and `update-notifier-common`, whose kernel hook writes `/var/run/reboot-required`, which unattended-upgrades' automatic reboots wait for.
+- Wings writes `/etc/logrotate.d/wings` from its own `log_directory` when the file is missing; the old copy pointed at `/var/log/pelican`.
+- prodingus's root filesystem was at 94% (5.7 GB free), raising Ceph's `MON_DISK_CRIT`; tofu plans briefly failed with HTTP 596 reading an rbd_cmr volume while osd.10 had slow ops.
