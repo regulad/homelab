@@ -182,7 +182,7 @@ resource "ansible_host" "aboriginal" {
   count = proxmox_virtual_environment_vm.aboriginal.on_boot ? 1 : 0
 
   name   = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_vms", "ubuntu"]
+  groups = ["gonkputer", "kdump", "proxmox_vms", "ubuntu"]
 
   # On the tailnet itself, it answers LAN SSH over tailscale0, so the
   # connection only works by its tailnet name.
