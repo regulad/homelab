@@ -1,0 +1,44 @@
+---
+# Converge the distribution's Docker (docker.io, not Docker CE) on the hosts in
+# docker_hosts.
+- name: Install Docker
+  ansible.builtin.package:
+    name: docker.io
+    state: present
+
+# A purge of Docker CE's leftover configuration once disabled these, which
+# docker.io ships under the same names.
+- name: Docker at boot
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - containerd.service
+    - docker.socket
+    - docker.service
+
+- name: Gather the daemon settings
+  ansible.builtin.set_fact:
+    docker_daemon: >-
+      {{ ({'ipv6': true, 'fixed-cidr-v6': docker_ula_prefix, 'ip6tables': true} if docker_ula_prefix else {})
+         | combine(docker_daemon_settings) }}
+
+- name: Read the daemon settings
+  ansible.builtin.slurp:
+    src: /etc/docker/daemon.json
+  register: docker_daemon_file
+  failed_when: false
+
+# Rewritten only when the parsed settings differ, so the file's formatting never
+# restarts Docker and every container with it.
+- name: Daemon settings
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_daemon | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  when: >-
+    (docker_daemon_file.content | default('e30=') | b64decode | from_json) != docker_daemon
+  notify: Restart Docker

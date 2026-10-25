@@ -51,6 +51,14 @@
   roles:
     - certbot
 
+# The distribution's Docker, ahead of Wings, which runs on it.
+- name: Docker hosts
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+  roles:
+    - docker
+
 # Pterodactyl Wings, which runs the panel's game servers.
 - name: Pterodactyl Wings
   hosts: wings

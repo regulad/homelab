@@ -1,6 +1,6 @@
 ---
 # Install Wings where none exists, by Pterodactyl's documented installation,
-# on the distribution's Docker rather than Docker CE. Upgrades are
+# on the distribution's Docker from the docker role, rather than Docker CE. Upgrades are
 # playbooks/maintenance.yml. /etc/pterodactyl/config.yml is the panel's: it
 # comes from the node's Configuration tab or `wings configure`, by hand, and
 # Ansible never writes it.
@@ -12,22 +12,10 @@
     fail_msg: Declare wings_version and the sha256 of its wings_linux_{{ wings_arch }} asset.
     quiet: true
 
-- name: Install Docker and curl
+- name: Install curl
   ansible.builtin.package:
-    name:
-      - docker.io
-      - curl
+    name: curl
     state: present
-
-- name: Docker at boot
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    enabled: true
-    state: started
-  loop:
-    - containerd.service
-    - docker.socket
-    - docker.service
 
 # Wings supports Ubuntu up to 24.04, so the release upgrader never offers a
 # newer one.

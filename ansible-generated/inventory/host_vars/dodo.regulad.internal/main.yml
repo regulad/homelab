@@ -21,6 +21,9 @@ certbot_certificates:
     domains: [dodo.regulad.xyz]
 certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 
+# IPv6 on Docker's default bridge network.
+docker_ula_prefix: fdb9:b6f2:d6e1::/64
+
 # Wings v1.13.4; the sha256 is its wings_linux_amd64 asset's. Bump both, then
 # run playbooks/maintenance.yml --tags wings.
 wings_version: 1.13.4

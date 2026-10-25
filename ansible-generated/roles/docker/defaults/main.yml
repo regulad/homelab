@@ -1,0 +1,7 @@
+---
+# A ULA /64 for Docker's default bridge network. Set, it turns on IPv6 there,
+# with Docker's ip6tables rules; each host takes its own prefix.
+docker_ula_prefix: ""
+
+# Other daemon.json settings, by name, which override the IPv6 ones.
+docker_daemon_settings: {}

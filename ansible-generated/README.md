@@ -22,7 +22,8 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `podman` | Installs Podman | `podman_hosts` |
 | `host_files` | Native files, templates, links, packages, pinned pipx applications and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS; files shared by several hosts from `files/shared/`; optional validation before a file is replaced, and reload instead of restart | generated hosts except `arawi` |
 | `certbot` | Let's Encrypt certificates through certbot's Cloudflare DNS-01 plugin: issues each listed certificate certbot lacks, keeps its challenge settings, and leaves renewal to `certbot.timer` | `certbot` |
-| `wings` | Pterodactyl Wings at a pinned, checksummed release by its documented installation, on the distribution's Docker; never writes the panel's `config.yml`; `playbooks/maintenance.yml` upgrades it to `wings_version` | `wings` |
+| `docker` | The distribution's Docker enabled at boot, with `daemon.json` from `docker_ula_prefix` (IPv6 on the default bridge) and `docker_daemon_settings`, rewritten only when its parsed settings differ | `docker_hosts` |
+| `wings` | Pterodactyl Wings at a pinned, checksummed release by its documented installation, on the `docker` role's Docker; never writes the panel's `config.yml`; `playbooks/maintenance.yml` upgrades it to `wings_version` | `wings` |
 | `watchdog` | The watchdog daemon pinging the VM's virtual watchdog device, with the package's debconf answers kept in step so upgrades keep the module | `watchdog`, the VMs whose watchdog device OpenTofu enables |
 | `avahi` | mDNS reflection between the podman bridge and the LAN | `podman_hosts` |
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |

@@ -1,0 +1,7 @@
+---
+# Stops every container. Services PartOf=docker.service, such as Wings, restart
+# with it.
+- name: Restart Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    state: restarted

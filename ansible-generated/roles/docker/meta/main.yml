@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: The distribution's Docker, enabled at boot, with its daemon settings and IPv6 from a ULA prefix
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []
