@@ -23,3 +23,7 @@ auto_updates_unattended_upgrade:
 # Out of memory kills a process rather than panicking.
 kdump_sysctls_host:
   vm.panic_on_oom: 0
+
+# Firmware for its passed-through hardware: no task needs it, but devices such
+# as the GPU initialize only with it.
+host_files_packages: [linux-firmware]
