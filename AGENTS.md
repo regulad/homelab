@@ -53,7 +53,7 @@ homelab/
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
 │   ├── group_vars/              # all.sops.yml: secrets both stages share, linked from each stage's inventory/group_vars/
-│   └── roles/                   # roles both stages apply: base, tailscale, ca_trust, auto_updates, mail_relay, kdump, kernel_params, apt_amd64v3, netplan, swap
+│   └── roles/                   # roles both stages apply: base, tailscale, ca_trust, auto_updates, mail_relay, kdump, kernel_params, apt_amd64v3, netplan, swap, restic
 ├── ansible-hardware/            # Phase 2, before OpenTofu; reads only the hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent

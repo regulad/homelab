@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Access to the homelab's restic repository on Backblaze B2, with a key per host
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

@@ -1,0 +1,72 @@
+---
+# Give a host access to the restic repository: restic itself, the repository
+# password, and the environment its backups and mounts read. Runs on hardware
+# hosts (Phase 2) and generated hosts (Phase 4) that have a key.
+- name: Restic
+  when: restic_access_key_id | length > 0
+  block:
+    - name: Gather the environment
+      ansible.builtin.set_fact:
+        restic_env: >-
+          {{ {'AWS_ACCESS_KEY_ID': restic_access_key_id,
+              'AWS_SECRET_ACCESS_KEY': restic_secret_access_key,
+              'RESTIC_REPOSITORY': restic_repository,
+              'RESTIC_PASSWORD_FILE': restic_password_file}
+             | combine(restic_env_extra) }}
+      no_log: true
+
+    # Values go into the file unquoted, read by both systemd and the shell.
+    - name: Check the repository settings
+      ansible.builtin.assert:
+        that:
+          - restic_secret_access_key | length > 0
+          - restic_bucket | length > 0
+          - restic_region | length > 0
+          - restic_password | length > 0
+          - restic_env.values() | reject('match', '^[A-Za-z0-9/+=._:-]+$') | list | length == 0
+        fail_msg: >-
+          Set restic_bucket, restic_region and restic_password in the shared SOPS file and
+          the host's key in its own; every value must be free of spaces, quotes and $.
+        quiet: true
+      no_log: true
+
+    - name: Install restic
+      ansible.builtin.package:
+        name: restic
+        state: present
+
+    - name: Read restic's version
+      ansible.builtin.command:
+        argv: [restic, version]
+      register: restic_version
+      changed_when: false
+      check_mode: false
+
+    - name: Check restic's version
+      ansible.builtin.assert:
+        that: restic_version.stdout | regex_replace('^restic ([0-9.]+).*$', '\\1') is version(restic_minimum_version, '>=')
+        fail_msg: "{{ restic_version.stdout }} is older than {{ restic_minimum_version }}."
+        quiet: true
+
+    - name: Repository password
+      ansible.builtin.copy:
+        dest: "{{ restic_password_file }}"
+        content: "{{ restic_password }}\n"
+        owner: root
+        group: root
+        mode: "0400"
+      no_log: true
+
+    - name: Repository environment
+      ansible.builtin.copy:
+        dest: "{{ restic_env_file }}"
+        content: |
+          # Managed by Ansible (restic). A systemd environment file, without export:
+          # shell scripts read it with `set -a; . {{ restic_env_file }}; set +a`.
+          {% for name, value in restic_env.items() %}
+          {{ name }}={{ value }}
+          {% endfor %}
+        owner: root
+        group: root
+        mode: "0400"
+      no_log: true

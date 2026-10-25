@@ -105,3 +105,8 @@ swap_files:
     size_mib: 16384
     priority: 10
     discard: true
+
+# mnt-restic.service mounts the repository without a login environment, so
+# restic finds its cache under /root/.cache through HOME.
+restic_env_extra:
+  HOME: /root

@@ -1,0 +1,22 @@
+---
+# The homelab's restic repository: one Backblaze B2 bucket through its S3 API.
+# Its bucket, region and password are shared, from
+# ansible-common/group_vars/all.sops.yml. Each host has its own B2 application
+# key, from its secrets.sops.yml, so a key can be rotated or revoked for one
+# host alone. A host without a key is left alone.
+restic_access_key_id: ""
+restic_secret_access_key: ""
+restic_bucket: ""
+restic_region: ""
+restic_password: ""
+restic_repository: s3:s3.{{ restic_region }}.backblazeb2.com/{{ restic_bucket }}
+
+# The oldest restic release series accepted: Ubuntu 24.04's.
+restic_minimum_version: "0.16"
+
+# A systemd environment file (EnvironmentFile=), without export: shell scripts
+# read it with `set -a; . /etc/restic-env; set +a`.
+restic_env_file: /etc/restic-env
+restic_password_file: /etc/restic-password
+# Further variables for the environment file, by name.
+restic_env_extra: {}

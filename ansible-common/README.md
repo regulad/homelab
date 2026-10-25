@@ -20,6 +20,7 @@ SOPS vars plugin loads the one file.
 | `kdump` | Kernel crash dumps through kdump-tools: the crash kernel's memory reservation, kdump-tools' settings, and the sysctls that turn hangs and oopses into panics |
 | `kernel_params` | Sysctl drop-ins in `/etc/sysctl.d` and GRUB kernel-argument drop-ins in `/etc/default/grub.d`, as each host declares, plus per-task delay accounting on every host with its own kernel and IP forwarding for hosts that route |
 | `netplan` | Netplan as the only network configuration where a host declares `netplan_config` (`30-homelab.yaml`, other files removed), plus networkd drop-ins for what netplan cannot express; changes go through `netplan try`, accepted only once Ansible reconnects, with a timer restoring the previous files otherwise |
+| `restic` | Access to the restic repository on Backblaze B2: restic (0.16 or later), `/etc/restic-password` and `/etc/restic-env` (a systemd environment file, mode 0400), from the shared bucket, region and password and the host's own B2 key; hosts without a key are left alone |
 | `swap` | zram through systemd-zram-generator at `swap_zram_size` (default half the RAM), replacing zram-config and zram-tools once their service stops, and disk swapfiles from `swap_files`, listed in `fstab`; `playbooks/maintenance.yml --tags zram` sets zram up again where its contents fit back into RAM |
 | `mail_relay` | Postfix relaying every message to regulad@regulad.xyz through mail.regulad.xyz, as the host's FreeIPA `null-` account, plus `/usr/bin/mail` |
 

@@ -58,6 +58,14 @@
   roles:
     - swap
 
+# Access to the restic repository, on hosts with a key of their own.
+- name: Restic repository access
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  roles:
+    - restic
+
 # Netplan as the only network configuration, where a host declares it.
 - name: Network configuration
   hosts: ubuntu
