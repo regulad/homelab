@@ -13,3 +13,7 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   host, scanning in the background for anomalous files: implants and bad user
   data alike. Expensive, but it would have caught the implant on dodo (then
   pelican) before Parker did
+
+## Resilience
+
+- [ ] Cross-site replication of services such as uptime and aameter
