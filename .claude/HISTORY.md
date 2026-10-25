@@ -1,2175 +1,511 @@
 # Homelab IaC history
 
-Chronological record of approvals, applies, results, and superseded decisions.
-It was moved verbatim out of `AGENTS.md` § 11 on 2026-10-12. `AGENTS.md` now
-holds only the decisions that currently apply. Append new entries at the end.
+What was done, in order, with the technical findings worth knowing later.
+Current rules and intent live in `AGENTS.md` and `.claude/PLAN.md`; this file
+keeps how they came about. Each entry is a title saying what was done and the
+findings that would help a future session. Append new entries at the end.
 
-## 2026-10-12
+## OCI adopted into `tofu/oracle`; first decisions (2026-10-12)
 
-- **Order:** Phase 1 discovery starts with OCI; Proxmox discovery comes later.
-- **OCI auth (supersedes the OCI parts of § 2 rule 2 and § 4 Phase 1):** Parker's own user via `oci session authenticate`, a read/write session token in the `DEFAULT` profile, instead of a dedicated read-only user, because OpenTofu will write back to OCI. § 2 rule 1 is unchanged: every OCI write still needs per-action approval. The token lasts 60 minutes, refreshable to 24 hours with `oci session refresh`; Phase 9 will need a non-expiring credential.
-- **Public repository:** nothing sensitive is committed in plaintext. Anything sensitive that must be committed (e.g. values OpenTofu needs) goes in sops-encrypted `*.sops.*` files.
-- **Discovery snapshots are local only (supersedes "snapshot committed" in Phase 1):** `docs/snapshot/` is gitignored. Raw discovery output and `SUMMARY.md` stay on the operator's machine; only the OpenTofu configuration derived from them is committed. Human review of `SUMMARY.md` still gates the adoption phases.
-- **OCI scope:** compute instances and boot volumes, VCN networking (VCNs, subnets, gateways, route tables, security lists, DHCP options), NSGs, and Email Delivery (domain, senders, DKIM, `svc-mail` policy) go into `tofu/oracle`. Out of scope: identity-domain apps/users/groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, the DNS resolvers/views/private zones VCNs create automatically, and boot-volume backups themselves (data, not configuration).
-- **Phase 5 discovery (supersedes the exporter step):** skip `terraform-provider-oci -command=export`. Its docs say it always needs a `terraform` binary and list only Terraform 0.12/0.13. Inventory with the `oci` CLI instead, then adopt with `import {}` blocks and `tofu plan -generate-config-out`. `oracle/oci` is published on the OpenTofu registry.
-- **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (e.g. extra boot-volume backups) are expected.
-
-- **Handoff / commits:** Parker requested a soft reset to the empty initial commit, renamed this plan to AGENTS.md, and asked to continue OCI decompilation. Leave all work uncommitted until it is ready for review; this supersedes automatic per-phase commits and PRs. Read-only configuration generation may proceed before a backend exists, but no state import/apply is authorized.
-- **Existing creation-only settings:** Parker requested that existing resources ignore creation state rather than fabricate clone/restore sources. For image-created OCI boot volumes, ignore only `source_details`; keep other volume drift visible. OCI writes and state-changing operations still require explicit per-action approval.
-
-- **Write approval clarification:** Parker clarified that local file writes and edits are authorized. The instruction to ask before writes refers to operations that push changes to Oracle, not local drafting, encryption, validation, or read-only planning. Existing explicit approval requirements for state-changing import/apply and other infrastructure mutations still apply.
-- **HCL-first configuration:** Parker requires ordinary, readable `.tf` resource definitions with inline non-sensitive settings and direct references. SOPS holds sensitive input values only, not encrypted HCL, resource definitions, or an entire topology/configuration data model.
-
-- **OCI adoption (2026-10-12):** Parker explicitly authorized applying an import-only plan with no Oracle-side changes. The verified saved plan imported 74 resources with zero additions, changes, or deletions; the subsequent plan is a no-op. Execution used encrypted local state because no remote backend was configured, with an encrypted backup outside the repository on the operator machine. Remote backend migration remains outstanding. Completed import blocks are archived under the ignored discovery directory. Further mutating operations still need explicit authorization.
-- **OCI cleanup (2026-10-12):** Parker authorized cleanup tasks 1–5, then explicitly approved applying the resulting sensitivity-metadata updates and committing the changes. The verified saved plan applied with 0 additions, 34 updates, and 0 deletions; deferred IPv6 lookups resolved without changes. The fresh post-apply plan is a no-op. Import IDs and historical creation tags are no longer runtime inputs, empty attributes and redundant shape settings are omitted, and the existing agent plugin policy is shared in HCL. This approval does not authorize further infrastructure mutations.
-- **Network input sensitivity:** Parker explicitly classified the listed network CIDRs, host IPs, and route next-hop IDs as non-sensitive except for the GUA IPv6 `/64` prefixes. Keep those two prefixes SOPS-encrypted; derive full GUA host addresses and the enclosing `/56` from them. IPv4, ULA/Tailscale ranges, host suffixes, and the listed next-hop OCIDs may be plaintext HCL. This classification does not change the treatment of other credentials or sensitive inputs, and does not authorize apply.
-- **OCID ownership classification (supersedes the next-hop exception above):** Parker approved plaintext OCIDs for verified stock images, with their exact image names in comments above `source_id`. OCIDs owned by our tenancy/compartments remain sensitive, including the router next-hop IDs; the shared backup-policy ID also remains SOPS-encrypted. The five current image lookups have null compartment IDs and platform-image names; four additionally match Oracle's public regional catalog exactly. Livekit's exact revision was not found in the catalog, so its classification relies on the image API metadata. IPv4, ULA/Tailscale ranges, and host suffixes remain plaintext; GUA `/64` prefixes remain encrypted.
-
-- **Readability cleanup applied (2026-10-12):** Parker authorized cleanup items 1–4, verification, apply, and commit. The saved plan preserved all known values; apply recorded module/rule address moves and 13 sensitivity-metadata updates, with 0 additions or deletions. All 74 managed resources retain identical IDs and values, and the fresh plan is a no-op. Shared Tailscale ranges live in the resource-free `tofu/shared` module. Item 5 (presentation/order cleanup) remains a proposal for review. Further infrastructure mutations require separate approval.
-- **Tooling (2026-10-12):** `uv` is the Python/tool manager. Agents must not install anything themselves, including tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, and OpenTofu providers. Parker manages tools declaratively; ask him to install what is needed.
-- **Remote state deferred (2026-10-12):** OCI state stays local on Parker's backed-up laptop until the rest of the repository is ready. Remote-backend migration comes after that, not before.
-- **Presentation cleanup (2026-10-12):** Parker requested item 5, with each subnet in its own `subnet-<name>.tf` (subnet first, then the DHCP options, route table, and security list only it uses). The VCN-created defaults stay in `network.tf`. ICMP `type`/`code` values gained comments, and so did ports. Parker identified 7881 and both UDP ranges as standard LiveKit ports (TURN relay for 30000–40000) and router UDP 39127 as Tailscale peer relay. Bailout's 51820/51821 were named later (WireGuard; see below). Parker then approved applying the verified saved plan, plus one commit as the final OCI cleanup pass that also adds the pre-commit configuration. That plan was a no-op for all 74 resources. Apply recorded **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan is a no-op. Encrypted before/after state backups are under `%LOCALAPPDATA%/homelab/oracle-backups/final-cleanup-*`. This approval does not authorize further infrastructure mutations.
-- **Pre-commit (2026-10-12):** Parker approved `pre-commit install` and pinned `pre-commit/pre-commit-hooks`; gitleaks is not wanted. Other hooks use installed tools (`language: unsupported`) or `pygrep`.
-- **OCI follow-ups triaged (2026-10-12):**
-  - Bailout's UDP 51820/51821 are WireGuard.
-  - Rules restricted to a single source port are fixed now; Parker first deferred them, then asked for the fix. Mail TCP 80 drops the source-port restriction. Legacy's Minecraft Voice Chat rule (UDP 24454) is removed as unused. Legacy's four DNS 53 rules are removed, because the same sources' all-protocol rules already allow DNS. Applying this changes OCI and needs Parker's approval.
-  - Managing the VCN defaults through `oci_core_default_*` resource types is wontfix. They stay ordinary adopted resources guarded by `prevent_destroy`.
-  - Every OCI instance carries the freeform tag `managed-by=opentofu`, per § 6. Adding it changes OCI and needs Parker's approval to apply.
-  - The OCI root's `ansible_hosts` output waits for the Ansible phases.
-- **Tags and firewall fixes (2026-10-12, applied):** Bailout UDP 51820/51821 were named as WireGuard. Parker first deferred the single-source-port rules as `FIXME`s, then asked for them to be fixed now, and for legacy's unused Minecraft Voice Chat rule to be removed. The saved plan `docs/snapshot/oci/tags-firewall.tfplan` adds the `managed-by=opentofu` tag to the five instances, drops mail TCP 80's source-port restriction, and removes legacy's Minecraft and four DNS 53 rules: 0 to add, 13 to change, 0 to destroy. Five IPv6 updates are deferred VNIC lookups only. Parker approved the apply, which completed with **0 added, 8 changed, 0 destroyed**: the five IPv6 updates resolved without change. The fresh post-apply plan reports **No changes**. Encrypted state backups are under `%LOCALAPPDATA%/homelab/oracle-backups/tags-firewall-{before,after}-*`; logs are in `docs/snapshot/oci/tags-firewall-{plan,apply,post-apply-plan}.log`.
-
-## Moved from `tofu/oracle/README.md` (2026-10-12)
-
-On 2026-10-12, Parker authorized adoption. The exact verified plan applied
-successfully: **74 imported, 0 added, 0 changed, 0 destroyed**, using OpenTofu
-1.13.1 and oracle/oci 9.9.0. A fresh post-adoption plan reports **No changes**
-(exit code 0). Completed import blocks are archived locally in
-`docs/snapshot/oci/adopted-imports.tf`. The original encrypted inputs, including
-import IDs, are archived in `docs/snapshot/oci/cleanup-1-5-before/secrets.sops.json`
-and the adoption backup outside the repository. Import IDs are no longer runtime
-inputs. No Oracle resource mutations were performed.
-
-The subsequent configuration cleanup removes historical creation tags, empty
-attributes, and redundant shape settings, and shares the existing plugin policy
-without changing plugin states or order. Oracle-created tags are left to the
-provider rather than asserted as desired configuration.
-
-**Cleanup applied (2026-10-12):** Parker authorized the sensitivity-metadata
-updates and the cleanup commit. A fresh saved plan matched the reviewed changes:
-34 resources retained their values but lost the sensitivity mark on historical
-tags; five dependent IPv6 resources had deferred VNIC lookups. The verified plan
-applied successfully: **0 added, 34 changed, 0 destroyed**. The IPv6 lookups
-resolved without resource changes. A fresh post-apply plan reports **No changes**
-(exit code 0). Formatting and validation pass. Local evidence is in
-`docs/snapshot/oci/cleanup-approved-apply.log` and
-`docs/snapshot/oci/cleanup-post-apply-plan.log`.
-
-**Reorganization and readability cleanup applied (2026-10-12):** Parker
-approved the module/address moves, host-centered files, dual-stack rule and route
-helpers, shared Tailscale constants, input naming, redundant network-argument
-removal, and sensitivity changes. Both VCNs use `cidr_blocks`; each subnet uses
-one IPv4 CIDR, an IPv6 CIDR list, and `prohibit_internet_ingress`.
-
-The verified saved plan had 0 additions, 18 updates, and 0 deletions: 13 resources
-had sensitivity-metadata changes only, and five IPv6 resources awaited VNIC
-lookups. Apply completed with **0 added, 13 changed, 0 destroyed**; the IPv6
-lookups resolved without changes. All 74 managed resource IDs and values match
-the pre-apply state exactly. The fresh live plan reports **No changes** (exit 0).
-Formatting, validation, encrypted-input consistency, and the public-file privacy
-audit pass. Keep both `moved.tf` files to support older states and backups.
-Local evidence is in `docs/snapshot/oci/readability-{plan,apply,post-apply-plan}.log`
-and `readability-{before,after}-verification.json`.
-
-**Final cleanup pass applied (2026-10-12):** per-subnet files, consistent
-resource and argument order, and comments naming ICMP type/code values and ports. Parker approved
-applying the verified saved plan, which was a no-op for all 74 resources. Apply
-completed with **0 added, 0 changed, 0 destroyed**, and the fresh post-apply plan
-reports **No changes**. Local evidence is in
-`docs/snapshot/oci/final-cleanup-{plan,apply,post-apply-plan}.log`.
-
-Also from that README: an encrypted state copy and SOPS-encrypted inputs were
-backed up outside the repository; recovery of the backup was verified by reading
-all 74 managed resources. No OCI bucket or locking resource was created during
-adoption. The provider generated an invalid empty `server_type` on a SearchDomain
-DHCP option, so the configuration omits that inapplicable field.
-
-## Moved from `README.md` (2026-10-12)
-
-The existing OCI infrastructure is represented by 74 explicit OpenTofu resources
-in `tofu/oracle/`. Adoption imported those resources with zero additions, changes, or deletions. The post-adoption plan reports no changes.
+- 74 resources imported with no changes (OpenTofu 1.13.1, oracle/oci 9.9.0); later cleanups were sensitivity-metadata or address moves only. `moved.tf` keeps every move so old states still plan.
+- OCI auth is Parker's own user through `oci session authenticate`, read/write, because OpenTofu writes back; a read-only user was dropped.
+- Discovery snapshots stay local (`docs/snapshot/`, gitignored); review of `SUMMARY.md` gates adoption.
+- `terraform-provider-oci -command=export` was skipped: it needs a `terraform` binary (0.12/0.13). Inventory with the `oci` CLI, then `import {}` with `-generate-config-out`.
+- OCI scope excludes identity-domain apps/users/groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, VCN-created DNS resolvers/views/zones, and boot-volume backups (data).
+- Image-created boot volumes ignore only `source_details`; never fabricate a clone or restore source.
+- The provider generated an invalid empty `server_type` on a SearchDomain DHCP option; the field is omitted.
+- Port names Parker gave: LiveKit 7881 and UDP 30000-40000 (TURN relay), router UDP 39127 (Tailscale peer relay), bailout UDP 51820/51821 (WireGuard).
+- Single-source-port rules were fixed, mail TCP 80's source port dropped, legacy's Minecraft voice chat (UDP 24454) and four redundant DNS 53 rules removed, and every instance tagged `managed-by=opentofu`.
+- Deferred IPv6 assignments show as updates whenever their VNIC lookup is deferred; they resolve without change.
 
 ## Documentation restructure (2026-10-12)
 
-Parker asked for the plan's phases to move from `AGENTS.md` into `.claude/PLAN.md`, for
-`AGENTS.md` to become a cheat sheet for agents new to the repository, and for all
-history to leave `AGENTS.md` and the READMEs for this file. `.claude/PLAN.md` states the
-current intent: instructions that later decisions superseded are replaced rather
-than annotated. These were exporter-based OCI discovery, committed discovery
-snapshots, a read-only OCI profile, and per-phase commits and PRs. The original
-wording is in Git history before this restructure and in the verbatim § 11 entries
-above.
+- Phases moved to `.claude/PLAN.md`, `AGENTS.md` became the agent cheat sheet, and all history moved here. Superseded instructions are replaced, not annotated.
 
 ## Published to GitHub (2026-10-12)
 
-Before the first push, a scan of every commit found no OCIDs other than images, no
-GUA IPv6 literals, no private or age keys, no state, plan, tfvars or snapshot
-files, and only encrypted SOPS files. `phase-0-scaffold` was renamed to `master`;
-the old local `master` held only the initial commit, an ancestor. `gh repo create`
-made the public `regulad/homelab` with `origin` and pushed `master`. A follow-up
-commit added `.github/settings.yml` for the Probot Settings app (description,
-topics, and the disabled features used in `regulad/tailscale-acls`).
+- A scan of every commit found no tenancy OCIDs, GUAs, keys, state, plans or tfvars before the first push of the public `regulad/homelab`.
+- `.github/settings.yml` configures the repository through the Probot Settings app.
 
 ## Scope change (2026-10-12)
 
-Parker moved two areas out of this repository because they are already
-declarative elsewhere: tailnet configuration (ACL policy and DNS) in
-`regulad/tailscale-acls`, and workstations in `regulad/dotfiles`. The plan's
-tailnet root (`tofu/tailnet`, ACL import, auth-key minting) was dropped. Parker
-also brought Proxmox cluster-wide and Ceph cluster-wide settings into scope; the
-plan previously listed them as a non-goal because `bpg/proxmox` does not cover
-them all. Phase 6 now covers those settings, using OpenTofu where the provider
-supports a setting and Ansible on the nodes otherwise.
+- Tailnet ACLs and DNS live in `regulad/tailscale-acls`, workstations in `regulad/dotfiles`; the planned `tofu/tailnet` root was dropped.
+- Proxmox and Ceph cluster-wide settings came into scope: OpenTofu where `bpg/proxmox` covers them, Ansible on the nodes otherwise.
 
 ## OCI input cleanup (2026-10-18)
 
-Parker reviewed `tofu/oracle`'s inputs and retired four of them from
-`secrets.sops.json`. Each replacement keeps the value it replaces:
-
-- `backup_policy_id` was Oracle's predefined `bronze` policy: a realm-wide OCID
-  (`oc1..`) with no compartment, not a tenancy-owned OCID. The tenancy has no
-  user-defined backup policies. Managing it as an `oci_core_volume_backup_policy`
-  resource was ruled out, because that resource requires a compartment and
-  Oracle owns the policy. A lookup by name was drafted, then replaced at Parker's
-  direction with the plaintext OCID. This supersedes the 2026-10-12
-  classification that kept the backup-policy ID encrypted.
-- Plaintext Oracle OCIDs moved into per-module `backup_policy_ids` and
-  `platform_image_ids` maps, keyed by exact Oracle name. They replace the
-  name-comment convention for stock images. The privacy hook now requires that
-  keyed form for image and backup-policy OCIDs.
-- `availability_domains` is looked up from `tenancy_ocid` in the root and still
-  reaches the modules as a sensitive input.
-- `instance_metadata` and `shared_ssh_metadata` held only one SSH public key per
-  instance, with no `user_data`. Parker had the keys moved to plaintext HCL.
-- `ipv6_subnet_cidrs` stays encrypted at Parker's direction, although each `/64`
-  could be derived from its VCN's Oracle-allocated `/56`, so that a full
-  redeploy keeps the same subnets.
+- `bronze` is a realm-wide Oracle OCID (`oc1..`) with no compartment, so it is plaintext in a `backup_policy_ids` map; it cannot be an `oci_core_volume_backup_policy` resource, which requires a compartment.
+- Oracle OCIDs live in per-module `backup_policy_ids` and `platform_image_ids` maps keyed by exact Oracle name; the privacy hook enforces that form.
+- `availability_domains` is looked up from `tenancy_ocid`. Instance SSH keys moved to plaintext HCL.
+- `ipv6_subnet_cidrs` stays encrypted although derivable from each VCN's `/56`, so a redeploy keeps the same subnets.
 
 ## `bronze` backups on every boot volume (2026-10-18)
 
-Parker extended `bronze` to every boot volume: web and bailout, which had no
-policy, gained new assignments. One apply covered this and the input cleanup
-above. Parker approved it on condition that the plan showed only those two
-assignments plus sensitivity changes.
+- web and bailout gained `bronze` assignments; every boot volume now has one.
 
-The saved plan `docs/snapshot/oci/input-cleanup.tfplan` had 2 to add, 13 to
-change, and 0 to destroy. The 13 were 8 sensitivity-only updates, whose values
-were unchanged (five instances' `metadata` and three assignments' `policy_id`),
-and five IPv6 resources awaiting deferred VNIC lookups. Apply completed with
-**2 added, 8 changed, 0 destroyed**. The IPv6 lookups resolved without change,
-and the fresh post-apply plan reports **No changes** for 76 managed resources.
-Encrypted state backups are under
-`%LOCALAPPDATA%/homelab/oracle-backups/input-cleanup-{before,after}-*`. Logs are in
-`docs/snapshot/oci/input-cleanup-{plan,apply,post-apply-plan}.log`.
+## Remote state on OCI's S3 API; locking tested (2026-10-18)
 
-## Remote state brought forward; OCI lock test (2026-10-18)
-
-Parker brought the remote state backend forward from "after the rest of the
-repository": he now switches between workstations, all of which share one age
-identity. The backend itself is not configured yet.
-
-Research found three things:
-- OpenTofu 1.13.1 has no native OCI backend.
-- Its `s3` backend works with OCI's S3 Compatibility API using Oracle's
-  documented settings.
-- `use_lockfile` depends on `If-None-Match: *`, which Oracle does not document
-  for the S3-compatible path.
-
-Parker approved a test with a scratch versioned bucket, `homelab-tofu-locktest`,
-and a temporary Customer Secret Key on his own user:
-
-- **Raw requests:** a repeated conditional create returned 412, and a create
-  over a delete marker returned 200. A wrong `If-Match` was ignored and returned
-  200; OpenTofu does not send that header.
-- **Held lock:** while an apply held the lock, a second run was refused with 412
-  `PreconditionFailed`. The lock object was removed afterwards, and the next
-  apply took the lock again.
-- **Race:** in 20 of 20 rounds of two simultaneous applies, exactly one got the
-  lock. All 20 refusals were 412s, and no lock object was left behind.
-
-The bucket and its 71 object versions were deleted afterwards.
-Parker then deleted the test key.
+- OpenTofu has no OCI backend; its `s3` backend works against OCI's S3 Compatibility API with Oracle's documented settings.
+- `use_lockfile` relies on `If-None-Match: *`, undocumented by Oracle, so it was tested on a scratch bucket: a repeated conditional create returns 412, a create over a delete marker 200, and 20 of 20 races gave exactly one lock holder. A wrong `If-Match` is ignored (OpenTofu does not send it).
 
 ## State backend resources (2026-10-18)
 
-Parker had the bucket and the backend's service identity managed in
-`tofu/oracle`, as the new `state-backend` module:
-- `homelab-tofu-state` is private and versioned. Parker ruled out
-  `prevent_destroy`, because the bucket is created declaratively rather than
-  adopted.
-- `svc-tofu-state@regulad.xyz` is limited to customer secret keys. Parker
-  created that mailbox, so the identity domain's activation mail is delivered.
-- The `svc-tofu-state` group and policy grant `read buckets` and the five object
-  permissions the backend uses, scoped to that bucket. They omit
-  `OBJECT_VERSION_DELETE`.
-
-Identity-domain users and groups stay out of Phase 5's adoption scope; these were
-created by OpenTofu. The classic IAM resources were used, as with `svc-mail`.
-
-The plan Parker reviewed was re-planned after removing `prevent_destroy`. The new
-plan had the same 6 creates with identical values. Apply completed with **6
-added, 0 changed, 0 destroyed**, and the fresh plan was a no-op. Backups are
-under `oracle-backups/state-backend-{before,after}-*`. Logs are in
-`docs/snapshot/oci/state-backend-*.log`.
+- `homelab-tofu-state` (private, versioned, no `prevent_destroy` since it was created, not adopted) and `svc-tofu-state`, limited to customer secret keys, whose policy grants `read buckets` and five object permissions, not `OBJECT_VERSION_DELETE`.
+- Classic IAM resources, as with `svc-mail`; the identity user needs a real mailbox for its activation mail.
 
 ## Remote state migration (2026-10-18)
 
-**Key.** Parker approved creating the customer secret key with the CLI, outside
-OpenTofu, so the key never lives in the state it unlocks. The first key's secret
-was lost: encrypting it failed on a newline, and the script had already discarded
-the secret. That key was never usable, and Parker approved deleting it. After a
-dummy-value round trip, the second key (`tofu-state-backend-20261018`) was
-encrypted straight from memory into `tofu/oracle/backend.sops.env`, with the
-endpoint. The new key failed intermittently with `SignatureDoesNotMatch` for
-about 15 minutes after creation, then succeeded on every request.
-
-**Migration.** Parker approved the migration.
-- The local state was backed up to
-  `oracle-backups/migrate-state-before-20261018-163215/`, and
-  `tofu init -migrate-state -force-copy` moved it to `oracle/terraform.tfstate`.
-- The remote object is the encrypted envelope, and holds all 82 managed
-  resources.
-- OpenTofu gave the remote state a new lineage (serial 1), so restoring a
-  pre-migration local backup needs `tofu state push -force`.
-- A fresh plan against the remote state reports **No changes**, and its lock
-  object was removed afterwards.
-- The emptied local `terraform.tfstate` and the stale `.backup` were moved into
-  the backup folder.
-
-Parker then dropped the rule to copy state, inputs, and the lock file to
-`%LOCALAPPDATA%/homelab/oracle-backups/` before each apply, because bucket
-versioning now keeps every earlier state version.
-
-Logs are in `docs/snapshot/oci/migrate-state*.log`.
+- The backend's customer secret key is made with the CLI, outside OpenTofu, so it never lives in the state it unlocks. Encrypt a new secret straight from memory; a first key was lost to a newline in the pipeline.
+- A new key fails intermittently with `SignatureDoesNotMatch` for about 15 minutes after creation.
+- `-migrate-state` gave the remote state a new lineage, so restoring a pre-migration backup needs `tofu state push -force`.
+- Bucket versioning replaced the copy-state-before-apply rule.
 
 ## Plan restructured around two Ansible phases (2026-10-18)
 
-Parker asked for two Ansible phases on either side of OpenTofu:
-- hardware hosts, from a hand-written inventory, before OpenTofu;
-- generated hosts, from an inventory fed by OpenTofu outputs, after it.
-
-The plan went from ten phases to seven. Entries above this one use the old
-numbers:
-
-| Old | New |
-|---|---|
-| 0 Scaffold, 1 Discovery | 0, 1. Discovery now also covers hardware hosts, and picks an owner for each cluster and Ceph setting. |
-| 2 Ansible baseline | Split: Proxmox nodes and other hardware go to 2 (Ansible: hardware hosts); guests go to 4 (Ansible: generated hosts) |
-| 3 Quadlet services | 4 |
-| 4 Proxmox OpenTofu, 5 OCI OpenTofu | 3 (OpenTofu), as its Proxmox-guest and OCI parts |
-| 6 Cluster and Ceph settings | Discovery to 1; Ansible-owned settings to 2; OpenTofu-owned settings to 3 |
-| 7 Inventory handoff | 4 |
-| 8 Portability, 9 Drift and CI | 5, 6 |
+- Hardware hosts get Ansible before OpenTofu, from a hand-written inventory; generated hosts after it, from OpenTofu. Ten phases became seven; entries above use the old numbers.
 
 ## Ansible stages scaffolded (2026-10-18)
 
-Parker asked for the two Ansible stages to be scaffolded:
-- `ansible.cfg` at the repository root.
-- Inventories: the hand-written `hardware.yml` (groups `hardware` and
-  `proxmox_nodes`, no hosts yet), and `inventory.py`, which reads OpenTofu
-  outputs, puts every host in `generated`, and lists no roots yet.
-- One playbook per stage (`hardware.yml`, then `base.yml` and `services.yml`),
-  plus `site.yml`.
-- Skeleton roles with knobs in `defaults/`.
-
-Two choices came out of `ansible-lint`. The Quadlet role is named `quadlet`
-instead of `quadlet_services`, because role variables must carry the role's
-prefix and the plan's `quadlet_services` host_vars key is kept. Role metadata
-carries `license: AGPL-3.0`, after the repository's AGPLv3 `LICENSE.md`.
-
-Checks used the tools already in WSL `regulad-fedora` (ansible-core 2.21.5,
-ansible-lint 26.10.1, OpenTofu 1.13.1); nothing was installed.
-- `ansible-inventory --graph` and the `site.yml` syntax check pass.
-- `ansible-lint --offline` passes under its `production` profile.
-- Ansible ignores `ansible.cfg` in the world-writable `/mnt/d` checkout, so WSL
-  runs set `ANSIBLE_CONFIG`.
+- The Quadlet role is `quadlet`, not `quadlet_services`: ansible-lint requires role variables to carry the role's prefix. Role metadata says `license: AGPL-3.0`.
+- Ansible ignores `ansible.cfg` in a world-writable directory (such as `/mnt/d` in WSL).
 
 ## Repository moved into WSL; hardware hosts seeded (2026-10-18)
 
-Ansible's control node is Linux-only, so Parker moved the repository into WSL:
-- **Clone:** `~/repositories/homelab` in `regulad-fedora`, cloned after the
-  push. Its gitignored `docs/snapshot/` was copied from the Windows checkout.
-  The checkout is not world-writable, so Ansible reads `ansible.cfg` without
-  `ANSIBLE_CONFIG`.
-- **Worktree:** agent work happens in the `homelab_ansible` worktree, on branch
-  `ansible`.
-- **pve material:** the on-hold `tofu/gonkputer` work stays in the Windows
-  `homelab_pve` worktree, on branch `pve`. At Parker's direction, the
-  gitignored gonkputer files left in the main Windows checkout were moved
-  there: `.terraform/`, the decrypted inputs, and the discovery snapshot.
-
-**Hardware hosts.** At Parker's direction, the hardware inventory was seeded from
-`~/.ssh/config.d/99-hardware`, plus `overture`, which that file points to in
-`99-osx`.
-- `prodingus` (Proxmox VE 9.2.22 on Debian 13) answered Ansible's `ping`. Its
-  facts are in the local snapshot.
-- `turk` was unreachable from WSL because it happened to be down; like the other
-  hardware hosts, it normally runs around the clock. Parker identified it as a
-  separate computer, not part of the `gonkputer` Proxmox cluster. It runs VMware
-  instead of QEMU/KVM, so Windows guests get hardware-accelerated graphics.
-  Bringing those guests into OpenTofu is a far-future idea.
-- Parker dropped `longitude` (mobile) and `minintosh`.
-- `overture` gets `-o RemoteCommand=none -o RequestTTY=no`, because its SSH
-  login wrapper cannot coexist with Ansible's commands. This is untested.
-
-**Network switches.** The two Cisco SG300s and the Arista 7010T run no Python.
-Parker kept them out of the Ansible inventory and added a Phase 2 step to manage
-them with the repository's own bash scripts.
+- Hardware hosts came from `~/.ssh/config.d/99-hardware` plus overture. prodingus runs Proxmox VE 9 on Debian 13. turk is a separate machine running VMware so Windows guests get accelerated graphics, not part of gonkputer.
+- overture needs `-o RemoteCommand=none -o RequestTTY=no`, because its SSH login wrapper cannot coexist with Ansible's commands.
 
 ## overture reachable through Ansible (2026-10-18)
 
-- The `RemoteCommand=none` / `RequestTTY=no` override now works: Ansible's
-  `ping` to `overture` succeeded with it and failed without it ("Cannot execute
-  command-line and remote command").
-- At Parker's direction, `overture` pins `ansible_python_interpreter` to
-  `/usr/bin/python3`, the interpreter macOS ships (Python 3.9.6 on macOS 27.0.1),
-  instead of relying on interpreter discovery.
+- Without the override, ping fails with "Cannot execute command-line and remote command". overture pins `ansible_python_interpreter: /usr/bin/python3` (macOS's 3.9.6).
 
 ## Unix-only tooling (2026-10-18)
 
-At Parker's direction, the repository became Unix-only: Linux (including WSL)
-or macOS, with a POSIX shell. Native Windows is no longer supported.
-- `tofu/oracle/prepare.ps1` was replaced by `prepare.sh`, which is sourced
-  (`. tofu/oracle/prepare.sh`) and runs in sh, bash and zsh. It keeps the old
-  behaviour: it refuses an un-ignored destination and refuses to overwrite a
-  `secrets.auto.tfvars.json` whose data differs. It checks every backend name
-  before exporting any, and writes the decrypted inputs with mode 600. `jq`
-  replaces PowerShell's JSON comparison.
-- Documented commands moved from PowerShell to bash. The Windows-only
-  `OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING` setting was dropped.
-- The `ANSIBLE_CONFIG` workaround for world-writable `/mnt/` checkouts was
-  removed from `ansible.cfg`, `AGENTS.md` and `ansible/README.md`, and so was the
-  `WSLENV` route for backend credentials.
-- The pre-migration state copies are still on the former Windows workstation,
-  under `%LOCALAPPDATA%/homelab/oracle-backups/`.
+- `prepare.ps1` became a sourced `prepare.sh` (sh, bash, zsh): it refuses an un-ignored destination or an overwrite with different data, checks every backend name before exporting, and writes inputs 0600.
 
 ## Ansible split into per-stage folders (2026-10-18)
 
-At Parker's direction, `ansible/` became three folders, so each stage reads
-only its own inventory:
-- `ansible-hardware/`: Phase 2. It reads only the hand-written
-  `inventory/hardware.yml`, with `overture`'s host variables beside it. The old
-  `hardware.yml` playbook became its `playbooks/site.yml`. It owns the
-  `proxmox_cluster` role.
-- `ansible-generated/`: Phase 4. It reads only `inventory/inventory.py`, built
-  from OpenTofu outputs, and keeps `base.yml`, `services.yml` and a `site.yml`
-  that no longer imports the hardware stage. It owns `podman`, `avahi` and
-  `quadlet`.
-- `ansible-common/roles/`: `base` and `tailscale`, which both stages apply.
-  Parker chose a shared folder over copying the roles into each stage.
-
-Each stage has its own `ansible.cfg` (`roles_path = roles:../ansible-common/roles`),
-`requirements.yml` and gitignored `collections/`, and runs from inside its
-folder. The root `ansible.cfg` was removed. Both stages pass `--syntax-check` and
-`ansible-lint --offline`, and `overture` still answers Ansible's `ping` from
-`ansible-hardware/`.
+- `ansible-hardware/`, `ansible-generated/` and `ansible-common/roles/`, each stage with its own `ansible.cfg` (`roles_path = roles:../ansible-common/roles`), `requirements.yml` and gitignored `collections/`, run from inside its folder.
 
 ## Windows checkout removed (2026-10-18)
 
-The repository now lives only on Unix-like systems. The on-hold `homelab_pve`
-worktree moved into WSL as `~/repositories/homelab_pve`, on branch `pve`, with
-all of its uncommitted and ignored files verified by checksum. Parker then
-approved deleting the Windows checkout `D:\repositories\homelab` and its
-`homelab_pve` worktree. Before deletion, every branch and remote ref was
-confirmed present in WSL, there were no stashes or uncommitted changes, and the
-ignored `docs/` and decrypted inputs matched WSL's. The only objects lost were
-four draft commits from 2026-10-12 that had already been reset away and redone
-as `bb36843`. The pre-migration OCI state copies under Windows
-`%LOCALAPPDATA%/homelab/oracle-backups/` were outside the checkout and remain.
+- The only objects lost were four draft commits already redone as `bb36843`. Pre-migration OCI state copies remain under the old Windows `%LOCALAPPDATA%/homelab/oracle-backups/`.
 
 ## One converging playbook per stage (2026-10-18)
 
-Parker decided that each Ansible stage has only `playbooks/site.yml`, whose
-plays converge hosts and are safe to rerun. No deliberate operations, such as
-rolling reboots or release upgrades, go into Ansible. Package updates come from
-each host's own automatic updater (unattended-upgrades, dnf-automatic).
-`ansible-generated`'s `base.yml` and `services.yml` were folded into its
-`site.yml`. Parker also identified `turk` as Ubuntu 24.04 running VMware
-Workstation.
+- Each stage's `site.yml` converges and is safe to rerun; deliberate operations (rolling reboots, release upgrades) stay out of Ansible, and package updates come from each host's own updater.
 
 ## Generated inventory from OpenTofu state (2026-10-18)
 
-Parker compared three ways to feed `ansible-generated/` from OpenTofu: the
-`inventory.py` script reading an `ansible_hosts` output; the `ansible/ansible`
-provider with `cloud.terraform.terraform_provider`; and
-`cloud.terraform.terraform_state` reading instances straight from state. He chose
-`terraform_state` because it scales to more roots and resource types without
-HCL changes. `inventory.py` was removed.
-- `inventory/oracle.terraform_state.yml` maps tofu/oracle's five
-  `oci_core_instance` resources, named by display name. Parker identified each
-  wahlecloud instance's VCN DNS name (`<label>.pubsub.wahlecloud.oraclevcn.com`)
-  and legacy `web`'s public name (`doppelgangerhq.com`) as their addresses.
-  Short names are ambiguous on the tailnet: `tailscalerouter` resolved elsewhere
-  first.
-- The plugin pulls state in a scratch directory with no `encryption` block, so
-  its `binary_path` is a wrapper, `bin/tofu-oracle`, that sets `TF_ENCRYPTION`
-  for its own process. The plugin reads `binary_path` raw and runs it from the
-  scratch directory, so a relative path fails there; it is the bare name
-  `tofu-oracle`, and sourcing `prepare.sh` puts `ansible-generated/bin` on `PATH`.
-- With Parker's approval, `cloud.terraform` 4.0.0 was installed into the
-  stage's gitignored `collections/`.
-- With Parker approving each SSH agent prompt, `ansible generated -m ping -f 1`
-  reached all five hosts. Ansible connects by VCN DNS name, which the operator's
-  SSH configuration does not match for `bailout`, so its `host_vars` set
-  `ansible_user: opc`.
-- Each stage gained an `.ansible-lint` that excludes the installed
-  `collections/`. With it, a stage's lint no longer follows `../ansible-common`,
-  so AGENTS.md now lints the shared roles separately.
-- Proxmox guests do not feed `ansible-generated/` yet. That needs a
-  `tofu/proxmox` root, which waits on the `bpg/proxmox` provider work, and then
-  a `proxmox.terraform_state.yml` source beside the oracle one.
+- `cloud.terraform.terraform_state` was chosen over an `inventory.py` output reader and `terraform_provider`, since it scales across roots without HCL changes.
+- The plugin pulls state into a scratch directory with no `encryption` block, so `binary_path` is a wrapper (`bin/tofu-<root>`) that sets `TF_ENCRYPTION`. It reads `binary_path` raw from that directory, so it must be a bare name on `PATH` (sourcing `prepare.sh` adds `ansible-generated/bin`).
+- OCI hosts are named by VCN DNS name (`<label>.pubsub.wahlecloud.oraclevcn.com`), legacy `web` by `doppelgangerhq.com`; short names are ambiguous on the tailnet. Names the operator's SSH config does not match need `ansible_user` in `host_vars` (bailout `opc`).
+- Each stage's `.ansible-lint` excludes `collections/`, which also stops it following `../ansible-common`, so the shared roles are linted separately.
 
 ## The gonkputer draft rebased onto master (2026-10-19)
 
-The on-hold `pve` worktree moved to `.claude/worktrees/pve`, and its uncommitted
-work was replayed onto `master`. Its rewrite of this file into a "pivots and
-findings" format was dropped in favour of `master`'s append-only log; what it had
-learned is kept here. Parker kept the root name `tofu/gonkputer`, so the docs
-that said `tofu/proxmox` now use it. No existing gonkputer state carries over:
-the provider has had several fixes since the draft, so its imports will be redone
-from scratch. Where that root's state lives is undecided.
-
-Decisions carried over, updated where later ones replaced them:
-- **Read/write credentials, approval-gated (2026-10-12).** `gonkputer` uses a
-  `root@pam` API token plus root SSH, because OpenTofu will write back; per-action
-  approval is the safeguard.
-- **Own provider mirror (2026-10-13).** Provider builds are served by the static
-  network mirror `regulad/opentofu-registry` at `https://opentofu.regulad.xyz/`,
-  under the `bpg/proxmox` address, so changing builds needs no state migration.
-- **Explicit Proxmox defaults, not `ignore_changes` (2026-10-14).** Where a
-  setting is unset live and the provider's default differs from Proxmox's
-  effective value, `tofu/gonkputer` writes Proxmox's value.
-- **Ceph narrowed to RBD (2026-10-14), then widened again (2026-10-19).** The
-  draft's plan to manage CephFS and move MDS daemons to OpenTofu was first
-  narrowed to the RBD pools and storages, with CephFS and MDS unmanaged. The
-  provider build adopted below covers every Ceph object, so all of them are in
-  scope again.
-- The draft's "containers, then VMs, then hardware hosts" Ansible order was
-  dropped; `master`'s hardware-first phase order stands.
-
-Findings about `gonkputer` (Proxmox and Ceph):
-- `prodingus` is a standalone pmxcfs node with no corosync configuration, yet the
-  HA manager runs with single-node quorum and armed fencing.
-- Proxmox VE 9 replaced HA groups with HA rules; one rule references a node,
-  `jondingus`, that is not part of the cluster.
-- pveproxy's certificate is self-signed by the PVE cluster CA and lacks the
-  tailnet name. `tailscale serve` publishes port 8006 on the node's tailnet name
-  to the tailnet only, with a Tailscale-issued certificate, so provider TLS
-  verification stays on.
-- Users and groups are owned by the LDAP realm `home.arpa` and its sync job,
-  which removes vanished entries.
-- `bpg/proxmox` 0.116.0 renamed its resources to short `proxmox_*` names; the long
-  names are deprecated (removal planned for v1.0), and some resources have no
-  short name yet. `proxmox_vm` is not the short name of
-  `proxmox_virtual_environment_vm` but the experimental former `vm2`, without
-  import support.
-- Proxmox documents an API for custom CPU models,
-  `/cluster/qemu/custom-cpu-models`, which `pvesh ls /cluster` does not show. The
-  provider can only reference custom models from `cpu.type`.
-- An API token with privilege separation and no ACLs has effectively no
-  permissions, while `/version` still answers. `root@pam!homelab` had this until
-  privilege separation was disabled.
-- The provider has no resources for RBD or CephFS storage, notification endpoints
-  and matchers, Ceph configuration, CRUSH rules or CephFS, or the scheduled
-  realm-sync job. `proxmox_ceph_pool` exists but is experimental.
-- Importing a `proxmox_virtual_environment_file` records only node, storage and
-  content type, so an imported snippet plans as a replacement. Creating the
-  resource over the live file adopts it in place. Edits on the node are not
-  detected.
-- PVE returns `number` options as text, so the seven containers that set only
-  `cpulimit` report `"cpus": "2"`, which `bpg/proxmox` could not read. Fixed in the
-  fork (bpg/terraform-provider-proxmox#3170) and reported to Proxmox as bug 8162.
-- `-generate-config-out` emits empty strings and zeros that fail the provider's
-  own validators; dropping nulls, provider defaults and empty values left only
-  meaningful settings.
-- Several provider defaults differ from Proxmox's: the guest firewall's `ndp` and
-  `radv`, the cluster and guest output and forward policies, and a VM's
-  `scsi_hardware`, which would have swapped the controller under VM 129's boot
-  disk.
-- The container importer records no `vm_id` and no `timeout_start`, so the first
-  plan shows an in-place update that sends no request.
-- A force-new attribute that references a resource still to be created forces
-  replacement (`vendor_data_file_id` on the cloud-init VMs); literal volume IDs
-  with `depends_on` avoid it.
-- Plugin Framework defaults are applied during planning, after `ignore_changes`,
-  so `ignore_changes` cannot hide a missing default in state.
-- `proxmox_ceph_pool` after an import plans an update, and its `add_storages`
-  forces replacement. Its update resends every property, including `application`,
-  which Proxmox's API cannot set to `mgr`.
-- The provider never sends an empty cloud-init password, so an unconfigured one
-  stays unmanaged.
-- Proxmox's Ceph objects form three layers: Ceph objects (pools, filesystems,
-  MDS), storage entries that refer to them by name, and one-shot bridges between
-  them. "Add as storage" registers an RBD storage named after the pool; CephFS
-  creation makes new `<name>_data` and `<name>_metadata` pools and needs a standby
-  MDS.
-- `storage.cfg` does not record how an entry was created; the missing `krbd 0`
-  lines reflect upgrades from Proxmox VE 7 through 9.
-- `prodingus1` was a test MDS at first. By 2026-10-19 Parker had made it a real hot
-  spare on the same host, and a second spare, `prodingus2`, had been added.
-- The snippet storages hold two scripts no guest references:
-  `local:snippets/lxc-bindfs-hook.sh` and `cephfs:snippets/block-ula.sh`.
-- Ceph was in HEALTH_WARN at discovery: `osd.1` down, 32 PGs inactive, the `rbd`
-  storage unlistable, and stale per-OSD mClock settings for removed OSDs.
-
-Tooling findings:
-- OpenTofu selects a provider version across all matching installation methods
-  but installs from the first one listed. A network mirror listed before
-  `direct {}` answers 404 for official releases, and the install fails, so
-  `direct {}` comes first.
-- `tofu providers lock` ignores the CLI configuration's installation methods;
-  lock mirrored builds with `-net-mirror=<url>`.
-- A GitHub Pages custom domain set before its DNS record existed never got a
-  certificate. Clearing and re-setting it after DNS resolved fixed that.
-- The GUA guard's `\b` boundary also matched later hextets of link-local EUI-64
-  addresses; a `(?<![0-9a-f:])` lookbehind fixes it.
-
-Unix port of the draft, approved by Parker:
-- `tofu/gonkputer/prepare.ps1` became a sourced `prepare.sh`, like
-  `tofu/oracle/prepare.sh`. It exports only `PROXMOX_VE_ENDPOINT` and
-  `PROXMOX_VE_API_TOKEN`, rejects any other key, and sets `TF_CLI_CONFIG_FILE` to
-  the root's `tofu.rc`. The README, `tofu.rc` and `providers.tf` comments dropped
-  their Windows references.
-- The decrypted `secrets.auto.tfvars.json`, written on Windows, was converted from
-  CRLF to LF; its data did not change.
-- The worktree's `tofu/oracle/.terraform/` was copied from the main checkout, so
-  nothing was downloaded.
-- The draft's `.tf` files were never run through `tofu fmt`; they are left as
-  they are, since the imports will be redone.
+- `gonkputer` uses a `root@pam` API token plus root SSH, read/write; per-action approval is the safeguard.
+- Provider builds come from the static mirror `regulad/opentofu-registry` under the `bpg/proxmox` address, so changing builds needs no state migration.
+- Proxmox and Ceph findings:
+  - prodingus is a standalone pmxcfs node with no corosync configuration, yet HA runs with single-node quorum and armed fencing.
+  - Proxmox VE 9 replaced HA groups with HA rules.
+  - pveproxy's certificate is self-signed and lacks the tailnet name, so `tailscale serve` publishes 8006 with a Tailscale certificate and provider TLS verification stays on.
+  - Users and groups belong to the LDAP realm `home.arpa`, whose sync removes vanished entries.
+  - Custom CPU models have an API (`/cluster/qemu/custom-cpu-models`) that `pvesh ls /cluster` does not list.
+  - An API token with privilege separation and no ACLs has no permissions, yet `/version` still answers.
+  - "Add as storage" registers an RBD storage named after the pool; creating a CephFS makes `<name>_data` and `<name>_metadata` pools and needs a standby MDS. `storage.cfg` does not record how an entry was made (missing `krbd 0` lines come from upgrades since PVE 7).
+- Provider findings:
+  - 0.116.0 renamed resources to short `proxmox_*` names. `proxmox_vm` is the experimental former `vm2`, not `proxmox_virtual_environment_vm`, and cannot import.
+  - An imported `proxmox_virtual_environment_file` records only node, storage and content type, so it plans a replacement; creating it over the live file adopts it in place. Edits on the node go undetected.
+  - PVE returns number options as text (`"cpus": "2"`), which the provider could not read (fixed in bpg#3170; Proxmox bug 8162).
+  - `-generate-config-out` emits empty strings and zeros that fail the provider's validators; drop nulls, defaults and empties.
+  - Several provider defaults differ from Proxmox's: the guest firewall's `ndp` and `radv`, the cluster and guest output and forward policies, and a VM's `scsi_hardware`.
+  - The container importer records no `vm_id` or `timeout_start`, so the first plan shows an in-place update that sends nothing.
+  - A force-new attribute referencing a resource still to be created forces replacement (`vendor_data_file_id`); literal volume IDs with `depends_on` avoid it.
+  - Plugin Framework defaults apply during planning, after `ignore_changes`, so `ignore_changes` cannot hide a missing default.
+  - The provider never sends an empty cloud-init password.
+- Tooling findings:
+  - OpenTofu picks a version across all installation methods but installs from the first listed; a mirror before `direct {}` returns 404 for official releases, so `direct {}` comes first.
+  - `tofu providers lock` ignores the CLI configuration's installation methods; lock mirrored builds with `-net-mirror=<url>`, after removing the old version's entry, which it will not replace.
+  - A GitHub Pages custom domain set before its DNS record existed never got a certificate until it was cleared and set again.
+  - The GUA hook's `\b` matched later hextets of link-local EUI-64 addresses; a `(?<![0-9a-f:])` lookbehind fixes it.
 
 ## gonkputer provider build with full Ceph support (2026-10-19)
 
-- `tofu/gonkputer` now pins `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1` from
-  the mirror. Beyond the official `v0.117.0`, which already includes the custom CPU
-  model and the string `cpus` fix, this build adds:
-  - `proxmox_ceph_pool` fixes: imports plan no changes, `pool_id`, erasure-coded
-    pools. Pools no longer create storages; `add_storages`, `remove_storages` and
-    `remove_ecprofile` are gone.
-  - `proxmox_storage_rbd`.
-  - `proxmox_ceph_mds`.
-  - `proxmox_ceph_fs`, whose destroy is a manual procedure the provider refuses
-    to run, and `proxmox_storage_cephfs`.
-- Parker put every Ceph object created through Proxmox in scope: the pools, the
-  CephFS, their storages and the `prodingus` MDS. `AGENTS.md`'s Ceph scope
-  replaces the RBD-only and unmanaged-MDS decisions.
-- Work on the provider itself happens outside this repository, so the docs no
-  longer describe it.
-- The lock file was regenerated for `linux_amd64` with
-  `-net-mirror=https://opentofu.regulad.xyz/`, after removing the old version's
-  entry, which `providers lock` refuses to replace. With Parker's approval,
-  `tofu init -backend=false` fetched the `linux_amd64` build, and the draft
-  validates against it.
+- `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1` adds `proxmox_ceph_pool` fixes (clean imports, `pool_id`, erasure coding; pools no longer create storages), `proxmox_storage_rbd`, `proxmox_ceph_mds`, `proxmox_ceph_fs` (destroy refused, manual) and `proxmox_storage_cephfs`, so every Ceph object made through Proxmox is in scope.
 
 ## gonkputer re-described from live, with Ceph (2026-10-19)
 
-Proxmox remains authoritative; `tofu/gonkputer` still describes it, not the
-other way round.
-- A fresh read-only crawl (`docs/snapshot/gonkputer-2026-10-19/`, local only)
-  was compared with the first one. Configuration changes since the draft:
-  containers 103, 106 and 115 gained the description `amd64v3`; Parker started
-  containers 103 and 115 through HA, so their HA state became `started`; and the
-  MDS `prodingus1` and `prodingus2` were added as hot spares. The RGW pool
-  `default.rgw.buckets.non-ec` went from size 3 to 2, outside this root's scope.
-  No VM settings changed, and the 7 snippets still match the live files.
-- The draft's guests were updated to match, and `ceph.tf` now describes the
-  pools `rbd_ssd` and `rbd_cmr`, the CephFS `cephfs` and the three MDS daemons.
-  `storage.tf` gained the storages `rbd`, `rbd_cmr` and `cephfs`, and there are
-  9 new import blocks (86 in all). The PG autoscaler is on for every pool, so
-  `pg_num` is left to it.
-- The first plans stalled for 15 minutes. VM 100's QEMU guest agent answered
-  every `network-get-interfaces` call with HTTP 500, and the provider retries
-  until its agent timeout (15 minutes by default) runs out. The agent had not
-  restarted when Parker re-rooted the VM without a reboot; he started it, and a
-  plan then took seconds.
-- A 1-minute `agent.timeout` was tried and removed again. It cannot help an
-  import, whose first read uses the default before the configuration applies.
-  And any change to a VM's `agent` block, even this provider-side attribute,
-  makes the provider rewrite the live `agent` line and mark the VM for a reboot,
-  which `reboot_after_update` (default true) would carry out.
-- The read-only plan then reported 86 to import, 7 to add, 23 to change and 0 to
-  destroy. The 7 creates are the snippet uploads. The 23 updates are the draft's
-  expected ones: the 20 containers' state-only `vm_id` and `timeout_start`, the
-  explicit firewall defaults in `cluster.fw` and `100.fw`, and VM 129's
-  `scsihw: lsi`. The 9 Ceph imports plan no changes.
+- Plans stalled 15 minutes because VM 100's guest agent answered `network-get-interfaces` with HTTP 500 and the provider retries until its agent timeout; the agent had not restarted after a reroot.
+- Do not set `agent.timeout`: it cannot help an import's first read, and any change to the `agent` block rewrites the live line and marks the VM for a reboot.
+- The PG autoscaler is on for every pool, so `pg_num` is left to it.
 
 ## gonkputer state moved to the shared bucket (2026-10-19)
 
-At Parker's direction:
-- `backend.sops.env` moved from `tofu/oracle/` to `tofu/shared/`, since every
-  root uses the same backend credentials. Both `prepare.sh` scripts export them
-  from there. `svc-tofu-state`'s policy already covers the whole
-  `homelab-tofu-state` bucket, so OCI needed no change.
-- `tofu/gonkputer` got the same s3 backend as `tofu/oracle`, under the key
-  `gonkputer/terraform.tfstate`, keeping its own encryption passphrase.
-- The empty local `terraform.tfstate`, left by the read-only plans, was deleted,
-  and `tofu init` configured the backend.
-- With Parker's approval, each import block's object was imported with
-  `tofu import`, one at a time. That records state only; the plan's live
-  changes (snippet uploads, explicit firewall defaults, VM 129's `scsihw`) were
-  not applied.
-- All 86 imports succeeded. A plan against the imported state shows 7 to add,
-  23 to change and 0 to destroy, the same live changes as before; the import
-  blocks are now no-ops.
+- Backend credentials moved to `tofu/shared/backend.sops.env`; gonkputer's state is `gonkputer/terraform.tfstate` with its own passphrase. All 86 resources were imported one at a time with `tofu import`.
 
 ## gonkputer adoption applied (2026-10-20)
 
-- The first saved plan failed with HTTP 401 on every read: the `root@pam!homelab`
-  API token had expired at midnight. Parker extended it.
-- With Parker's approval, the saved plan (7 to add, 23 to change, 0 to destroy)
-  was applied. He chose to let the provider reboot VM 129 for `scsihw: lsi`,
-  which a `scsi_hardware` change requires; it came back running with the new
-  line. Every change applied, but three snippet uploads failed SSH
-  authentication when the provider opened its connections as root in parallel.
-  The live snippets were unharmed.
-- As a workaround, `tofu/gonkputer/prepare.sh` exported
-  `TF_CLI_ARGS_apply="-parallelism=1"`, so applies opened one SSH connection at a
-  time. A second saved plan, the three remaining uploads, then applied cleanly.
-- A fresh plan reports no changes, and all 7 live snippets match the repository
-  byte for byte. The import blocks were removed, as the adoption convention says.
+- The `root@pam!homelab` token can expire (HTTP 401 on every read). Changing `scsi_hardware` reboots the VM (VM 129).
+- Parallel snippet uploads failed SSH auth through the operator's agent at the time; see "Serial-apply workaround removed".
 
 ## gonkputer cleanup after adoption (2026-10-20)
 
-At Parker's direction:
-- Proxmox-generated values left the HCL now that state tracks them, as OCIDs did
-  in `tofu/oracle`: `vm_id` on all 32 guests, and `path_in_datastore` and
-  `file_format` on VM disks and EFI disks. The backup job's exclusions reference
-  the two guests instead of literal `"100"` and `"101"`. MAC addresses stay. The
-  plan confirmed that none of these removals changes anything.
-- Every guest gets the tag `terraform`, marking it as managed by OpenTofu like
-  `managed-by=opentofu` on the OCI instances. Proxmox tags cannot contain `=`, and
-  Parker chose `terraform` over `managed-by-opentofu`. A tags change needs no
-  reboot.
-- The cluster's `next_id` gets `lower = 200`, so new guests are set apart from the
-  adopted ones.
-- The 14 containers whose whole description was `amd64v3` carry it as a tag
-  instead, and their descriptions are removed.
-- Tag names live once, in `local.tags` in a new `locals.tf`, and every guest
-  references them, so later resources can use the same names.
-- Every container's IPv6 method was already `auto`, in the HCL and live, so that
-  needed no change.
-- Containers moved from `cores` to `limit`. The provider reads a missing `cores`
-  as 1 (its comment cites the API documentation), but Proxmox treats it as every
-  core. It also sends `cores` on every `cpu` change, 1 when unset. So the seven
-  containers with only `cpulimit` were recorded as `cores = 1`, and converting
-  `cores = 2` to `limit = 2` would have pinned containers to one core. Parker chose
-  an explicit `cores = local.cpu_threads` (32, the node's logical CPUs) on all 20
-  containers, with each former core count, 1 or 2, kept as `limit`.
-- The "artifact of import" footers stay, as the OCI convention has them.
-- With Parker's approval, the plan applied 33 in-place updates: tags on 32
-  guests, the CPU change on all 20 containers, 14 descriptions removed, and the
-  cluster options. Nothing rebooted, and a fresh plan is a no-op.
+- Proxmox-generated values (`vm_id`, `path_in_datastore`, `file_format`) left the HCL once state tracked them. Guests are tagged `terraform` (Proxmox tags cannot contain `=`), tag names live in `local.tags`, and `next_id` starts at 200.
+- The provider reads a missing `cores` as 1 and sends 1 on any `cpu` change, while Proxmox treats it as every core; containers therefore set `cores = local.cpu_threads` and cap CPU with `limit`. Tag changes need no reboot.
 
 ## gonkputer feeds ansible-generated (2026-10-20)
 
-At Parker's direction, `ansible-generated` reads both roots as one inventory,
-and `site.yml` runs once over the union.
-- The `terraform_state` plugin can't filter hosts, join a guest with its HA
-  resource, or read a container's nested hostname. So `tofu/gonkputer` declares
-  the inventory itself: one `ansible_host` per guest, with the `ansible/ansible`
-  provider (1.5.0, installed with Parker's approval). The plugin maps those
-  resources, so `ansible-generated` still uses one plugin.
-- Parker set which guests count as requested: a started HA resource, or, without
-  an HA resource, starting on boot. That gives 30 hosts. `llamarpcmaster`, whose
-  HA resource is stopped, and the template stay out.
-- Every running guest resolves as `<name>.regulad.internal` from the control node,
-  while only five have tailnet names. Hosts are named by that DNS name, which also
-  keeps them apart from OCI hosts with the same short name (`tailscalerouter`).
-- The OpenTofu registry has no signing key for `ansible/ansible`, so its install
-  skipped signature validation; the lock file pins its checksum.
-- The two stale PLAN lines were updated.
-- With Parker's approval, the 30 `ansible_host` resources were applied, state only.
-  The combined inventory lists 35 hosts in `generated`: 30 gonkputer guests and
-  the 5 OCI instances. A fresh plan is a no-op.
+- `terraform_state` cannot filter hosts, join a guest with its HA resource, or read a container's nested hostname, so `tofu/gonkputer` declares `ansible_host` resources (`ansible/ansible` provider) for the plugin to map.
+- A guest is requested when its HA resource is started or, with none, it starts on boot.
+- Guests are named `<name>.regulad.internal`, which also keeps them apart from OCI hosts with the same short name.
+- The registry has no signing key for `ansible/ansible`; the lock file pins its checksum.
 
 ## cloud-init VMs configured by vendor files (2026-10-20)
 
-Parker decided that gonkputer VMs booting with cloud-init (`authentik`,
-`freeipa`, `softether`, `unifi`, `urbackup`) get their whole setup from a
-cloud-init vendor file, so nothing needs to SSH into them. This replaces the
-earlier rule that cloud-init does only minimal bootstrap and Ansible owns
-everything after it. They left `TODO.md`, and AGENTS.md and PLAN describe the
-split. `freeipa` has a cloud-init drive but no vendor file yet.
-
-Parker then widened it: every Proxmox VM that can boot with cloud-init moves to
-it, and `aboriginal`, `dodo`, `git` and `matrix` lost their `ansible_host` ahead
-of that move, leaving `arawi` and `vkasm` as the only VMs in Ansible. LXC
-containers stay managed by Ansible, but through the
-`community.proxmox.proxmox_pct_remote` connection plugin, which runs `pct` on the
-Proxmox node over SSH, instead of SSH into each container. Proxmox has no
-cloud-init for containers: bug 4686's patch has not been merged.
+- VMs that boot with cloud-init get their whole setup from a vendor file, so nothing SSHes into them; containers stay with Ansible through `proxmox_pct_remote`, since Proxmox has no cloud-init for containers (bug 4686's patch unmerged).
 
 ## Containers reached through proxmox_pct_remote (2026-10-20)
 
-With Parker's approval:
-- `community.proxmox` 2.1.0 is pinned in `ansible-generated/requirements.yml`
-  and installed into the stage's `collections/`. `paramiko`, which the plugin
-  needs, was already bundled with Homebrew's Ansible (5.0.0), so nothing else
-  was installed.
-- Each container's `ansible_host` gained `variables`: the node's SSH address,
-  from the encrypted `node_ssh_addresses` input, so the tailnet domain stays out
-  of git; and the container's `vm_id`. The plugin keeps a dynamic attribute as
-  `{type, value}`, so `compose` reads `variables.value`. `group_vars` for
-  `proxmox_containers` set the connection plugin and `ansible_user: root`.
-- The apply for the five cloud-init VMs' `ansible_host` destroys had already run
-  (0 added, 0 changed, 5 destroyed) when Parker interrupted that step to change
-  course; nothing was committed then. The follow-up apply destroyed
-  `aboriginal`'s, `dodo`'s, `git`'s and `matrix`'s and added the containers'
-  variables: 0 added, 19 changed, 4 destroyed. A fresh plan is a no-op.
-- The inventory now holds 26 generated hosts: 19 containers through
-  `proxmox_pct_remote`, `arawi` and `vkasm` over SSH, and the 5 OCI instances.
-- A first ping of `openclaw` through the plugin failed with an authentication
-  timeout; a second, at Parker's request, returned `pong`.
+- `community.proxmox` 2.1.0; paramiko came bundled with Homebrew's Ansible.
+- Each container's `ansible_host` carries the node's SSH address (from the encrypted `node_ssh_addresses`) and `vm_id`; the plugin keeps a dynamic attribute as `{type, value}`, so `compose` reads `variables.value`.
+- A first connection through the plugin can fail with an authentication timeout and succeed on retry.
 
 ## Imperative leftovers removed (2026-10-20)
 
-A survey of `tofu/gonkputer` for leftovers found four candidates. With Parker's
-approval, three were destroyed (0 added, 0 changed, 3 destroyed): the HA rule
-`ha-rule-157366ac-952c`, which pinned `uptime` to `jondingus`, a node no longer
-in the cluster; and the snippets `local:snippets/lxc-bindfs-hook.sh` and
-`cephfs:snippets/block-ula.sh`, which no guest referenced. Their copies left
-`tofu/gonkputer/snippets/`. Parker kept the USB mapping `Back-UPS`, though no
-guest uses it and the device is not attached. A fresh plan is a no-op.
-
-The survey also found that VM 100 has a USB device live in slot `usb4`,
-`mapping=CPS`, since the first crawl, which the HCL lacks and no plan reported:
-the provider only knows the slots `usb0` to `usb3`. That is bpg issue #3009, open
-and confirmed by the maintainer, so a TODO on VM 100 links it instead of a new
-issue.
+- An HA rule pinning `uptime` to `jondingus` (a node no longer in the cluster) and two unreferenced snippets were destroyed; the USB mapping `Back-UPS` stays.
+- VM 100 has a USB device in slot `usb4` that no plan shows: the provider knows only `usb0` to `usb3` (bpg#3009).
 
 ## VM 100's Bluetooth adapter mapped, and root tickets (2026-10-20)
 
-With Parker's approval:
-- The ASUS Broadcom BCM20702A0 Bluetooth adapter (`0b05:17cb`) got a USB mapping,
-  `BCM20702A0`, created by OpenTofu, and VM 100 uses it instead of raw host
-  passthrough. The APC UPS's `usb` block sits commented out in VM 100: the UPS is
-  under maintenance.
-- VM 100 sets `reboot_after_update = false`. Its passed-through AMD GPU does not
-  reset properly when the KVM host detaches and re-attaches it, so it is never
-  rebooted on its own: it is rerooted, or restarted with a host reboot.
-- The first apply created the mapping but failed on VM 100: Proxmox lets only
-  `root@pam` itself set or remove USB passthrough by device ID ("only root can
-  set 'usb3' config for real devices"), and the API token does not count. The
-  provider's `ssh.root_ticket` is now on: node-scoped calls run as `root@pam` with
-  a ticket minted over SSH. Parker asked to drop the API token as well, but calls
-  outside `/nodes/` (cluster options, HA, mappings, storage, backup, access) still
-  need it, so it stays. Plans now open that SSH connection too.
-- The second apply changed VM 100 (0 added, 1 changed, 0 destroyed) without
-  rebooting it; the provider warned that a reboot is required. Proxmox shows no
-  pending changes, and VM 100's USB slots are now `usb0` AX200, `usb1` TubesZB,
-  `usb2` BCM20702A0 and `usb4` CPS. A fresh plan is a no-op.
+- Only `root@pam` itself may set USB passthrough by device ID; the token does not count. `ssh.root_ticket` runs node-scoped calls as `root@pam`, while calls outside `/nodes/` (cluster options, HA, mappings, storage, backup, access) still use the token.
+- VM 100's passed-through AMD GPU does not survive a detach and reattach, so it sets `reboot_after_update = false` and is never rebooted on its own.
 
 ## Serial-apply workaround removed (2026-10-20)
 
-Parker fixed the operator's SSH agent so that parallel SSH connections
-authenticate. `tofu/gonkputer/prepare.sh` no longer exports
-`TF_CLI_ARGS_apply="-parallelism=1"`, and the docs no longer describe it.
-- Verified without the workaround: a `tofu/gonkputer` plan, which opens the
-  root-ticket SSH connection, is a no-op, and `ansible generated -m ping` at the
-  default 5 forks reached all 26 hosts, the 19 containers through `prodingus` at
-  once. `vkasm` first refused the login as `regulad`: the operator's SSH
-  configuration sets `kasm_admin` only for its short name, so its `host_vars` now
-  set `ansible_user: kasm_admin`, as `bailout`'s do.
+- With the operator's agent fixed, parallel SSH works and `-parallelism=1` is gone. vkasm's user is `kasm_admin`, which the operator's SSH config sets only for its short name.
 
 ## LXC disks mount with `discard` and `lazytime` (2026-10-20)
 
-At Parker's request, every container's root disk and RBD mount point now mounts
-with `["discard", "lazytime"]` instead of `["discard", "noatime"]`;
-`llamarpcmaster`'s root disk, which had no mount options, gained them. The CephFS
-bind mounts are unchanged.
-- Parker approved the apply: 0 added, 20 changed, 0 destroyed. A fresh plan is a
-  no-op. Proxmox recorded the options as current, not pending, and `act`'s root
-  filesystem showed `relatime,lazytime,discard` without a restart.
+- The option change applies live: Proxmox records it as current, not pending.
 
 ## Ansible reads secrets through SOPS (2026-10-20)
 
-Parker chose SOPS for Ansible secrets, read by the `community.sops.sops` vars
-plugin, over Ansible Vault and over decrypting to gitignored files. Both stages
-pin `community.sops` 2.5.0 and enable the plugin in `ansible.cfg`; the pinned
-copy is installed into each stage's `collections/` even though Homebrew's
-`ansible` 14.5.0 bundles the same version. He also ruled that salted, adaptive
-password hashes such as bcrypt may be committed in plaintext, and that WireGuard
-private keys stay SOPS-encrypted.
+- `community.sops` 2.5.0's vars plugin, over Ansible Vault and decrypted copies. Salted adaptive hashes (bcrypt) may be plaintext; WireGuard private keys stay encrypted.
 
 ## arawi discovery for pfsensible (2026-10-20)
 
-`arawi` runs pfSense CE 2.9.0-RELEASE with `python3.11` and the sudo package;
-SSH is key-only. Parker chose `pfsensible.core` for its configuration, and
-`ansible-generated` pins 0.7.1 (supports pfSense 2.8.0+). He gave the
-`group:admins` sudo row `NOPASSWD`, replacing the `user:root` and `user:admin`
-rows, so `regulad` can become root unattended. The collection has no modules for
-the GRE tunnel, WireGuard or the Cron package.
+- arawi runs pfSense CE 2.9.0 with `python3.11` and sudo; `pfsensible.core` 0.7.1 needs 2.8.0+ and has no modules for GRE, WireGuard or Cron. The `group:admins` sudo row is `NOPASSWD`.
 
 ## arawi: pfsensible scaffold and route descriptions (2026-10-20)
 
-Parker chose per-object `pfsensible.core` modules over templating the whole
-`config.xml`, with sections that have no module merged into `config.xml` and
-reloaded through PHP. The new `pfsense` role and `arawi`'s generated `host_vars`
-check cleanly for setup, log settings, CAs, certificates, groups, users, VLANs,
-interfaces, aliases and 7 of 8 gateways; rules need names first. The gaps are
-listed in `ansible-generated/inventory/host_vars/arawi.regulad.internal/TODO.md`.
-`secrets.sops.yml` keeps both `arawi.regulad.internal` keys and drops the other
-certificate and CA keys.
-- Parker declared the operator's `config.xml` snapshot authoritative over live
-  `arawi`. It gained descriptions for the 6 static routes, named as in the
-  role's `host_vars`, and was pushed to `/cf/conf/config.xml` with the config
-  cache cleared and Unbound reconfigured. This reverted a DNS Resolver
-  custom-options change made on `arawi` after the snapshot. The live file then
-  matched the snapshot byte for byte, and `pfsense_route` reported all 6 routes
-  unchanged.
+- The operator's `config.xml` snapshot is authoritative over live arawi. A fix is edited into it, pushed to `/cf/conf/config.xml`, the config cache cleared, and the affected service reloaded.
 
 ## arawi: sections without a pfsensible module (2026-10-20)
 
-Parker asked for the parts of `config.xml` that `pfsensible.core` cannot manage
-to be merged into `config.xml` and reloaded through PHP. The `pfsense` role's
-new `pfsense_config_section` module, in its `library/`, replaces the children
-each section owns when they differ, ignoring whitespace. It writes `config.xml`
-through pfsensible's own writer, then runs each changed section's reload from
-`pfsense_config_section_reloads`, using pfSense 2.9's own functions, verified on
-`arawi`. `arawi` has 15 sections, rendered from
-`host_vars/arawi.regulad.internal/config/*.xml.j2`. They also cover outbound NAT,
-the DNS Resolver, the two `arawi.regulad.internal` certificates and the
-`tailscalerouter6` gateway, which the collection's modules fail on.
-- A full `--check` run against `arawi` reported every section unchanged. What
-  remains is the rule naming and two DHCP fields pfsensible fills with pfSense's
-  effective defaults. No write or reload has run yet.
-- A subagent searched `pfsensible/core`'s issues and PRs for the problems we
-  found, read-only. The matches are linked from `arawi`'s `TODO.md`.
+- `pfsense_config_section` (in the role's `library/`) replaces the children each section owns when they differ, ignoring whitespace, writes through pfsensible's writer, and runs pfSense 2.9's own reload functions for changed sections.
+- The collection fails on outbound NAT, the DNS Resolver, arawi's two certificates and the `tailscalerouter6` gateway, so those are sections.
 
 ## Public GUAs in plaintext (2026-10-20)
 
-Parker allowed publicly known GUAs, such as public DNS resolvers, in plaintext.
-The `no-gua-ipv6` hook exempts each by an exact-match allowlist, starting with
-Cloudflare's `2606:4700:4700::1111` and `::1001` and Quad9's `2620:fe::fe`, and
-`AGENTS.md` rule 4 says so. `arawi`'s gateway monitors now name them directly;
-`arawi_public_ipv6` left `secrets.sops.yml`.
+- Publicly known GUAs (Cloudflare `2606:4700:4700::1111`/`::1001`, Quad9 `2620:fe::fe`) are allowed through an exact-match allowlist in the `no-gua-ipv6` hook.
 
 ## arawi: files outside config.xml (2026-10-20)
 
-A read-only scan of `arawi` for files no package owns found six hand-made ones,
-which the `pfsense` role now copies as `root:wheel` from
-`ansible-generated/files/arawi.regulad.internal/`. They are
-`u5g-gre6-sync.php` (cron, every 2 minutes), `tmpfscheck.sh` (the watchdogd
-check `afterbootupshellcmd` starts), `rc.d/qemu-agent.sh`, `/etc/rc.conf.local`,
-and `/root/.ssh/u5g.pub` and `known_hosts`. The `u5g` private key moved into
-`secrets.sops.yml`. The files live outside `inventory/` because `host_group_vars`
-loads extensionless files under `host_vars` and every file in `inventory/` is
-read as an inventory source. A `--check` run reported all of them unchanged.
-- `u5g-gre6-sync.php` rewrites the GRE tunnel's IPv6 addresses in `config.xml`
-  when the carrier's `/64` moves. `pfsense_config_section` gained an `ignore`
-  option, and the `gre` section ignores `tunnel-local-addr6` and
-  `tunnel-remote-addr6`. The stale `tmobile_u5g` prefix left SOPS.
-- With Parker's approval, `/root/update_dynamic_npt.php`, which nothing
-  referenced, was deleted from `arawi`; the operator's snapshot keeps a copy.
+- Six hand-made files are copied from `files/arawi.regulad.internal/`, including `u5g-gre6-sync.php` (every 2 minutes, rewrites the GRE tunnel's IPv6 addresses when the carrier's `/64` moves, so the `gre` section ignores them) and the watchdog's `tmpfscheck.sh`.
+- Files live outside `inventory/` because `host_group_vars` loads extensionless files under `host_vars` and every file in `inventory/` is read as a source.
 
 ## arawi: rule names, site.yml, docs (2026-10-20)
 
-- With Parker's approval, the snapshot gained descriptions for `arawi`'s 19
-  firewall rules, as in `main.yml`, and the aliases `home_ipv6` and
-  `tailnet_subnet_ipv6`, which the three rules with IPv6 literal sources now use.
-  It was pushed over SSH and the filter reloaded. The live file then matched the
-  snapshot, and a full `--check` run left only the two DHCP fields. The WAN rule
-  "Allow home IPv6 to any" is not compiled because WAN is not enabled; it was not
-  before either.
-- `site.yml` runs the `pfsense` role on a new `arawi` group and keeps that group
-  out of the baseline play. Parker chose a group for `arawi` alone over a
-  `pfsense` group, since another pfSense host would not share its
-  configuration. `arawi`'s `ansible_host` gained the group. Parker approved the
-  apply: 0 added, 1 changed, 0 destroyed, and a fresh plan is a no-op.
-- `AGENTS.md` documents the `pfsense` role, `ansible-generated/files/`, and the
-  pfSense conventions. The unused `arawi_ntopng_redis_password` left SOPS.
-- `arawi`'s `main.yml` now indents sequences and writes certificates as PEM and
-  authorized keys as text, except `internal-ca`, whose CRLF PEM stays base64.
-  Both stages' `.ansible-lint` exclude `*.sops.yml`, whose ciphertext cannot be
-  wrapped.
+- arawi has a group of its own, not `pfsense`, since another pfSense host would not share its configuration.
+- The WAN rule "Allow home IPv6 to any" is not compiled because WAN is not enabled.
+- `internal-ca`'s CRLF PEM stays base64. `.ansible-lint` excludes `*.sops.yml`, whose ciphertext cannot be wrapped.
 
 ## arawi: pfSense release pin and packages (2026-10-20)
 
-pfSense installs the packages `config.xml` lists only at a boot that finds
-`/cf/conf/needs_package_sync`; otherwise it registers installed packages into
-`config.xml`. The `pfsense` role now installs missing `pfsense_packages` through
-pfSense's own `installpkg` playback and never removes any. Parker asked to pin
-the role to pfSense's major version, with 2.9 as the fallback if pfSense does not
-follow semantic versioning. It does not: its minor releases change the FreeBSD
-base, the config revision and package builds, and pfsensible 0.7.0 needs 2.8.0
-or later. So `pfsense_release` pins `arawi` to 2.9, and the role refuses any
-other release. Check mode passed on `arawi`, refused a 2.8 pin, and reported a
-missing package without installing it.
+- pfSense installs `config.xml`'s packages only at a boot that finds `/cf/conf/needs_package_sync`; otherwise it registers installed packages into `config.xml`. The role installs missing ones through pfSense's `installpkg` playback and never removes any.
+- pfSense does not follow semantic versioning (minor releases change the FreeBSD base, config revision and package builds), so `pfsense_release` pins `<major>.<minor>` and the role refuses any other.
 
 ## arawi: the WireGuard ACL has one source (2026-10-20)
 
-The WireGuard package deletes and recreates its "WireGuard" ACL in
-`unbound/acls` on every resync, from the tunnels' addresses, while the
-`dns_resolver` section owned all of `unbound`. With Parker's approval, the
-section now ignores `acls[aclname='WireGuard']`. `pfsense_config_section`'s
-`ignore` now keeps each ignored element's whole live subtree, at its live
-position, and templates leave ignored paths out. A `--check` run against `arawi`
-reported every section unchanged. Parker noted that `U5G_GRE` cannot have a static
-IPv6, because pfSense manages GRE addressing elsewhere, so `u5g-gre6-sync.php`'s
-interface branch never conflicts with `pfsense_interface`.
+- The WireGuard package recreates its "WireGuard" ACL in `unbound/acls` on every resync, so the DNS resolver section ignores it; `ignore` keeps an ignored element's whole live subtree at its live position.
+- `U5G_GRE` cannot have a static IPv6 (pfSense manages GRE addressing elsewhere), so `u5g-gre6-sync.php` never conflicts with `pfsense_interface`.
 
 ## arawi: more of config.xml in sections (2026-10-20)
 
-Parker chose which unmanaged parts of `config.xml` to take on. New sections own
-the sudo rules, SSH, the serial console, the System > Advanced settings without
-a module, `afterbootupshellcmd`, the filter settings beside the rules,
-`diag/ipv6nat`, and the unused features, kept empty. Each reloads as pfSense's
-own page does, verified on `arawi`. Gateways and DHCP moved from pfsensible to
-the `gateways` and `dhcp` sections, because `pfsense_gateway` and the DHCP
-modules cannot model fields `arawi` sets; that also ended the two cosmetic DHCP
-fields. Both earlyshellcmds belong to their packages (System Patches and
-WireGuard), and `pkg_repo_conf_path` to pfSense's updater, so they stay
-unmanaged, with the other parts Parker left to pfSense. `pfsense_shellcmd`
-manages only the Shellcmd package's commands, so the watchdog command is a
-section. A full `--check` run against `arawi` reported `changed=0`.
+- Gateways and DHCP moved to sections because pfsensible cannot model fields arawi sets. Both earlyshellcmds belong to their packages (System Patches, WireGuard) and `pkg_repo_conf_path` to pfSense's updater, so they stay unmanaged. `pfsense_shellcmd` manages only the Shellcmd package's commands.
 
 ## arawi: first real run (2026-10-20)
 
-With Parker's approval, `site.yml` ran for real against `arawi` through the real
-inventory (`--limit arawi.regulad.internal`), after a `--check` run the same way.
-The baseline play matched no hosts and the `Arawi` play reported `ok=15
-changed=0`. `config.xml` on `arawi` was byte-identical before and after the
-run, so no section wrote and no reload ran.
+- `config.xml` was byte-identical before and after, so no section wrote and no reload ran.
 
 ## arawi: end-to-end check (2026-10-20)
 
-A `tofu/gonkputer` plan was a no-op; the inventory, read from its state, put
-`arawi.regulad.internal` in the `arawi` group; and a `site.yml --check` run
-through it reported `changed=0`. OpenTofu's three NICs matched `arawi`'s `vtnet0`
-to `vtnet2` by MAC. The guest agent answered `qm agent 108 ping`, the IPMI
-module and `tmpfscheck.sh` watchdog were running, and the console is on
-`ttyu0`. `vtnet1` runs at MTU 1500 although OpenTofu and `config.xml` both say
-9000, because pfSense leaves the WAN interface, which is not enabled, unconfigured.
+- `vtnet1` runs at MTU 1500 although OpenTofu and `config.xml` say 9000, because pfSense leaves the disabled WAN interface unconfigured. The console is on `ttyu0`.
 
 ## pfsensible.core issues filed (2026-10-20)
 
-With Parker's approval, his GitHub account filed seven bug reports (#267–#273)
-and thirteen feature requests (#274–#286) on `pfsensible/core`, each reproduced
-in check mode against `arawi` with documentation addresses, and each disclosing
-that Claude drafted it. Reproducing corrected two earlier findings: the
-`pfsense_dns_resolver` crash comes from `sslcert` naming a description two
-certificates share, and `pfsense_rule`'s IPv6 error on 0.7.1 is #219's, already
-fixed on `master`. It also found that `pfsense_dns_resolver` rejects IPv6
-domain-override servers. The account left a 👍 on #128, #164 and #265 and
-posted no comments. `arawi`'s `TODO.md` links every issue. The project has no
-policy on AI-assisted contributions; its maintainer wrote on #153 that there is
-none.
+- Seven bugs (#267-#273) and thirteen feature requests (#274-#286), each disclosing that Claude drafted it; arawi's `TODO.md` links them.
+- The `pfsense_dns_resolver` crash comes from `sslcert` naming a description two certificates share; `pfsense_rule`'s IPv6 error on 0.7.1 is #219, fixed on `master`; `pfsense_dns_resolver` rejects IPv6 domain-override servers.
 
 ## arawi: split-horizon regulad.xyz through an Unbound RPZ (2026-10-20)
 
-Parker approved the first configuration change made through the `pfsense`
-role, from a handoff by another agent. LAN clients now reach `regulad.xyz`
-names at their internal addresses through CNAME chains too, which view
-`local-data` could not do. A `lan`-tagged RPZ replaces the four `regulad.xyz`
-view overrides. A `stub-no-cache` stub zone keeps cached public answers from
-reaching LAN clients, and `module-config` adds `respip`. The zonefile's master
-lives at `/usr/local/etc/unbound/`, and its copy in the chroot on the `/var`
-RAM disk is recreated at boot by `unbound-rpz-restore.sh`. That script runs from
-the repository's one `earlyshellcmd`, in its own `unbound_rpz_boot` section. The
-role gained its first handler, which reloads changed zones through
-`unbound-control`.
-- Pre-flight on `arawi` found Unbound 1.26.1, not the 1.24.2 the handoff
-  tested offline, and `/usr/local/etc/unbound` owned `unbound:wheel`, so it
-  stays out of `pfsense_directories`. `unbound-checkconf` passed a copy of
-  `unbound.conf` with the new custom options.
-- The run wrote the three files and both sections, restarted Unbound, and
-  reloaded `split-horizon.rpz.`. As a `lan` client, `prodingus` resolved
-  `nextcloud.regulad.xyz` through `ingress.regulad.xyz` and
-  `ingress.regulad.internal` to 10.23.2.31, and `ingress`, `dodo`, `mail` and
-  `livekit` to their internal addresses. Untagged, `arawi` got the public chain
-  to 173.54.15.27, with `ad` when it asked with DNSSEC OK. No guest client was
-  tested. A second `--check` reported `changed=0`, and the snapshot was
-  refreshed from live. The reboot test is still to do.
+- View `local-data` cannot answer through CNAME chains, so a `lan`-tagged RPZ replaced the four view overrides, with a `stub-no-cache` stub zone so cached public answers do not reach LAN clients and `respip` in `module-config`.
+- The zone's master is in `/usr/local/etc/unbound/` (owned `unbound:wheel`, so not in `pfsense_directories`); its copy in the chroot on the `/var` RAM disk is recreated at boot by `unbound-rpz-restore.sh` from the repository's one `earlyshellcmd`. Zones reload through `unbound-control`.
+- arawi runs Unbound 1.26.1. The reboot test is still to do.
 
 ## arawi: PHP2Shell stopgap (2026-10-21)
 
-Before PHP's 14:00 UTC release for PHP2Shell (CVE-2026-109618, CVE-2026-109619),
-`arawi` ran PHP 8.5.7 with `session.upload_progress.enabled` on. The `pfsense`
-role gained a `restarts_php_fpm` key for `pfsense_files`, whose handler runs
-pfSense's `/etc/rc.php-fpm_restart`, and `arawi` got
-`/usr/local/etc/php/99-php2shell.ini` turning upload progress off. The ini goes
-in PHP's scan directory because `/etc/rc.php_ini_setup` rewrites `php.ini` on
-every php-fpm restart. The setting is a partial mitigation only. With Parker's
-approval, `site.yml` ran against `arawi` after a `--check` run showing only that
-file: `ok=16 changed=2` (the file and the restart). Afterwards php-fpm reported
-the setting `Off` from the new file, the web GUI answered, and a second
-`--check` run reported `changed=0`.
+- Upload progress off goes in `/usr/local/etc/php/99-php2shell.ini`, because `/etc/rc.php_ini_setup` rewrites `php.ini` on every php-fpm restart; restart with `/etc/rc.php-fpm_restart`.
 
 ## pterodactyl: PHP2Shell stopgap (2026-10-21)
 
-With Parker's approval, and by hand because no role manages `pterodactyl` yet,
-the container got `/etc/php/8.3/fpm/conf.d/99-php2shell.ini` turning
-`session.upload_progress.enabled` off, and its `www` pool a
-`php_admin_flag[session.upload_progress.enabled] = off` so a `.user.ini` cannot
-turn it back on (none exist). php8.3-fpm (8.3.6-0ubuntu0.24.04.12) was reloaded
-after a passing config test, and a request through the FPM socket read the
-setting as off. nginx, stopped earlier that day, was started again; the panel
-answers on `pterodactyl.regulad.xyz`, still without the client-certificate gate.
-The setting is a partial mitigation until Ubuntu ships a fixed php8.3.
+- A `php_admin_flag` in the FPM pool keeps a `.user.ini` from turning upload progress back on.
 
 ## pterodactyl: PHP2Shell stopgap moved into Ansible (2026-10-21)
 
-The hand-made stopgap is now declared: a `php_fpm` role in `ansible-generated`
-copies ini files into the FPM's `conf.d` from `files/<host>/` and keeps
-`php_admin_flag` lines in a pool's file, testing the configuration before it
-reloads php-fpm. `pterodactyl`'s `host_vars` and its copy of `99-php2shell.ini`
-describe the live change byte for byte, and `site.yml` gained a play for the
-`php_fpm` group. With Parker's approval, the `tofu/gonkputer` plan adding
-`php_fpm` to `ansible_host.pterodactyl`'s groups was applied (0 added,
-1 changed, 0 destroyed), and a fresh plan was a no-op. `site.yml` then ran
-against `pterodactyl` through the real inventory, in check mode and for real,
-each reporting `ok=4 changed=0`; the panel kept answering.
+- The `php_fpm` role copies ini files into `conf.d`, keeps `php_admin_*` lines in a pool, and tests the configuration before reloading.
 
 ## freeipa: sudo through the Admins rule (2026-10-21)
 
-With Parker's approval, FreeIPA's only sudo rule, `Admins` (every host and
-command, for the `admins` group), gained the `!authenticate` option, so
-`regulad` has sudo without a password on freeipa; the rule had overridden the
-local `90-cloud-init-users` grant. SSSD picked it up after about 3.5 minutes,
-and the local `/etc/sudoers.d/90-regulad-nopasswd` drop-in made earlier that
-day was removed (`visudo -c` passes). The defunct hosts `gendo.home.arpa` and
-`tinker.home.arpa` were deleted from the directory; they were in no HBAC rule,
-and IPA does not manage DNS. Earlier that day, Parker gave `regulad`
-passwordless sudo through `/etc/sudoers.d/90-regulad-nopasswd` on mail,
-livekit, tailscalerouter (OCI), matrix, git, dodo, aboriginal and overture.
+- FreeIPA's `Admins` sudo rule overrode the local cloud-init grant; adding `!authenticate` to it took SSSD about 3.5 minutes to pick up. IPA does not manage DNS here.
 
 ## eMudhra: distrusted roots through ca_trust (2026-10-21)
 
-The October 2026 eMudhra intermediates with compromised keys chain to emSign
-ECC Root CA - G3 and Comodo AAA Services root. A `ca_trust` role in
-`ansible-common` distrusts both the way each OS's packaging expects: on Debian
-and Ubuntu by negating their lines in `/etc/ca-certificates.conf`, on
-Enterprise Linux by copying them into p11-kit's blocklist; the PEMs matched by
-SHA-256 across Debian's package and the Rocky and Oracle Linux bundles. Hosts
-pick the workaround by a new OS group: `ubuntu` on every Linux `ansible_host` in
-`tofu/gonkputer`, an `os` freeform tag (`rhel`, `ubuntu`) on the OCI
-instances turned into groups by `oracle.terraform_state.yml`, and `debian`,
-`ubuntu` and `macos` in `hardware.yml`. Containers no longer become root
-through their own sudo.
-
-With Parker's approval, the `tofu/gonkputer` plan (20 `ansible_host` changed)
-and the `tofu/oracle` plan (5 instances' tags; the IPv6 assignments' `vnic_id`
-showed as known after apply and did not change) were applied, each followed by
-a no-op plan. `site.yml` then ran in both stages after check runs. Generated:
-act, cordpepperer, ncsusplitt, procontainer, timemachine, tsexit and uptime
-negated emSign's line, and bailout, mail, livekit and tailscalerouter got both
-blocklist files, all 11 rebuilding their store; the other 14 Linux hosts and
-prodingus reported `changed=0`. A second check reported `changed=0` on all 25,
-and the 11 rebuilt bundles contain neither root. The cloud-init VMs unifi,
-softether, urbackup, matrix, freeipa and git, which Ansible does not reach,
-still trust emSign, and matrix also Comodo.
+- The compromised eMudhra intermediates chain to emSign ECC Root CA - G3 and Comodo AAA Services root. `ca_trust` negates their lines in `/etc/ca-certificates.conf` on Debian and Ubuntu and copies them into p11-kit's blocklist on Enterprise Linux; the PEMs match by SHA-256 across distributions.
+- OS groups were introduced for this: `ubuntu` on gonkputer's Linux `ansible_host`s, an `os` freeform tag on OCI instances, and groups in `hardware.yml`.
 
 ## eMudhra: distrusted roots on the cloud-init VMs, by hand (2026-10-21)
 
-With Parker's approval, the six cloud-init VMs outside Ansible's inventory got
-`ca_trust`'s change by hand over SSH, mirroring the role. On unifi, softether,
-urbackup and matrix, the enabled `mozilla/...` lines for the two roots in
-`/etc/ca-certificates.conf` were negated (emSign everywhere; Comodo only on
-matrix, the only one still enabling it), then `update-ca-certificates` ran. On
-freeipa and git, both roots went into `/etc/pki/ca-trust/source/blocklist` as
-copies of the role's files (sha256 matched), then `update-ca-trust extract`
-ran. Afterwards no system bundle on the six contained either root, and an HTTPS
-request from each host still succeeded. The change is not declared anywhere
-yet; the VMs' vendor files do not carry it.
+- The six cloud-init VMs got the same change by hand; their vendor files do not carry it yet.
 
 ## arawi: emSign distrusted through ca_trust (2026-10-21)
 
-`ca_trust` gained a `freebsd` family that copies the roots into certctl's
-untrusted directory, keeping any file FreeBSD already ships there, and runs
-`certctl rehash`; `arawi` joined a new `freebsd` group through its
-`ansible_host`. FreeBSD's base system already distrusted Comodo AAA Services
-root, so only emSign ECC Root CA - G3 changed. With Parker's approval, the
-`tofu/gonkputer` plan (1 changed) was applied and a fresh plan was a no-op;
-`site.yml` then ran against `arawi` after a check run showing only that file:
-`ok=18 changed=2` (the file and the rehash), and a second check reported
-`changed=0`. `/etc/ssl/cert.pem`, which PHP, Unbound and LDAP read, no longer
-contains emSign, and the web GUI answered. The `ca_root_nss` package's bundle
-in `/usr/local/share/certs` still contains it until that package is updated.
+- FreeBSD: copy into certctl's untrusted directory and `certctl rehash`. FreeBSD already distrusted Comodo AAA. `/etc/ssl/cert.pem` (PHP, Unbound, LDAP) is fixed; `ca_root_nss`'s bundle in `/usr/local/share/certs` keeps emSign until that package updates.
 
 ## bpg/proxmox: cloud-init replacement reported upstream (2026-10-21)
 
-With Parker's approval, his GitHub account commented on
-[bpg/terraform-provider-proxmox#2901](https://github.com/bpg/terraform-provider-proxmox/issues/2901),
-the open request to stop replacing VMs when their cloud-init files change,
-noting that Proxmox changes `cicustom` in place and that a vendor-data-only
-change keeps the nocloud instance-id, disclosing that Claude drafted it.
-`TODO.md` makes the issue a precondition for moving more VMs to cloud-init.
+- Commented on bpg#2901 that Proxmox changes `cicustom` in place and a vendor-data-only change keeps the nocloud instance-id. It gates moving more VMs to cloud-init.
 
 ## pterodactyl: second PHP2Shell stopgap, gated on the fix (2026-10-21)
 
-At Parker's direction, pterodactyl's `www` pool gained
-`php_admin_value[memory_limit] = -1`, which closes another known PHP2Shell attack
-path. `site.yml` added it after a check run showing only that line, and a request
-through the FPM socket then read `memory_limit=-1` with upload progress still
-off; the panel kept answering. The `php_fpm` role now treats its settings as
-stopgaps: they stay while the installed `php8.3-fpm` is older than
-`php_fpm_stopgap_until` (8.3.6-0ubuntu0.24.04.13, from USN-8948-1, compared by
-dpkg) and are removed by the first `site.yml` run after the fix is installed; a
-check run simulating the fixed version removed the ini file and both pool lines.
+- `php_admin_value[memory_limit] = -1` closes another attack path. Stopgaps are removed automatically once the installed `php8.3-fpm` reaches `php_fpm_stopgap_until` (compared by dpkg).
 
 ## Automatic updates converged in Ansible (2026-10-21)
 
-Every host's updater configuration was collected read-only into
-`docs/snapshot/autoupdates-2026-10-21/`. Each `50unattended-upgrades` variant
-was the package's own copy with some options uncommented, and each
-`dnf-automatic` variant differed from the package's file in up to three keys.
-An `auto_updates` role in `ansible-common` now rebuilds `50unattended-upgrades`
-from the package's copy (`/usr/share/unattended-upgrades/`) with the declared
-options and appended `Origins-Pattern` entries, validated by `apt-config`
-before it replaces the live file, and sets declared keys in sections of
-`automatic.conf`.
-
-A first, describing pass reproduced every host (`changed=0`). At Parker's
-direction, every host then converged on one setup: all updates from every
-repository (`origin=*` for unattended-upgrades, `upgrade_type = default` for
-dnf-automatic), unused kernels and dependencies removed, automatic reboots, and
-reports mailed to regulad@regulad.xyz from a per-host `root@<host>`, marked
-FIXME because no host runs a mailer. prodingus excludes only Proxmox's
-`pve-test`, which stays in its sources for testing: its patterns allow every
-component not starting with `p`, plus `pve-no-subscription`, so `devel` and
-Ceph stay allowed; a read-only evaluation with unattended-upgrades' own matcher
-confirmed `pve-test` as the only one denied.
-
-With Parker's approval, `site.yml` applied it in stages with prodingus last,
-because prodingus going down cuts off every guest: pihole first (APT parsed the
-file and a dry run listed `-updates` packages), then the other 18 containers,
-then vkasm, doppelgangerhq.com and the four Enterprise Linux instances, then
-prodingus, each host changing one file. On prodingus, a dry run pinned
-`pve-test` to -32768 and moved candidates to `pve-no-subscription`. livekit
-now installs updates and reboots when needed, and vkasm and ncsusplitt now
-reboot automatically. The cloud-init VMs are out of scope until
-bpg/terraform-provider-proxmox#2901 is resolved.
+- `auto_updates` rebuilds `50unattended-upgrades` from the package's copy in `/usr/share/unattended-upgrades/`, validated with `apt-config` before replacing it, and sets keys in `automatic.conf`.
+- Every host takes all updates from every repository, removes unused kernels and dependencies, and reboots automatically.
+- prodingus excludes only `pve-test`: its patterns allow every component not starting with `p`, plus `pve-no-subscription`. Apply in stages with prodingus last, since it going down cuts off every guest.
 
 ## Mail relayed through FreeIPA null- accounts (2026-10-21)
 
-aboriginal and prodingus already relayed through mail.regulad.xyz
-(docker-mailserver 15 on the mail instance, authenticating against FreeIPA) as
-per-host FreeIPA users named `null-<host>`, rewriting only root's sender.
-sudo's SECURITY mails bounced (`553 5.7.1`) because sudo mails as the invoking
-user, whose address the host's login does not own, and prodingus had delivered
-nothing since about Oct 16: its relay logged in as `null-prodingus.home.arpa`,
-not `null-prodingus`, and got `535 5.7.8`.
-
-While reading docker-mailserver's settings, an unredacted `LDAP_BIND_PW`, the
-`svc-mail` bind password, reached the session transcript. With Parker's
-approval it was rotated: a new random password in `/root/mailserver/mailserver.env`
-(backed up beside it), set on `svc-mail` in FreeIPA with an expiry in 2038, and
-the container recreated; directory lookups failed for about two minutes in
-between. The password is in `host_vars/mail/secrets.sops.yml`. Parker also had
-Claude create `svc-ansible`, a FreeIPA user holding only the User Administrator
-role, whose password is in both stages' `group_vars/all.sops.yml`, and install
-`community.general` 13.5.0 for `ipa_user`.
-
-A `mail_relay` role in `ansible-common` now creates each host's
-`null-<short hostname>` account through FreeIPA's API (delegated to freeipa,
-the only host that resolves `freeipa.home.arpa` and trusts its CA), with a
-random password from the host's `secrets.sops.yml`, and sets Postfix up as on
-aboriginal: loopback only (checked against Postfix's listening sockets),
-implicit TLS to `[mail.regulad.xyz]:465`, a `texthash:` login, every sender
-rewritten to the account's address and every recipient to
-regulad@regulad.xyz. The automatic updaters mail from the account's address.
-The two tailscalerouters are `null-tailscalerouter-pubsub` (the renamed
-`null-tailscalerouter`, used by the OCI instance) and
-`null-tailscalerouter-gonkputer`. The existing accounts in scope
-(`null-timemachine`, `null-livekit`, `null-tailscalerouter-pubsub`,
-`null-prodingus`) had their passwords reset to the SOPS values by hand.
-
-With Parker's approval it was applied in stages, prodingus last: pihole, then
-the other 18 containers, then vkasm, doppelgangerhq.com and the four OCI
-instances, then prodingus. Test messages, including one submitted as `nobody`
-as sudo does, arrived as `from=<null-<host>@regulad.xyz>`,
-`to=<regulad@regulad.xyz>` with `status=sent`, and prodingus began
-delivering its deferred backlog. A second check reported `changed=0` on all 26
-hosts. With `forks = 30`, prodingus's sshd dropped container connections at
-its `MaxStartups` of 10:30:100 (logged as `drop connection … Maxstartups`), so
-both stages now run 10 forks; a full check of the generated stage takes about
-ten minutes, because each task on a container costs several `pct exec` round
-trips.
+- sudo mails as the invoking user, whose address the host's login does not own, so relays rewrite every sender to the account's address. prodingus's relay had logged in as `null-prodingus.home.arpa` and failed `535 5.7.8`.
+- `mail_relay` creates `null-<short hostname>` through FreeIPA's API, delegated to freeipa (the only host that resolves `freeipa.home.arpa` and trusts its CA), and sets Postfix to loopback only, implicit TLS to `[mail.regulad.xyz]:465`, with every recipient rewritten to regulad@regulad.xyz.
+- `svc-ansible` in FreeIPA holds only the User Administrator role. `svc-mail`'s bind password was rotated after it was printed in a session.
+- With 30 forks, prodingus's sshd dropped container connections at `MaxStartups 10:30:100`; both stages run 10 forks. Each task on a container costs several `pct exec` round trips.
 
 ## arawi: second PHP2Shell stopgap, gated on the fix (2026-10-21)
 
-arawi's stopgap ini gained `memory_limit = -1`, beside upload progress off; PHP
-reads the scan directory after pfSense's generated `php.ini` (`512M`). The
-`pfsense` role now keeps PHP stopgap files only while `PHP_VERSION` is older
-than `pfsense_php_stopgap_until` (8.5.12, compared by `pkg version -t`),
-removes them once it is not, and restarts php-fpm when they change, replacing
-the `restarts_php_fpm` key. With Parker's approval, `site.yml` applied it after
-a check run showing only that file: `ok=22 changed=2` (the file and the
-restart). php-fpm then reported `memory_limit -1` and upload progress off, the
-web GUI answered, and a second check reported `changed=0`; a check run
-simulating a fixed PHP removed the file.
+- PHP reads the scan directory after pfSense's generated `php.ini`. Stopgap files stay while `PHP_VERSION` is older than `pfsense_php_stopgap_until` (compared by `pkg version -t`).
 
 ## Mail client on every relaying host (2026-10-21)
 
-prodingus's smartd mails through `/etc/smartmontools/run.d/10mail`, which calls
-`/usr/bin/mail` and gives up without it, so `mail_relay` now also installs a
-mail client: `bsd-mailx` on Debian and Ubuntu, `s-nail` on Enterprise Linux.
-With Parker's approval, `site.yml` applied it with pihole first and prodingus
-last: 22 hosts installed it, and pihole, livekit, tailscalerouter (OCI) and
-prodingus already had one; every one of the 26 hosts now has `/usr/bin/mail`.
-A test through smartd's path on prodingus arrived as
-`null-prodingus@regulad.xyz` to regulad@regulad.xyz. Mail queued on prodingus
-before the relay was fixed keeps its old headers as it drains.
+- smartd mails through `/etc/smartmontools/run.d/10mail`, which needs `/usr/bin/mail`, so `mail_relay` installs `bsd-mailx` (Debian, Ubuntu) or `s-nail` (Enterprise Linux).
 
 ## Containers surveyed; vaultwarden's Quadlet adopted (2026-10-21)
 
-A read-only survey of every container's applications is in
-`docs/snapshot/lxc-apps-2026-10-21/`. Parker marked pihole, procontainer,
-llamarpcmaster and openclaw low priority, confirmed cordpepperer and peppercord
-as mirrors, and decided the rest are taken over in place: hosts already on
-Podman move to Quadlets, the others keep their runtime. Quadlet images track a
-major-version or channel tag with `AutoUpdate=registry`, so podman-auto-update
-brings in patch and minor releases.
-
-The `quadlet` role now renders `.container` units from `services.yml`, writes
-secret env files from SOPS, restarts only services whose files changed, and
-keeps podman-auto-update on. vaultwarden's hand-written unit is described in
-its `services.yml`, still on `testing`, which tracks upstream Bitwarden's API,
-and its `vaultwarden.env` was copied into SOPS without being printed (hashes
-matched). With Parker's approval, the `tofu/gonkputer` plan adding
-`podman_hosts` to `ansible_host.vaultwarden` was applied (1 changed) and a
-fresh plan was a no-op; `site.yml` then reported `changed=0` against
-vaultwarden in check mode and for real.
+- Hosts already on Podman move to Quadlets; others keep their runtime. vaultwarden stays on `testing`, which tracks upstream Bitwarden's API.
+- The `quadlet` role restarts only services whose files changed and keeps podman-auto-update on.
 
 ## Tailscale described in Ansible (2026-10-21)
 
-A read-only survey of every host's Tailscale, Podman networks and Avahi is in
-`docs/snapshot/tailscale-2026-10-21/`. Parker chose a role of our own over
-`artis3n.tailscale`, whose `machine` role re-runs `tailscale up` with an auth
-key and has no Serve support, and decided that nodes get their tags by joining
-with a tagged key: he stored a Tailscale API access token as
-`tailscale_api_token` in both stages' `group_vars/all.sops.yml`. Nodes already
-joined with the right tags stay as they are, and aameter and aboriginal are
-never to be re-authenticated by Ansible.
-
-The `tailscale` role, with a `tailscale_node` module in its `library/`, checks
-each node's tags, converges declared settings with `tailscale set` and its
-Serve and Funnel ports, and joins a node that is not logged in only when
-`tailscale_join` is set, with a one-off, pre-approved key minted through the API
-for its tags. `tailscale_protected` (aameter) refuses any join. prodingus,
-aameter, ncsusplitt, both tailscalerouters, tsexit and uptime are described as
-found; the OCI router's IPv6 /64 and relay endpoints are in its
-`secrets.sops.yml`. Check runs reported `changed=0` on all seven, and with
-Parker's approval `site.yml` then ran for real against them.
+- A role of our own over `artis3n.tailscale`, which re-runs `tailscale up` and has no Serve support. Nodes get tags by joining with a one-off tagged key minted through the API; `tailscale_protected` (aameter) refuses any join, and aameter and aboriginal are never re-authenticated.
 
 ## Avahi reflecting mDNS onto Podman bridges (2026-10-21)
 
-Parker decided that every host whose containers sit on Podman bridge networks
-reflects mDNS: vaultwarden (its container is on the default `podman` network)
-and the cordpepperer/peppercord mirrors (the `peppercord_*` bridges), none of
-which ran Avahi. prodingus, the one host that did, uses Ubuntu's stock
-settings; aboriginal reflects nothing (systemd-resolved mDNS plus two
-host-network containers). The `avahi` role installs avahi-daemon, keeps
-prodingus's settings, and sets `enable-reflector=yes` with `allow-interfaces`
-set to the LAN interface plus every Podman bridge interface read at run time.
-
-With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
-cordpepperer's and peppercord's `ansible_host` was applied (2 changed) and a
-fresh plan was a no-op. `site.yml` then ran on vaultwarden first and then the
-pair: each installed avahi-daemon and changed only the reflector and
-`allow-interfaces`, Avahi joined mDNS on `eth0` and the bridges in use, and
-prodingus resolved `vaultwarden.local`, `cordpepperer.local` and
-`peppercord.local`. A second check reported `changed=0` on all three.
+- Hosts with containers on Podman bridges reflect mDNS, with `allow-interfaces` set to the LAN interface plus the bridge interfaces read at run time.
 
 ## uptime's Uptime Kuma moved to a Quadlet (2026-10-21)
 
-Uptime Kuma ran as a podman-compose project in `/root/uptime-kuma`, on host
-networking with `./data` bind-mounted, and started at boot only through
-`podman-restart`. It is now the `uptime-kuma` Quadlet in
-`host_vars/uptime.regulad.internal/services.yml`: the same image tag
-(`louislam/uptime-kuma:2`) with `AutoUpdate=registry`, the same environment and
-read-only trust store and localtime mounts, and the data in the named volume
-`uptime-kuma_data`. The `quadlet` role gained a `network` key, reloads systemd
-before starting a newly written unit (vaultwarden's unit already existed, so
-it never hit this), and tolerates the missing unit in check mode.
-
-With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
-uptime's `ansible_host` was applied (1 changed) and a fresh plan was a no-op.
-The compose container and its pod were removed, `./data` was copied into the
-volume with `cp -a` while stopped (`diff -r` identical), and `site.yml` wrote
-the unit, started it and enabled `podman-auto-update.timer`. Embedded MariaDB
-started from the copied data, port 3001 answered, monitors recorded 116 up
-heartbeats in the first three minutes, and `podman auto-update --dry-run`
-listed the container. A second check reported `changed=0`, and
-`/root/uptime-kuma` was then deleted; Proxmox backups still hold it.
+- The `quadlet` role reloads systemd before starting a newly written unit and tolerates the missing unit in check mode.
 
 ## uptime and vaultwarden cleared of leftovers (2026-10-21)
 
-Both hosts were checked for anything running beyond their Quadlet and the
-managed base services; nothing else listens, runs from cron, or lives in
-`/opt`, `/srv` or `/home`. With Parker's approval, the leftovers were removed:
-on uptime, `/var/lib/containerd` (2.4 GB) and `/opt/containerd`, dangling
-`containerd.service` and `ubuntu-fan.service` wants links, the config remnants
-of bridge-utils, containerd, dnsmasq-base, git and ubuntu-fan, an untagged old
-Uptime Kuma image, and podman-compose with python3-dotenv; on vaultwarden, the
-unused `watchtower:latest` image, the empty `systemd-vaultwarden-data` volume,
-the compose network `vaultwarden_default` (`podman1`), the podman-docker
-remnant, and podman-compose with python3-dotenv. Both services stayed active
-with no failed units, and uptime's check reported `changed=0`.
-
-Dropping `podman1` changed vaultwarden's Avahi `allow-interfaces` to
-`eth0,podman0`. The approved `site.yml` run wrote it, then lost its SSH
-connection to an agent authentication timeout before the restart handler ran,
-so avahi-daemon was restarted by hand; it joined mDNS on `eth0` and `podman0`
-only, prodingus resolved `vaultwarden.local`, and a second check reported
-`changed=0`. Both hosts are checked off in `TODO.md`.
+- Removing a Podman network changes Avahi's `allow-interfaces`. An SSH agent timeout can drop a run before its handlers, leaving a restart to do by hand.
 
 ## timemachine and tvheadend moved to Quadlets (2026-10-22)
 
-Both ran as podman-compose projects started at boot only by `podman-restart`.
-Parker chose `latest` for both: mbentley/timemachine's only other tags are
-`smb` (the same image, AFP being gone) and dated daily builds, and
-tvheadend's are builds of `master` (`latest`, `edge`, `master` and their
-Debian variants), with no numbered releases. AGENTS.md now allows `latest`
-only in that case, prefers major-version tags with `AutoUpdate=registry` so
-containers get patches like their host, and allows bind mounts from
-`/mnt/cephfs` for shared data. The `quadlet` role gained `read_only`, `tmpfs`,
-`ulimits` and `exec`, and its check-mode tolerance for a not-yet-written unit
-moved from `ignore_errors` (which failed lint) to a `failed_when` matching
-only systemd's "Could not find the requested service".
-
-timemachine keeps host networking, its two CephFS bind mounts, tmpfs `/run`
-and `/tmp` and `nofile=65536:65536`; its existing `PASSWORD`, at Parker's
-request, was copied from the running container into `secrets.sops.yml` without
-being printed. tvheadend keeps its named volumes `tvheadend_config` and
-`tvheadend_lib`, read-only root, `1000:1000` and `--ipv6`; recordings, a
-podman volume binding `/mnt/cephfs/application/tvheadend`, are now that
-directory bind-mounted directly.
-
-With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
-both `ansible_host` resources was applied (2 changed) and a fresh plan was a
-no-op. After pulling the new images, the compose containers and pods were
-removed and `site.yml` wrote the units and timemachine's env file, started
-both, and enabled `podman-auto-update.timer`. timemachine listened on 445,
-advertised `_adisk._tcp` and `_smb._tcp`, and accepted an SMB login with the
-stored password, showing `overture.sparsebundle`; tvheadend answered on 9981
-and 9982 and loaded its existing configuration. Its DVR log still lists July
-recordings, such as "2026 FIFA World Cup", whose files were never in the
-recordings directory. A second check reported `changed=0` on both.
+- Both use `latest`: mbentley/timemachine's other tags are `smb` (the same image) and dated builds, and tvheadend publishes only builds of `master`. That case is the only one where AGENTS.md allows `latest`.
+- Check-mode tolerance for a not-yet-written unit is a `failed_when` matching systemd's "Could not find the requested service" (`ignore_errors` fails lint).
+- tvheadend's DVR log lists July recordings whose files were never in its recordings directory.
 
 ## timemachine and tvheadend cleared of leftovers (2026-10-22)
 
-With Parker's approval, both hosts lost their compose directories,
-podman-compose with python3-dotenv, the config remnant of apparmor (already
-removed) and its dangling `apparmor.service` link. timemachine also lost the
-podman-docker remnant and the old `:smb` image; tvheadend lost
-`/var/lib/docker`, `/var/lib/containerd` (626 MB) and `/opt/containerd`,
-dangling `docker`, `containerd` and `ubuntu-fan` links, the remnants of
-bridge-utils, containerd, dnsmasq-base, docker.io, git and ubuntu-fan, the
-`tvheadend_recordings` volume definition (its CephFS directory untouched),
-and the old image. dpkg left `/etc/apparmor.d/local`, whose empty stubs other
-installed packages' maintainer scripts create. Both services stayed active
-with no failed units, a check reported `changed=0`, and both hosts are checked
-off in `TODO.md`. Parker noted that privileged containers must run without
-AppArmor; every running privileged container (timemachine, procontainer,
-immich, tsexit, ncsusplitt, tvheadend) had it removed, and AGENTS.md records
-the rule.
+- Privileged containers must run without AppArmor; it was removed from every running one. dpkg leaves `/etc/apparmor.d/local`, whose stubs other packages' scripts create.
 
 ## prodingus's pveproxy lost 8006 to Tailscale Serve (2026-10-22)
 
-At 06:41 unattended-upgrades installed proxmox-kernel 7.0.14-25 and, with
-`Automatic-Reboot` on, prodingus rebooted at about 06:44. On boot tailscaled
-started at 06:46:36 and Serve listened on the tailnet address's 8006; pveproxy
-then failed five times with "unable to create socket - Address already in use"
-and systemd stopped retrying, so the Proxmox API and web UI were down (guests
-were unaffected) and `tofu plan` failed with HTTP 502. On the previous boot
-(2026-10-15) tailscaled also started first and pveproxy came up, so what
-changed is not known.
-
-The `tailscale` role gained `tailscale_after`, written as the drop-in
-`tailscaled.service.d/50-after.conf`; prodingus sets `[pveproxy.service]`.
-With Parker's approval it was applied (`changed=2`, the directory and the
-drop-in) and `systemctl show tailscaled` lists pveproxy in `After`. It takes
-effect at the next boot.
+- After an automatic reboot, tailscaled's Serve took 8006 on the tailnet address before pveproxy, which failed five times and stopped retrying, taking down the API and UI (guests unaffected). `tailscale_after` orders tailscaled after pveproxy with a drop-in.
 
 ## aameter's aameterd moved to a Quadlet, its tunnel described (2026-10-22)
 
-aameterd ran as a podman-compose project from a checkout of
-`regulad/aameterd` in `/root/aameterd`, with one local edit (host networking
-and loopback listen addresses), started at boot only by `podman-restart`; the
-native `thylacine-tunnel.service` forwards 127.0.0.1:8181 to aaoracled on
-thylacine over SSH. It is now the `aameterd` Quadlet on the same
-`ghcr.io/regulad/aameterd:latest` (the CI publishes only `latest`, `master`
-and `sha-*`), with `AutoUpdate=registry` and the existing volume
-`aameterd_aameterd`. The new `host_files` role places the tunnel's unit,
-`known_hosts` and `id_rsa.pub` from `files/aameter.regulad.internal/` and its
-`id_rsa` from SOPS, the only secret on the host, and keeps the unit running.
-
-With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
-aameter's `ansible_host` was applied (1 changed). The check showed no change
-to any tunnel file, `id_rsa` included; the compose container and pod were
-removed and `site.yml` started the Quadlet and enabled
-`podman-auto-update.timer`. aameterd listened on 8182 and 8183, the tunnel on
-8181, both Serve ports reached it, and a proxied `getHealth` from uptime
-returned 200. A second check reported `changed=0`. `/root/aameterd`, five
-untagged images and podman-compose with python3-dotenv were then removed.
-aameter stayed Tailscale-protected; nothing logged it in.
+- aameterd's CI publishes only `latest`, `master` and `sha-*`. The `host_files` role places byte copies from `files/<host>/` and secrets from SOPS and keeps listed units running.
 
 ## git (VM 110) stuck in GRUB after the automatic reboots (2026-10-22)
 
-At 06:41 git's dnf-automatic installed kernel 6.12.0-211.67.1 and made it the
-default; dracut was still building its initramfs at 06:41:53 when prodingus
-rebooted itself for its own kernel update at about 06:44, so git came back to
-GRUB's "initramfs-6.12.0-211.67.1.el10_2.x86_64.img not found". The previous
-kernel did not boot either: every boot entry and `/etc/default/grub` still
-carried the OCI image's `netroot=iscsi:169.254.0.2…`, `ip=dhcp,dhcp6` and
-related options, so dracut waited on Oracle's iSCSI boot target. Root is
-local LVM (`ocivolume/root` on virtio).
-
-With Parker's approval: `qm reset 110`, then one boot of the previous kernel
-from GRUB's command line over the serial console without those options. On
-git, `/etc/default/grub` was backed up to `grub.bak-20261022`, `grubby
---update-kernel=ALL --remove-args` and the same edit to `GRUB_CMDLINE_LINUX`
-removed `netroot`, `rd.iscsi.param`, `rd.net.timeout.carrier`, `ip`,
-`rd.net.timeout.dhcp` and `libiscsi.debug_libiscsi_eh`, and `dracut -f`
-rebuilt the 211.67.1 initramfs. git then rebooted into 211.67.1 in 16 s, with
-the guest agent, Forgejo (HTTP 200) and cloudflared up. `guest-exec` is
-disabled in git's agent, as RHEL ships it, so the work went over SSH through
-prodingus.
-
-prodingus keeps rebooting itself, as Parker decided, but now at 02:00: its
-host_vars carry the debian group's `auto_updates_unattended_upgrade` with
-`Automatic-Reboot-Time "02:00"`, so a host reboot no longer lands in the
-guests' morning update window. Applied with his approval (`changed=1`, that
-line only); `apt-config dump` shows it, and a second check reported
-`changed=0`.
+- dracut was still building the new kernel's initramfs when prodingus rebooted itself, so git came back to a missing initramfs.
+- The previous kernel did not boot either: boot entries still carried the OCI image's `netroot=iscsi:…` and `ip=dhcp,dhcp6` options. They were removed with `grubby --update-kernel=ALL --remove-args` and from `GRUB_CMDLINE_LINUX`.
+- RHEL's guest agent ships with `guest-exec` disabled.
+- prodingus now reboots at 02:00, so a host reboot no longer lands in the guests' morning update window.
 
 ## pihole: Pi-hole replaced by blocky (2026-10-22)
 
-Parker chose to replace Pi-hole on pihole (the container keeps its name) with
-blocky in a Quadlet, dropping the web UI, query history and statistics, and
-to simplify rather than reproduce Pi-hole's quirks. A survey and a
-side-by-side test instance on loopback, replaying Pi-hole's 91-day query log,
-mapped its behaviour; the differences were Pi-hole's own names, its
-dnsmasq-generated routing of unqualified names to every conditional
-upstream, and blocked non-A/AAAA types (NXDOMAIN instead of empty). The
-config Parker settled on is an idiomatic forwarder: arawi upstream,
-conditional forwarding of `regulad.internal`, `tail11540.ts.net` and the OCI
-pubsub zone with their reverse zones, StevenBlack's two lists answered with
-`0.0.0.0`/`::`, empty answers for Firefox's DoH canary and iCloud Private
-Relay (both vendors treat no-answer as NXDOMAIN; checked in Firefox's
-`DoHHeuristics.sys.mjs` and Apple's network guidance), `bootstrapDns` through
-arawi, and no query log. Unqualified names get arawi's NXDOMAIN.
-
-AGENTS.md gained a Priorities section: IPv6-first, and DRY with OpenTofu state
-as the first source. The config is a template: arawi's addresses and domain
-come from its declared `pfsense_interfaces` and `pfsense_setup`,
-tailscalerouter's from OpenTofu state through a new `ipv6_address` composed in
-the OCI inventory (its GUA stays out of the repository), and reverse zones
-from a `reverse_zone` filter. The OCI resolver behind tailscalerouter has no
-IPv6 PTR records, so no IPv6 reverse zone is forwarded there. `host_files`
-gained templates and per-file `validate`; blocky's config is checked with
-`blocky validate` in its own image. The `podman` role, an empty stub until
-now, installs Podman, and the quadlet role's timer task tolerates a host
-without Podman in check mode.
-
-With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` to
-pihole was applied (1 changed; a fresh plan was a no-op), `site.yml` put
-Podman, the config and the unit in place while Pi-hole served, and
-`systemctl disable --now pihole-FTL` followed by a restart of blocky switched
-port 53. Lists first failed to load because blocky resolved their URLs
-through the host's resolver, itself; `bootstrapDns` fixed it. Disabling query
-logging then went in twice, because an interrupted edit had already been
-written; blocky rejected the duplicate key and tailnet DNS was down from
-15:52 to 15:58, until the live file was corrected on pihole (Ansible needs
-DNS to read OpenTofu state). freeipa (113) and cordpepperer (118) were
-rebooted through Proxmox by root@pam at about 15:58, outside this work. After
-verification over IPv4 and the ULA, Pi-hole was purged (`pihole-meta` and
-nine dependencies, its directories, unit, cron and logrotate files, and the
-`pihole` user) along with the test instance. Check runs on pihole, aameter and
-vaultwarden reported `changed=0`.
-At Parker's request the remaining config remnants on pihole, `auditd` and
-`libauparse0t64`, were purged; nothing else was left (no autoremovable
-packages, dangling units, stray images or volumes).
+- blocky is an idiomatic forwarder: arawi upstream; conditional forwarding of `regulad.internal`, `tail11540.ts.net` and the OCI pubsub zone with their reverse zones; StevenBlack's lists answered with `0.0.0.0`/`::`; empty answers for Firefox's DoH canary and iCloud Private Relay (both vendors treat no answer as NXDOMAIN); no query log. Unqualified names get arawi's NXDOMAIN.
+- blocky needs `bootstrapDns` through arawi, or it resolves its list URLs through itself. It rejects a duplicate key, which took tailnet DNS down for six minutes; Ansible needs DNS to read OpenTofu state.
+- The OCI resolver has no IPv6 PTR records, so no IPv6 reverse zone is forwarded there. The config is checked with `blocky validate` in its own image.
+- AGENTS.md's Priorities (IPv6-first, DRY from OpenTofu state) come from this work.
 
 ## openwebui moved to a Quadlet on upstream 0.12 (2026-10-22)
 
-Open WebUI ran as a podman-compose project in `/root/open-webui` on
-`ghcr.io/regulad/open-webui:git-9db5b3e`, a build of Parker's fork carrying
-one commit (Anthropic tool_result content types, his PR #23004, closed and
-reworked by a maintainer as #23189, also closed). Upstream converts tool_result
-images, documents and search results itself since v0.9.0, so Parker chose
-upstream's `0.12` release-line tag, which has no major-only tag above it. The
-`open-webui` Quadlet keeps host networking, the volume `open-webui_open-webui`
-and the existing `WEBUI_SECRET_KEY`, copied into SOPS. The FreeIPA root CA that
-its LDAP login reads at `/ipa-ca.crt` is now placed at `/etc/ipa/ca.crt` by
-`host_files`, from the repository's only copy.
-
-With Parker's approval, the `tofu/gonkputer` plan adding `podman_hosts` was
-applied (1 changed; a fresh plan was a no-op), the image was pulled first, and
-the compose container and pod were removed before `site.yml` started the
-Quadlet. The database migrated to the image's alembic head `0bd252b206fb` with
-its 2 users and 61 chats; `/health` answered 200 and `podman auto-update`
-lists the unit. A second check reported `changed=0`. `/root/open-webui`,
-`/root/ipa-ca.crt`, the fork image, podman-compose with python3-dotenv and a
-`tailscale` package remnant were then removed. LDAP login and image-returning
-tools are left for Parker to confirm.
+- Upstream converts tool_result images, documents and search results itself since v0.9.0, so Parker's fork image was dropped for the `0.12` tag (no major-only tag exists). Its LDAP login reads the FreeIPA root CA, placed at `/etc/ipa/ca.crt`.
 
 ## ingress described; cloudflare-ddns moved from Docker to a Quadlet (2026-10-22)
 
-ingress runs Caddy from a unit that rebuilds it with xcaddy (cache-handler,
-caddy-dns/cloudflare, caddy-l4) at every start, cydia-sync (a 15-minute timer
-that mirrors and GPG-signs the iOS repository Caddy serves), and ran
-cloudflare-ddns in Docker Compose plus an HAProxy with no frontends. Caddy's
-unit, drop-in, Caddyfile, xcaddy's apt source and key, and cydia-sync's script
-and units are now byte copies under `files/ingress.regulad.internal/`;
-Caddy's Cloudflare token, the cydia signing key and its passphrase are in SOPS.
-`host_files` gained `packages` and `reloads`: a Caddyfile change is checked by
-`caddy validate` (with the token sourced, which its DNS provider needs) and
-applied with `caddy reload`, while a unit or token change restarts and
-rebuilds. The first check reported `changed=0`.
-
-Parker moved cloudflare-ddns to Podman, an exception to keeping a host's
-runtime. With his approval, the `tofu/gonkputer` plan adding `podman_hosts` to
-ingress was applied (1 changed; a fresh plan was a no-op); its Quadlet tracks
-`favonia/cloudflare-ddns:1` with the compose file's hardening (user 1000:1000,
-read-only, all capabilities dropped, no new privileges; the quadlet role
-gained `drop_capabilities` and `no_new_privileges`), its token and the Discord
-webhook in SOPS, and `DELETE_ON_STOP=false` so restarts and auto-updates keep
-the record. The Docker container's restart policy was cleared and it was
-killed, so its own DELETE_ON_STOP never ran; the Quadlet found the A and AAAA
-records for `ingress.regulad.xyz` already current, and public DNS kept
-answering them throughout. A second check reported `changed=0`.
-
-HAProxy, docker.io, containerd and their dependencies were purged with
-`/var/lib/docker`, `/var/lib/containerd`, `/opt/containerd`, the `docker0`
-bridge, `/root/cloudflare-ddns`, the old `/root/caddy` binary and `/root/go`
-(a 2.7 GB build cache last written on 2026-05-21; Caddy's unit uses
-`/var/lib/caddy/go` and `/var/cache/caddy`), `/root/.config/cni`, the
-avahi-daemon and libnss-mdns remnants, and an orphaned
-`eth0-default-route.service` wants link from 2026-08-02 whose unit no longer
-existed. Caddy, cydia-sync and cloudflare-ddns stayed active, sites answered,
-the mirror's `Release` served, and a final check reported `changed=0`. During
-the work the GPG signing key, which is passphrase-protected, was printed once
-in the session; Parker judged that acceptable.
+- Caddy is rebuilt with xcaddy (cache-handler, caddy-dns/cloudflare, caddy-l4) at every start. `caddy validate` needs the Cloudflare token sourced, which its DNS provider reads.
+- cloudflare-ddns uses `DELETE_ON_STOP=false`, so restarts and auto-updates keep the record.
+- Caddy's build cache is `/var/lib/caddy/go` and `/var/cache/caddy`.
 
 ## Coraza WAF for PHP2Shell on Caddy; pterodactyl's stopgaps pruned (2026-10-22)
 
-Caddy cannot inspect request bodies, so Parker chose the OWASP Coraza module
-(`corazawaf/coraza-caddy/v2`), added to the xcaddy build in `caddy.service`.
-`files/ingress.regulad.internal/etc/caddy/coraza/php2shell.conf` carries
-Abstract Security's published PHP2Shell (CVE-2026-109619) and rawkey
-(CVE-2026-109618) rules with their IDs, in `DetectionOnly`: a `PHPSESSID`
-multipart field, a PHP open tag or serialized syntax in an upload filename,
-form field names of 1,000 or more characters, and unparseable bodies, with the
-upload-progress field and strict multipart errors logged only; bodies are
-inspected up to 12.5 MB and larger ones pass on partially inspected. The
-Caddyfile orders `coraza_waf` first and imports the `(php2shell)` snippet only
-in `nextcloud.regulad.xyz`, whose PHP is on stopgaps; pterodactyl has Ubuntu's
-fixed `php8.3-common 8.3.6-0ubuntu0.24.04.13`. Neither Pterodactyl 1.15.0
-(CVE-2025-49132, CVE-2026-86177) nor Nextcloud 32.0.3 without the Collabora
-built-in server (CVE-2026-110447) needed further CVE rules.
-
-A test build on ingress validated the config, and on a loopback instance with
-the engine On every rule blocked its pattern while clean multipart, urlencoded
-and progress-field-only requests passed. With Parker's approval the new unit
-was installed and Caddy restarted (6 s, rebuilding with Coraza), then
-`site.yml` placed the rules and Caddyfile, validated by the new binary, and
-reloaded Caddy. A probe to Nextcloud was logged as rule 3201001 and passed;
-a check reported `changed=0`. At Parker's request `site.yml` then ran on
-pterodactyl, removing its `99-php2shell.ini` and the two stopgap pool
-settings now that PHP is fixed, and reloading PHP-FPM; a second check
-reported `changed=0`.
-
-Parker then had the rules switched to `SecRuleEngine On` at once, because both
-CVEs are exploited in the wild. The first apply did not take effect: `caddy
-reload` skips a reload when the Caddyfile is unchanged, and the rules are an
-included file. `caddy.service`'s `ExecReload` now passes `--force`; applying
-it restarted Caddy, after which the PHPSESSID probe to Nextcloud got 403, a
-clean login POST its usual 303, and the other sites answered. A check reported
-`changed=0`.
+- Caddy cannot inspect request bodies, so the OWASP Coraza module carries Abstract Security's PHP2Shell rules (CVE-2026-109619, CVE-2026-109618), with `coraza_waf` ordered first. Bodies are inspected up to 12.5 MB; larger ones pass partially inspected.
+- Only `nextcloud.regulad.xyz`, whose PHP is on stopgaps, imports the rules; pterodactyl's PHP is fixed.
+- `caddy reload` skips a reload when the Caddyfile is unchanged, even if an included file changed, so `ExecReload` passes `--force`.
 
 ## tsexit and ncsusplitt described and checked off (2026-10-22)
 
-tsexit is a Tailscale exit node whose settings were already described; its
-`/etc/sysctl.d/99-tailscale.conf` (IPv4 and IPv6 forwarding) is now a byte
-copy, re-applied through `systemd-sysctl` when it changes. ncsusplitt runs a
-split tunnel to NCSU: `ncsu-tun.service` (openconnect with Duo `push`, routing
-only 152.1/16, 152.7/16 and 152.14/16 through vpn-slice) and a five-minute
-`ncsu-keepalive` timer. Its units are byte copies, its VPN password moved to
-SOPS and its file was tightened from 0644 to 0600, and `host_files` gained
-`pipx`, which pins vpn-slice 0.16.1 in pipx's global install (Ubuntu does not
-package it). The tunnel had been down since prodingus's reboot at about 06:54:
-DNS was not up yet, and its start limit (4 in 10 minutes, 30 s apart) ran out.
-At Parker's direction the limit is now 3, and an `ExecStartPre` waits until
-`vpn.ncsu.edu` resolves (with no start timeout), so only real logins, each a
-Duo push, count. Unit changes do not restart the tunnel, to avoid extra pushes.
-
-With Parker's approval the run started the tunnel, he approved one push, and
-`tun0` came up with the three NCSU routes. The AppArmor remnants and their
-dangling links were removed on both, which stay without AppArmor as privileged
-containers, and unbound's remnant and two dangling links on ncsusplitt. Final
-checks reported `changed=0` on both.
-
-ncsusplitt alone has `tpm-udev`, whose `tpm-udev.path` and `tpm-udev.service`
-had failed (start limit hit; a container has no TPM). It cannot be removed:
-openconnect's `libopenconnect5` needs the libtss2 libraries that depend on it.
-Drop-ins setting `ConditionVirtualization=!container` now skip both, leaving no
-failed units. Parker asked for a boot delay so the tunnel starts after DNS, but
-Proxmox ignores startup order and delays for HA-managed guests (per the qm(1)
-docs), and ncsusplitt is HA-managed; he kept the tunnel's own wait for
-`vpn.ncsu.edu` instead.
+- vpn-slice is not packaged by Ubuntu; `host_files` pins it through pipx's global install.
+- Each NCSU tunnel login is a Duo push, so `ncsu-tun` waits in `ExecStartPre` until `vpn.ncsu.edu` resolves (no start timeout), its start limit is 3, and unit changes do not restart it.
+- Proxmox ignores startup order and delays for HA-managed guests (qm(1)).
+- `tpm-udev` cannot be removed (openconnect needs libtss2), so drop-ins with `ConditionVirtualization=!container` skip its failing units.
 
 ## tailscalerouter (gonkputer) described and checked off (2026-10-22)
 
-Besides its already-described Tailscale settings, the container runs radvd,
-advertising the tailnet's `fd7a:115c:a1e0::/48` and the OCI pubsub subnet's
-`/64` to the LAN, with `99-tailscale.conf` and `99-radvd.conf` enabling
-forwarding. The sysctl files are byte copies, re-applied through
-`systemd-sysctl`; `radvd.conf` is a template whose OCI `/64` comes from the
-OCI tailscalerouter's address in OpenTofu state through a new `ip_network`
-filter (the filters now live in `network.py`), checked with `radvd
---configtest` before it replaces the live file. The check reported
-`changed=0`, the template rendering the live file exactly; the host had no
-leftovers.
+- radvd advertises the tailnet's `fd7a:115c:a1e0::/48` and the OCI pubsub `/64` to the LAN; the `/64` comes from OpenTofu state through an `ip_network` filter, checked with `radvd --configtest`.
 
 ## pterodactyl described and checked off (2026-10-22)
 
-The panel host runs nginx (one site, `pterodactyl.conf`), PHP-FPM 8.3, MariaDB
-and Redis (stock configs, loopback only), the `pteroq` queue worker, and the
-scheduler from root's crontab. The nginx site, the `sites-enabled` link (through
-a new `links` option in `host_files`), `pteroq.service` and the crontab are
-byte copies; the PHP, MariaDB, Redis and nginx packages are listed; `.env` is
-in SOPS, tightened from 0644 root:root to 0640 root:www-data, its only change
-on apply, which restarted pteroq. The panel answered 200 locally and through
-Caddy, `artisan` ran as www-data, and a second check reported `changed=0`. The
-panel code (1.15.0, from a release tarball) and its database stay host data;
-panel upgrades remain Pterodactyl's manual procedure, so the panel itself does
-not auto-update.
+- The panel code (from a release tarball) and its database stay host data; panel upgrades are Pterodactyl's manual procedure.
 
 ## Pterodactyl panel managed by a role; maintenance.yml; upgraded to 1.15.2 (2026-10-22)
 
-The new `pterodactyl` role installs the panel where none exists, by the
-official getting-started steps (pinned release tarball, permissions, database
-and user from `.env`'s DB values, composer, `migrate --seed`, ownership;
-`key:generate` and the interactive `p:environment:*` steps are replaced by
-the SOPS `.env`, and the first admin is made by hand), and owns `.env` on
-every run, moved out of `host_files`. Parker decided that maintenance that
-cannot be automated gets one playbook beside `site.yml`,
-`playbooks/maintenance.yml`, with one tagged play per task; AGENTS.md's
-Ansible scope says so. Its first play upgrades the panel to
-`pterodactyl_version` by the official update procedure, in maintenance mode
-that is always lifted, and does nothing when the version already matches.
-pterodactyl joined a `pterodactyl` group in OpenTofu (1 changed). `site.yml`
-checked `changed=0` with the role.
-
-With Parker's approval the panel database was dumped to
-`/root/panel-before-1.15.2.sql` and `maintenance.yml --tags pterodactyl`
-upgraded the panel from 1.15.0 to v1.15.2 (the php2shell security release).
-Migrations left none pending, maintenance mode was off, the panel answered
-200 locally and through Caddy, and nginx, PHP-FPM and pteroq were active. A
-second run of the play changed nothing, and `site.yml` checked `changed=0`.
+- Maintenance that cannot be automated goes in `playbooks/maintenance.yml`, one tagged play per task. Its first play runs the panel's official update procedure in maintenance mode, which is always lifted.
 
 ## cordpepperer and peppercord: PepperCord run by podman-compose (2026-10-23)
 
-Both mirrors ran regulad/PepperCord's compose stack (PepperCord, `mongo:5`,
-`redis:8.4-alpine3.22`, an internal `backend` and an internet-facing
-`frontend` network) from a git checkout in `/root/PepperCord`, through Docker
-Compose v2 over Podman's socket, started at boot only by `podman-restart`, with
-MongoDB and Redis published on every interface. Parker kept the compose stack
-but wanted it simple: the compose file at `d5d7ce9` is now
-`files/shared/peppercord/docker-compose.yml`, changed only to publish MongoDB
-and Redis on `127.0.0.1` and `[::1]`, label every service for
-podman-auto-update (which needs fully qualified image names, so mongo and
-redis became `docker.io/library/...`), drop the build context, and set
-`x-podman: in_pod: false` so the two networks stay separate. PepperCord stays on
-`latest`, rolling to keep up with Discord's API. A shared
-`podman-compose@.service` runs `podman-compose up` from `/opt/%i`; podman-compose
-labels its containers with that unit, so `podman-auto-update` restarts it on new
-images. A new `peppercord` group carries all of it in `group_vars`, with each
-host's `.env` from its own SOPS file; `host_files` gained `shared_src` for files
-in `files/shared/`.
-
-With Parker's approval, the plan adding `peppercord` to both `ansible_host`
-resources was applied (2 changed). On each host in turn, cordpepperer first,
-`podman compose down` kept the `peppercord_db` and `peppercord_redis` volumes,
-and `site.yml` installed podman-compose and started the unit. The first start
-failed on the short image names, fixed as above. Both bots logged in
-(CordPepperer in 19 guilds, PepperCord in 95) and synced commands, MongoDB's
-document counts matched the pre-cutover counts exactly on both, 27017 and 6379
-listened on loopback only and refused LAN connections, 8080 still answered from
-the LAN, and `podman auto-update --dry-run` listed all three containers. Second
-checks reported `changed=0`. `docker-compose-v2` was purged, `/root/PepperCord`
-deleted and unused volumes pruned on both. The mongo image's anonymous
-`/data/configdb` volume is recreated whenever the container is, so orphans of
-it will accumulate with auto-updates.
-Two more leftovers of the Docker Compose method were then removed on both:
-the `podman-docker` package (the `docker` command Compose went through) and
-Podman's API socket, `podman.socket`, disabled now that nothing talks to it.
-The stacks stayed up, with no remnants, failed units or dangling links, and
-checks reported `changed=0`.
+- A shared `podman-compose@.service` runs `podman-compose up` from `/opt/%i`. podman-compose labels containers with that unit, so `podman-auto-update` restarts it on new images.
+- podman-auto-update needs fully qualified image names. `x-podman: in_pod: false` keeps the compose networks separate.
+- The mongo image's anonymous `/data/configdb` volume is recreated with every container, so orphans accumulate with auto-updates.
 
 ## mastodon, procontainer and llamarpcmaster made dormant (2026-10-23)
 
-At Parker's request the three became low priority and dormant. mastodon's and
-llamarpcmaster's HA resources went from `started` and `stopped` to
-`disabled`, and procontainer, which has no HA resource, got `start_on_boot =
-false` and `started = false`; mastodon's container also declares `started =
-false` now that HA keeps it stopped. The apply (3 changed) removed mastodon's
-and procontainer's `ansible_host` entries (2 destroyed), as both depend on the
-guest being requested; ha-manager showed ct:105 and ct:119 `disabled`, all
-three were stopped, and a fresh plan was a no-op. mastodon's sites are down
-while it is dormant.
-act, the Forgejo Actions runner (forgejo/runner:12 with a privileged
-docker:dind, in Docker Compose under `/root/forgejo`), followed as unused: its
-HA resource is `disabled` and its container declares `started = false`; the
-apply (2 changed, its `ansible_host` destroyed) left ct:123 `disabled` and
-stopped, and a fresh plan was a no-op.
+- Dormant means an HA state of `disabled` (or no start on boot without HA) plus `started = false`, which also removes the guest's `ansible_host`. act followed as unused.
 
 ## openclaw kept to the baseline (2026-10-23)
 
-Parker decided openclaw's application will not be described declaratively for
-now; it only gets the shared baseline. A check reported `changed=0`: the
-earlier rollouts had already given it the mail relay (`null-openclaw` through
-mail.regulad.xyz, loopback only, with `/bin/mail`), unattended-upgrades mailing
-regulad@regulad.xyz with automatic reboots, and the CA distrust. TODO.md lists
-the baseline as done and the application as an open subtask.
+- Its application will not be described for now; it gets only the shared roles.
 
 ## immich moved from Docker Compose to podman-compose (2026-10-23)
 
-immich ran Immich's release compose stack (server and machine learning on
-`v3`, Valkey 9 and Postgres 14 with vector extensions pinned by digest) under
-Docker in `/root/immich-app`, with uploads on CephFS (87 GB) and Postgres
-bind-mounted from `./postgres`. Following PepperCord, the stack is now
-`files/immich.regulad.internal/opt/immich/docker-compose.yml`, from Immich
-v3.3.5's release compose file (Immich says to use the current release's), run
-by the shared `podman-compose@.service` as `podman-compose@immich` with the
-`.env` in SOPS. Every service carries podman-auto-update's label; Immich's
-maintainers allow dropping the digest pins, so Valkey tracks `9` and Postgres
-`14-vectorchord0.4.3-pgvectors0.2.0` (Postgres stays on major 14; it leaves
-support on 2026-11-12, and moving on is Immich's manual upgrade). ansible-lint
-now skips `files/`, which holds host files rather than Ansible content.
-
-With Parker's approval, immich joined `podman_hosts` (1 changed). Pre-pulling
-with Podman filled the 16 GB root disk; Docker's old `v2` images were removed
-at once, leaving the stack healthy throughout, and at Parker's direction the
-disk was grown to 32 GB in OpenTofu (an online in-place resize). After the
-pull, Docker's stack was stopped, the Postgres data renamed into
-`/opt/immich/postgres`, and `site.yml` started the stack. Immich v3.3.5
-answered `pong` locally and from ingress (the public site needs a client
-certificate), the database counts matched exactly (17,193 assets, 59 albums,
-152 people, 3,633 faces, 13,119 search embeddings, 2 users), all four
-containers were listed by `podman auto-update`, and checks reported
-`changed=0`. Only Valkey reports health under Podman: the other images'
-health checks are in their image config, which Podman ignores for OCI images.
-Docker, containerd, the Compose plugin and their dependencies, their data,
-the `docker0` bridge, `/root/immich-app` and the AppArmor remnant were then
-removed, leaving the disk 18% used.
+- Immich says to use the current release's compose file; its maintainers allow dropping digest pins, so Valkey tracks `9` and Postgres a `14-vectorchord…` tag. Postgres 14 leaves support on 2026-11-12, and moving on is Immich's manual upgrade.
+- Podman ignores health checks from OCI images' config, so only Valkey reports health.
+- Pre-pulling filled the 16 GB root disk; it was grown to 32 GB online in OpenTofu.
 
 ## aboriginal and dodo: quasi-hardware VMs, now in the Ansible inventory (2026-10-23)
 
-Parker moved aboriginal (100) and dodo (101) out of the cloud-init list into
-their own TODO.md section: both were first installed on hardware and later
-imaged into VMs, so Ansible configures them; PLAN.md says the same. Each got an
-`ansible_host`, listed while it starts on boot, like vkasm. aboriginal is on
-the tailnet and answers LAN SSH over `tailscale0`, so its entry connects by its
-tailnet name, from a new `local.tailnet_domain`. Both had relayed mail by hand
-until now; guard host_vars keep their FreeIPA accounts (`null-dingus-server`,
-and `null-pelican` after dodo's legacy name), keep aboriginal Tailscale-protected
-with its `server` tag, and keep VM 100 from rebooting itself
-(`Automatic-Reboot "false"`, the ubuntu group's settings otherwise); their
-relay passwords were copied from the hosts into SOPS.
-
-With Parker's approval the plan (2 added) was applied, and `site.yml` on both
-updated the FreeIPA accounts (passwords untouched), Postfix's maps and
-rewriting, and unattended-upgrades. Test mails from both reached
-regulad@regulad.xyz from their null- addresses, and second checks reported
-`changed=0`. Their own services are still to be described.
+- aboriginal answers LAN SSH over `tailscale0`, so its entry connects by tailnet name (`local.tailnet_domain`). dodo's FreeIPA account is `null-pelican`, after its legacy name. Their own services are still to be described.
 
 ## git: Forgejo moved from VM 110 to the git container (200) (2026-10-23)
 
-The git VM (AlmaLinux 10.2) ran EPEL's Forgejo 12.0.4 on SQLite (6.7 GB under
-`/var/lib/forgejo`), reached only through a token-based cloudflared tunnel for
-`git.regulad.xyz` and `git-ssh.regulad.xyz`, with git over SSH through the
-VM's sshd. Parker had it moved into a container named `git`, with Forgejo's SSH
-on 2222. The new `lxc-git.tf` comes from the skeleton (32 GB, 2-core limit,
-2 GiB, the VM's MAC) with the container as VMID 200; two Quadlets run
-`codeberg.org/forgejo/forgejo:12-rootless` (the built-in SSH server on 2222,
-reusing the VM's sshd host keys so clients' known_hosts still match, and clone
-URLs keeping the `forgejo` user) and `docker.io/cloudflare/cloudflared:latest`
-(only dated versions otherwise). `app.ini` is the VM's, templated with its
-secrets in SOPS and its paths under `/var/lib/gitea`; the tunnel token and a
-new `null-git` relay password are in SOPS too. The VM's host keys were
-confirmed against a screenshot Parker took of its console.
-
-With Parker's approval, Forgejo and cloudflared were stopped on the VM, its
-data and host keys were streamed into `/mnt/pve/cephfs/staging-git/git.tar`
-(7.1 GB, about 45 minutes through this machine), and the VM was made dormant:
-its HA resource, renamed `git_vm`, is `disabled` and the VM declares `started =
-false` (2 changed). A `moved` block for the rename could not stay, because the
-container's HA resource takes `proxmox_haresource.git`; a state from before
-this change would need a manual `state mv`. The container was created (3
-added), Podman installed, the archive restored into the `forgejo_data` volume
-(owned by uid 1000), and `site.yml` applied the baseline and started both
-Quadlets. DHCP gave it 10.23.1.157 despite the VM's MAC. The site answered 200
-through the tunnel as Forgejo 12.0.4, the API listed 206 repositories (229 on
-disk), an HTTPS `git ls-remote` worked, the ed25519 host key on 2222 matched
-the VM's, and a second check and a fresh plan reported no changes. Git over SSH
-through the tunnel waits on the tunnel's SSH target moving to 2222 in
-Cloudflare's dashboard.
+- Forgejo's built-in SSH server on 2222 reuses the VM's host keys, so clients' known_hosts still match.
+- A `moved` block for a renamed HA resource cannot stay when the new guest takes the old address; an old state needs a manual `state mv`.
+- DHCP gave the container a new address despite the VM's MAC.
 
 ## git.regulad.xyz behind Caddy; the git VM destroyed (2026-10-23)
 
-Parker pointed the tunnel's `git-ssh.regulad.xyz` at SSH on 2222, dropped its
-`git.regulad.xyz` route, and made `git.regulad.xyz` a CNAME to
-`ingress.regulad.xyz`. Caddy gained a `git.regulad.xyz` site proxying to
-`git.regulad.internal:3000` and obtained its certificate; Forgejo's `app.ini`
-now trusts `X-Forwarded-For` from the LAN ranges (`REVERSE_PROXY_LIMIT = 1`).
-Through ingress the API answered 200 with a valid certificate. At first the
-CNAME did not resolve at Cloudflare's authoritative servers.
-
-With Parker's approval, `vm-git.tf` was removed. The first destroy removed
-`git_vm`'s HA resource but Proxmox refused the VM, which had its own
-protection flag; the staging archive on CephFS had already been deleted in
-the same command, before the VM was gone. `qm set 110 --protection 0` let the
-next destroy delete the VM's disks, but `qmdestroy` then failed listing the
-`rbd` storage: `rbd_ssd` held `vm-119-disk-0` in its trash, in the removing
-state since 2026-03-20, with an empty header and 47 data objects, unreferenced
-(llamarpcmaster's root disk is `vm-119-disk-1`, untouched). Parker approved
-cleaning it up; `rbd trash rm --force` finished the removal, the storage
-listed cleanly again, and a third plan destroyed VM 110 (1 destroyed); a
-fresh plan was a no-op. An expired `vm-111-disk-0` migration leftover from
-April remains in the trash.
+- Forgejo trusts `X-Forwarded-For` from the LAN ranges (`REVERSE_PROXY_LIMIT = 1`).
+- A VM's own protection flag blocks destroy (`qm set <id> --protection 0`).
+- `qmdestroy` fails when listing the `rbd` storage fails: an image stuck in `rbd_ssd`'s trash since 2026-03 had to be removed with `rbd trash rm --force`. An expired `vm-111-disk-0` remains in the trash.
 
 ## unattended-upgrades mails only on errors (2026-10-23)
 
-At Parker's request, `MailReport` went from `on-change` to `only-on-error`
-in all six places it is set: the debian and ubuntu groups in both stages and
-the full copies in prodingus's and aboriginal's host_vars. dnf-automatic on the
-Oracle Linux hosts (no only-on-error mode) and cron were left as they are. A
-check across the 21 Debian and Ubuntu hosts in the generated stage showed only
-that setting changing, the apply changed exactly it on each, with no failures,
-and prodingus followed last through the hardware stage.
+- `MailReport "only-on-error"` in all six places it is set; dnf-automatic has no such mode.
 
 ## authentik: moved from VM 109 to the authentik container (201) (2026-10-23)
 
-The authentik VM (Ubuntu 24.04) ran upstream's Docker Compose stack, authentik
-2026.2.0 with Postgres 16 (a 142 MB database; the bind-mounted `data`, `certs`
-and `custom-templates` directories were empty), reached only through a
-token-based Cloudflare tunnel for `authentik.regulad.xyz`. Only the embedded
-outpost ran, with no service connection, and its one source is freeipa's LDAP
-(80 active users); Immich is its one application. Parker had it moved into a
-container named `authentik`, served by Caddy on ingress, with podman-compose
-running upstream's compose file and podman-auto-update following its release
-tag. `lxc-authentik.tf` comes from the skeleton (16 GB, 2-core limit, 4 GiB,
-the VM's MAC); the compose file is upstream's, changed for the auto-update
-labels, the release tag, named volumes, and no Docker socket or `/certs`; the
-VM's `.env` and a new `null-authentik` relay password are in SOPS.
-
-Parker had the git.regulad.xyz CNAME added through Cloudflare's API: it had
-never existed (only the JitPack TXT, which stays, and Caddy's ECH HTTPS record
-were there), and Cloudflare accepted the DNS-only CNAME to ingress beside them;
-git.regulad.xyz then answered 200 through ingress. `authentik.regulad.xyz`
-went from the proxied tunnel CNAME to a DNS-only CNAME to ingress, as the other
-ingress sites are; until Caddy carried the site, authentik was unreachable, and
-applying ingress's new `authentik.regulad.xyz` site first brought it back
-through Caddy to the VM.
-
-With Parker's approval, the VM's stack and cloudflared were stopped and its
-database dumped (`pg_dump -Fc`, 15 MB) to the operator's machine. Stage one
-renamed the VM's HA resource to `authentik_vm` through a `moved` block and made
-it dormant (`disabled`, `started = false`; 2 changed); as with git, the block
-was then dropped, because the container's HA resource takes
-`proxmox_haresource.authentik`. Stage two created container 201 (3 added),
-which DHCP gave 10.23.1.100. `site.yml` installed Podman and started the stack,
-which initialized an empty database; that was dropped and the dump restored
-(80 users). Ingress's systemd-resolved still held the VM's 10.23.1.91, giving a
-502 until its cache was flushed. Through ingress authentik answered ready, an
-LDAP sync and a test email ran on the worker, the host relay delivered as
-`null-authentik`, and Immich's OIDC issuer is unchanged. The release tag then
-moved one release at a time, with a dump before each: 2026.2 (2026.2.7),
-2026.5 (2026.5.8) and 2026.8 (2026.8.5), each ready with no server errors.
-The worker logs a failing monitor for the unused "Local Docker connection",
-which has no socket now. Checks on authentik and ingress reported `changed=0`.
-
-Parker deleted the `authentik` tunnel and the unused "Local Docker
-connection" himself, and approved destroying the VM. `vm-authentik.tf` was
-removed; the VM carried no protection flag and the `rbd` trash was empty, so
-one apply destroyed VM 109 and `authentik_vm` (2 destroyed), leaving no
-`vm-109` images, and a fresh plan was a no-op.
+- Upstream's compose file with auto-update labels, the release tag, named volumes, and no Docker socket or `/certs`. Stepping the release tag one release at a time with a dump before each (2026.2 → 2026.5 → 2026.8) migrated cleanly.
+- A restore needs the stack's fresh empty database dropped first.
+- ingress's systemd-resolved cached the VM's old address (502) until flushed.
+- The git.regulad.xyz CNAME had never existed; Cloudflare accepts a DNS-only CNAME beside the JitPack TXT and Caddy's ECH HTTPS record.
 
 ## matrix: Synapse and its bridges moved from VM 107 to the matrix container (202) (2026-10-24)
 
-The matrix VM (Debian 12) ran Synapse 1.154 from matrix.org's packages on
-Postgres 17 (a 62 GB database on its own disk, beside an unused 7 GB Postgres
-18 copy), with media also in the `synapse-media` bucket on s3.regulad.xyz;
-ten hand-written bridge units under `/opt` (discord, gmessages, messenger,
-meta, slack, whatsapp, syncproxy and wsproxy as Go binaries, telegram and
-heisenbridge in Python environments); nginx; a nightly
-`synapse_auto_compressor` from a debug build; and a token-based Cloudflare
-tunnel for `matrix.regulad.xyz` and `ssh-matrix.regulad.xyz`. Two Synapse
-modules, `synapse-s3-storage-provider` and `shared_secret_authenticator`,
-were pip-installed into the package's own environment. Discovery went through
-the guest agent, Parker's SSH agent having refused to sign; its output exposed
-the database password and the SendGrid key in this session.
-
-Parker decided: Ubuntu 26.04 (the newest release Synapse builds for, supported
-to 2030-10-31), the newest release of everything, imessage and android_sms
-(which no bridge had connected to in 30 days) dropped with wsproxy and
-syncproxy, the compressor kept, Caddy on ingress instead of the tunnel,
-`ssh-matrix` dropped, Synapse's mail sent through mail.regulad.xyz as
-`svc-synapse` (its LDAP bind account) instead of SendGrid, and, mid-cutover,
-the database on its own volume, `/mnt/synapse`. A new `matrix` role installs
-Synapse from matrix.org's repository (key fingerprint checked against Synapse's
-docs), its modules into its environment (shared_secret_authenticator 2.0.3 from
-its GitHub release archive; PyPI stops at 2.0.1), the bridge users, the
-database locale, and the compressor, v0.1.4 built by cargo against the system
-OpenSSL, with its cron entry. host_files gained `host_files_downloads`, which
-fetches each bridge's release binary pinned by sha256. The bridge units were
-copied byte for byte, except telegram's (the Go bridges' unit) and
-heisenbridge's `ExecStart` (pipx, 1.15.4); nginx lost its wsproxy route.
-Synapse's config is a template with its secrets, the signing key and two
-registrations in SOPS; the database password is new. A createcluster.d drop-in
-puts the cluster on `/mnt/synapse`.
-
-With Parker's approval, telegram was run once at 0.15.3 on the VM, the stale
-Postgres 18 cluster dropped, and 17 upgraded to 18.4 with `pg_upgradecluster
---method=link`; the VM's crontab was commented out, and stage one made it
-dormant (2 changed). The container was created (3 added); adding the
-`/mnt/synapse` volume and shrinking the root disk to 32 GB then replaced it
-while it held only the baseline (Parker approved the replace), and its HA
-resource, which Proxmox removed with it, was created again. First runs failed
-on missing `python3-packaging`, git (hence the archive URL), `make`, the vendored
-OpenSSL build, nginx's site directories and pipx, each fixed in the repository.
-A restart handler lost to one of those failures left the package's default
-Synapse running on SQLite, unreachable from outside, until the data moved.
-
-On prodingus, with the container stopped, the VM's Postgres disk was mapped
-read-only through krbd and its root disk through `qemu-nbd --read-only` (krbd
-cannot map its feature set); `/var/lib/postgresql/18/main` (62 GB), the seven
-bridges' `/opt` directories without their old binaries, telegram's Python
-environment or logs, and the 2.4 GB of local media were copied in with the
-container's ownership. The VM's `postgres` database needed `en_US.UTF-8`,
-which the role now generates. `synapse_user`'s password was set to the new
-one and `mautrix_syncproxy` dropped. Synapse 1.163.1 then answered on client
-and federation paths; telegram's Go bridge (v26.09) migrated the Python
-bridge's database, after its legacy `relaybot` and `full` permission levels
-were mapped to `relay` and `user` (a copy of the old config is
-`config.yaml.python-permissions`), and later moved to v26.10. Every bridge
-started; errors seen were from a Postgres restart under Synapse, and none
-followed. Through Cloudflare's API, `matrix.regulad.xyz` became a DNS-only
-CNAME to ingress and `ssh-matrix.regulad.xyz` was deleted; Caddy serves the
-site. The federation tester passed over IPv4 but timed out on ingress's IPv6
-address. Checks on matrix and ingress reported `changed=0`, and a fresh plan
-was a no-op.
-
-Parker deleted the `matrix` tunnel and revoked the SendGrid key, and approved
-destroying the VM. `vm-matrix.tf` was removed; one apply destroyed VM 107 and
-`matrix_vm` (2 destroyed), leaving no `vm-107` images, and a fresh plan was a
-no-op.
+- Ubuntu 26.04 is the newest release Synapse builds for. Its modules are pip-installed into the package's environment; `shared_secret_authenticator` 2.0.3 exists only as a GitHub archive (PyPI stops at 2.0.1). Synapse is not held: an upgrade keeps the modules.
+- Bridges come from release binaries pinned by sha256 (`host_files_downloads`). Telegram's Go bridge migrates the Python bridge's database after the legacy permission levels `relaybot` and `full` are mapped to `relay` and `user`.
+- Building `synapse_auto_compressor` needs git, make and the system OpenSSL instead of the vendored build.
+- A createcluster.d drop-in puts the Postgres cluster on `/mnt/synapse`. Upgrading 17 to 18 used `pg_upgradecluster --method=link`; the `postgres` database needed the `en_US.UTF-8` locale.
+- Data was copied on prodingus with the container stopped through `pct mount`: krbd maps the VM's data disk read-only, but not its root disk's feature set, which `qemu-nbd --read-only` reads.
+- Adding a mount point and shrinking the root disk replaced the container, and Proxmox removed its HA resource with it.
+- A restart handler lost to a failed run left the package's default Synapse on SQLite.
+- The federation tester passed over IPv4 but timed out on ingress's IPv6 address.
 
 ## Network switches become Ansible hosts; the Arista adopted (2026-10-24)
 
-Parker asked to manage the switches, with their password hashes treated as
-secrets and SSH public keys plaintext, and to look at prior art first. Ansible's
-network modules run on the control node and drive a switch's CLI over SSH
-(`network_cli`), so the plan's premise that the switches cannot use Ansible did
-not hold; Parker approved making them hosts in `ansible-hardware`, in a
-`switches` group outside `hardware`, and pinning `ansible.netcommon` 8.7.1,
-`ansible.utils` 6.1.1 and `arista.eos` 12.3.0 into the stage's `collections/`
-(the same versions as Homebrew's Ansible bundles). For the SG300s,
-`community.ciscosmb` can read configurations but its `edit_config` is a stub.
-
-The Arista (`JPE18280417`, DCS-7010T-48, EOS 4.28.10.1M) has no password hashes:
-`regulad` is `privilege 15 nopassword` with Parker's SSH key, and root login is
-off. Its running configuration, without the command and device header comments,
-is `files/JPE18280417/running-config`; the new `eos` role replaces the whole
-running configuration with it through `eos_config` (`replace: config`, one
-configuration session, saved to startup only when modified). `replace: config`
-still requires `src`, whose Jinja processing ansible.netcommon deprecates; the
-file has none. Loading it takes longer than the default 30-second command
-timeout, which is 240 in `group_vars/eos.yml`; the first, timed-out check left a
-pending session, removed by hand. A check against a copy missing one NTP line
-showed EOS's session diff, so the comparison is real. Parker approved applying
-in-band (he has a serial console, not on hand): check and apply reported no
-changes.
-
-At Parker's request the connected interfaces are annotated with comments, which
-EOS drops, so they cause no diff. tcpdump of the switch's LLDP frames put
-prodingus's eth0 on Ethernet47 and eth1 on Ethernet50, and overture's en5 on
-Ethernet11; the switch's own LLDP table has the SG300s on Ethernet17 and 29 (each
-from its gi1). Single-MAC ports were named from arawi's Kea leases: an
-HDHomeRun on Ethernet12 and `npi5433a7` on Ethernet18; Ethernet6's device has
-no DHCP hostname, Ethernet49 (10 GbE SR) has 18 addresses behind it, and
-Ethernet7, 31 and 32 are linked with none learned. turk was unreachable.
-
-The SG300s were reached read-only only partly: their 1024-bit RSA host keys need
-`RequiredRSASize=1024`, OpenSSL 3.5 needs a lowered security level for their
-`diffie-hellman-group1-sha1`, and Parker's agent then refuses the SHA-1
-`ssh-rsa` signature they require. A research pass found that SG300 firmware 1.4
-holds one SSH key per user (`user-key` replaces it), so an automation key needs
-its own local user, with its password hash in SOPS.
+- Network modules drive a switch's CLI from the control node (`network_cli`), so switches need no Python; they are a `switches` group in `ansible-hardware`, outside `hardware`.
+- The Arista (DCS-7010T-48, EOS 4.28.10.1M) has no password hashes: `regulad` is `privilege 15 nopassword` with Parker's key.
+- `eos_config` with `replace: config` loads the whole file in one configuration session; it requires `src`, not `content`. Loading takes longer than 30 seconds, so the command timeout is 240; a timed-out run leaves a pending session to remove by hand.
+- EOS drops `!` comments, so port annotations cause no diff. Ports were identified from tcpdump of LLDP on the hosts, the switch's LLDP table and arawi's Kea leases.
 
 ## Datacenter notes in plaintext (2026-10-24)
 
-At Parker's request the datacenter's Markdown notes left SOPS: they are now
-`tofu/gonkputer/cluster-notes.md`, read by `file()`, byte for byte as Proxmox
-stores them (five lines end in spaces, so the file is exempt from the
-whitespace hooks, like the snippets), and the `cluster_description` variable
-and its SOPS key are gone. A review found no secrets in them. The plan changed
-only the attribute's sensitive marking; the apply reported 1 changed, a fresh
-plan was a no-op, and the live notes match the file. Parker noted the notes'
-VLAN section is out of date: he chose VLAN 8 for guests independently of it.
+- The notes are `tofu/gonkputer/cluster-notes.md`, read by `file()` byte for byte as Proxmox stores them (trailing spaces included, so the file is exempt from the whitespace hooks).
 
 ## Arista ports, VLANs and the datacenter notes' subnets (2026-10-24)
 
-Parker identified the Arista's remaining ports: Ethernet49 is the uplink to the
-Verizon router (a 10GBASE-T SFP+ transceiver), Ethernet50 prodingus's 10 GbE
-over an Arista SFP+ DAC, Ethernet7 the guest access point, Ethernet6 the Ring
-security system (its address is Ring Solutions', by IEEE OUI), Ethernet18 the
-HP printer (`npi5433a7`; its last DHCP lease, for `10.23.1.55`, expired on
-2026-10-13 and the address now belongs to pterodactyl), and Ethernet31 and 32
-Android devices running Octo4a for 3D printers (10/100). Those two stay silent:
-Ethernet32 has never received a frame, Ethernet31 none recently, and neither
-answered an nmap ARP scan of VLAN 1 from prodingus.
-
-With his approval, applied in-band from `files/JPE18280417/running-config`;
-each check's session diff matched the edit, each apply was followed by a
-`changed=0` check, and no session was left over:
-- Ethernet6, 12 (the HDHomeRun) and 18 are access ports on VLAN 1 with port
-  security and a static MAC address entry, each admitting only its device
-  (`Secure-up`).
-- Ethernet31 and 32 are access ports on VLAN 1, not yet bound to an address.
-- Ethernet51 and 52, unused SFP+ ports, are shut down to save power.
-- Ethernet49 was already an access port on VLAN 1; overture's Ethernet11 stays
-  a trunk, since overture hosts generated resources, as do the unknown 1 GbE
-  ports.
-- The VLANs went from `2-7,9-4094` (and 8) to VLANs 1-16 only. Parker first
-  asked for 1-15, then corrected that VLAN 16 exists: the corosync and Ceph
-  intercom (prodingus's `vmbr0.16`, arawi's INTERCOM). Before the change only
-  prodingus's own address was learned on VLAN 16 and above.
-
-Parker had the datacenter notes' network sections cut to subnets and VLAN IDs
-alone, leaving ports and access modes to the running configuration: a Subnets
-table (VLAN, IPv4, IPv6, DNS name, use) for VLAN 1 (native; `regulad.internal`,
-with `regulad-verizon-livingston.internal` deprecated), 8 (guest), 16, the OCI
-VCN and the tailnet (`ts.net`, since nodes may be shared from other tailnets),
-the homelab ULA named as such, and the rule for VLAN IDs in addresses: the ID
-in the third octet's upper four bits (VLAN 1, native, is `0000`; VLAN 16 takes
-`0001`) and in hex as the homelab ULA's fourth hextet. The rule replaces the
-notes' "16-31" range, which was out of date. Applied with one change; the live
-notes match the file, and a fresh plan was a no-op.
+- Device ports are access ports on VLAN 1 with port security and a static MAC entry (`Secure-up`). Unused SFP+ Ethernet51 and 52 are shut down. overture's port stays a trunk, since it hosts generated resources, as do unknown 1 GbE ports.
+- VLANs are 1-16 only; VLAN 16 is the corosync and Ceph intercom.
+- A VLAN ID sits in the third IPv4 octet's upper four bits (VLAN 1, native, is `0000`; VLAN 16 takes `0001`) and in hex as the homelab ULA's fourth hextet.
+- The Octo4a devices on Ethernet31 and 32 send no frames and answer no ARP scan, so they cannot be bound to a MAC yet.
 
 ## The SG300s become Ansible hosts (2026-10-24)
 
-Each SG300 got a privilege-15 `svc-ansible` user with its own RSA 3072 key,
-unencrypted, the private key and a random password in the switch's
-`ansible-hardware` `secrets.sops.yml`, the public key in its `main.yml`; the
-switches hold one key per user (`user-key` replaces it). With Parker's leave,
-this session set them up over SSH as `regulad`, with his key file and a
-passphrase he provided for the purpose and shredded afterwards; both now have
-`svc-ansible`, `ip ssh pubkey-auth auto-login` and `passwords aging 0`, saved.
-
-Their firmware (1.4.11.5) and SSH server (OpenSSH 5.9) need care:
-- Their CPUs are slow: `show running-config` can take over 30 seconds, so the
-  command timeout is 120. Attempt one connection at a time; each switch holds
-  only a few SSH sessions, idle ones lasting ten minutes (`exec-timeout`), and
-  a run started while slots are taken times out. The playbook runs them
-  `serial: 1`.
-- They answer SSH only after a ping.
-- `terminal width` defaults to 77 characters; input reaching that column
-  stalls the line editor over SSH. `terminal width 0` (per session) avoids it;
-  community.ciscosmb's terminal plugin sends it.
-- A second Enter arriving while they print stalls their output.
-  community.ciscosmb's cliconf ends each command with a newline and
-  network_cli's carriage return, so `plugins/cliconf/ciscosmb.py` overrides it
-  to send network_cli's alone.
-- `username <name> privilege 15 <password>`, the CLI guide's form, is rejected;
-  `username <name> password <password> privilege 15` works. `write` asks
-  `(Y/N)[N] ?`, and any other key cancels.
-- They need `diffie-hellman-group1-sha1`, 1024-bit RSA host keys and SHA-1
-  `ssh-rsa` signatures. OpenSSL 3.5 refuses SHA-1 signatures at its default
-  security level, in ssh-agent too, so `bin/openssl-legacy.cnf` lowers it for
-  the commands `bin/with-switch-keys` runs. Fedora's crypto policy sets
-  `RequiredRSASize 2048`, which libssh reads after the user's configuration
-  and pylibssh cannot override; Parker added `RequiredRSASize 1024` to their
-  block in his SSH configuration. paramiko 5.0 has neither algorithm.
-
-Their stored password hashes are unsalted SHA-1 (the enable password bare
-MD5), as Cisco's notes for the newer Sx350 code line say of its predecessors,
-so they are secrets: `files/<switch>/running-config.j2` takes them from each
-switch's `ciscosmb_password_hashes` in SOPS. Parker set a new `regulad`
-password before they were captured.
-
-`community.ciscosmb` 1.0.12 is pinned. The switches are a `ciscosmb` group
-under `switches`, reached with network_cli over libssh as `svc-ansible`, whose
-keys `bin/with-switch-keys` loads from SOPS into a throwaway ssh-agent. The
-new `ciscosmb` role reads the running configuration and compares it with the
-template, showing the diff with hashes masked and comparing them separately;
-it does not push changes yet. Both switches matched with no diff. A check
-against a template missing one line reported it, and a real run on both
-reported no changes. Sessions left stalled at the line-width limit never idle
-out, and the firmware has no command to clear another session; with Parker's
-approval, reloading switch45f304 freed the slots they held.
+- Each switch has a privilege-15 `svc-ansible` with its own RSA 3072 key, in SOPS, because firmware 1.4 holds one SSH key per user (`user-key` replaces it). `bin/with-switch-keys` loads the keys into a throwaway ssh-agent.
+- Firmware 1.4.11.5 with OpenSSH 5.9:
+  - CPUs are slow: `show running-config` can take over 30 seconds (timeout 120).
+  - Attempt one connection at a time: there are only a few session slots, and a session stalled at the line-width limit never idles out. No command clears another session; a reload does.
+  - They answer SSH only after a ping.
+  - `terminal width` defaults to 77, and input reaching that column stalls the line editor; `terminal width 0` avoids it.
+  - A second Enter arriving while they print stalls their output, so the local cliconf sends one end of line.
+  - `username <name> password <password> privilege 15` works; the guide's `username <name> privilege 15 <password>` is rejected. `write` asks `(Y/N)[N] ?`, and any other key cancels.
+- Crypto: they need `diffie-hellman-group1-sha1`, 1024-bit RSA host keys and SHA-1 `ssh-rsa` signatures.
+  - OpenSSL 3.5 refuses SHA-1 signatures, in ssh-agent too, so `bin/openssl-legacy.cnf` lowers the security level.
+  - Fedora's crypto policy sets `RequiredRSASize 2048`, which libssh reads from the user's config (found through getpwuid) and pylibssh cannot override; Parker's SSH config sets 1024 for them.
+  - paramiko 5.0 has neither algorithm.
+- Password hashes are unsalted SHA-1 (enable: bare MD5), so they stay in SOPS and the templates take them from `ciscosmb_password_hashes`.
 
 ## Switches: the SG300s' changes pushed by Ansible (2026-10-24)
 
-The `ciscosmb` role now converges instead of only comparing. The local cliconf
-works out commands from `show running-config` text: `cli_config` with
-`diff_match: line` sends those adding the declared lines the switch lacks, and
-then `diff_match: exact`, against a fresh read, those negating the lines left
-over, so a setting a changed line overrides (a password hash, say) is never
-negated. User keys are resent whole; the header before the first `!` is never
-pushed. The role saves with `write` once a reread matches exactly.
-
-A second command in one session stalled with only its first character echoed,
-as typing at the console had shown, so the cliconf now types each command a
-character at a time. A first attempt sent each character through network_cli,
-which ends every send with a carriage return: switch45f304 ran single letters
-as commands, among them `w`, which saved the running configuration (identical
-to the declared one) to startup-config, and `co`, which entered configure
-mode, where the next letters were rejected. The characters now go straight to
-the shell channel, with only the complete line followed by Enter. A check run
-with a test line added to the template showed exactly that line as the change.
+- The local cliconf diffs `show running-config` text. `cli_config` with `diff_match: line` sends the missing lines; then `diff_match: exact`, against a fresh read, negates leftovers, so a setting a changed line overrides is never negated. User keys are resent whole; the header before the first `!` is never pushed.
+- Commands are typed a character at a time: whole lines get dropped and stall the session. Characters go straight to the shell channel, because network_cli ends every send with a carriage return; the first attempt ran single letters as commands, including `w` (`write`) and `co` (`configure`).
 
 ## Switches: the SG300s' combo ports gi9 and gi10 shut down (2026-10-24)
 
-On both SG300s, gi9 and gi10 (1G combo ports: RJ45 or SFP) had no link, no
-transceiver readings and no LLDP neighbour, so with Parker's approval they are
-shut down to save power; that disables their RJ45 side too. This was the first
-real push. switch070e26 converged and saved in one run. On switch45f304 the
-reread did not match, because the switch prints `shutdown` above `switchport
-mode access` and the typed send left a blank line at the top of its output;
-with both fixed, it matched, and `write` saved it by hand, since a run with no
-difference did not save. The role now also reads startup-config on every run
-and saves whenever it differs from the declared configuration; a check run
-showed both switches' startup configurations matching. Reruns on both
-reported `changed=0`.
+- gi9 and gi10 are 1G combo ports (RJ45 or SFP); `shutdown` disables both sides.
+- The switch prints `shutdown` above `switchport mode access`; templates must match its printing order exactly.
+- The role reads startup-config every run and saves whenever it differs, so a push whose reread failed is still saved later.
 
 ## Switches: the SG300s' ports surveyed, annotated and two tied down (2026-10-24)
 
-A read-only survey of gi1-gi8 on both SG300s (link state, learned MACs, LLDP,
-PoE), with MACs named from arawi's Kea leases, is annotated as Jinja comments in
-the templates, which render to nothing, so they cause no diff. switch45f304:
-gi1 the Arista's Ethernet17, gi6 `sony-player` at 100 Mb/s. switch070e26: gi1
-the Arista's Ethernet29, gi5 `u5g-us` (the UniFi 5G backup, PoE), gi6 the
-AirPort Extreme with its Wi-Fi clients behind it, and gi3 linked at 1 Gb/s with
-no address learned and no PoE device detected, unidentified. Ports with no
-link carry no comment.
-
-At Parker's request `u5g-us` and `sony-player` are tied to their MAC addresses,
-like the Arista's device ports: `port security discard` on the port and a
-secure static entry, which the switch prints after the final `exit`. The add
-phase now follows the template's order, so a port is locked before its secure
-address is added. On both switches the add task timed out after the switch had
-taken every command; the startup-config comparison saved them on the next
-runs, and checks on both then reported `changed=0`. `u5g-us` answers ping;
-`sony-player` never answers ping, Parker says, and gi6 holds its secure address.
-
-Automating these switches is markedly non-deterministic: the same command in
-the same state may succeed or stall, sessions stall at random (often on the
-read that follows a burst of commands) even with commands typed out, and
-whether a push's commands landed must be read back rather than inferred from
-the task's result. Reruns get through, and the role's reads before and after
-each step are what make it safe to rerun.
-
-Parker listed the AirPort Extreme and a CR1000B as access points to
-declarativize in TODO.md.
+- Jinja comments in the templates render to nothing, so port annotations cause no diff; ports with no link carry none. Learned MACs were named from arawi's Kea leases.
+- A MAC bind is `port security discard` on the port plus `mac address-table static <mac> vlan 1 interface <port> secure`, which the switch prints after the final `exit`. A secure entry needs its port locked first, so pushes follow the template's order.
+- `sony-player` never answers ping.
+- Automating these switches is markedly non-deterministic. The same command in the same state may succeed or stall, sessions stall at random (often on the read after a burst of commands), and a push's result must be read back rather than inferred from the task. Reruns get through.
+- Parker listed the AirPort Extreme and a CR1000B as access points to declarativize.
