@@ -1,17 +1,1 @@
-mail_relay_freeipa_password: ENC[AES256_GCM,data:86boI8g+GoflxXAK35/mO1bysAmVVuM7Y8iJMP1MWjYElm09Ao0lbvKObNhCy5zk,iv:HUivImKlhezFsvDn969sX69ZCw1Q5zYEzwNlW2jDghs=,tag:ePuTmL16WGi8PR0iy0qk0Q==,type:str]
-tailscale_api_token: ENC[AES256_GCM,data:5JK3LidizgLPzU1+A8CkqLQXY+1FmjSD3arNbSEp1GAbRuQqLYKph4Qio5oz03SFQhpmwgrZ3z0SSMFd,iv:HHZ4w/n4+mlvU+kkUv7JSQGcokFVj1fuKGqQBYKQ0sU=,tag:uG3AMw+rFCrkyMh3+wVqIw==,type:str]
-sops:
-    age:
-        - enc: |
-            -----BEGIN AGE ENCRYPTED FILE-----
-            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBlRy82YUFBTFkwUDh3MXdK
-            VlZsZEJFbTM4cm9CY3dFWm5uQ1BKUFZnMXc4CndwSWxaNGVJRWlOaEpEeElVRjEx
-            ZEFwekw4RUpGdTRuVGlRajlIaHQ5dHcKLS0tIExPQ3RKQWRKOHRaUithZU1LYVhZ
-            TGJLMTdXd2U5UEU1Y3lzeW9RK1VaVGsK/UzX7rv6EZSzhCvBNUDTjiXPOdT2SuwD
-            KrYMnRW5hDxHo2XOvV240pka+eg4fyF0n1Cn+x0sndt83zapOx9wQQ==
-            -----END AGE ENCRYPTED FILE-----
-          recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-10-21T22:36:41Z"
-    mac: ENC[AES256_GCM,data:G5XYOTYc3XRYpM/zTKS2642W7hqkLI+vZgxwCs1lkwOY3HwMGrMNHO/OxJ7TdAdgr3YlL6MtdG7dHIVQOxnBgJhYwAEclCodCLKvwY75fAddE3hDPnvHL1ZgXC2H2GwdYWfpNh4YkPTBPQW3hAqndtyhjSoD7tBLqKsnDLNNRzU=,iv:HcYNsjMEK4xmu7F7bBt5xTq5G4x9vS8oRNFPB6eM4HA=,tag:ho2i0sJTMnyium3wzw5GKQ==,type:str]
-    unencrypted_suffix: _unencrypted
-    version: 3.13.3
+../../../ansible-common/group_vars/all.sops.yml

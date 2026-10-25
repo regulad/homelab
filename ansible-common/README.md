@@ -5,6 +5,11 @@ Roles that both [`ansible-hardware/`](../ansible-hardware/README.md) and
 inventory, playbooks or `ansible.cfg` of its own: each stage's `ansible.cfg`
 lists `../ansible-common/roles` after its own `roles/`.
 
+`group_vars/all.sops.yml` holds the secrets both stages share, such as the
+FreeIPA service account's password and `wifi_psks`. Each stage's
+`inventory/group_vars/all.sops.yml` is a symbolic link to it, so the stages'
+SOPS vars plugin loads the one file.
+
 | Role | Purpose |
 |---|---|
 | `apt_amd64v3` | APT's `amd64v3` architecture variant on Ubuntu 25.10 and later where the CPU supports x86-64-v3, removed elsewhere; refreshes the lists but never upgrades |
