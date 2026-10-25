@@ -4,6 +4,7 @@ Every host still configured by hand. Check one off once its configuration is
 captured as code and a run against it reports no changes (`changed=0` for
 Ansible, including the network switches). See
 [`.claude/PLAN.md`](.claude/PLAN.md) for each phase.
+What to add once everything here is declarative is in [`NEW.md`](NEW.md).
 
 ## Hardware hosts (`ansible-hardware/`)
 
