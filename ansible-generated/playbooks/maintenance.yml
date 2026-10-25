@@ -28,3 +28,15 @@
       ansible.builtin.include_role:
         name: wings
         tasks_from: update
+
+# Align a hardware install's hostname and its /etc/hosts line with Ubuntu's
+# installer (Subiquity), on the hosts that set base_hostname_managed.
+- name: Align hostname with Subiquity settings
+  hosts: ubuntu
+  gather_facts: false
+  tags: [hostname]
+  tasks:
+    - name: Hostname and /etc/hosts
+      ansible.builtin.include_role:
+        name: base
+        tasks_from: hostname

@@ -1,0 +1,16 @@
+---
+# Maintenance that cannot be automated: each play here is a deliberate
+# operation, run by hand after its declared version or setting is bumped. Run a
+# single one with --tags.
+
+# Align a hardware install's hostname and its /etc/hosts line with Ubuntu's
+# installer (Subiquity), on the hosts that set base_hostname_managed.
+- name: Align hostname with Subiquity settings
+  hosts: ubuntu
+  gather_facts: false
+  tags: [hostname]
+  tasks:
+    - name: Hostname and /etc/hosts
+      ansible.builtin.include_role:
+        name: base
+        tasks_from: hostname

@@ -58,7 +58,7 @@ homelab/
 │   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent
 │   ├── files/                   # <switch>/running-config(.j2): each network switch's whole configuration
 │   ├── inventory/               # hardware.yml (by hand; hardware hosts and the switches group), group_vars/, host_vars/<host>/main.yml
-│   ├── playbooks/               # site.yml
+│   ├── playbooks/               # site.yml; maintenance.yml
 │   ├── plugins/                 # cliconf, terminal and filter plugins for the SG300s
 │   ├── roles/                   # proxmox_cluster, eos, ciscosmb
 │   └── requirements.yml         # pinned collections

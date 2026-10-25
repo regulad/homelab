@@ -28,3 +28,6 @@ docker_ula_prefix: fdb9:b6f2:d6e1::/64
 # run playbooks/maintenance.yml --tags wings.
 wings_version: 1.13.4
 wings_sha256: 7e763389bb5d386a7d32ccdd46cffcf1ab9ed697e5c2aca7fe44183b527cd4c0
+
+# A hardware install, named after its inventory name.
+base_hostname_managed: true

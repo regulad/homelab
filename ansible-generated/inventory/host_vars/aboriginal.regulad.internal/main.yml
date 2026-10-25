@@ -33,3 +33,6 @@ host_files_packages: [linux-firmware]
 
 # IPv4 and IPv6 forwarding, as it had by hand.
 kernel_params_ip_forwarding: true
+
+# A hardware install, named after its inventory name.
+base_hostname_managed: true

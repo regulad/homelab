@@ -1,0 +1,3 @@
+---
+# A hardware install, named after its inventory name.
+base_hostname_managed: true

@@ -1,0 +1,23 @@
+---
+# Align the hostname with Ubuntu's installer (Subiquity): the static hostname is
+# the inventory name's first label, and /etc/hosts maps 127.0.1.1 to it. A
+# deliberate operation for hardware installs, run from playbooks/maintenance.yml.
+- name: Hostname
+  when: base_hostname_managed
+  become: true
+  vars:
+    base_short_name: "{{ inventory_hostname | split('.') | first }}"
+  block:
+    - name: Static hostname
+      ansible.builtin.hostname:
+        name: "{{ base_short_name }}"
+        use: systemd
+
+    # The installer's own line, the short name alone; mail_relay finds the
+    # domain from DHCP.
+    - name: The hostname in /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1\s'
+        line: "127.0.1.1 {{ base_short_name }}"
+        insertafter: '^127\.0\.0\.1\s'
