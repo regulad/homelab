@@ -51,6 +51,45 @@
   no_log: true
   notify: Reload Postfix
 
+- name: Read the host's canonical name
+  ansible.builtin.command:
+    argv: [hostname, --fqdn]
+  register: mail_relay_fqdn
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: mail_relay_myhostname | length == 0
+
+# The first default route, by metric, whose link has a DHCP domain: a link
+# networkd configures without UseDomains passes none to systemd-resolved.
+- name: Read the DHCP domain of the default routes' links
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      command -v resolvectl >/dev/null || exit 0
+      ip -o route show default \
+        | awk '{m = 0; for (i = 1; i < NF; i++) {if ($i == "dev") d = $(i + 1); if ($i == "metric") m = $(i + 1)} print m, d}' \
+        | sort -n | while read -r _ dev; do
+          domain=$(resolvectl domain "$dev" | sed -n 's/^[^:]*: *//p' | awk '{print $1}')
+          if [ -n "$domain" ]; then echo "$domain"; break; fi
+        done
+    executable: /bin/bash
+  register: mail_relay_dhcp_domain
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - mail_relay_myhostname | length == 0
+    - "'.' not in mail_relay_fqdn.stdout | default('')"
+
+- name: Decide the name Postfix gives itself
+  ansible.builtin.set_fact:
+    mail_relay_name: >-
+      {{ mail_relay_myhostname
+         or ((mail_relay_fqdn.stdout | trim) if '.' in mail_relay_fqdn.stdout | default('') else '')
+         or (((inventory_hostname | split('.') | first) ~ '.' ~ (mail_relay_dhcp_domain.stdout | trim))
+             if mail_relay_dhcp_domain.stdout | default('') | trim else '') }}
+
 - name: Postfix settings
   # Postfix uses the last occurrence of a setting in main.cf, the one
   # lineinfile replaces.
@@ -78,6 +117,16 @@
       myorigin: $mydomain
       sender_canonical_maps: static:{{ mail_relay_address }}
       recipient_canonical_maps: static:{{ mail_relay_recipient }}
+
+# Set from mail_relay_name, or removed so Postfix derives it.
+- name: Postfix's own name
+  ansible.builtin.lineinfile:
+    path: /etc/postfix/main.cf
+    regexp: '^\s*myhostname\s*='
+    line: "myhostname = {{ mail_relay_name }}"
+    state: "{{ 'present' if mail_relay_name else 'absent' }}"
+    insertafter: EOF
+  notify: Restart Postfix
 
 - name: Postfix service
   ansible.builtin.systemd_service:

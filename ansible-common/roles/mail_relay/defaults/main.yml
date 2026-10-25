@@ -9,6 +9,11 @@ mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
 mail_relay_domain: regulad.xyz
 # The account's password, from the host's secrets.sops.yml.
 mail_relay_password: ""
+# The name Postfix gives itself, in Received headers and its EHLO. Empty finds
+# it on the host: its canonical name (hostname -f) where that has a domain,
+# otherwise its short name in the DHCP domain of the preferred default route's
+# link that has one; with neither, myhostname stays unset and Postfix derives it.
+mail_relay_myhostname: ""
 # Implicit TLS submission on mail.regulad.xyz.
 mail_relay_relayhost: "[mail.{{ mail_relay_domain }}]:465"
 

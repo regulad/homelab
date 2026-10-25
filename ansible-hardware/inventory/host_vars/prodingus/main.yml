@@ -60,3 +60,6 @@ kernel_params_grub_dropins:
     - hugepagesz=1G
     - hugepages=64
 kernel_params_ip_forwarding: true
+
+# Postfix's name as it was; a Proxmox node's naming is Debian's and Proxmox's.
+mail_relay_myhostname: prodingus.home.arpa
