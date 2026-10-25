@@ -1,7 +1,8 @@
 ---
 # Converges the switch's running configuration to the declared one and saves
 # it. The local cliconf works out the commands: first those adding the declared
-# lines, then, from a fresh read, those removing the lines left over. The diff
+# lines, then, from a fresh read, those removing the lines left over. It saves
+# whenever the startup configuration differs from the declared one. The diff
 # and the commands shown mask password hashes; tasks that carry them set no_log.
 - name: Converge the running configuration
   vars:
@@ -18,6 +19,20 @@
     - name: Running configuration matches the declared one
       ansible.utils.fact_diff:
         before: "{{ ciscosmb_running.stdout | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
+        after: "{{ ciscosmb_declared | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
+
+    # Saving is converged separately: a run whose push failed after the switch
+    # took its commands leaves the running configuration right but unsaved.
+    - name: Read the startup configuration
+      ansible.netcommon.cli_command:
+        command: show startup-config
+      register: ciscosmb_startup
+      check_mode: false
+      changed_when: false
+
+    - name: Startup configuration matches the declared one
+      ansible.utils.fact_diff:
+        before: "{{ ciscosmb_startup.stdout | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
         after: "{{ ciscosmb_declared | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
 
     - name: Add the declared lines the switch lacks
@@ -68,5 +83,8 @@
         command: write
         prompt: '\(Y/N\)'
         answer: "Y"
-      when: ciscosmb_pushed.stdout is defined
+      # Reached only with the running configuration matching the declared one.
+      when: >-
+        not ansible_check_mode
+        and (ciscosmb_added is changed or ciscosmb_startup.stdout | ciscosmb_normalize != ciscosmb_declared)
       changed_when: true

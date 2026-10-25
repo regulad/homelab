@@ -143,11 +143,11 @@ class Cliconf(_Cliconf):
         if sendonly:
             return response
         # network_cli strips the echo of the command it sent last, which here
-        # was its last character only.
+        # was its last character only, and then surrounding whitespace.
         lines = to_text(response).split("\n")
         if lines and lines[0].strip() == command.strip():
             lines = lines[1:]
-        return "\n".join(lines)
+        return "\n".join(lines).strip()
 
     def get(self, command, prompt=None, answer=None, sendonly=False, newline=True, check_all=False):
         return self.send_command(

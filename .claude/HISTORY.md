@@ -2129,3 +2129,17 @@ to the declared one) to startup-config, and `co`, which entered configure
 mode, where the next letters were rejected. The characters now go straight to
 the shell channel, with only the complete line followed by Enter. A check run
 with a test line added to the template showed exactly that line as the change.
+
+## Switches: the SG300s' combo ports gi9 and gi10 shut down (2026-10-24)
+
+On both SG300s, gi9 and gi10 (1G combo ports: RJ45 or SFP) had no link, no
+transceiver readings and no LLDP neighbour, so with Parker's approval they are
+shut down to save power; that disables their RJ45 side too. This was the first
+real push. switch070e26 converged and saved in one run. On switch45f304 the
+reread did not match, because the switch prints `shutdown` above `switchport
+mode access` and the typed send left a blank line at the top of its output;
+with both fixed, it matched, and `write` saved it by hand, since a run with no
+difference did not save. The role now also reads startup-config on every run
+and saves whenever it differs from the declared configuration; a check run
+showed both switches' startup configurations matching. Reruns on both
+reported `changed=0`.
