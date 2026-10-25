@@ -1,0 +1,6 @@
+---
+# Prefer Ubuntu's amd64v3 builds where the release has them (25.10 and later)
+# and the CPU supports x86-64-v3, as the dynamic loader reports. Packages move
+# to those builds as unattended-upgrades updates them or as they are installed;
+# the role never upgrades. false removes the setting.
+apt_amd64v3_enabled: true

@@ -597,3 +597,8 @@ findings that would help a future session. Append new entries at the end.
 - A YAML flow list splits a kernel argument such as `isolcpus=domain,managed_irq,8-15,24-31` at its commas; write each argument as a block-list item.
 - aboriginal's `cgroup_enable=memory swapaccount=1` is also in GRUB's debconf answer `grub2/linux_cmdline_default` and in ucf's copy of `/etc/default/grub`, from which GRUB's postinst rebuilds the file.
 - Removed by hand afterwards: prodingus's `/etc/sysctl.conf` and `99-ping.conf`; dodo's `vm.swappiness=10` (`dpkg --verify procps` clean again, live value back to 60); aboriginal's `99-local.conf` and `cgroup_enable=memory swapaccount=1`. For the GRUB arguments, `grub2/linux_cmdline_default` was set to empty with `debconf-set-selections`, and the line was emptied in both `/etc/default/grub` and `/var/lib/ucf/cache/:etc:default:grub`, followed by `update-grub`.
+
+## apt_amd64v3: Ubuntu's amd64v3 variant on every 25.10+ host (2026-10-25)
+
+- `/etc/apt/apt.conf.d/99enable-amd64v3` (`APT::Architecture-Variants "amd64v3";`) was already on aboriginal and 15 containers by hand; authentik, matrix and git lacked it. The `apt_amd64v3` role sets it on Ubuntu 25.10 and later where `/lib64/ld-linux-x86-64.so.2 --help` reports `x86-64-v3 (supported`, removes it elsewhere, and refreshes the lists without upgrading.
+- Every gonkputer guest reports x86-64-v3, containers included, because the loader reads the host's CPU. Of the OCI instances, doppelgangerhq.com does not; it runs 24.04 anyway.

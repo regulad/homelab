@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: APT's amd64v3 architecture variant on Ubuntu 25.10 and later, where the CPU supports x86-64-v3
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

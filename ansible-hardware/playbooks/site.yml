@@ -33,6 +33,14 @@
   roles:
     - auto_updates
 
+# Ubuntu's amd64v3 builds, where the release and the CPU support them.
+- name: APT architecture variant
+  hosts: ubuntu
+  gather_facts: false
+  become: true
+  roles:
+    - apt_amd64v3
+
 # Sysctl and GRUB drop-ins each host declares.
 - name: Kernel parameters
   hosts: debian:ubuntu:rhel

@@ -1,0 +1,5 @@
+---
+# Only the lists: installed packages change through the host's updater.
+- name: Update APT lists
+  ansible.builtin.apt:
+    update_cache: true

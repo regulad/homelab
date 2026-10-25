@@ -1,0 +1,42 @@
+---
+# Converge APT's architecture variant on Ubuntu hosts, hardware (Phase 2) and
+# generated (Phase 4). The setting is removed where the release or the CPU
+# lacks it, since an amd64v3 build fails on a CPU without x86-64-v3.
+- name: Read the release
+  ansible.builtin.slurp:
+    src: /etc/os-release
+  register: apt_amd64v3_os_release
+
+- name: Read the CPU's x86-64 levels from the dynamic loader
+  ansible.builtin.command:
+    argv: [/lib64/ld-linux-x86-64.so.2, --help]
+  register: apt_amd64v3_loader
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Decide on the amd64v3 variant
+  ansible.builtin.set_fact:
+    apt_amd64v3_wanted: >-
+      {{ apt_amd64v3_enabled
+         and (apt_amd64v3_os_release.content | b64decode
+              | regex_search('(?m)^VERSION_ID="?([0-9.]+)', '\1') | first) is version('25.10', '>=')
+         and apt_amd64v3_loader.stdout is search('(?m)^\s+x86-64-v3 \(supported') }}
+
+- name: APT architecture variant
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99enable-amd64v3
+    content: |
+      APT::Architecture-Variants "amd64v3";
+    owner: root
+    group: root
+    mode: "0644"
+  when: apt_amd64v3_wanted | bool
+  notify: Update APT lists
+
+- name: No APT architecture variant
+  ansible.builtin.file:
+    path: /etc/apt/apt.conf.d/99enable-amd64v3
+    state: absent
+  when: not apt_amd64v3_wanted | bool
+  notify: Update APT lists

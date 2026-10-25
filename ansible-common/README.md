@@ -7,6 +7,7 @@ lists `../ansible-common/roles` after its own `roles/`.
 
 | Role | Purpose |
 |---|---|
+| `apt_amd64v3` | APT's `amd64v3` architecture variant on Ubuntu 25.10 and later where the CPU supports x86-64-v3, removed elsewhere; refreshes the lists but never upgrades |
 | `base` | Packages, admin user, time sync, and sshd hardening only where it is already policy |
 | `tailscale` | Tailscale client: checks each node's tags, converges its settings and Serve/Funnel, and joins a new node with a one-off tagged key only when `tailscale_join` is set; `tailscale_protected` nodes are never joined or re-authenticated |
 | `ca_trust` | The homelab's roots of trust (arawi's two CAs, FreeIPA's and the Proxmox cluster's, from `files/trusted/`) trusted, and compromised roots distrusted, in the system trust store, by OS group |
