@@ -561,7 +561,7 @@ findings that would help a future session. Append new entries at the end.
 ## dodo: Wings adopted at v1.13.2; Docker's boot links restored (2026-10-25)
 
 - The `wings` role installs Wings by Pterodactyl's guide on the distribution's `docker.io`, pinned by version and the release asset's sha256, which GitHub lists per asset (`gh api repos/pterodactyl/wings/releases/tags/v<version>`). The live binary matched v1.13.2's `wings_linux_amd64`. `wings version` prints `wings vv1.13.2`.
-- `/etc/pterodactyl/config.yml` is the panel's, and Ansible never writes it.
+- `/etc/pterodactyl/config.yml` is the panel's, and Ansible never writes it. Upgraded the same day to v1.13.4 through the maintenance play, with the panel already current; the Minecraft server kept running.
 - `Prompt=never` in `/etc/update-manager/release-upgrades`, because Wings supports Ubuntu up to 24.04.
 - `playbooks/maintenance.yml --tags wings` upgrades to the declared release, verifying the new binary before stopping Wings. Game servers keep running across a Wings restart.
 - Purging the removed `docker-ce` and `containerd.io` packages' leftover configuration disabled `docker.service`, `docker.socket` and `containerd.service`, which `docker.io` ships under the same names, though Docker kept running. The role keeps them enabled. Check `systemctl is-enabled` for same-named units before purging a removed package.
