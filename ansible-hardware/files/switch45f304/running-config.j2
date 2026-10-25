@@ -71,6 +71,7 @@ sntp unicast client enable
 sntp unicast client poll
 sntp server pool.ntp.org poll
 !
+{# The Arista 7010T JPE18280417, its Ethernet17 (LLDP). #}
 interface gigabitethernet1
  switchport trunk allowed vlan add 2-16
 !
@@ -86,7 +87,9 @@ interface gigabitethernet4
 interface gigabitethernet5
  switchport mode access
 !
+{# sony-player, a Sony media player at 100 Mb/s (DHCP lease for 54:42:49:b1:22:95). Access port on VLAN 1, admitting only its MAC address. #}
 interface gigabitethernet6
+ port security discard
  switchport mode access
 !
 interface gigabitethernet7
@@ -95,12 +98,15 @@ interface gigabitethernet7
 interface gigabitethernet8
  switchport mode access
 !
+{# Combo port, unused and shut down to save power. #}
 interface gigabitethernet9
  shutdown
  switchport mode access
 !
+{# Combo port, unused and shut down to save power. #}
 interface gigabitethernet10
  shutdown
  switchport mode access
 !
 exit
+mac address-table static 54:42:49:b1:22:95 vlan 1 interface gigabitethernet6 secure

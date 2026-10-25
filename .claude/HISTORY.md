@@ -2143,3 +2143,33 @@ difference did not save. The role now also reads startup-config on every run
 and saves whenever it differs from the declared configuration; a check run
 showed both switches' startup configurations matching. Reruns on both
 reported `changed=0`.
+
+## Switches: the SG300s' ports surveyed, annotated and two tied down (2026-10-24)
+
+A read-only survey of gi1-gi8 on both SG300s (link state, learned MACs, LLDP,
+PoE), with MACs named from arawi's Kea leases, is annotated as Jinja comments in
+the templates, which render to nothing, so they cause no diff. switch45f304:
+gi1 the Arista's Ethernet17, gi6 `sony-player` at 100 Mb/s. switch070e26: gi1
+the Arista's Ethernet29, gi5 `u5g-us` (the UniFi 5G backup, PoE), gi6 the
+AirPort Extreme with its Wi-Fi clients behind it, and gi3 linked at 1 Gb/s with
+no address learned and no PoE device detected, unidentified. Ports with no
+link carry no comment.
+
+At Parker's request `u5g-us` and `sony-player` are tied to their MAC addresses,
+like the Arista's device ports: `port security discard` on the port and a
+secure static entry, which the switch prints after the final `exit`. The add
+phase now follows the template's order, so a port is locked before its secure
+address is added. On both switches the add task timed out after the switch had
+taken every command; the startup-config comparison saved them on the next
+runs, and checks on both then reported `changed=0`. `u5g-us` answers ping;
+`sony-player` never answers ping, Parker says, and gi6 holds its secure address.
+
+Automating these switches is markedly non-deterministic: the same command in
+the same state may succeed or stall, sessions stall at random (often on the
+read that follows a burst of commands) even with commands typed out, and
+whether a push's commands landed must be read back rather than inferred from
+the task's result. Reruns get through, and the role's reads before and after
+each step are what make it safe to rerun.
+
+Parker listed the AirPort Extreme and a CR1000B as access points to
+declarativize in TODO.md.

@@ -17,6 +17,11 @@ Ansible, including the network switches). See
 - [x] Cisco SG300 `switch070e26`: `ansible-hardware`'s `ciscosmb` role
 - [x] Arista 7010T `JPE18280417`: `ansible-hardware`'s `eos` role, its interfaces annotated from LLDP and DHCP leases
 
+## Access points
+
+- [ ] AirPort Extreme
+- [ ] CR1000B
+
 ## OCI instances (`ansible-generated/`, from `tofu/oracle`)
 
 - [ ] `bailout`

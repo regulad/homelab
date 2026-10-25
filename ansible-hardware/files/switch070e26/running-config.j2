@@ -71,21 +71,26 @@ sntp unicast client enable
 sntp unicast client poll
 sntp server pool.ntp.org poll
 !
+{# The Arista 7010T JPE18280417, its Ethernet29 (LLDP). #}
 interface gigabitethernet1
  switchport trunk allowed vlan add 2-16
 !
 interface gigabitethernet2
  switchport mode access
 !
+{# Linked at 1 Gb/s with no address learned and no PoE device detected; unidentified. #}
 interface gigabitethernet3
  switchport mode access
 !
 interface gigabitethernet4
  switchport mode access
 !
+{# u5g-us, the UniFi 5G backup U5GBackup (LLDP; DHCP lease for 74:f9:2c:b2:96:cf), powered by PoE. Access port on VLAN 1, admitting only its MAC address. #}
 interface gigabitethernet5
+ port security discard
  switchport mode access
 !
+{# parkers-airport-extreme, the AirPort Extreme (DHCP lease for 90:72:40:06:6f:9a), with its Wi-Fi clients behind it. #}
 interface gigabitethernet6
  switchport mode access
 !
@@ -95,12 +100,15 @@ interface gigabitethernet7
 interface gigabitethernet8
  switchport mode access
 !
+{# Combo port, unused and shut down to save power. #}
 interface gigabitethernet9
  shutdown
  switchport mode access
 !
+{# Combo port, unused and shut down to save power. #}
 interface gigabitethernet10
  shutdown
  switchport mode access
 !
 exit
+mac address-table static 74:f9:2c:b2:96:cf vlan 1 interface gigabitethernet5 secure

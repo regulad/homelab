@@ -47,9 +47,8 @@ def _split(text):
     return [line for line in lines[:end] if line], lines[end + 1:]
 
 
-def _contexts(body):
-    """Each configuration mode, as the tuple of lines entering it, mapped to its lines in order."""
-    contexts = {(): []}
+def _walk(body):
+    """Each line in order, as (the tuple of lines entering its mode, the line); None on entering a mode."""
     stack = []
     for raw in body:
         line = raw.strip()
@@ -65,9 +64,18 @@ def _contexts(body):
             if line.startswith("interface ") and stack and stack[-1].startswith("interface "):
                 stack.pop()
             stack.append(line)
-            contexts.setdefault(tuple(stack), [])
+            yield tuple(stack), None
         else:
-            contexts[tuple(stack)].append(line)
+            yield tuple(stack), line
+
+
+def _contexts(body):
+    """Each configuration mode, as the tuple of lines entering it, mapped to its lines in order."""
+    contexts = {(): []}
+    for context, line in _walk(body):
+        lines = contexts.setdefault(context, [])
+        if line is not None:
+            lines.append(line)
     return contexts
 
 
@@ -79,43 +87,53 @@ def _negate(line):
     return "no " + line
 
 
-def _in(context, lines):
-    return list(context) + lines + ["exit"] * len(context)
+def _commands(groups):
+    """Commands for (mode, lines) groups, each entering its mode and leaving it again."""
+    commands = []
+    for context, lines in groups:
+        commands += list(context) + lines + ["exit"] * len(context)
+    return commands
+
+
+def _group(groups, context, line=None):
+    if not groups or groups[-1][0] != context:
+        groups.append((context, []))
+    if line is not None:
+        groups[-1][1].append(line)
 
 
 def additions(candidate, running):
+    """Commands adding the candidate's missing lines, in the candidate's order:
+    a line can depend on one above it, such as a secure MAC address on its locked port."""
     candidate_header, candidate_body = _split(candidate)
     running_header, running_body = _split(running)
     if candidate_header != running_header:
         raise ValueError("the configuration header, up to the first !, differs and cannot be pushed")
     want, have = _contexts(candidate_body), _contexts(running_body)
-    commands = []
-    for context, lines in want.items():
-        if context not in have:
-            commands += _in(context, lines)
+    groups = []
+    for context, line in _walk(candidate_body):
+        if line is None:
+            if context not in have:
+                _group(groups, context)
         elif context and _ATOMIC.match(context[-1]):
-            if have[context] != lines:
-                commands += _in(context, lines)
-        else:
-            missing = [line for line in lines if line not in have[context]]
-            if missing:
-                commands += _in(context, missing)
-    return commands
+            if have.get(context) != want[context]:
+                _group(groups, context, line)
+        elif context not in have or line not in have[context]:
+            _group(groups, context, line)
+    return _commands(groups)
 
 
 def removals(candidate, running):
+    """Commands removing the running lines the candidate lacks, last first."""
     want, have = _contexts(_split(candidate)[1]), _contexts(_split(running)[1])
-    commands = []
-    for context in reversed(list(have)):
-        if context in want:
-            if context and _ATOMIC.match(context[-1]):
-                continue
-            extra = [_negate(line) for line in have[context] if line not in want[context]]
-            if extra:
-                commands += _in(context, extra)
-        elif context[:-1] in want:
-            commands += _in(context[:-1], [_negate(context[-1])])
-    return commands
+    groups = []
+    for context, line in reversed(list(_walk(_split(running)[1]))):
+        if context not in want:
+            if line is None and context[:-1] in want:
+                _group(groups, context[:-1], _negate(context[-1]))
+        elif line is not None and not (context and _ATOMIC.match(context[-1])) and line not in want[context]:
+            _group(groups, context, _negate(line))
+    return _commands(groups)
 
 
 class Cliconf(_Cliconf):
