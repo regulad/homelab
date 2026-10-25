@@ -15,6 +15,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   pelican) before Parker did
 - [ ] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
   block superfluous traffic
+- [ ] Egress firewalls everywhere, to contain a compromise such as a botnet's spam
+  attempts should one occur
 
 ## Resilience
 
