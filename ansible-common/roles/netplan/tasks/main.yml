@@ -1,0 +1,60 @@
+---
+# Converge netplan as the host's only network configuration. A change is tried,
+# never applied outright: netplan try reverts the running network unless
+# Ansible reconnects and accepts it, and a timer restores the previous files
+# should it not. Runs on Ubuntu hosts that set netplan_config.
+- name: Netplan
+  when: netplan_config | length > 0
+  block:
+    - name: Gather the netplan configuration
+      ansible.builtin.set_fact:
+        netplan_content: "{{ '# Managed by Ansible (netplan).\n' ~ ({'network': netplan_config} | to_nice_yaml(indent=2)) }}"
+      no_log: "{{ netplan_no_log }}"
+
+    - name: Read the netplan files
+      ansible.builtin.find:
+        paths: /etc/netplan
+        patterns: ["*.yaml", "*.yml"]
+      register: netplan_files
+
+    - name: Read the current configuration
+      ansible.builtin.slurp:
+        src: /etc/netplan/{{ netplan_file }}
+      register: netplan_current
+      failed_when: false
+      no_log: "{{ netplan_no_log }}"
+
+    - name: Compare the networkd drop-ins
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/{{ item.key }}
+        content: "{{ item.value }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ netplan_networkd_dropins | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      check_mode: true
+      register: netplan_dropins_compared
+
+    - name: Decide whether the network configuration changes
+      ansible.builtin.set_fact:
+        netplan_others: "{{ netplan_files.files | map(attribute='path') | reject('eq', '/etc/netplan/' ~ netplan_file) | list }}"
+        netplan_changed: >-
+          {{ (netplan_current.content | default('') | b64decode) != netplan_content
+             or (netplan_files.files | map(attribute='path') | reject('eq', '/etc/netplan/' ~ netplan_file) | list | length > 0)
+             or netplan_dropins_compared is changed }}
+      no_log: "{{ netplan_no_log }}"
+
+    - name: Show the configuration to try
+      ansible.builtin.debug:
+        msg:
+          file: "{{ netplan_content | regex_replace('(?m)^(\\s*password:\\s*).*$', '\\1<secret>') | split('\n') }}"
+          removed: "{{ netplan_others }}"
+      when: netplan_changed
+      # Counted as a change, so check runs report a pending configuration.
+      changed_when: true
+
+    - name: Try the new configuration
+      ansible.builtin.include_tasks: try.yml
+      when: netplan_changed and not ansible_check_mode

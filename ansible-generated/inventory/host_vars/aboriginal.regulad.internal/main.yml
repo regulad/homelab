@@ -36,3 +36,64 @@ kernel_params_ip_forwarding: true
 
 # A hardware install, named after its inventory name.
 base_hostname_managed: true
+
+# Netplan is aboriginal's only network configuration; cloud-init's networking
+# is disabled. eth0 (networkd) carries the default route on its lower metric;
+# wlan0, the passed-through Intel AX200 (NetworkManager), stays up beside it.
+# DNS is arawi's, IPv6 first. The Wi-Fi password makes the file secret.
+netplan_no_log: true
+netplan_config:
+  version: 2
+  ethernets:
+    eth0:
+      match:
+        macaddress: "{{ eth0_mac_address }}"
+      set-name: eth0
+      renderer: networkd
+      dhcp4: true
+      dhcp4-overrides:
+        send-hostname: true
+        use-domains: true
+      dhcp6-overrides:
+        use-dns: false
+      accept-ra: true
+      ra-overrides:
+        use-dns: false
+      nameservers:
+        addresses:
+          - "{{ lan_arawi.ipv6 }}"
+  wifis:
+    wlan0:
+      # The AX200's own address: passed through, it is not in OpenTofu.
+      match:
+        macaddress: 9c:fc:e8:b8:62:5d
+      set-name: wlan0
+      renderer: NetworkManager
+      dhcp4: true
+      dhcp4-overrides:
+        send-hostname: false
+      # IPv6 by router advertisements and DHCPv6 as they direct: netplan gives
+      # NetworkManager ipv6.method=auto only for dhcp6, and NetworkManager
+      # rejects the manual method it writes otherwise, having no address.
+      dhcp6: true
+      dhcp6-overrides:
+        use-dns: false
+      accept-ra: true
+      # NetworkManager would take router advertisements' DNS, the upstream
+      # router's, without ignore-auto-dns.
+      networkmanager:
+        passthrough:
+          ipv6.ignore-auto-dns: "true"
+      nameservers:
+        addresses:
+          - "{{ lan_arawi.ipv6 }}"
+      access-points:
+        WahleNet:
+          auth:
+            key-management: psk
+            password: "{{ wifi_psks.WahleNet }}"
+netplan_networkd_dropins:
+  10-netplan-eth0.network.d/mdns.conf: |
+    # This drop-in exists because netplan has no multicast DNS setting.
+    [Network]
+    MulticastDNS=yes

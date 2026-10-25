@@ -1,0 +1,27 @@
+---
+# The host's netplan configuration, the mapping under network:, written as the
+# only file in /etc/netplan. Empty leaves netplan alone. Set it only where
+# nothing else configures the network (no cloud-init networking): netplan is
+# then authoritative, rendering through networkd or NetworkManager, and every
+# other file in /etc/netplan, NetworkManager's 90-NM-* included, is removed.
+netplan_config: {}
+netplan_file: 30-homelab.yaml
+
+# systemd-networkd drop-ins for what netplan cannot express, each a path under
+# /etc/systemd/network/ (such as 10-netplan-eth0.network.d/ra.conf) mapped to
+# its content.
+netplan_networkd_dropins: {}
+
+# Seconds netplan try keeps a change before reverting the running network,
+# unless Ansible accepts it: having reconnected over the new configuration, and
+# with every interface netplan_config declares holding a global address. The
+# previous files come back a minute after that.
+netplan_try_timeout: 180
+
+# Set where netplan_config carries a secret, such as a Wi-Fi password, so the
+# configuration stays out of logs and diffs.
+netplan_no_log: false
+
+# Where the candidate configuration and the backup of the previous one live
+# while a change is tried.
+netplan_work_dir: /var/lib/homelab-netplan

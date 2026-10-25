@@ -31,3 +31,47 @@ wings_sha256: 7e763389bb5d386a7d32ccdd46cffcf1ab9ed697e5c2aca7fe44183b527cd4c0
 
 # A hardware install, named after its inventory name.
 base_hostname_managed: true
+
+# Netplan is dodo's only network configuration; cloud-init is disabled. dodo
+# routes through the upstream router, for the port forwards that reach it,
+# while taking its addresses and DNS from arawi, IPv6 first. Router
+# advertisements' DNS, the upstream router's, is dropped: it cannot resolve
+# regulad.internal.
+netplan_config:
+  version: 2
+  ethernets:
+    eth0:
+      match:
+        macaddress: "{{ eth0_mac_address }}"
+      set-name: eth0
+      renderer: networkd
+      dhcp4: true
+      dhcp4-overrides:
+        use-routes: false
+      dhcp6: true
+      dhcp6-overrides:
+        use-routes: false
+      accept-ra: true
+      ra-overrides:
+        use-dns: false
+      nameservers:
+        addresses:
+          - "{{ lan_arawi.ipv6 }}"
+      routes:
+        - to: default
+          via: "{{ lan_upstream_router.ipv4 }}"
+        - to: "::/0"
+          via: "{{ lan_upstream_router.ipv6_link_local }}"
+          metric: 1024
+          on-link: true
+        - to: "::/0"
+          via: "{{ lan_arawi.ipv6_link_local }}"
+          metric: 2048
+          on-link: true
+netplan_networkd_dropins:
+  10-netplan-eth0.network.d/ra.conf: |
+    # This drop-in exists because netplan cannot be assertive about ignoring
+    # router advertisements' gateways: it has no setting for networkd's
+    # UseGateway. The default routes themselves are netplan's.
+    [IPv6AcceptRA]
+    UseGateway=no

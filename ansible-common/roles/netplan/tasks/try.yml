@@ -1,0 +1,209 @@
+---
+# Try a new netplan configuration, from main.yml when one differs: write it and
+# its drop-ins over a backup, then let netplan try apply it, accepting it only
+# once Ansible has reconnected. A timer restores the backup unless disarmed.
+- name: Candidate and backup directories
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      umask 077
+      rm -rf {{ netplan_work_dir }}
+      mkdir -p -m 0700 {{ netplan_work_dir }}/candidate/etc/netplan
+      cp -a /etc/netplan {{ netplan_work_dir }}/previous-netplan
+      cp -a /etc/systemd/network {{ netplan_work_dir }}/previous-networkd
+  changed_when: true
+
+- name: Candidate configuration
+  ansible.builtin.copy:
+    dest: "{{ netplan_work_dir }}/candidate/etc/netplan/{{ netplan_file }}"
+    content: "{{ netplan_content }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: "{{ netplan_no_log }}"
+
+- name: Validate the candidate
+  ansible.builtin.command:
+    argv: [netplan, generate, --root-dir, "{{ netplan_work_dir }}/candidate"]
+  changed_when: false
+
+- name: Stop a restore left from an earlier try
+  ansible.builtin.systemd_service:
+    name: homelab-netplan-restore.timer
+    state: stopped
+  failed_when: false
+
+# The dead man's switch: restores the previous files and applies them
+# unless Ansible, having reconnected, stops it.
+- name: Arm the restore
+  ansible.builtin.command:
+    argv:
+      - systemd-run
+      - --unit=homelab-netplan-restore
+      - --collect
+      - --on-active={{ netplan_try_timeout + 60 }}s
+      - --timer-property=AccuracySec=1s
+      - /bin/sh
+      - -c
+      - >-
+        rm -f /etc/netplan/*.yaml /etc/netplan/*.yml
+        && cp -a {{ netplan_work_dir }}/previous-netplan/. /etc/netplan/
+        && rm -rf /etc/systemd/network
+        && cp -a {{ netplan_work_dir }}/previous-networkd /etc/systemd/network
+        && networkctl reload && netplan apply
+  changed_when: true
+
+- name: Networkd drop-in directories
+  ansible.builtin.file:
+    path: /etc/systemd/network/{{ item | dirname }}
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ netplan_networkd_dropins.keys() | map('dirname') | unique | reject('eq', '') | list }}"
+
+- name: Networkd drop-ins
+  ansible.builtin.copy:
+    dest: /etc/systemd/network/{{ item.key }}
+    content: "{{ item.value }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ netplan_networkd_dropins | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: The new configuration
+  ansible.builtin.copy:
+    src: "{{ netplan_work_dir }}/candidate/etc/netplan/{{ netplan_file }}"
+    dest: /etc/netplan/{{ netplan_file }}
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: No other netplan files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ netplan_others }}"
+
+# netplan try waits for Enter on a terminal; script gives it one, and
+# sleep holds its input open without ever sending a newline, so only
+# Ansible's SIGUSR1 accepts and the timeout otherwise reverts.
+- name: Start netplan try
+  ansible.builtin.command:
+    argv:
+      - systemd-run
+      - --unit=homelab-netplan-try
+      - --collect
+      - /bin/sh
+      - -c
+      - >-
+        sleep {{ netplan_try_timeout + 30 }}
+        | script --quiet --flush --return --command 'netplan try --timeout {{ netplan_try_timeout }}' /dev/null
+  changed_when: true
+
+- name: Reconnect once the network settles
+  ansible.builtin.meta: reset_connection
+
+- name: Wait for the host
+  ansible.builtin.wait_for_connection:
+    delay: 15
+    timeout: 45
+
+# netplan try marks itself ready once it has applied the configuration.
+- name: Wait for netplan try to have applied it
+  ansible.builtin.wait_for:
+    path: /run/netplan/netplan-try.ready
+    timeout: 30
+
+# A fresh connection, made only after the new configuration is in place, is
+# what proves it.
+- name: Reconnect over the new configuration
+  ansible.builtin.meta: reset_connection
+
+- name: Wait for the host on its new network
+  ansible.builtin.wait_for_connection:
+    timeout: 30
+
+# Reaching the host proves only the link Ansible uses: a renderer can reject
+# another interface's configuration outright, as NetworkManager does an IPv6
+# method it cannot satisfy.
+- name: Gather the declared interfaces
+  ansible.builtin.set_fact:
+    netplan_interfaces: >-
+      {{ netplan_declared.keys() | list
+         | zip(netplan_declared.values() | map(attribute='set-name', default='') | list)
+         | map('select') | map('last') | list }}
+  vars:
+    netplan_declared: "{{ (netplan_config.ethernets | default({})) | combine(netplan_config.wifis | default({})) }}"
+  no_log: "{{ netplan_no_log }}"
+
+- name: Accept the configuration once every interface has an address
+  block:
+    - name: Wait for each declared interface's global address
+      ansible.builtin.command:
+        argv: [ip, -o, addr, show, dev, "{{ item }}", scope, global]
+      register: netplan_interface_addresses
+      until: netplan_interface_addresses.stdout | length > 0
+      retries: 10
+      delay: 3
+      changed_when: false
+      loop: "{{ netplan_interfaces }}"
+
+    - name: Accept the configuration
+      ansible.builtin.command:
+        argv: [pkill, --signal, USR1, --full, '^/usr/bin/python3 /usr/sbin/netplan try']
+      changed_when: true
+  rescue:
+    # SIGINT is netplan try's reject: it reverts the running network now. The
+    # restore timer then puts the previous files back.
+    - name: Reject the configuration
+      ansible.builtin.command:
+        argv: [pkill, --signal, INT, --full, '^/usr/bin/python3 /usr/sbin/netplan try']
+      changed_when: true
+
+    - name: Report the rejection
+      ansible.builtin.fail:
+        msg: >-
+          A declared interface got no address, so netplan try reverted the running
+          network; homelab-netplan-restore.timer restores the previous files.
+
+- name: Wait for netplan try to finish
+  ansible.builtin.command:
+    argv: [pgrep, --full, '^/usr/bin/python3 /usr/sbin/netplan try']
+  register: netplan_try_running
+  until: netplan_try_running.rc != 0
+  retries: 15
+  delay: 2
+  changed_when: false
+  failed_when: false
+
+- name: Read netplan try's verdict
+  ansible.builtin.command:
+    argv: [journalctl, --unit=homelab-netplan-try, --output=cat, --no-pager, --lines=50]
+  register: netplan_try_log
+  changed_when: false
+
+- name: Check netplan try accepted the configuration
+  ansible.builtin.assert:
+    that: netplan_try_log.stdout is search('Configuration accepted')
+    fail_msg: >-
+      netplan try did not accept the configuration; the running network was reverted,
+      and homelab-netplan-restore.timer restores the previous files.
+    quiet: true
+
+- name: Disarm the restore
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+  loop:
+    - homelab-netplan-restore.timer
+    - homelab-netplan-try.service
+  failed_when: false
+
+- name: Remove the candidate and backup
+  ansible.builtin.file:
+    path: "{{ netplan_work_dir }}"
+    state: absent

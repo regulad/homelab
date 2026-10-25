@@ -49,6 +49,14 @@
   roles:
     - kernel_params
 
+# Netplan as the only network configuration, where a host declares it.
+- name: Network configuration
+  hosts: ubuntu
+  gather_facts: false
+  become: true
+  roles:
+    - netplan
+
 # Kernel crash dumps through kdump-tools, on the hosts in the kdump group.
 - name: Kernel crash dumps
   hosts: kdump
