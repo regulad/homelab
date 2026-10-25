@@ -13,6 +13,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   host, scanning in the background for anomalous files: implants and bad user
   data alike. Expensive, but it would have caught the implant on dodo (then
   pelican) before Parker did
+- [ ] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
+  block superfluous traffic
 
 ## Resilience
 
