@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wings reads its TLS certificate only when it starts; restart it, if it is
+# running, after certbot renews dodo.regulad.xyz.
+exec systemctl try-restart wings.service
