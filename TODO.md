@@ -104,6 +104,13 @@ Configured by a cloud-init vendor file instead of Ansible, so they need no SSH.
 
 Not listed: the template `resolute-template` (8000), which is not a host.
 
+- [ ] A vendor file for new Ubuntu 26.04 VMs, as a new snippet rather than an
+  edit of `ubuntu-vendor.yaml`, which would replace the VMs using it: drop
+  `linux-image-generic` (26.04's base modules carry `i6300esb`, and Ubuntu has
+  no package tracking only the extra modules), and preseed the debconf answer
+  `watchdog/module` as `i6300esb` instead of editing `/etc/default/watchdog`,
+  so package upgrades keep it.
+
 ## MAC addresses
 
 Each hardware host's and switch's management interface, as `mac` - Name.
