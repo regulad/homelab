@@ -2109,3 +2109,23 @@ against a template missing one line reported it, and a real run on both
 reported no changes. Sessions left stalled at the line-width limit never idle
 out, and the firmware has no command to clear another session; with Parker's
 approval, reloading switch45f304 freed the slots they held.
+
+## Switches: the SG300s' changes pushed by Ansible (2026-10-24)
+
+The `ciscosmb` role now converges instead of only comparing. The local cliconf
+works out commands from `show running-config` text: `cli_config` with
+`diff_match: line` sends those adding the declared lines the switch lacks, and
+then `diff_match: exact`, against a fresh read, those negating the lines left
+over, so a setting a changed line overrides (a password hash, say) is never
+negated. User keys are resent whole; the header before the first `!` is never
+pushed. The role saves with `write` once a reread matches exactly.
+
+A second command in one session stalled with only its first character echoed,
+as typing at the console had shown, so the cliconf now types each command a
+character at a time. A first attempt sent each character through network_cli,
+which ends every send with a carriage return: switch45f304 ran single letters
+as commands, among them `w`, which saved the running configuration (identical
+to the declared one) to startup-config, and `co`, which entered configure
+mode, where the next letters were rejected. The characters now go straight to
+the shell channel, with only the complete line followed by Enter. A check run
+with a test line added to the template showed exactly that line as the change.

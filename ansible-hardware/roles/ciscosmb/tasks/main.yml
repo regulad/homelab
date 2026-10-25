@@ -1,33 +1,72 @@
 ---
-# Compares the switch's running configuration with the declared one; it does
-# not push changes yet. The diff masks password hashes; they are compared
-# separately, out of the log.
-- name: Read the running configuration
-  ansible.netcommon.cli_command:
-    command: show running-config
-  register: ciscosmb_running
-  check_mode: false
-  changed_when: false
-
-- name: Running configuration matches the declared one
-  ansible.utils.fact_diff:
-    before: "{{ ciscosmb_running.stdout | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
-    after: "{{ lookup('ansible.builtin.template', ciscosmb_running_config) | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
+# Converges the switch's running configuration to the declared one and saves
+# it. The local cliconf works out the commands: first those adding the declared
+# lines, then, from a fresh read, those removing the lines left over. The diff
+# and the commands shown mask password hashes; tasks that carry them set no_log.
+- name: Converge the running configuration
   vars:
     ciscosmb_hash_re: '(password encrypted )\S+'
-  register: ciscosmb_diff
+    ciscosmb_declared: "{{ lookup('ansible.builtin.template', ciscosmb_running_config) | ciscosmb_normalize }}"
+  block:
+    - name: Read the running configuration
+      ansible.netcommon.cli_command:
+        command: show running-config
+      register: ciscosmb_running
+      check_mode: false
+      changed_when: false
 
-- name: Password hashes match the declared ones
-  ansible.builtin.assert:
-    that: >-
-      ciscosmb_running.stdout | ciscosmb_normalize
-      == lookup('ansible.builtin.template', ciscosmb_running_config) | ciscosmb_normalize
-    fail_msg: The running configuration's password hashes differ from secrets.sops.yml.
-    quiet: true
-  when: not ciscosmb_diff.changed
-  no_log: true
+    - name: Running configuration matches the declared one
+      ansible.utils.fact_diff:
+        before: "{{ ciscosmb_running.stdout | ciscosmb_normalize | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
+        after: "{{ ciscosmb_declared | regex_replace(ciscosmb_hash_re, '\\1<hash>') }}"
 
-- name: Stop where the switch differs
-  ansible.builtin.fail:
-    msg: The running configuration differs from files/{{ inventory_hostname }}/running-config.j2; pushing changes is not implemented yet.
-  when: ciscosmb_diff.changed and not ansible_check_mode
+    - name: Add the declared lines the switch lacks
+      ansible.netcommon.cli_config:
+        config: "{{ ciscosmb_declared }}"
+        diff_match: line
+      register: ciscosmb_added
+      when: ciscosmb_running.stdout | ciscosmb_normalize != ciscosmb_declared
+      no_log: true
+
+    - name: Show the commands that added them
+      ansible.builtin.debug:
+        msg: "{{ ciscosmb_added.commands | map('regex_replace', ciscosmb_hash_re, '\\1<hash>') }}"
+      when: ciscosmb_added.commands is defined
+
+    - name: Remove the lines the declared configuration lacks
+      ansible.netcommon.cli_config:
+        config: "{{ ciscosmb_declared }}"
+        diff_match: exact
+      register: ciscosmb_removed
+      when: ciscosmb_added is changed and not ansible_check_mode
+      no_log: true
+
+    - name: Show the commands that removed them
+      ansible.builtin.debug:
+        msg: "{{ ciscosmb_removed.commands | map('regex_replace', ciscosmb_hash_re, '\\1<hash>') }}"
+      when: ciscosmb_removed.commands is defined
+
+    - name: Read the running configuration again
+      ansible.netcommon.cli_command:
+        command: show running-config
+      register: ciscosmb_pushed
+      when: ciscosmb_added is changed and not ansible_check_mode
+      changed_when: false
+
+    - name: Running configuration now matches the declared one
+      ansible.builtin.assert:
+        that: ciscosmb_pushed.stdout | ciscosmb_normalize == ciscosmb_declared
+        fail_msg: >-
+          The running configuration still differs after pushing, unsaved; the
+          switch rejected or rewrote a command. Rerun with --check --diff.
+        quiet: true
+      when: ciscosmb_pushed.stdout is defined
+      no_log: true
+
+    - name: Save the running configuration
+      ansible.netcommon.cli_command:
+        command: write
+        prompt: '\(Y/N\)'
+        answer: "Y"
+      when: ciscosmb_pushed.stdout is defined
+      changed_when: true
