@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: Root certificates distrusted in the system trust store
+  description: The homelab's roots of trust trusted, and compromised roots distrusted, in the system trust store
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []

@@ -20,6 +20,26 @@ ca_trust_distrusted:
   - emSign_ECC_Root_CA_-_G3
   - Comodo_AAA_Services_root
 
+# The homelab's own roots of trust, which the system store trusts, each by its
+# file name under files/trusted/ without .crt. SHA-256:
+#   internal-ca       93:89:57:13:30:33:04:E9:06:92:22:FF:89:6D:72:D6:1C:54:0C:EB:FE:67:BA:C2:3B:3D:2C:80:63:03:C6:A4
+#   regulad.internal  9E:35:4B:BA:83:74:E8:A2:61:A3:D2:B0:BC:01:CD:9B:D7:C1:5A:4B:C0:FB:54:A1:C9:D7:7D:13:9B:29:2B:12
+#   ipa-ca            A9:98:42:97:3C:F1:60:7E:84:CF:0F:E8:C4:7F:3C:27:00:C8:0E:9F:CB:38:2A:74:E9:21:03:F3:14:7E:B9:EC
+#   pve-root-ca       AC:58:41:9D:55:BF:27:ED:58:6F:53:F0:FF:1F:3A:01:5A:2D:0A:6C:F7:47:7D:78:BB:75:FF:E5:F6:E1:C7:4D
+#   internal-ca and regulad.internal are arawi's (pfSense) CAs; ipa-ca is
+#   FreeIPA's (home.arpa); pve-root-ca is the gonkputer cluster's.
+ca_trust_trusted:
+  - internal-ca
+  - regulad.internal
+  - ipa-ca
+  - pve-root-ca
+
+# Where each family's store takes local trust anchors: files there are trusted
+# alongside the distribution's bundle and survive its upgrades.
+ca_trust_debian_anchor_dir: /usr/local/share/ca-certificates
+ca_trust_rhel_anchor_dir: /etc/pki/ca-trust/source/anchors
+ca_trust_freebsd_anchor_dir: /usr/local/share/certs
+
 # p11-kit's blocklist directory. p11-kit before 0.24 names it blacklist.
 ca_trust_rhel_blocklist_dir: /etc/pki/ca-trust/source/blocklist
 

@@ -9,7 +9,7 @@
     - tailscale
 
 # Linux hosts by OS group; ca_trust_family comes from each group's group_vars.
-- name: Distrusted root certificates
+- name: Root certificates trusted and distrusted
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true

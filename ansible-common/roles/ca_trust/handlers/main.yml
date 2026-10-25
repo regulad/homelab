@@ -7,7 +7,7 @@
   ansible.builtin.command: update-ca-trust extract
   changed_when: true
 
-# Rebuilds /etc/ssl/certs and /etc/ssl/cert.pem without the untrusted roots.
+# Rebuilds /etc/ssl/certs and /etc/ssl/cert.pem from the trusted and untrusted roots.
 - name: Rehash FreeBSD CA store
   ansible.builtin.command: certctl rehash
   changed_when: true

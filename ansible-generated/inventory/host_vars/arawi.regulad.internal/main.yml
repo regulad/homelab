@@ -18,6 +18,12 @@ pfsense_setup:
   dnsallowoverride: true
   webguicss: pfSense.css
   dashboardcolumns: 2
+# pfSense trusts its own two CAs itself, from each CA's trust flag below
+# (/usr/local/etc/ssl/certs/<hash>.crt), so ca_trust adds only the others.
+ca_trust_trusted:
+  - ipa-ca
+  - pve-root-ca
+
 pfsense_cas:
   - name: internal-ca
     # yamllint disable-line rule:line-length

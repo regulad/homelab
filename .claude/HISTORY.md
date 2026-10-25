@@ -576,3 +576,11 @@ findings that would help a future session. Append new entries at the end.
 - Keep `ubuntu-pro-client`, whose removal takes `ubuntu-minimal`, and `update-notifier-common`, whose kernel hook writes `/var/run/reboot-required`, which unattended-upgrades' automatic reboots wait for.
 - Wings writes `/etc/logrotate.d/wings` from its own `log_directory` when the file is missing; the old copy pointed at `/var/log/pelican`.
 - prodingus's root filesystem was at 94% (5.7 GB free), raising Ceph's `MON_DISK_CRIT`; tofu plans briefly failed with HTTP 596 reading an rbd_cmr volume while osd.10 had slow ops.
+
+## ca_trust: the homelab's four roots of trust trusted on every host (2026-10-25)
+
+- The role's `files/trusted/` holds internal-ca and regulad.internal (arawi's pfSense CAs, extracted from `config.xml` by a script that prints only each `<ca>`'s `crt`), ipa-ca (freeipa's `/etc/ipa/ca.crt`) and pve-root-ca (`/etc/pve/pve-root-ca.pem`).
+- Each family takes them where its store keeps local anchors: Debian `/usr/local/share/ca-certificates/<name>.crt`, RHEL `/etc/pki/ca-trust/source/anchors/`, FreeBSD `/usr/local/share/certs/<name>.pem`. FreeBSD's `certctl` is now a C binary that also reads `/usr/local/etc/ssl/certs`; it lists anchors by subject hash and subject name.
+- pfSense trusts its own CAs from each `<ca>`'s `<trust>enabled</trust>`, as `/usr/local/etc/ssl/certs/<subject hash>.crt`, so arawi's `ca_trust_trusted` lists only ipa-ca and pve-root-ca.
+- Several hosts already trusted some of the four by hand, some with CRLF copies or mode 0444. aboriginal's `ipa-ca.crt` was a directory holding `ipa-ca.crt`, which `update-ca-certificates` reads recursively; it was removed before the role wrote the file. aboriginal's `cohensstore003.internal.crt` stays unmanaged. turk was unreachable.
+- With OpenSSL 4, `openssl x509 -fingerprint` without a digest flag prints SHA-256. Settle any doubt about a fingerprint with `openssl x509 -outform DER | sha256sum`.
