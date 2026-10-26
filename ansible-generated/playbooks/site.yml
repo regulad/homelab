@@ -2,86 +2,9 @@
 # Phase 4: the only playbook for generated hosts, from OpenTofu state via the
 # inventory/*.terraform_state.yml sources. Every play converges hosts to the
 # declared state and is safe to rerun. Hardware hosts are configured from
-# ../ansible-hardware.
-- name: Generated host baseline
-  hosts: generated:!arawi
-  roles:
-    - base
-    - tailscale
-
-# Hosts by OS group; ca_trust_family comes from each group's group_vars.
-- name: Root certificates trusted and distrusted
-  hosts: debian:ubuntu:rhel:freebsd
-  gather_facts: false
-  become: true
-  roles:
-    - ca_trust
-
-# Each Linux host's mail, relayed through mail.regulad.xyz as its FreeIPA
-# null- account, by OS group.
-- name: Mail relay
-  hosts: debian:ubuntu:rhel
-  gather_facts: false
-  become: true
-  roles:
-    - mail_relay
-
-# Each Linux host's own automatic updater, by OS group.
-- name: Automatic updates
-  hosts: debian:ubuntu:rhel
-  gather_facts: false
-  become: true
-  roles:
-    - auto_updates
-
-# Ubuntu's amd64v3 builds, where the release and the CPU support them.
-- name: APT architecture variant
-  hosts: ubuntu
-  gather_facts: false
-  become: true
-  roles:
-    - apt_amd64v3
-
-# Sysctl and GRUB drop-ins each host declares.
-- name: Kernel parameters
-  hosts: debian:ubuntu:rhel
-  gather_facts: false
-  become: true
-  roles:
-    - kernel_params
-
-# zram, and disk swapfiles on real drives, on hosts with their own kernel.
-- name: Swap
-  hosts: debian:ubuntu:!proxmox_containers
-  gather_facts: false
-  become: true
-  roles:
-    - swap
-
-# Access to the restic repository, and the host's backup jobs, on hosts with a
-# key of their own.
-- name: Restic repository access and backups
-  hosts: debian:ubuntu:rhel
-  gather_facts: false
-  become: true
-  roles:
-    - restic
-
-# Netplan as the only network configuration, where a host declares it.
-- name: Network configuration
-  hosts: ubuntu
-  gather_facts: false
-  become: true
-  roles:
-    - netplan
-
-# Kernel crash dumps through kdump-tools, on the hosts in the kdump group.
-- name: Kernel crash dumps
-  hosts: kdump
-  gather_facts: false
-  become: true
-  roles:
-    - kdump
+# ../ansible-hardware. The plays both stages share come first.
+- name: Plays both stages share
+  ansible.builtin.import_playbook: ../../ansible-common/playbooks/site.yml
 
 # Let's Encrypt certificates by Cloudflare DNS-01, ahead of the host files
 # whose renewal hooks act on them.

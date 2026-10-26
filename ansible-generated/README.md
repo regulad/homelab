@@ -11,7 +11,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `inventory/<root>.terraform_state.yml` | One inventory source per OpenTofu root; every host joins the `generated` group |
 | `bin/tofu-<root>` | The `tofu` each source runs, with that root's state encryption settings |
 | `inventory/group_vars/`, `inventory/host_vars/<host>/` | Variables, including each host's `services.yml` |
-| `playbooks/site.yml` | The stage's only playbook |
+| `playbooks/site.yml`, `playbooks/maintenance.yml` | The stage's playbooks: each imports `ansible-common/playbooks/`'s of the same name, the plays both stages share, then adds its own |
 | `roles/` | Roles only this stage uses |
 | `requirements.yml` | Collections, pinned to exact versions as roles first need them |
 

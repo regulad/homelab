@@ -3,6 +3,9 @@
 # operation, run by hand after its declared version or setting is bumped. Run a
 # single one with --tags.
 
+- name: Maintenance both stages share
+  ansible.builtin.import_playbook: ../../ansible-common/playbooks/maintenance.yml
+
 # The Pterodactyl panel cannot update itself; bump pterodactyl_version, then
 # run this play to upgrade by the panel's documented procedure.
 - name: Pterodactyl panel upgrade
@@ -29,18 +32,6 @@
         name: wings
         tasks_from: update
 
-# Align a hardware install's hostname and its /etc/hosts line with Ubuntu's
-# installer (Subiquity), on the hosts that set base_hostname_managed.
-- name: Align hostname with Subiquity settings
-  hosts: ubuntu
-  gather_facts: false
-  tags: [hostname]
-  tasks:
-    - name: Hostname and /etc/hosts
-      ansible.builtin.include_role:
-        name: base
-        tasks_from: hostname
-
 # Set zram up again to its configuration where what it holds fits back into
 # RAM; elsewhere, and on the hardware hosts, it changes at the next boot.
 - name: Zram to its configuration
@@ -53,31 +44,3 @@
       ansible.builtin.include_role:
         name: swap
         tasks_from: resize
-
-# Rotate the restic repository's shared password, once, from either stage: add
-# a repository key with a new password and make it restic_password in SOPS.
-# Then deliver it with both stages' site.yml, and remove the old key with
-# --tags restic-password-prune.
-- name: Restic password rotation
-  hosts: debian:ubuntu:rhel
-  gather_facts: false
-  become: true
-  tags: [restic-password]
-  tasks:
-    - name: Add a key with a new password, recorded in SOPS
-      ansible.builtin.include_role:
-        name: restic
-        tasks_from: rotate_password
-
-# After both stages' site.yml have delivered the new password: remove every
-# other repository key.
-- name: Restic password rotation, old keys
-  hosts: debian:ubuntu:rhel
-  gather_facts: false
-  become: true
-  tags: [restic-password-prune]
-  tasks:
-    - name: Remove the keys of earlier passwords
-      ansible.builtin.include_role:
-        name: restic
-        tasks_from: prune_keys

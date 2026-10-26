@@ -684,3 +684,10 @@ findings that would help a future session. Append new entries at the end.
 - A `run_once` task after per-host checks needs `any_errors_fatal`: a host failing its check drops out, and `run_once` moves on to the next host.
 - A prune checks only its own stage's hosts; before the real prune from ansible-generated, a check-mode prune from ansible-hardware confirmed prodingus had the new password.
 - The first rotation replaced the repository's only key, `root@gendo.home.arpa` from 2026-04-12, with `root@aboriginal`.
+
+## ansible: the plays both stages run, shared from ansible-common/playbooks (2026-10-25)
+
+- `ansible-common/playbooks/site.yml` and `maintenance.yml` hold the plays both stages run. Each stage's playbook of the same name imports them with `import_playbook`, whose path is relative to the importing playbook, before its own plays. Run from inside a stage, the imported plays take that stage's `ansible.cfg`: its inventory, `roles_path` and collections. `--tags` selects plays across the import.
+- The shared baseline targets `debian:ubuntu:rhel:macos`, which `--list-hosts` showed is exactly `hardware` in one stage and `generated:!arawi` in the other. `ca_trust` targets `debian:ubuntu:rhel:freebsd`, the same hosts in the hardware stage, which has no FreeBSD host.
+- Linted from the repository root, which has no `ansible.cfg`, the shared playbooks found no roles. A symbolic link `playbooks/roles -> ../roles` puts them beside the playbooks, where Ansible looks first.
+- The zram play stays in ansible-generated's `maintenance.yml`, as the hardware hosts take a zram change at their next boot; the pterodactyl and wings plays stay there with their stage-only roles.

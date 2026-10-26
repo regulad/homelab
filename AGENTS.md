@@ -54,13 +54,14 @@ homelab/
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
 │   ├── group_vars/              # all.sops.yml: secrets both stages share, linked from each stage's inventory/group_vars/
+│   ├── playbooks/               # site.yml, maintenance.yml: plays both stages share, imported by each stage's own; roles -> ../roles
 │   └── roles/                   # roles both stages apply: base, tailscale, ca_trust, auto_updates, mail_relay, kdump, kernel_params, apt_amd64v3, netplan, swap, restic
 ├── ansible-hardware/            # Phase 2, after tofu/backblaze, before the other roots; hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent
 │   ├── files/                   # <switch>/running-config(.j2): each network switch's whole configuration
 │   ├── inventory/               # hardware.yml (by hand; hardware hosts and the switches group), group_vars/, host_vars/<host>/main.yml
-│   ├── playbooks/               # site.yml; maintenance.yml
+│   ├── playbooks/               # site.yml; maintenance.yml, each importing ansible-common's first
 │   ├── plugins/                 # cliconf, terminal and filter plugins for the SG300s
 │   ├── roles/                   # proxmox_cluster, eos, ciscosmb
 │   └── requirements.yml         # pinned collections
@@ -69,7 +70,7 @@ homelab/
     ├── bin/                     # tofu-<root>: the inventory plugin's tofu, with that root's state encryption
     ├── files/                   # <host>/: byte copies roles place on a host, at their paths there; exempt from the whitespace hooks
     ├── inventory/               # <root>.terraform_state.yml (OpenTofu state), group_vars/, host_vars/<host>/{main,services}.yml
-    ├── playbooks/               # site.yml; maintenance.yml
+    ├── playbooks/               # site.yml; maintenance.yml, each importing ansible-common's first
     ├── roles/                   # host_files, podman, avahi, quadlet, pfsense, php_fpm, pterodactyl, matrix
     └── requirements.yml         # pinned collections
 ```
@@ -77,7 +78,7 @@ homelab/
 - **OpenTofu** owns which machines exist, plus the Proxmox cluster-wide settings its provider supports. It never manages containers or in-guest files.
 - **cloud-init**, set by OpenTofu, fully configures every Proxmox VM that can boot with it. Its whole setup lives in a cloud-init vendor file, a snippet under `tofu/gonkputer/snippets/`, so it needs no SSH and no Ansible.
 - **Ansible** owns everything inside the other guests and the hardware hosts, and the Proxmox and Ceph cluster-wide settings OpenTofu cannot manage, applied on the nodes. It reaches LXC containers through the `community.proxmox.proxmox_pct_remote` connection plugin, which runs `pct` on their Proxmox node over SSH, so the containers need no SSH of their own. Everything else it reaches over SSH directly. Service lifecycle lives in Ansible data (`host_vars`), never in OpenTofu state.
-- **Two Ansible stages, two inventories:** `ansible-hardware/` configures the hosts OpenTofu cannot create, listed by hand in its `hardware.yml`, after `tofu/backblaze` and before the other OpenTofu roots run; the one OpenTofu output it reads is `tofu/backblaze`'s `restic`. `ansible-generated/` configures the hosts OpenTofu creates or adopts, from OpenTofu state through the `cloud.terraform.terraform_state` inventory plugin, after. Neither stage reads the other's inventory. Roles both apply live in `ansible-common/roles/`; anything used by one stage stays in that stage's folder.
+- **Two Ansible stages, two inventories:** `ansible-hardware/` configures the hosts OpenTofu cannot create, listed by hand in its `hardware.yml`, after `tofu/backblaze` and before the other OpenTofu roots run; the one OpenTofu output it reads is `tofu/backblaze`'s `restic`. `ansible-generated/` configures the hosts OpenTofu creates or adopts, from OpenTofu state through the `cloud.terraform.terraform_state` inventory plugin, after. Neither stage reads the other's inventory. Roles both apply live in `ansible-common/roles/`, and plays both run in `ansible-common/playbooks/`, which each stage's `site.yml` and `maintenance.yml` import before their own plays; anything used by one stage stays in that stage's folder.
 - **Separate roots per provider** limit blast radius. Cross-root sharing goes through explicit outputs, or through `tofu/shared` for constants.
 
 ## Everyday commands
@@ -192,7 +193,7 @@ The rules above apply, with these additions.
 - **OCI adoption is complete** for the scope in the OCI part of the plan's Phase 3. Never regenerate or re-import it.
 - **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/shared/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
-- **Ansible scope:** each stage's main playbook is `playbooks/site.yml`. Every play in it converges hosts to the state declared here and is safe to rerun; a second run reports `changed=0`. Package updates come from each host's own automatic updater (unattended-upgrades, dnf-automatic) and containers' `podman-auto-update`, not from a playbook. Maintenance that cannot be automated, such as upgrading the Pterodactyl panel to its declared version by its documented procedure, lives in the stage's one other playbook, `playbooks/maintenance.yml`, one play per task, each tagged and run by hand. Other deliberate operations, such as rolling reboots, release upgrades, key rotation and restores, are not Ansible playbooks. Moving a service is a `host_vars` edit plus a `site.yml` run; its data moves by hand.
+- **Ansible scope:** each stage's main playbook is `playbooks/site.yml`, which imports `ansible-common/playbooks/site.yml` first. Every play in it converges hosts to the state declared here and is safe to rerun; a second run reports `changed=0`. Package updates come from each host's own automatic updater (unattended-upgrades, dnf-automatic) and containers' `podman-auto-update`, not from a playbook. Maintenance that cannot be automated, such as upgrading the Pterodactyl panel to its declared version by its documented procedure, lives in the stage's one other playbook, `playbooks/maintenance.yml`, one play per task, each tagged and run by hand. Other deliberate operations, such as rolling reboots, release upgrades, key rotation and restores, are not Ansible playbooks. Moving a service is a `host_vars` edit plus a `site.yml` run; its data moves by hand.
 - **First pass describes; later passes prescribe.** A root's first adoption pass mirrors the live configuration exactly, warts included (for example an HA rule naming a node that had left the cluster). Fixes follow as separate, reviewed changes.
 - **gonkputer ownership:** node-level settings (network, DNS, hosts, time, APT, node options) belong to Ansible. Users and groups belong to the LDAP realm `home.arpa` and its sync. Ceph health warnings are known and can be ignored.
 - **gonkputer API endpoint:** the node's tailnet name on port 8006, published by `tailscale serve` (tailnet only) with a Tailscale-managed certificate. Keep provider TLS verification on. The endpoint and token live in `tofu/gonkputer/provider.sops.env`.

@@ -14,7 +14,7 @@ repository and keys. Generated hosts are configured from
 | `bin/with-switch-keys` | Runs a command with each SG300's `svc-ansible` key in a throwaway ssh-agent and OpenSSL's security level lowered (`openssl-legacy.cnf`) |
 | `plugins/` | The SG300s' cliconf (community.ciscosmb's, typing each command with one end of line, and working out and sending configuration changes), terminal and filter plugins |
 | `inventory/group_vars/`, `inventory/host_vars/<host>/` | Variables |
-| `playbooks/site.yml` | The stage's only playbook |
+| `playbooks/site.yml`, `playbooks/maintenance.yml` | The stage's playbooks: each imports `ansible-common/playbooks/`'s of the same name, the plays both stages share, then adds its own |
 | `roles/` | Roles only this stage uses |
 | `requirements.yml` | Collections, pinned to exact versions as roles first need them |
 

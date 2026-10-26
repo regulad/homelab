@@ -1,9 +1,15 @@
-# Ansible: shared roles
+# Ansible: shared roles and plays
 
-Roles that both [`ansible-hardware/`](../ansible-hardware/README.md) and
+Roles and plays that both [`ansible-hardware/`](../ansible-hardware/README.md) and
 [`ansible-generated/`](../ansible-generated/README.md) apply. This folder has no
-inventory, playbooks or `ansible.cfg` of its own: each stage's `ansible.cfg`
-lists `../ansible-common/roles` after its own `roles/`.
+inventory or `ansible.cfg` of its own: each stage's `ansible.cfg` lists
+`../ansible-common/roles` after its own `roles/`.
+
+`playbooks/site.yml` and `playbooks/maintenance.yml` hold the plays both stages run.
+Each stage's playbook of the same name imports them before its own, so they run
+from inside a stage, with its inventory. Shared plays target OS groups, which both
+inventories have; a stage-only play stays in its stage. `playbooks/roles` links to
+`../roles`, so the plays resolve their roles when linted from the repository root.
 
 `group_vars/all.sops.yml` holds the secrets both stages share, such as the
 FreeIPA service account's password and `wifi_psks`. Each stage's
