@@ -1,0 +1,6 @@
+---
+# A zone's target applies to the permanent configuration only, until a reload.
+- name: Reload firewalld
+  ansible.builtin.systemd_service:
+    name: firewalld
+    state: reloaded

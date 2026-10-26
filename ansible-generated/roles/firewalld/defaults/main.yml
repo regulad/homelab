@@ -1,0 +1,10 @@
+---
+# Zones the host declares, each a name mapped to what it holds, set
+# permanently and at once through ansible.posix.firewalld: target (default
+# "default"), and lists of interfaces, sources, services, ports
+# ("<port or range>/<protocol>") and rich_rules (as firewall-cmd --list-all
+# prints them), and forward and masquerade (true or false). A zone that is not
+# built in is created. The module adds what is declared and cannot remove
+# entries it is not told of. Policies and direct rules, which it cannot manage,
+# are whole files through host_files, reloading firewalld.
+firewalld_zones: {}

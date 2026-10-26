@@ -1,0 +1,61 @@
+---
+# Converge the firewalld zones the host declares. Runs on generated Enterprise
+# Linux hosts (Phase 4); with nothing declared it changes nothing.
+- name: Zones
+  ansible.posix.firewalld:
+    zone: "{{ item }}"
+    state: present
+    permanent: true
+  loop: "{{ firewalld_zones.keys() | list }}"
+  register: firewalld_created
+
+# A new zone takes entries only once firewalld has loaded it.
+- name: Load new zones
+  ansible.builtin.systemd_service:
+    name: firewalld
+    state: reloaded
+  when: firewalld_created is changed
+
+- name: Zone targets
+  ansible.posix.firewalld:
+    zone: "{{ item.key }}"
+    target: "{{ item.value.target | default('default') }}"
+    state: present
+    permanent: true
+  loop: "{{ firewalld_zones | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Reload firewalld
+
+- name: Gather the zones' entries
+  ansible.builtin.set_fact:
+    firewalld_entries: >-
+      {%- set entries = [] -%}
+      {%- for zone, settings in firewalld_zones.items() -%}
+      {%- for kind in ['interfaces', 'sources', 'services', 'ports', 'rich_rules'] -%}
+      {%- for value in settings[kind] | default([]) -%}
+      {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': value}) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {%- for kind in ['forward', 'masquerade'] if kind in settings -%}
+      {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': settings[kind]}) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ entries }}
+
+- name: Zone entries
+  ansible.posix.firewalld:
+    zone: "{{ item.zone }}"
+    interface: "{{ item.value if item.kind == 'interfaces' else omit }}"
+    source: "{{ item.value if item.kind == 'sources' else omit }}"
+    service: "{{ item.value if item.kind == 'services' else omit }}"
+    port: "{{ item.value if item.kind == 'ports' else omit }}"
+    rich_rule: "{{ item.value if item.kind == 'rich_rules' else omit }}"
+    forward: "{{ true if item.kind == 'forward' else omit }}"
+    masquerade: "{{ true if item.kind == 'masquerade' else omit }}"
+    state: "{{ 'disabled' if item.value is false else 'enabled' }}"
+    permanent: true
+    immediate: true
+  loop: "{{ firewalld_entries }}"
+  loop_control:
+    label: "{{ item.zone }} {{ item.kind }} {{ item.value }}"

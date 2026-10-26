@@ -17,3 +17,6 @@ collections:
   # ipa_user, which manages each host's FreeIPA mail account over the JSON-RPC API.
   - name: community.general
     version: 13.5.0
+  # firewalld zones and SELinux booleans on the Enterprise Linux hosts.
+  - name: ansible.posix
+    version: 2.2.2

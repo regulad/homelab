@@ -765,3 +765,9 @@ findings that would help a future session. Append new entries at the end.
 - The Oracle Linux images ship kdump on, with kexec-tools owning `crashkernel=`: its kernel-install plugin `92-crashkernel.install` and its package's posttrans run `kdumpctl _reset-crashkernel-*`, which writes kexec-tools' default back into the boot entries unless `/etc/kdump.conf` says `auto_reset_crashkernel no`. New kernels take their arguments from `/etc/kernel/cmdline`, and `grub2-mkconfig` from `GRUB_CMDLINE_LINUX`; `grubby --update-kernel=ALL --remove-args=crashkernel` clears the existing entries.
 - The E2 images' `crashkernel=1G-64G:448M,64G-:512M` reserved 448 MiB of tailscalerouter's 1 GiB (MemTotal 499 MiB) and nothing on bailout (MemTotal 946 MiB), whose kdump unit therefore failed. Both now have kdump off; the memory returns at their next boot. livekit and mail (A1, 6 GB) keep kdump, with 256 MiB reserved.
 - On OCI the `kdump` group comes from state: Enterprise Linux instances with more than 1 GiB.
+
+## firewalld: zones through ansible.posix.firewalld (2026-10-26)
+
+- `ansible.posix.firewalld` 2.2.2 manages zones only, with no policies or direct rules, and adds entries without removing others. `firewalld_info` reads the runtime settings, including the interfaces NetworkManager binds (`ens3`, `enp0s6`), so it cannot show what a zone holds permanently.
+- The OCI images' `/etc/firewalld/direct.xml` holds Oracle's 32 `BareMetalInstanceServices` passthroughs (iSCSI, the metadata service, DNS and NTP on 169.254.0.0/16 and `fd00:c1::`). firewalld rewrites the file in its own format (single quotes, two-space indentation) when a direct rule is added, as on bailout.
+- ansible-galaxy counts a collection bundled with Homebrew's Ansible as installed; `ansible-galaxy collection install 'ansible.posix:==2.2.2' -p collections --force` puts the pinned copy in the stage's own `collections/`.
