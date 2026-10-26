@@ -1,0 +1,72 @@
+---
+# bailout is arawi's way out through OCI: two WireGuard tunnels, which arawi
+# starts (bailout's peers have no endpoint), NATed out of the VCN. Each is
+# keyed by bailout's interface, with arawi's tunnel on the other end, and
+# carries one address family over the other (outer). arawi's wireguard.xml.j2
+# reads these too; each side's private keys are in its secrets.sops.yml.
+bailout_wireguard_tunnels:
+  wg0:
+    name: bailout646
+    arawi_tunnel: tun_wg0
+    outer: ipv4
+    port: 51820
+    prefix_length: 126
+    bailout_address: fdc5:4979:78da::1
+    arawi_address: fdc5:4979:78da::2
+    bailout_public_key: LtnqbcsaSPXrekby4n+X6TR1mehCp4tHmb0lwYDXYFE=
+    arawi_public_key: Nd7zAGTgdgXCCkpK9BSNX1OrWlRG7n1/ag0YV36csGg=
+  wg1:
+    name: bailout464
+    arawi_tunnel: tun_wg1
+    outer: ipv6
+    port: 51821
+    prefix_length: 30
+    bailout_address: 172.16.31.129
+    arawi_address: 172.16.31.130
+    bailout_public_key: ieg2CIQa1duOYKuYjMr7LZ+jGL04khzjXAM+jLni02o=
+    arawi_public_key: n2fd/m3VsM2Co5x3KxPAIwjmp856vO0Bx0gUjFtMOiQ=
+
+# Forwarding for the tunnels, as written by hand.
+kernel_params_sysctl_files:
+  99-router:
+    net.ipv4.ip_forward: 1
+    net.ipv6.conf.all.forwarding: 1
+    net.ipv6.conf.default.forwarding: 1
+
+# The tunnels' ports on the instance's own address families, and the tunnels'
+# zone. Forwarding out of the VCN is the wg2wan policy, masquerading, and IPv6
+# NAT and MSS clamping are direct rules: both are host files below.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client]
+    rich_rules:
+      - rule family="ipv4" port port="51820" protocol="udp" accept
+      - rule family="ipv6" port port="51821" protocol="udp" accept
+    forward: true
+  wg:
+    target: ACCEPT
+    interfaces: [wg0, wg1]
+
+host_files_packages: [wireguard-tools]
+host_files_directories:
+  - {path: /etc/wireguard, mode: "0700"}
+host_files_list:
+  - path: /etc/wireguard/wg0.conf
+    template: true
+    secret: true
+    mode: "0644"
+    restarts: [wg-quick@wg0]
+  - path: /etc/wireguard/wg1.conf
+    template: true
+    secret: true
+    mode: "0644"
+    restarts: [wg-quick@wg1]
+  - path: /etc/firewalld/policies/wg2wan.xml
+    mode: "0644"
+    reloads: [firewalld]
+  # Oracle's passthroughs for the instance's own services, as the image
+  # ships them, after the IPv6 NAT and MSS clamping rules.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    reloads: [firewalld]
+host_files_units: [wg-quick@wg0, wg-quick@wg1]

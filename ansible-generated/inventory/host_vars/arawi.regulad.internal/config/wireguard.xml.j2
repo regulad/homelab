@@ -8,74 +8,48 @@
 		<hide_secrets>yes</hide_secrets>
 		<hide_peers>yes</hide_peers>
 	</config>
+{# bailout's tunnels, declared in its host_vars; arawi's own private keys are
+    in its secrets.sops.yml, and bailout's addresses come from OpenTofu state. #}
+{% set bailout = hostvars['bailout'] %}
 	<tunnels>
+{% for tunnel in bailout.bailout_wireguard_tunnels.values() %}
 		<item>
 			<addresses>
 				<row>
-					<address>fdc5:4979:78da::2</address>
-					<mask>126</mask>
+					<address>{{ tunnel.arawi_address }}</address>
+					<mask>{{ tunnel.prefix_length }}</mask>
 					<descr></descr>
 				</row>
 			</addresses>
-			<name>tun_wg0</name>
+			<name>{{ tunnel.arawi_tunnel }}</name>
 			<enabled>yes</enabled>
-			<descr>bailout646</descr>
-			<listenport>51820</listenport>
-			<privatekey>{{ arawi_wireguard_private_keys.tun_wg0 }}</privatekey>
-			<publickey>Nd7zAGTgdgXCCkpK9BSNX1OrWlRG7n1/ag0YV36csGg=</publickey>
+			<descr>{{ tunnel.name }}</descr>
+			<listenport>{{ tunnel.port }}</listenport>
+			<privatekey>{{ arawi_wireguard_private_keys[tunnel.arawi_tunnel] }}</privatekey>
+			<publickey>{{ tunnel.arawi_public_key }}</publickey>
 			<mtu>1420</mtu>
 		</item>
-		<item>
-			<addresses>
-				<row>
-					<address>172.16.31.130</address>
-					<mask>30</mask>
-					<descr></descr>
-				</row>
-			</addresses>
-			<name>tun_wg1</name>
-			<enabled>yes</enabled>
-			<descr>bailout464</descr>
-			<listenport>51821</listenport>
-			<privatekey>{{ arawi_wireguard_private_keys.tun_wg1 }}</privatekey>
-			<publickey>n2fd/m3VsM2Co5x3KxPAIwjmp856vO0Bx0gUjFtMOiQ=</publickey>
-			<mtu>1420</mtu>
-		</item>
+{% endfor %}
 	</tunnels>
 	<peers>
+{% for tunnel in bailout.bailout_wireguard_tunnels.values() %}
 		<item>
 			<allowedips>
 				<row>
-					<address>::</address>
+					<address>{{ '::' if ':' in tunnel.arawi_address else '0.0.0.0' }}</address>
 					<mask>0</mask>
 					<descr></descr>
 				</row>
 			</allowedips>
 			<enabled>yes</enabled>
-			<tun>tun_wg0</tun>
-			<descr>bailout646</descr>
+			<tun>{{ tunnel.arawi_tunnel }}</tun>
+			<descr>{{ tunnel.name }}</descr>
 			<persistentkeepalive></persistentkeepalive>
-			<publickey>LtnqbcsaSPXrekby4n+X6TR1mehCp4tHmb0lwYDXYFE=</publickey>
+			<publickey>{{ tunnel.bailout_public_key }}</publickey>
 			<presharedkey></presharedkey>
-			<endpoint>129.213.123.169</endpoint>
-			<port>51820</port>
+			<endpoint>{{ bailout.public_ip if tunnel.outer == 'ipv4' else bailout.ipv6_address }}</endpoint>
+			<port>{{ tunnel.port }}</port>
 		</item>
-		<item>
-			<allowedips>
-				<row>
-					<address>0.0.0.0</address>
-					<mask>0</mask>
-					<descr></descr>
-				</row>
-			</allowedips>
-			<enabled>yes</enabled>
-			<tun>tun_wg1</tun>
-			<descr>bailout464</descr>
-			<persistentkeepalive></persistentkeepalive>
-			<publickey>ieg2CIQa1duOYKuYjMr7LZ+jGL04khzjXAM+jLni02o=</publickey>
-			<presharedkey></presharedkey>
-			<endpoint>{{ arawi_ipv6_prefixes.oci_subnet }}:0:e821:108d:b201</endpoint>
-			<port>51821</port>
-		</item>
+{% endfor %}
 	</peers>
 </wireguard>

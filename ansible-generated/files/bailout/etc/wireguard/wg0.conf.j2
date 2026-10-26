@@ -1,0 +1,10 @@
+{% set tunnel = bailout_wireguard_tunnels.wg0 -%}
+[Interface]
+Address = {{ tunnel.bailout_address }}/{{ tunnel.prefix_length }}
+ListenPort = {{ tunnel.port }}
+PrivateKey = {{ wireguard_private_keys.wg0 }}
+
+[Peer]
+# {{ tunnel.name | replace('bailout', '') }}
+PublicKey = {{ tunnel.arawi_public_key }}
+AllowedIPs = {{ tunnel.arawi_address }}/128

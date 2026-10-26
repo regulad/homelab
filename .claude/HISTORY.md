@@ -777,3 +777,10 @@ findings that would help a future session. Append new entries at the end.
 - dnsmasq (the VCN's resolver), Tailscale's yum repository and `/etc/default/tailscaled`, the UDP GRO tuning, the 100 `socat-ipv6-forward@` units and the `allow-peering-fwd` policy are host files, byte for byte; dnsmasq's GUA listen address comes from `ipv6_address` in state. The check run showed `changed=0`.
 - `/etc/default/tailscaled` is the package's file, mode 0444, with `FLAGS="--port=41641"` added. The repository is hand-written and no role manages it; the tailscale role runs before `host_files`, so on a new instance it would come too late for Tailscale's install.
 - No security list or NSG opens TCP 35500–35599: the socat ports are reachable only through the all-protocol "LAN" and "Peering" rules, from the VCN, the homelab's IPv4 and the tailnet.
+
+## bailout: its tunnels described, with arawi's side rendered from them (2026-10-26)
+
+- bailout's two WireGuard tunnels to arawi, bailout646 (`wg0`, IPv6 over IPv4) and bailout464 (`wg1`, IPv4 over IPv6), are declared once in `bailout_wireguard_tunnels`. bailout's `wg0.conf` and `wg1.conf` templates and arawi's `wireguard.xml.j2` render from it, arawi's endpoints from bailout's `public_ip` and `ipv6_address` in state; all three render byte for byte as before. A rebuild that changes bailout's ephemeral public IPv4 therefore needs an arawi apply.
+- Each side's private keys are in its own `secrets.sops.yml`; bailout's were moved there from its confs, which stay at mode 0644 in the 0700 `/etc/wireguard`, as found.
+- `99-router.conf` sets `net.ipv6.conf.default.forwarding` beside the two settings in `kernel_params_ip_forwarding`'s file, so it stays its own sysctl file; `kernel_params` rewrote it as `name = value`.
+- `direct.xml` and the `wg2wan` policy are byte copies: the tunnels' NAT66 is the direct rule `-o ens3 -j MASQUERADE`, beside TCP MSS clamping for both families.
