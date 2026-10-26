@@ -9,28 +9,28 @@
  * it holds (the ARP table, and Kea's leases and reservations), and through
  * them to the names whose A records point there. Every IPv6 address on record
  * for that MAC, ULA or GUA, stable or temporary, then gets an AAAA record
- * under each of those names and a PTR record back to the first, each with its
- * NDP entry's remaining lifetime as its TTL.
+ * under each of those names and a PTR record back to the first. Its TTL is
+ * the shorter of its NDP entry's remaining lifetime and what is left of the
+ * MAC's DHCP lease, or the NDP lifetime alone without a lease.
  *
- * The records live in Unbound's "local" view, the one LAN clients use;
- * guests' view refuses regulad.internal outright. A view that holds a name
- * answers every type of it from its own records, so each name's records in
- * the global zone, pfSense's A records among them, are copied in beside its
- * AAAA records. Every zone under the domain or ip6.arpa in that view is this
- * script's: each run removes them, so that queries fall back to the global
- * zone meanwhile, then adds the current records back.
+ * The records are handled as pfSense handles its A records: global
+ * local-data in an include file, /var/unbound/ndp-aaaa.conf, which the DNS
+ * resolver's custom options include through a glob, so Unbound starts
+ * without it. As kea2unbound does, the file is replaced only when it changes,
+ * and Unbound fast-reloaded; a file Unbound would reject is put back first.
  *
- * Run by cron every minute. pfSense's own reloads of Unbound drop the view's
- * runtime records, which the next run restores. With --dry-run it prints the
- * records it would publish and changes nothing.
+ * Run by cron every minute. With --dry-run it prints the file it would write
+ * and changes nothing.
  */
 
 /* ------------------------------------------------------------------ */
 /* Configuration                                                       */
 /* ------------------------------------------------------------------ */
 
-$UNBOUND_CONTROL = "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf";
-$VIEW            = "local";
+$UNBOUND_CONF    = "/var/unbound/unbound.conf";
+$UNBOUND_CONTROL = "/usr/local/sbin/unbound-control -c $UNBOUND_CONF";
+$CHECKCONF       = "/usr/local/sbin/unbound-checkconf $UNBOUND_CONF";
+$INCLUDE         = "/var/unbound/ndp-aaaa.conf";
 $DOMAIN          = "regulad.internal.";
 $KEA_CONF        = "/usr/local/etc/kea/kea-dhcp4.conf";
 $KEA_LEASES      = "/var/db/kea/dhcp4.leases";
@@ -47,8 +47,8 @@ function fail(string $message): never
     exit(1);
 }
 
-/* Run a command, feeding it $stdin; fail unless it exits 0. */
-function run(string $command, string $stdin = ""): string
+/* Run a command, feeding it $stdin; return its exit status and output. */
+function run_status(string $command, string $stdin = ""): array
 {
     $proc = proc_open($command, [0 => ["pipe", "r"], 1 => ["pipe", "w"], 2 => ["pipe", "w"]], $pipes);
     if (!is_resource($proc)) {
@@ -60,7 +60,13 @@ function run(string $command, string $stdin = ""): string
     $err = stream_get_contents($pipes[2]);
     fclose($pipes[1]);
     fclose($pipes[2]);
-    $rc = proc_close($proc);
+    return [proc_close($proc), $out, $err];
+}
+
+/* Run a command; fail unless it exits 0. */
+function run(string $command, string $stdin = ""): string
+{
+    [$rc, $out, $err] = run_status($command, $stdin);
     if ($rc !== 0) {
         fail("$command exited $rc: " . trim($err));
     }
@@ -84,16 +90,13 @@ function reverse_name(string $address): string
     return implode(".", array_reverse(str_split(bin2hex(inet_pton($address))))) . ".ip6.arpa.";
 }
 
-/* Parse unbound-control's list of records into [name, ttl, class, type, rdata]. */
-function records(string $listing): array
+/* The AAAA records an include file holds, as "name address". */
+function aaaa_of(string $include): array
 {
+    preg_match_all('/^local-data: "(\S+) \d+ IN AAAA (\S+)"$/m', $include, $matches, PREG_SET_ORDER);
     $records = [];
-    foreach (explode("\n", $listing) as $line) {
-        $fields = preg_split('/\s+/', trim($line), 5);
-        if (count($fields) === 5) {
-            $fields[0] = strtolower($fields[0]);
-            $records[] = $fields;
-        }
+    foreach ($matches as [, $name, $address]) {
+        $records["$name $address"] = true;
     }
     return $records;
 }
@@ -116,8 +119,9 @@ foreach (neighbours() as $neighbour) {
 usleep(500000);
 $neighbours = neighbours();
 
-/* The IPv4 addresses each MAC holds. */
+/* The IPv4 addresses each MAC holds, and how long its DHCP lease has left. */
 $ips_of_mac = [];
+$lease_left = [];
 $arp = json_decode(run("/usr/sbin/arp -an --libxo json"), true);
 foreach ($arp["arp"]["arp-cache"] ?? [] as $entry) {
     $mac = strtolower($entry["mac-address"] ?? "");
@@ -135,7 +139,8 @@ foreach ($kea["Dhcp4"]["subnet4"] ?? [] as $subnet) {
     }
 }
 /* Kea's memfile appends a line per change, so an address's last line is its
- * lease; Kea escapes commas within fields. */
+ * lease; Kea escapes commas within fields. An infinite lease's expiry is far
+ * off, which leaves the NDP lifetime as the TTL. */
 $leases = [];
 $lines = @file($KEA_LEASES, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
 $header = $lines ? explode(",", array_shift($lines)) : [];
@@ -146,28 +151,27 @@ foreach ($lines as $line) {
         $leases[$lease["address"]] = $lease;
     }
 }
+$now = time();
 foreach ($leases as $address => $lease) {
     $mac = strtolower($lease["hwaddr"] ?? "");
-    if (is_mac($mac) && ($lease["state"] ?? "") === "0" && (int)($lease["expire"] ?? 0) > time()) {
+    $left = (int)($lease["expire"] ?? 0) - $now;
+    if (is_mac($mac) && ($lease["state"] ?? "") === "0" && $left > 0) {
         $ips_of_mac[$mac][$address] = true;
+        $lease_left[$mac] = max($left, $lease_left[$mac] ?? 0);
     }
 }
 
-/* The global zone's records under the domain, by name, and the names whose A
- * records point at each IPv4 address. */
-$global = [];
+/* The names whose global A records point at each IPv4 address. */
 $names_of_ip = [];
-foreach (records(run("$UNBOUND_CONTROL list_local_data")) as [$name, $ttl, $class, $type, $rdata]) {
-    if (str_ends_with($name, ".$DOMAIN")) {
-        $global[$name][] = "$name $ttl $class $type $rdata";
-        if ($type === "A") {
-            $names_of_ip[$rdata][$name] = true;
-        }
+foreach (explode("\n", run("$UNBOUND_CONTROL list_local_data")) as $line) {
+    $fields = preg_split('/\s+/', trim($line), 5);
+    if (count($fields) === 5 && $fields[3] === "A" && str_ends_with(strtolower($fields[0]), ".$DOMAIN")) {
+        $names_of_ip[$fields[4]][strtolower($fields[0])] = true;
     }
 }
 
-/* Each named host's IPv6 addresses, with their NDP lifetimes. Link-local
- * addresses carry a scope, and arawi's own are permanent: neither is published. */
+/* Each named host's IPv6 addresses, with their TTLs. Link-local addresses
+ * carry a scope, and arawi's own are permanent: neither is published. */
 $aaaa = [];
 $ptr = [];
 foreach ($neighbours as $neighbour) {
@@ -188,6 +192,9 @@ foreach ($neighbours as $neighbour) {
     if (!$names) {
         continue;
     }
+    if (isset($lease_left[$mac])) {
+        $ttl = min($ttl, $lease_left[$mac]);
+    }
     ksort($names);
     $address = inet_ntop($binary);
     foreach (array_keys($names) as $name) {
@@ -196,55 +203,61 @@ foreach ($neighbours as $neighbour) {
     $ptr[$address] = [array_key_first($names), max($ttl, $ptr[$address][1] ?? 0)];
 }
 
-$wanted = [];
+ksort($aaaa);
+ksort($ptr);
+$include = "# Written by /usr/local/bin/ndp-aaaa.php from the NDP table; do not edit.\nserver:\n";
 foreach ($aaaa as $name => $addresses) {
-    array_push($wanted, ...$global[$name]);
     foreach ($addresses as $address => $ttl) {
-        $wanted[] = "$name $ttl IN AAAA $address";
+        $include .= "local-data: \"$name $ttl IN AAAA $address\"\n";
     }
 }
 foreach ($ptr as $address => [$name, $ttl]) {
-    $wanted[] = reverse_name($address) . " $ttl IN PTR $name";
+    $include .= "local-data: \"" . reverse_name($address) . " $ttl IN PTR $name\"\n";
 }
 
 if ($dry_run) {
-    echo implode("\n", $wanted), "\n";
+    echo $include;
     exit(0);
 }
 
-/* The view's zones this script owns, and the AAAA records they hold, to log
- * what changed. */
-$owned = [];
-foreach (explode("\n", run("$UNBOUND_CONTROL view_list_local_zones $VIEW")) as $line) {
-    $zone = strtolower(preg_split('/\s+/', trim($line))[0] ?? "");
-    if (str_ends_with($zone, ".$DOMAIN") || str_ends_with($zone, ".ip6.arpa.")) {
-        $owned[] = $zone;
-    }
-}
-$before = [];
-foreach (records(run("$UNBOUND_CONTROL view_list_local_data $VIEW")) as [$name, , , $type, $rdata]) {
-    if ($type === "AAAA" && str_ends_with($name, ".$DOMAIN")) {
-        $before["$name $rdata"] = true;
-    }
-}
-$after = [];
-foreach ($aaaa as $name => $addresses) {
-    foreach (array_keys($addresses) as $address) {
-        $after["$name $address"] = true;
-    }
+$previous = @file_get_contents($INCLUDE);
+if ($previous === $include) {
+    exit(0);
 }
 
-foreach ($owned as $zone) {
-    run("$UNBOUND_CONTROL view_local_zone_remove $VIEW " . escapeshellarg($zone));
+/* Replace the file, keeping the previous one until Unbound accepts the new. */
+$temporary = "$INCLUDE.new";
+if (file_put_contents($temporary, $include) === false || !chmod($temporary, 0640)
+    || !chgrp($temporary, "unbound")) {
+    fail("cannot write $temporary");
 }
-if ($wanted) {
-    run("$UNBOUND_CONTROL view_local_datas $VIEW", implode("\n", $wanted) . "\n");
+if ($previous !== false && !copy($INCLUDE, "$INCLUDE.previous")) {
+    fail("cannot keep $INCLUDE.previous");
 }
+if (!rename($temporary, $INCLUDE)) {
+    fail("cannot replace $INCLUDE");
+}
+[$rc, , $err] = run_status($CHECKCONF);
+if ($rc !== 0) {
+    if ($previous !== false) {
+        rename("$INCLUDE.previous", $INCLUDE);
+    } else {
+        unlink($INCLUDE);
+    }
+    fail("Unbound rejects the new records, kept the previous ones: " . trim($err));
+}
+@unlink("$INCLUDE.previous");
+/* fast_reload keeps Unbound answering; no fallback to a full reload, which
+ * would stop it on a configuration it rejects. */
+run("$UNBOUND_CONTROL fast_reload");
 
-/* A line per change: syslogd drops a message longer than its line. */
+/* A line per change, at notice, the least pfSense keeps in system.log;
+ * syslogd drops a message longer than its line. */
+$before = aaaa_of((string)$previous);
+$after = aaaa_of($include);
 foreach (array_keys(array_diff_key($after, $before)) as $record) {
-    syslog(LOG_INFO, "added $record");
+    syslog(LOG_NOTICE, "added $record");
 }
 foreach (array_keys(array_diff_key($before, $after)) as $record) {
-    syslog(LOG_INFO, "removed $record");
+    syslog(LOG_NOTICE, "removed $record");
 }

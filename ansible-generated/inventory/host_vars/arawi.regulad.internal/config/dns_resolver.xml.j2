@@ -31,6 +31,11 @@ server:
     domain-insecure: "regulad.internal."
     local-zone: "regulad.internal." static
     #
+    # AAAA and PTR records for named hosts' SLAAC addresses, beside the A
+    # records, which /usr/local/bin/ndp-aaaa.php writes from the NDP table
+    # every minute. A glob, so that Unbound starts before the file exists.
+    include: "/var/unbound/ndp-aaaa*.conf"
+    #
     private-domain: "regulad-verizon-livingston.internal."
     domain-insecure: "regulad-verizon-livingston.internal."
     #
