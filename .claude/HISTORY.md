@@ -784,3 +784,8 @@ findings that would help a future session. Append new entries at the end.
 - Each side's private keys are in its own `secrets.sops.yml`; bailout's were moved there from its confs, which stay at mode 0644 in the 0700 `/etc/wireguard`, as found.
 - `99-router.conf` sets `net.ipv6.conf.default.forwarding` beside the two settings in `kernel_params_ip_forwarding`'s file, so it stays its own sysctl file; `kernel_params` rewrote it as `name = value`.
 - `direct.xml` and the `wg2wan` policy are byte copies: the tunnels' NAT66 is the direct rule `-o ens3 -j MASQUERADE`, beside TCP MSS clamping for both families.
+
+## tailscalerouter (OCI): the socat forwards removed (2026-10-26)
+
+- The 100 `socat-ipv6-forward@` units, forwarding TCP 35500–35599 from the instance's IPv6 addresses to a tailnet address, were superseded; they were stopped and disabled by hand, and their unit file and the `socat` package removed. `allow-peering-fwd` stays: packets from `ens3` meet it first, and without it the `public` zone's forwarding (`oifname "ens3"` only, as `tailscale0` is in no zone) would reject connections the VCN starts toward the homelab and the tailnet.
+- socat exits non-zero on SIGTERM, so the stopped units stayed listed as failed until `systemctl reset-failed`.
