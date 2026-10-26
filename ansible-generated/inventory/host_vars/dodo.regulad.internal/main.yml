@@ -83,3 +83,12 @@ swap_files:
     size_mib: 16384
     priority: 10
     discard: true
+
+# Backups: the root's btrfs, its top-level subvolume, from a snapshot.
+# aboriginal's forget is the only one.
+restic_jobs:
+  snapshot:
+    on_calendar: "*-*-* 05:15"
+    paths: [/, /boot/efi]
+restic_retired_scripts:
+  - /root/backup.sh

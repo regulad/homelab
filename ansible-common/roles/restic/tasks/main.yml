@@ -1,7 +1,8 @@
 ---
 # Give a host access to the restic repository: restic itself, the repository
-# password, and the environment its backups and mounts read. Runs on hardware
-# hosts (Phase 2) and generated hosts (Phase 4) that have a key.
+# password, and the environment its backups and mounts read; then the host's
+# backup and retention jobs. Runs on hardware hosts (Phase 2) and generated
+# hosts (Phase 4) that have a key.
 - name: Restic
   when: restic_access_key_id | length > 0
   block:
@@ -11,7 +12,8 @@
           {{ {'AWS_ACCESS_KEY_ID': restic_access_key_id,
               'AWS_SECRET_ACCESS_KEY': restic_secret_access_key,
               'RESTIC_REPOSITORY': restic_repository,
-              'RESTIC_PASSWORD_FILE': restic_password_file}
+              'RESTIC_PASSWORD_FILE': restic_password_file,
+              'RESTIC_CACHE_DIR': restic_cache_dir}
              | combine(restic_env_extra) }}
       no_log: true
 
@@ -70,3 +72,6 @@
         group: root
         mode: "0400"
       no_log: true
+
+    - name: Jobs
+      ansible.builtin.include_tasks: jobs.yml

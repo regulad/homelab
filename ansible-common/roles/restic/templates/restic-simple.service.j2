@@ -1,0 +1,20 @@
+# Managed by Ansible (restic).
+{% set job = item.value %}
+[Unit]
+Description=restic backup of {{ job.paths | join(' ') }}
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile={{ restic_env_file }}
+Nice=10
+TimeoutStartSec={{ restic_job_timeout }}
+# A stale lock, left by a run that died, blocks every other command.
+ExecStartPre=/usr/bin/restic unlock
+ExecStart=/usr/bin/restic backup \
+    --retry-lock={{ restic_retry_lock }} \
+{% for option in job.options | default([]) %}
+    {{ option }} \
+{% endfor %}
+    -- {{ job.paths | join(' ') }}

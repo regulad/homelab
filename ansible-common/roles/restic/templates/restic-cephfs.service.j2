@@ -1,0 +1,21 @@
+# Managed by Ansible (restic).
+{% set job = item.value %}
+[Unit]
+Description=restic backup of the CephFS at {{ job.path }}, from a snapshot
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor={{ job.path }}
+
+[Service]
+Type=oneshot
+EnvironmentFile={{ restic_env_file }}
+Nice=10
+TimeoutStartSec={{ restic_job_timeout }}
+# A stale lock, left by a run that died, blocks every other command.
+ExecStartPre=/usr/bin/restic unlock
+ExecStart=/usr/local/bin/restic-cephfs \
+    --retry-lock={{ restic_retry_lock }} \
+    --tag={{ job.tag }} \
+    -- {{ job.path }}
+# Removes the snapshot a run that was killed leaves behind.
+ExecStopPost=/usr/local/bin/restic-cephfs --cleanup -- {{ job.path }}

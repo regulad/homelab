@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Managed by Ansible (restic). Backs up mount points with restic, reading each
+# btrfs one from a read-only snapshot of its subvolume:
+#
+#   restic-snapshot [RESTIC_BACKUP_OPTION...] -- / [MOUNTPOINT...]
+#   restic-snapshot --cleanup -- / [MOUNTPOINT...]
+#
+# In a private mount namespace, the snapshots and read-only binds of the other
+# mount points are assembled into one tree, and restic backs it up from a
+# chroot into it, so its snapshot keeps the paths as they are. That restic,
+# the snapshot's own, reaches the live cache, /tmp and /run (for DNS) through
+# binds that --one-file-system leaves out of the backup.
+#
+# Snapshots live in .restic-snapshots at the top level of their filesystem.
+# Each run deletes those an interrupted run left before taking its own, and
+# --cleanup only deletes them.
+set -euo pipefail
+
+usage() {
+  echo "usage: $0 [--cleanup | RESTIC_BACKUP_OPTION...] -- / [MOUNTPOINT...]" >&2
+  exit 2
+}
+
+# Every mount from here on is this process's alone, and goes with it.
+if [ "${RESTIC_SNAPSHOT_UNSHARED:-}" != 1 ]; then
+  export RESTIC_SNAPSHOT_UNSHARED=1
+  exec unshare --mount --propagation private -- "$0" "$@"
+fi
+
+cleanup_only=false
+options=()
+while [ $# -gt 0 ] && [ "$1" != -- ]; do
+  if [ "$1" = --cleanup ]; then cleanup_only=true; else options+=("$1"); fi
+  shift
+done
+[ $# -gt 1 ] || usage
+shift
+# Parents before their children; restic runs from the snapshot of /.
+mapfile -t paths < <(printf '%s\n' "$@" | LC_ALL=C sort -u)
+[ "${paths[0]}" = / ] || usage
+
+exec 9>/run/lock/restic-snapshot.lock
+if ! flock --nonblock 9; then
+  echo "$0: another run holds /run/lock/restic-snapshot.lock" >&2
+  exit 1
+fi
+
+work=/run/restic-snapshot
+root=$work/root
+declare -A fstypes=() sources=() fsroots=() tops=()
+
+for path in "${paths[@]}"; do
+  if ! read -r "fstypes[$path]" "sources[$path]" "fsroots[$path]" < <(
+    findmnt --noheadings --raw --first-only --nofsroot --mountpoint "$path" \
+      --output FSTYPE,SOURCE,FSROOT
+  ); then
+    echo "$0: $path is not a mount point" >&2
+    exit 1
+  fi
+done
+
+delete_snapshots() {
+  local top snapshot
+  for top in "${tops[@]}"; do
+    for snapshot in "$top"/.restic-snapshots/*; do
+      [ -e "$snapshot" ] || continue
+      btrfs subvolume delete "$snapshot"
+    done
+    rmdir "$top/.restic-snapshots" 2>/dev/null || true
+  done
+}
+
+finish() {
+  local status=$? top
+  umount --recursive "$root" 2>/dev/null || true
+  delete_snapshots || status=1
+  for top in "${tops[@]}"; do
+    umount "$top" || status=1
+  done
+  rm -rf --one-file-system "$work" || status=1
+  exit "$status"
+}
+trap finish EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+# An interrupted run's directory holds no mounts: they went with its namespace.
+rm -rf --one-file-system "$work"
+mkdir -p "$root"
+
+# Each btrfs filesystem's top level, where its snapshots live.
+for path in "${paths[@]}"; do
+  device=${sources[$path]}
+  if [ "${fstypes[$path]}" = btrfs ] && [ -z "${tops[$device]:-}" ]; then
+    tops[$device]=$work/top${#tops[@]}
+    mkdir "${tops[$device]}"
+    mount -t btrfs -o subvolid=5 "$device" "${tops[$device]}"
+  fi
+done
+
+delete_snapshots
+if $cleanup_only; then
+  exit 0
+fi
+
+# The cache must exist in the snapshot of / for its bind to land on.
+: "${RESTIC_CACHE_DIR:?must name the restic cache, which the chroot reaches through a bind}"
+mkdir -p "$RESTIC_CACHE_DIR"
+
+declare -A snapshots=()
+for path in "${paths[@]}"; do
+  if [ "${fstypes[$path]}" = btrfs ]; then
+    top=${tops[${sources[$path]}]}
+    mkdir -p "$top/.restic-snapshots"
+    snapshots[$path]=$top/.restic-snapshots/$(systemd-escape --path "$path")
+    btrfs subvolume snapshot -r "$top${fsroots[$path]}" "${snapshots[$path]}"
+  fi
+done
+
+for path in "${paths[@]}"; do
+  mount --bind "${snapshots[$path]:-$path}" "$root$path"
+  mount -o remount,bind,ro "$root$path"
+done
+for dir in "$RESTIC_CACHE_DIR" /tmp /run; do
+  mount --bind "$dir" "$root$dir"
+done
+
+chroot "$root" restic backup --one-file-system "${options[@]}" -- "${paths[@]}"

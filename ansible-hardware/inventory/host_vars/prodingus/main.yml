@@ -74,3 +74,25 @@ swap_files:
   - path: /swapfile
     size_mib: 8192
     priority: 100
+
+# Backups: the root filesystem as it is, ext4 having no snapshots to read
+# from; the CephFS, and urbackup's disk (VM 111's), each from a snapshot.
+# aboriginal's forget is the only one.
+restic_jobs:
+  simple:
+    on_calendar: "*-*-* 05:25"
+    paths: [/, /boot/efi]
+    options: [--one-file-system, --exclude=/var/cache]
+  cephfs:
+    on_calendar: "Wed *-*-* 04:30"
+    path: /mnt/pve/cephfs
+    tag: cephfs
+  rbd:
+    on_calendar: "Fri *-*-* 07:34"
+    image: rbd_cmr/vm-111-disk-0
+    filename: urbackup.img
+    tag: urbackup
+restic_retired_scripts:
+  - /root/backup_simple.sh
+  - /root/backup_cephfs.sh
+  - /root/backup_urbackup.sh

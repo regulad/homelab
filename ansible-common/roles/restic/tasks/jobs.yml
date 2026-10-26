@@ -1,0 +1,150 @@
+---
+# The host's restic jobs, from restic_jobs: each a oneshot service from its own
+# template and a timer, the scripts the snapshot jobs run, and the removal of
+# jobs no longer declared and of the crontab scripts the jobs replace.
+- name: Gather the jobs' settings
+  ansible.builtin.set_fact:
+    # What each job sets besides on_calendar.
+    restic_job_fields:
+      simple: [paths]
+      snapshot: [paths]
+      cephfs: [path, tag]
+      rbd: [image, filename, tag]
+      rgw: [path, tag, mount_service]
+      forget: [policies]
+    # The jobs that run a script of the role's, /usr/local/bin/restic-<job>.
+    restic_job_scripts: [snapshot, cephfs, rbd]
+
+- name: Check the jobs
+  ansible.builtin.assert:
+    that:
+      - item.key in restic_job_fields
+      - item.value.on_calendar is defined
+      - restic_job_fields[item.key] | default([]) | reject('in', item.value) | list | length == 0
+      - item.value.policies | default([]) | rejectattr('tag', 'defined') | list | length == 0
+      - item.value.policies | default([]) | rejectattr('keep', 'defined') | list | length == 0
+      # Words go into ExecStart= unquoted, where % and $ would expand.
+      - restic_job_words | reject('match', '^[A-Za-z0-9_@=:,./+-]*$') | list | length == 0
+    fail_msg: >-
+      restic job {{ item.key }}: jobs are {{ restic_job_fields.keys() | join(', ') }}, and each
+      sets on_calendar and {{ restic_job_fields[item.key] | default([]) | join(', ') }}; every path,
+      option and tag must be free of spaces, quotes, % and $.
+    quiet: true
+  vars:
+    restic_job_keeps: "{{ item.value.policies | default([]) | map(attribute='keep', default={}) | map('dict2items') | flatten }}"
+    restic_job_words: >-
+      {{ [item.value.tag | default(''), item.value.path | default(''), item.value.image | default(''),
+          item.value.filename | default(''), item.value.mount_service | default('')]
+         + item.value.paths | default([]) + item.value.options | default([])
+         + item.value.policies | default([]) | map(attribute='tag', default='') | list
+         + restic_job_keeps | map(attribute='key') | list
+         + restic_job_keeps | map(attribute='value') | map('string') | list }}
+  loop: "{{ restic_jobs | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Check restic's version for the rbd job
+  ansible.builtin.assert:
+    that: restic_version.stdout | regex_replace('^restic ([0-9.]+).*$', '\\1') is version(restic_rbd_minimum_version, '>=')
+    fail_msg: "The rbd job runs backup --stdin-from-command, which {{ restic_version.stdout }} lacks."
+    quiet: true
+  when: "'rbd' in restic_jobs"
+
+- name: Job scripts
+  ansible.builtin.copy:
+    src: restic-{{ item }}
+    dest: /usr/local/bin/restic-{{ item }}
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ restic_job_scripts | intersect(restic_jobs.keys()) }}"
+
+- name: No scripts for jobs not declared
+  ansible.builtin.file:
+    path: /usr/local/bin/restic-{{ item }}
+    state: absent
+  loop: "{{ restic_job_scripts | difference(restic_jobs.keys()) }}"
+
+- name: Job services
+  ansible.builtin.template:
+    src: restic-{{ item.key }}.service.j2
+    dest: /etc/systemd/system/restic-{{ item.key }}.service
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restic_jobs | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: restic_job_services
+
+- name: Job timers
+  ansible.builtin.template:
+    src: restic.timer.j2
+    dest: /etc/systemd/system/restic-{{ item.key }}.timer
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restic_jobs | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: restic_job_timers
+
+- name: Find this role's units
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns: [restic-*.service, restic-*.timer]
+    contains: Managed by Ansible \(restic\)
+  register: restic_job_units
+
+- name: Gather the units of jobs no longer declared
+  ansible.builtin.set_fact:
+    restic_job_undeclared: >-
+      {{ restic_job_units.files | map(attribute='path')
+         | reject('in', restic_jobs.keys() | map('regex_replace', '^', '/etc/systemd/system/restic-')
+                        | product(['.service', '.timer']) | map('join') | list)
+         | list }}
+
+- name: Stop the timers of jobs no longer declared
+  ansible.builtin.systemd_service:
+    name: "{{ item | basename }}"
+    state: stopped
+    enabled: false
+  loop: "{{ restic_job_undeclared | select('search', '\\.timer$') | list }}"
+
+- name: Remove the units of jobs no longer declared
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ restic_job_undeclared }}"
+  register: restic_job_removed
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: restic_job_services is changed or restic_job_timers is changed or restic_job_removed is changed
+
+- name: Job timers running
+  ansible.builtin.systemd_service:
+    name: restic-{{ item }}.timer
+    enabled: true
+    state: started
+  loop: "{{ restic_jobs.keys() | list }}"
+  register: restic_job_started
+  # In check mode a new unit is not written, so systemd cannot find it.
+  failed_when:
+    - restic_job_started.failed | default(false)
+    - not (ansible_check_mode and 'Could not find the requested service' in restic_job_started.msg | default(''))
+
+# Only once the timers run: until then the crontab still makes the backups.
+- name: No crontab lines for the retired scripts
+  ansible.builtin.lineinfile:
+    path: "{{ restic_root_crontab }}"
+    regexp: '^[^#].*\s{{ item | regex_escape }}(\s|$)'
+    state: absent
+  loop: "{{ restic_retired_scripts }}"
+
+- name: No retired scripts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ restic_retired_scripts }}"

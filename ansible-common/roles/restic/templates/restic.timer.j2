@@ -1,0 +1,11 @@
+# Managed by Ansible (restic).
+[Unit]
+Description=Start restic-{{ item.key }}.service on schedule
+
+[Timer]
+OnCalendar={{ item.value.on_calendar }}
+# A run missed while the host was down starts once it is up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

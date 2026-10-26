@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Managed by Ansible (restic). Backs up a CephFS mount with restic, from a
+# snapshot of it:
+#
+#   restic-cephfs [RESTIC_BACKUP_OPTION...] -- MOUNTPOINT
+#   restic-cephfs --cleanup -- MOUNTPOINT
+#
+# The snapshot, MOUNTPOINT/.snap/restic, is bound read-only over MOUNTPOINT in
+# a private mount namespace, so restic backs up one consistent tree under the
+# mount's own path. Each run removes the snapshot an interrupted run left
+# before taking its own, and --cleanup only removes it.
+set -euo pipefail
+
+usage() {
+  echo "usage: $0 [--cleanup | RESTIC_BACKUP_OPTION...] -- MOUNTPOINT" >&2
+  exit 2
+}
+
+# Every mount from here on is this process's alone, and goes with it.
+if [ "${RESTIC_CEPHFS_UNSHARED:-}" != 1 ]; then
+  export RESTIC_CEPHFS_UNSHARED=1
+  exec unshare --mount --propagation private -- "$0" "$@"
+fi
+
+cleanup_only=false
+options=()
+while [ $# -gt 0 ] && [ "$1" != -- ]; do
+  if [ "$1" = --cleanup ]; then cleanup_only=true; else options+=("$1"); fi
+  shift
+done
+[ $# -eq 2 ] || usage
+mountpoint=$2
+
+case "$(findmnt --noheadings --first-only --mountpoint "$mountpoint" --output FSTYPE)" in
+  ceph | fuse.ceph-fuse) ;;
+  *)
+    echo "$0: $mountpoint is not a CephFS mount" >&2
+    exit 1
+    ;;
+esac
+
+exec 9>/run/lock/restic-cephfs.lock
+if ! flock --nonblock 9; then
+  echo "$0: another run holds /run/lock/restic-cephfs.lock" >&2
+  exit 1
+fi
+
+snapshot=$mountpoint/.snap/restic
+bound=false
+
+remove_snapshot() {
+  if $bound; then
+    umount "$mountpoint"
+    bound=false
+  fi
+  [ -d "$snapshot" ] || return 0
+  # A snapshot only just released can refuse removal for a moment.
+  for _ in 1 2 3 4 5; do
+    rmdir "$snapshot" 2>/dev/null && return 0
+    sleep 2
+  done
+  rmdir "$snapshot"
+}
+
+remove_snapshot
+if $cleanup_only; then
+  exit 0
+fi
+
+finish() {
+  local status=$?
+  remove_snapshot || status=1
+  exit "$status"
+}
+trap finish EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+mkdir "$snapshot"
+mount --bind "$snapshot" "$mountpoint"
+bound=true
+mount -o remount,bind,ro "$mountpoint"
+
+restic backup "${options[@]}" -- "$mountpoint"

@@ -106,7 +106,39 @@ swap_files:
     priority: 10
     discard: true
 
-# mnt-restic.service mounts the repository without a login environment, so
-# restic finds its cache under /root/.cache through HOME.
-restic_env_extra:
-  HOME: /root
+# Backups: the btrfs subvolumes @ and @ssd, from snapshots, with /boot and
+# /boot/efi beside them; and the Ceph RGW's buckets, through mnt-rgw.service's
+# rclone mount.
+restic_jobs:
+  snapshot:
+    on_calendar: "*-*-* 05:35"
+    paths: [/, /boot, /boot/efi, /mnt/ssd]
+  # FIXME: rclone's rgw remote authenticates as RGW user regulad, which owns
+  # synapse-media but cannot read its objects, owned by synapse with ACLs
+  # granting only itself, so every run fails on 403s. Revisit once a backup
+  # user can read them.
+  rgw:
+    on_calendar: "Sat *-*-* 04:30"
+    path: /mnt/rgw
+    mount_service: mnt-rgw.service
+    tag: rgw
+  # The repository's only forget, for every host's snapshots.
+  forget:
+    on_calendar: "Thu *-*-* 12:30"
+    policies:
+      # Each host's own backups, untagged: as the guests' weekly vzdump job to
+      # CephFS keeps its (tofu/gonkputer/backup.tf's prune_backups).
+      - tag: ""
+        keep: {weekly: 2}
+      # prodingus's CephFS and urbackup image, and the RGW: the latest only.
+      - tag: cephfs
+        keep: {last: 1}
+      - tag: urbackup
+        keep: {last: 1}
+      - tag: rgw
+        keep: {last: 1}
+      # nas, prodingus's one-off archive of 2026-05-09, is never forgotten.
+restic_retired_scripts:
+  - /root/backup.sh
+  - /root/forget.sh
+  - /root/backup_rgw.sh

@@ -11,12 +11,46 @@ restic_region: ""
 restic_password: ""
 restic_repository: s3:s3.{{ restic_region }}.backblazeb2.com/{{ restic_bucket }}
 
-# The oldest restic release series accepted: Ubuntu 24.04's.
+# The oldest restic release series accepted: Ubuntu 24.04's. The rbd job needs
+# restic_rbd_minimum_version, for backup --stdin-from-command.
 restic_minimum_version: "0.16"
+restic_rbd_minimum_version: "0.17"
 
 # A systemd environment file (EnvironmentFile=), without export: shell scripts
 # read it with `set -a; . /etc/restic-env; set +a`.
 restic_env_file: /etc/restic-env
 restic_password_file: /etc/restic-password
-# Further variables for the environment file, by name.
+# The cache, named in the environment file because systemd gives root's
+# services no HOME.
+restic_cache_dir: /root/.cache/restic
+# Further variables for the environment file, by name. Never RESTIC_HOST: from
+# restic 0.18.1, forget considers only that host's snapshots.
 restic_env_extra: {}
+
+# The host's backup and retention jobs, each restic-<job>.service, from its
+# own template, started by restic-<job>.timer. Every job sets on_calendar, the
+# timer's OnCalendar=. The jobs, and what each sets besides:
+#   simple: paths, backed up as they are; options, further restic backup
+#     options.
+#   snapshot: paths, mount points with / among them, each btrfs one read from
+#     a read-only snapshot of its subvolume (/usr/local/bin/restic-snapshot);
+#     options.
+#   cephfs: path, a CephFS mount, read from a snapshot of it
+#     (/usr/local/bin/restic-cephfs); tag.
+#   rbd: image (pool/image), streamed from a snapshot of it and saved as
+#     filename (/usr/local/bin/restic-rbd); tag.
+#   rgw: path, the rclone mount of the Ceph RGW that mount_service makes; tag.
+#   forget: policies, each a tag ("" for untagged snapshots) and keep, restic's
+#     --keep-<period> options by period, then a prune. A snapshot with a tag no
+#     policy names is never forgotten.
+restic_jobs: {}
+# How long a restic command waits for another's repository lock: longer than
+# a prune takes.
+restic_retry_lock: 1h
+# How long a job runs before systemd stops it, so that a hung job cannot hold
+# its repository lock, and with it every prune, forever.
+restic_job_timeout: 1d
+
+# Root crontab scripts the jobs replace: their crontab lines, then the scripts.
+restic_retired_scripts: []
+restic_root_crontab: /var/spool/cron/crontabs/root

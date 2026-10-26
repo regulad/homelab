@@ -57,8 +57,9 @@
   roles:
     - swap
 
-# Access to the restic repository, on hosts with a key of their own.
-- name: Restic repository access
+# Access to the restic repository, and the host's backup jobs, on hosts with a
+# key of their own.
+- name: Restic repository access and backups
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true

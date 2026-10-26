@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Managed by Ansible (restic). Backs up an RBD image with restic, from a
+# snapshot of it:
+#
+#   restic-rbd [RESTIC_BACKUP_OPTION...] -- POOL/IMAGE FILENAME
+#   restic-rbd --cleanup -- POOL/IMAGE FILENAME
+#
+# restic runs rbd export of the snapshot, POOL/IMAGE@restic, itself and saves
+# its output as FILENAME, so an export that fails cancels the backup instead of
+# saving a truncated image. Each run removes the snapshot an interrupted run
+# left before taking its own, and --cleanup only removes it.
+set -euo pipefail
+
+usage() {
+  echo "usage: $0 [--cleanup | RESTIC_BACKUP_OPTION...] -- POOL/IMAGE FILENAME" >&2
+  exit 2
+}
+
+cleanup_only=false
+options=()
+while [ $# -gt 0 ] && [ "$1" != -- ]; do
+  if [ "$1" = --cleanup ]; then cleanup_only=true; else options+=("$1"); fi
+  shift
+done
+[ $# -eq 3 ] || usage
+image=$2
+filename=$3
+
+exec 9>/run/lock/restic-rbd.lock
+if ! flock --nonblock 9; then
+  echo "$0: another run holds /run/lock/restic-rbd.lock" >&2
+  exit 1
+fi
+
+snapshot=$image@restic
+
+remove_snapshot() {
+  if rbd info "$snapshot" >/dev/null 2>&1; then
+    rbd snap rm --no-progress "$snapshot"
+  fi
+}
+
+remove_snapshot
+if $cleanup_only; then
+  exit 0
+fi
+
+finish() {
+  local status=$?
+  remove_snapshot || status=1
+  exit "$status"
+}
+trap finish EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+rbd snap create --no-progress "$snapshot"
+
+restic backup --stdin-from-command --stdin-filename "$filename" "${options[@]}" \
+  -- rbd export --no-progress "$snapshot" -
