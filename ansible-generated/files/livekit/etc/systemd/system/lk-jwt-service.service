@@ -1,0 +1,30 @@
+[Unit]
+Description=LiveKit JWT Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lk-jwt-service
+Group=lk-jwt-service
+
+Environment="LIVEKIT_URL=wss://livekit.regulad.xyz"
+Environment="LIVEKIT_KEY_FROM_FILE=/etc/lk-jwt-service/key"
+Environment="LIVEKIT_SECRET_FROM_FILE=/etc/lk-jwt-service/secret"
+Environment="LIVEKIT_JWT_BIND=localhost:8080"
+Environment="LIVEKIT_FULL_ACCESS_HOMESERVERS=matrix.regulad.xyz"
+
+ExecStart=/usr/bin/lk-jwt-service
+
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/lk-jwt-service
+
+[Install]
+WantedBy=multi-user.target

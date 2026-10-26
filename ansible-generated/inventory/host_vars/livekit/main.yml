@@ -1,0 +1,90 @@
+---
+# LiveKit's SFU and TURN server for MatrixRTC (Element Call) at
+# livekit.regulad.xyz, behind nginx with a Let's Encrypt certificate kept by
+# certbot's nginx plugin, and lk-jwt-service, which issues LiveKit tokens to
+# matrix.regulad.xyz's users. Both read LiveKit's one API key pair, in
+# secrets.sops.yml.
+
+# What the NSG admits besides SSH: nginx's HTTP and HTTPS, LiveKit's ICE over
+# TCP (7881), TURN over TLS (5349) and UDP (3478), the TURN relay range and the
+# media range.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client, http, https]
+    ports: [7881/tcp, 5349/tcp, 3478/udp, 30000-40000/udp, 50000-60000/udp]
+    forward: true
+
+# nginx proxies to LiveKit and lk-jwt-service on localhost.
+host_files_selinux_booleans:
+  httpd_can_network_connect: true
+
+host_files_users: [livekit, lk-jwt-service]
+# nginx, and what certbot's virtual environment was built with.
+host_files_packages: [nginx, python3-devel, gcc, augeas, augeas-libs, python3-augeas]
+host_files_directories:
+  - {path: /etc/livekit, owner: livekit, group: livekit, mode: "0750"}
+  - {path: /var/log/livekit, owner: livekit, group: livekit, mode: "0755"}
+  - {path: /etc/systemd/system/livekit.service.d, mode: "0755"}
+  - {path: /etc/lk-jwt-service, owner: lk-jwt-service, group: lk-jwt-service, mode: "0750"}
+host_files_list:
+  - path: /etc/livekit/config.yaml
+    template: true
+    secret: true
+    owner: livekit
+    group: livekit
+    mode: "0640"
+    restarts: [livekit]
+  - path: /etc/systemd/system/livekit.service
+    mode: "0644"
+    restarts: [livekit]
+  # Runs LiveKit as root, which reads the Let's Encrypt key for TURN over TLS.
+  - path: /etc/systemd/system/livekit.service.d/override.conf
+    mode: "0644"
+    restarts: [livekit]
+  - path: /etc/lk-jwt-service/key
+    content: "{{ livekit_api_key }}"
+    secret: true
+    owner: lk-jwt-service
+    group: lk-jwt-service
+    mode: "0600"
+    restarts: [lk-jwt-service]
+  - path: /etc/lk-jwt-service/secret
+    content: "{{ livekit_api_secret }}"
+    secret: true
+    owner: lk-jwt-service
+    group: lk-jwt-service
+    mode: "0600"
+    restarts: [lk-jwt-service]
+  - path: /etc/systemd/system/lk-jwt-service.service
+    mode: "0644"
+    restarts: [lk-jwt-service]
+  # The package's, with certbot's TLS server and redirect.
+  - path: /etc/nginx/nginx.conf
+    mode: "0644"
+    validate: /usr/sbin/nginx -t -c %s
+    reloads: [nginx]
+  # The package's, with certbot's twice-daily renewal.
+  - path: /etc/crontab
+    mode: "0644"
+host_files_downloads:
+  - path: /usr/bin/lk-jwt-service
+    url: https://github.com/element-hq/lk-jwt-service/releases/download/v0.4.0/lk-jwt-service_linux_arm64
+    checksum: sha256:d98f6ceb9b493a8be7f9c39a5c254fec9e2f62bcd8ff98552584514d10669596
+    mode: "0755"
+    restarts: [lk-jwt-service]
+# Owned by regulad, as LiveKit's install script left it.
+host_files_archives:
+  - url: https://github.com/livekit/livekit/releases/download/v1.9.9/livekit_1.9.9_linux_arm64.tar.gz
+    checksum: sha256:02bb2c858f51281eee75b6404622d28272aac228fdd5eff3cdb2635a8cef4ee6
+    dest: /usr/local/bin
+    files: [livekit-server]
+    owner: regulad
+    group: regulad
+    mode: "0755"
+    restarts: [livekit]
+host_files_venvs:
+  - path: /opt/certbot
+    packages: [certbot==4.2.0, certbot-nginx==4.2.0]
+host_files_links:
+  - {path: /usr/bin/certbot, target: /opt/certbot/bin/certbot}
+host_files_units: [nginx, livekit, lk-jwt-service]

@@ -789,3 +789,10 @@ findings that would help a future session. Append new entries at the end.
 
 - The 100 `socat-ipv6-forward@` units, forwarding TCP 35500–35599 from the instance's IPv6 addresses to a tailnet address, were superseded; they were stopped and disabled by hand, and their unit file and the `socat` package removed. `allow-peering-fwd` stays: packets from `ens3` meet it first, and without it the `public` zone's forwarding (`oifname "ens3"` only, as `tailscale0` is in no zone) would reject connections the VCN starts toward the homelab and the tailnet.
 - socat exits non-zero on SIGTERM, so the stopped units stayed listed as failed until `systemctl reset-failed`.
+
+## livekit: its services described (2026-10-26)
+
+- livekit-server 1.9.9 is the `livekit-server` in GitHub's `livekit_1.9.9_linux_arm64.tar.gz`, byte for byte, owned by regulad as LiveKit's install script left it; lk-jwt-service is the bare `lk-jwt-service_linux_arm64` asset of element-hq's v0.4.0 (GitHub's asset digest matched). `host_files` now extracts archives from a cache in `/var/cache/host_files`; `unarchive` compares content, owner, mode and mtime, so an unchanged binary is not extracted again and LiveKit is not restarted.
+- LiveKit's `config.yaml` holds one API key pair, the same key and secret lk-jwt-service reads from `/etc/lk-jwt-service/key` and `secret` (no trailing newline); it is in SOPS once as `livekit_api_key` and `livekit_api_secret`.
+- certbot 4.2.0 with certbot-nginx runs from the virtual environment `/opt/certbot` (system Python 3.9), built after `dnf install python3 python3-devel gcc augeas augeas-libs python3-augeas`; it renews from a line in the crontabs package's `/etc/crontab`, and certbot edited `nginx.conf` for TLS and the redirect.
+- `httpd_can_network_connect` is set persistently (`semanage boolean -l -C` lists it), for nginx's proxying to localhost.

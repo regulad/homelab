@@ -1,0 +1,32 @@
+port: 7880
+bind_addresses:
+  - 127.0.0.1
+log_level: info
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+
+# API key/secret pairs for JWT authentication
+keys:
+  {{ livekit_api_key }}: {{ livekit_api_secret }}
+
+# Optional: Enable prometheus metrics
+# prometheus_port: 6789
+
+# Optional: Redis for multi-node deployments
+# redis:
+#   address: localhost:6379
+
+# Optional: TURN server (for better connectivity)
+turn:
+  enabled: true
+  domain: livekit.regulad.xyz
+  tls_port: 5349
+  udp_port: 3478
+  cert_file: /etc/letsencrypt/live/livekit.regulad.xyz/fullchain.pem
+  key_file: /etc/letsencrypt/live/livekit.regulad.xyz/privkey.pem
+  relay_range_start: 30000
+  relay_range_end: 40000
