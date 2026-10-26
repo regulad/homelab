@@ -67,7 +67,8 @@ ALL_USERS = 1
 READ, FULL_CONTROL = 1, 15
 
 
-def signed_request(module, method, path, query="", body=b"", headers=None):
+def signed_request(module, method, path, query="", body=b"", headers=None,
+                   content_type="application/octet-stream"):
     """Send one S3 request, signed with Signature Version 4; return its status and body."""
     p = module.params
     url = p["endpoint"].rstrip("/") + urllib.parse.quote(path) + (f"?{query}" if query else "")
@@ -76,6 +77,10 @@ def signed_request(module, method, path, query="", body=b"", headers=None):
     date = amz_date[:8]
     payload_hash = hashlib.sha256(body).hexdigest()
     signed = {"host": parts.netloc, "x-amz-content-sha256": payload_hash, "x-amz-date": amz_date}
+    # urllib gives a request with a body a Content-Type of its own, which RGW
+    # rejects unless it is signed, so every such request signs one.
+    if method in ("PUT", "POST"):
+        signed["content-type"] = content_type
     signed.update({k.lower(): v for k, v in (headers or {}).items()})
     names = sorted(signed)
     canonical_query = "&".join(
@@ -194,7 +199,8 @@ def main():
         if not module.check_mode:
             if p["policy"]:
                 status, body = signed_request(module, "PUT", path, "policy",
-                                              body=json.dumps(p["policy"], indent=2).encode())
+                                              body=json.dumps(p["policy"], indent=2).encode(),
+                                              content_type="application/json")
                 expect(module, "setting the policy", status, body, (200, 204))
             else:
                 status, body = signed_request(module, "DELETE", path, "policy")
