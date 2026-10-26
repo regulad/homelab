@@ -52,6 +52,13 @@ repos:
         files: ^tofu/(gonkputer|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-backblaze
+        name: tofu validate (backblaze)
+        language: unsupported
+        entry: tofu -chdir=tofu/backblaze validate -no-color
+        files: ^tofu/(backblaze|shared)/
+        pass_filenames: false
+
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
       # resolves the config file per module directory. Recursing from tofu/ keeps the
       # ignored docs/snapshot/ drafts out of the lint.

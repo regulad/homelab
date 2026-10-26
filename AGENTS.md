@@ -48,7 +48,7 @@ homelab/
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
-│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer)
+│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze)
 │   │   └── <child>/             # child modules split by network or concern
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
@@ -205,4 +205,5 @@ The rules above apply, with these additions.
 - **Backups:** restic jobs are systemd services and timers from the `restic` role (`restic_jobs`), never cron. Hosts with btrfs back up from read-only snapshots; prodingus, on ext4, backs up its live root. aboriginal's `restic-forget` is the repository's only forget and prune, with a policy per tag; a tag no policy names, such as `nas`, is never forgotten.
 - **gonkputer firewall bypass:** VMs 100 and 101 deliberately bypass the firewall (`firewall = false` on their NICs).
 - **gonkputer state** lives in the same `homelab-tofu-state` bucket under the key `gonkputer/terraform.tfstate`, with the same backend credentials and its own encryption passphrase. No state from the draft carried over; all 86 resources were imported afresh, and the import blocks removed after the adoption apply.
+- **backblaze state** lives in the same bucket under `backblaze/terraform.tfstate`, with its own passphrase. The root holds the whole B2 account: its buckets and application keys. The provider authenticates with the account's master application key, from `tofu/backblaze/provider.sops.env`, which never leaves the operator's machine.
 - **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.
