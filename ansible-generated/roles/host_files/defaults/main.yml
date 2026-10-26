@@ -4,10 +4,11 @@
 # owner and group (default root), and either src, relative to host_files_dir
 # (default: the same path), or content; template: true renders src (default:
 # the path plus .j2) instead, with this host's variables and every host's
-# hostvars, and the reverse_zone and ip_network filters. Content from secrets.sops.yml sets
-# secret: true, which keeps it out of logs and diffs. restarts lists the units
-# restarted when the file changes, reloads those reloaded instead, and
-# validate, a command run on the new file (%s) before it replaces the old one.
+# hostvars, and the reverse_zone and ip_network filters. Content or a template
+# using secrets.sops.yml sets secret: true, which keeps it out of logs and
+# diffs. restarts lists the units restarted when the file changes, reloads
+# those reloaded instead, and validate, a command run on the new file (%s)
+# before it replaces the old one.
 host_files_directories: []
 # Packages those files or units need, from the host's own repositories, through
 # APT or, on Enterprise Linux, dnf.

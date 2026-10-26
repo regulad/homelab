@@ -43,6 +43,8 @@
   loop: "{{ host_files_list | selectattr('template', 'defined') | selectattr('template') | list }}"
   loop_control:
     label: "{{ item.path }}"
+  no_log: "{{ item.secret | default(false) }}"
+  diff: "{{ not (item.secret | default(false)) }}"
   register: host_files_templated
   notify: [Restart changed host units, Reload changed host units]
 
