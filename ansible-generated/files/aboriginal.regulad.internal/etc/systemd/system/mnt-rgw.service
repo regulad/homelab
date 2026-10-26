@@ -6,7 +6,8 @@ Wants=network-online.target
 [Service]
 Type=notify
 ExecStartPre=/bin/mkdir -p /mnt/rgw
-ExecStart=/usr/bin/rclone mount rgw: /mnt/rgw \
+ExecStart=/usr/bin/rclone mount rgw-buckets: /mnt/rgw \
+  --read-only \
   --allow-other \
   --log-systemd
 ExecStop=/bin/fusermount -u /mnt/rgw

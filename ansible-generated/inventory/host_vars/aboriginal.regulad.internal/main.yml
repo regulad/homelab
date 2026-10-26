@@ -57,7 +57,9 @@ host_files_list:
   - path: /etc/systemd/system/mnt-rgw.service
     mode: "0644"
     restarts: [mnt-rgw.service]
-  # rgw is regulad's third S3 key, from the shared rgw_keys.
+  # rgw is svc-aboriginal, from the shared rgw_keys, which reads every bucket
+  # and writes none. S3 lists a user only the buckets it owns, so rgw-buckets
+  # names them: those prodingus's bucket policies grant svc-aboriginal.
   - path: /root/.config/rclone/rclone.conf
     mode: "0600"
     content: |
@@ -66,14 +68,19 @@ host_files_list:
       no_check_bucket = false
       provider = Ceph
       endpoint = https://s3.regulad.xyz
-      access_key_id = {{ rgw_keys.regulad[2].access_key }}
-      secret_access_key = {{ rgw_keys.regulad[2].secret_key }}
+      access_key_id = {{ (rgw_keys['svc-aboriginal'] | first).access_key }}
+      secret_access_key = {{ (rgw_keys['svc-aboriginal'] | first).secret_key }}
+
+      [rgw-buckets]
+      type = combine
+      upstreams = {{ rgw_backup_buckets | zip(rgw_backup_buckets | map('regex_replace', '^', 'rgw:')) | map('join', '=') | join(' ') }}
     secret: true
     restarts: [mnt-rgw.service]
   - path: /etc/systemd/system/docker.service.d/override.conf
     mode: "0644"
   - path: /etc/systemd/system/smbd.service.d/override.conf
     mode: "0644"
+rgw_backup_buckets: [synapse-media, mastodon-media]
 host_files_units:
   - mnt-media.mount
   - mnt-nextcloud.mount
@@ -166,10 +173,6 @@ restic_jobs:
   snapshot:
     on_calendar: "*-*-* 05:35"
     paths: [/, /boot, /boot/efi, /mnt/ssd]
-  # FIXME: rclone's rgw remote authenticates as RGW user regulad, which owns
-  # synapse-media but cannot read its objects, owned by synapse with ACLs
-  # granting only itself, so every run fails on 403s. Revisit once a backup
-  # user can read them.
   rgw:
     on_calendar: "Sat *-*-* 04:30"
     path: /mnt/rgw

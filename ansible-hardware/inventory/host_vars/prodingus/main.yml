@@ -114,8 +114,11 @@ ceph_rgw_users:
     display_name: Mastodon
   - uid: appflowy
     display_name: AppFlowy
+  # aboriginal's rgw backup, which reads every bucket and writes none.
+  - uid: svc-aboriginal
+    display_name: aboriginal's rgw backup
 # Owned by regulad; each grants its application's user access through its
-# policy.
+# policy, and svc-aboriginal read access for the rgw backup.
 ceph_rgw_buckets:
   - name: synapse-media
     owner: regulad
@@ -130,6 +133,13 @@ ceph_rgw_buckets:
           Resource:
             - arn:aws:s3:::synapse-media
             - arn:aws:s3:::synapse-media/*
+        - Effect: Allow
+          Principal:
+            AWS: arn:aws:iam:::user/svc-aboriginal
+          Action: [s3:GetObject, s3:ListBucket, s3:GetBucketLocation]
+          Resource:
+            - arn:aws:s3:::synapse-media
+            - arn:aws:s3:::synapse-media/*
   - name: mastodon-media
     owner: regulad
     acl: public-read
@@ -140,6 +150,13 @@ ceph_rgw_buckets:
           Principal:
             AWS: arn:aws:iam:::user/mastodon
           Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket, s3:GetBucketLocation]
+          Resource:
+            - arn:aws:s3:::mastodon-media
+            - arn:aws:s3:::mastodon-media/*
+        - Effect: Allow
+          Principal:
+            AWS: arn:aws:iam:::user/svc-aboriginal
+          Action: [s3:GetObject, s3:ListBucket, s3:GetBucketLocation]
           Resource:
             - arn:aws:s3:::mastodon-media
             - arn:aws:s3:::mastodon-media/*
