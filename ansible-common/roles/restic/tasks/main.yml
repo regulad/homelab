@@ -3,14 +3,11 @@
 # password, and the environment its backups and mounts read; then the host's
 # backup and retention jobs. Runs on hardware hosts (Phase 2) and generated
 # hosts (Phase 4) that have a key in tofu/backblaze.
-- name: Read the repository and the hosts' keys from tofu/backblaze
-  ansible.builtin.set_fact:
-    restic_b2: "{{ lookup('cloud.terraform.tf_output', 'restic', project_path=restic_tofu_root, binary_path=restic_tofu_binary) }}"
-  run_once: true
-  no_log: true
+- name: Repository and keys
+  ansible.builtin.include_tasks: outputs.yml
 
 - name: Restic
-  when: inventory_hostname_short in restic_b2['keys']
+  when: inventory_hostname in restic_key_hosts
   vars:
     restic_key: "{{ restic_b2['keys'][inventory_hostname_short] }}"
   block:

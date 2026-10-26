@@ -1,0 +1,49 @@
+---
+# Remove every repository key but the shared password's, from either stage's
+# maintenance.yml (--tags restic-password-prune), once both stages' site.yml
+# have delivered that password. It checks this stage's hosts first and stops
+# if any lacks it; the other stage's hosts are the operator's to have run.
+- name: Repository and keys
+  ansible.builtin.include_tasks: outputs.yml
+
+- name: Remove the other keys once every host here has the shared password
+  any_errors_fatal: true
+  block:
+    - name: Read each host's password file
+      ansible.builtin.stat:
+        path: "{{ restic_password_file }}"
+        checksum_algorithm: sha256
+      register: restic_password_stat
+      when: inventory_hostname in restic_key_hosts
+
+    - name: Check each host has the shared password
+      ansible.builtin.assert:
+        that: restic_password_stat.stat.checksum | default('') == (restic_password ~ '\n') | hash('sha256')
+        fail_msg: "{{ restic_password_file }} is not restic_password: deliver it with this stage's site.yml first."
+        quiet: true
+      when: inventory_hostname in restic_key_hosts
+
+    - name: List the repository's keys
+      ansible.builtin.shell:
+        cmd: set -a && . {{ restic_env_file }} && set +a && exec restic --no-lock key list --json
+        executable: /bin/bash
+      register: restic_keys_listed
+      changed_when: false
+      # Read-only, so a check run shows the keys a prune would remove.
+      check_mode: false
+      run_once: true
+      delegate_to: "{{ restic_key_hosts | first }}"
+
+    # The current key is the one the shared password opened.
+    - name: Remove each key but the current one
+      ansible.builtin.shell:
+        cmd: >-
+          set -a && . {{ restic_env_file }} && set +a &&
+          exec restic --retry-lock={{ restic_retry_lock }} key remove {{ item.id }}
+        executable: /bin/bash
+      loop: "{{ restic_keys_listed.stdout | from_json | rejectattr('current') | list }}"
+      loop_control:
+        label: "{{ item.userName }}@{{ item.hostName }}, created {{ item.created }}"
+      changed_when: true
+      run_once: true
+      delegate_to: "{{ restic_key_hosts | first }}"

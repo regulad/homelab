@@ -4,8 +4,14 @@
 # output gives the repository and the keys by short hostname. The role reads
 # that output once per play, on the operator's machine, with
 # tofu/backblaze/prepare.sh sourced. A host with no key there is left alone.
-# The repository's password is shared, from ansible-common/group_vars/all.sops.yml.
+# The repository's password is shared, from ansible-common/group_vars/all.sops.yml:
+# every repository key opens the same master key, so a password per host would
+# add nothing; the hosts' own B2 keys are what limit and revoke their access.
+# maintenance.yml --tags restic-password rotates it into that file, with
+# restic_password_length random letters and digits.
 restic_tofu_root: "{{ role_path }}/../../../tofu/backblaze"
+restic_password_sops_file: "{{ role_path }}/../../group_vars/all.sops.yml"
+restic_password_length: 48
 # The lookup's binary_path is a path option, which takes a bare name as
 # relative to the working directory, so resolve tofu on PATH.
 restic_tofu_binary: "{{ lookup('ansible.builtin.pipe', 'command -v tofu') }}"

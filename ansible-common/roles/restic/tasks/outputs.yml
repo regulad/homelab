@@ -1,0 +1,16 @@
+---
+# tofu/backblaze's restic output, read once per play on the operator's
+# machine: the repository and each host's key, by short hostname.
+- name: Read the repository and the hosts' keys from tofu/backblaze
+  ansible.builtin.set_fact:
+    restic_b2: "{{ lookup('cloud.terraform.tf_output', 'restic', project_path=restic_tofu_root, binary_path=restic_tofu_binary) }}"
+  run_once: true
+  no_log: true
+
+# The short hostname is the inventory name up to its first dot.
+- name: Gather this play's hosts with a key
+  ansible.builtin.set_fact:
+    restic_key_hosts: >-
+      {{ ansible_play_hosts | zip(ansible_play_hosts | map('regex_replace', '\..*$', '') | list)
+         | selectattr('1', 'in', restic_b2['keys']) | map(attribute='0') | list }}
+  run_once: true
