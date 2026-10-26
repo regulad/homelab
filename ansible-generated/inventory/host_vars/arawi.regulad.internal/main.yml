@@ -590,6 +590,11 @@ pfsense_directories:
   - path: /root/.ssh
     mode: "0700"
 pfsense_files:
+  # Run by cron every minute; publishes each named host's IPv6 addresses, from
+  # the NDP table, as AAAA and PTR records in Unbound's local view.
+  - path: /usr/local/bin/ndp-aaaa.php
+    mode: "0700"
+    src: usr/local/bin/ndp-aaaa.php
   # Run by cron every 2 minutes; rewrites the GRE tunnel's IPv6 addresses.
   - path: /usr/local/bin/u5g-gre6-sync.php
     mode: "0700"
