@@ -1,6 +1,15 @@
 ---
 # Place each host's own files and keep its native units running. Runs on
 # generated Linux hosts (Phase 4).
+# The system users the host's services run as, ahead of the files they own.
+- name: Host system users
+  ansible.builtin.user:
+    name: "{{ item }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+  loop: "{{ host_files_users }}"
+
 - name: Host directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -73,6 +82,54 @@
   register: host_files_downloaded
   notify: [Restart changed host units, Reload changed host units]
 
+# The cache keeps each archive, so that its files are extracted again only when
+# they differ from it.
+- name: Host archive cache
+  ansible.builtin.file:
+    path: /var/cache/host_files
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: host_files_archives | length > 0
+  register: host_files_archive_cache
+
+- name: Host archives
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: /var/cache/host_files/{{ item.url | basename }}
+    checksum: "{{ item.checksum }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ host_files_archives }}"
+  loop_control:
+    label: "{{ item.url | basename }}"
+  register: host_files_archives_fetched
+  # A check run cannot fetch into a cache it has not created.
+  when: not (ansible_check_mode and host_files_archive_cache is changed)
+
+- name: Host archives' files
+  ansible.builtin.unarchive:
+    src: /var/cache/host_files/{{ item.url | basename }}
+    remote_src: true
+    dest: "{{ item.dest }}"
+    include: "{{ item.files }}"
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ host_files_archives }}"
+  loop_control:
+    label: "{{ item.url | basename }}"
+    index_var: host_files_archive_index
+  register: host_files_extracted
+  notify: [Restart changed host units, Reload changed host units]
+  # A check run cannot extract an archive it has not fetched.
+  when: >-
+    not (ansible_check_mode
+         and (host_files_archive_cache is changed
+              or host_files_archives_fetched.results[host_files_archive_index] is changed))
+
 # After the files, which can include an apt source or a dnf repository a
 # package comes from.
 - name: Host packages (APT)
@@ -101,6 +158,26 @@
     state: present
     global: true
   loop: "{{ host_files_pipx }}"
+
+# Python applications in a virtual environment of their own, with every
+# package pinned, after the packages that build them.
+- name: Host virtual environments
+  ansible.builtin.pip:
+    name: "{{ item.packages }}"
+    virtualenv: "{{ item.path }}"
+    virtualenv_command: python3 -m venv
+  loop: "{{ host_files_venvs }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Host SELinux booleans
+  ansible.posix.seboolean:
+    name: "{{ item.key }}"
+    state: "{{ item.value }}"
+    persistent: true
+  loop: "{{ host_files_selinux_booleans | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
 
 - name: Host units running
   ansible.builtin.systemd_service:

@@ -10,6 +10,9 @@
 # those reloaded instead, and validate, a command run on the new file (%s)
 # before it replaces the old one.
 host_files_directories: []
+# System users the host's services run as, by name: no login shell and no home
+# directory created.
+host_files_users: []
 # Packages those files or units need, from the host's own repositories, through
 # APT or, on Enterprise Linux, dnf.
 host_files_packages: []
@@ -22,6 +25,16 @@ host_files_links: []
 host_files_downloads: []
 # pipx applications, as pinned specifiers such as vpn-slice==0.16.1.
 host_files_pipx: []
+# Release archives fetched over HTTPS and kept in /var/cache/host_files, each
+# with its url, its checksum (sha256:<hex>), the files extracted from it into
+# dest (a directory), a mode, optionally an owner and group (default root), and
+# restarts or reloads as for files.
+host_files_archives: []
+# Virtual environments, each a path and its packages as pinned specifiers,
+# created with python3 -m venv.
+host_files_venvs: []
+# SELinux booleans set persistently, each a name mapped to true or false.
+host_files_selinux_booleans: {}
 host_files_list: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 # Files several hosts share, for an item's shared_src (relative to this
