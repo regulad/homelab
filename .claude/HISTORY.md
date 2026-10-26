@@ -737,3 +737,8 @@ findings that would help a future session. Append new entries at the end.
 - A record's TTL is the shorter of its NDP entry's remaining lifetime and what is left of the MAC's Kea lease; a host without a lease, or with an infinite one, keeps the NDP lifetime.
 - pfSense's syslogd writes `*.notice` and above to `system.log` (`/var/etc/syslog.d/pfSense.conf`), so the walker logs its changes at notice.
 - PTRs for GUAs are global, as A records' PTRs are; the guest view refuses only the 10.23 and ULA reverse zones, so a guest can read them.
+
+## no-gua-ipv6 catches GUA reverse names (2026-10-26)
+
+- The hook matched only colon-separated literals, so the OCI subnet's `ip6.arpa` reverse zone, written out in `dns_resolver.xml.j2`, passed it; the commits before cc2d016 still hold it. The template now derives the zone from the encrypted `/64`.
+- A reverse name's last label before `ip6.arpa` is the address's first nibble, so the hook matches eight or more nibble labels ending in `2` or `3`: a `/32` or longer under 2000::/3. ULA (`…d.f.ip6.arpa`) and tailnet reverse zones do not match.

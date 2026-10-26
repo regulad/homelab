@@ -99,9 +99,11 @@ repos:
       # The lookahead exempts publicly known addresses, each matched whole:
       # Cloudflare DNS 2606:4700:4700::1111 and ::1001, Quad9 2620:fe::fe, and
       # Google DNS 2001:4860:4860::8888 and ::8844.
+      # Reverse names match from a /32 down: in ip6.arpa the address's first
+      # nibble is the last label, 2 or 3 under 2000::/3.
       - id: no-gua-ipv6
-        name: No global unicast IPv6 literals
+        name: No global unicast IPv6 literals or reverse names
         language: pygrep
-        entry: '(?i)(?<![0-9a-f:])(?!(?:2606:4700:4700::1111|2606:4700:4700::1001|2620:fe::fe|2001:4860:4860::8888|2001:4860:4860::8844)(?![0-9a-f:]))[23][0-9a-f]{3}:[0-9a-f]{1,4}:'
+        entry: '(?i)(?<![0-9a-f:])(?!(?:2606:4700:4700::1111|2606:4700:4700::1001|2620:fe::fe|2001:4860:4860::8888|2001:4860:4860::8844)(?![0-9a-f:]))[23][0-9a-f]{3}:[0-9a-f]{1,4}:|(?:[0-9a-f]\.){7,}[23]\.ip6\.arpa'
         types: [text]
         exclude: \.sops\.
