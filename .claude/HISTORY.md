@@ -750,3 +750,7 @@ findings that would help a future session. Append new entries at the end.
 ## tailscalerouter (OCI): the XMRig miner and its ngrok tunnel removed (2026-10-26)
 
 - Installed by hand with the instance on 2025-12-08: `xmrig.service` (disabled) under the user `miner`, which needed `websocat-proxy.service` (enabled and running) tunnelling 127.0.0.1:3333 to an ngrok host. Both units, `/usr/local/bin/websocat`, `~regulad/install_miner.sh`, and the user with its home were removed by hand.
+
+## tailscale: the role becomes root everywhere but macOS (2026-10-26)
+
+- The shared baseline play runs unprivileged, because Homebrew on macOS (overture) refuses root, so the tailscale role also ran as the login user on Linux: on tailscalerouter (OCI) its package check ran dnf as regulad, leaving a non-root cache in `/var/tmp/dnf-regulad-*`. Its block now becomes root except on macOS, as `base`'s tasks each do.

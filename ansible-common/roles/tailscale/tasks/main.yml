@@ -1,9 +1,11 @@
 ---
 # Install Tailscale and converge a joined node's settings and Serve; join only
 # when tailscale_join is set and the node is not protected. Runs on hardware
-# hosts (Phase 2) and generated hosts (Phase 4).
+# hosts (Phase 2) and generated hosts (Phase 4). Its play runs unprivileged,
+# as Homebrew on macOS needs, so it becomes root everywhere else.
 - name: Tailscale
   when: tailscale_enabled
+  become: "{{ 'macos' not in group_names }}"
   block:
     - name: Check the declared tags
       ansible.builtin.assert:

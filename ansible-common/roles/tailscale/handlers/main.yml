@@ -3,3 +3,4 @@
 - name: Reload systemd for Tailscale
   ansible.builtin.systemd_service:
     daemon_reload: true
+  become: true
