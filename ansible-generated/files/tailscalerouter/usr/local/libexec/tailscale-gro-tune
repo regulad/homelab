@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+dev="${1:?usage: tailscale-gro-tune IFACE}"
+[ -e "/sys/class/net/$dev" ] || exit 0
+
+case "$dev" in
+    lo|tailscale*|docker*|veth*|virbr*) exit 0 ;;
+esac
+
+feats=$(ethtool -k "$dev" 2>/dev/null) || exit 0
+
+args=''
+printf '%s\n' "$feats" | grep -qx 'rx-udp-gro-forwarding: off' && args="$args rx-udp-gro-forwarding on"
+printf '%s\n' "$feats" | grep -qx 'rx-gro-list: on'             && args="$args rx-gro-list off"
+
+[ -n "$args" ] || exit 0
+exec ethtool -K "$dev" $args

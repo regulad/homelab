@@ -18,3 +18,53 @@ tailscale_settings:
   auto_update: true
   relay_server_port: 39127
   relay_server_static_endpoints: "{{ tailscale_relay_static_endpoints | split(',') }}"
+
+# Forwarding for the subnet routes, and TCP Fast Open off, as set by hand while
+# debugging dnsmasq.
+kernel_params_ip_forwarding: true
+kernel_params_sysctl_files:
+  90-no-tfo:
+    net.ipv4.tcp_fastopen: 0
+
+# The resolver's and the peer relay's ports, and forwarding from the VCN to the
+# homelab's and the tailnet's ranges: the allow-peering-fwd policy, a host file
+# below.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client, dns]
+    ports: [39127/udp]
+    forward: true
+
+# 100 TCP forwards from the instance's IPv6 addresses to the same ports on a
+# tailnet address, one socat-ipv6-forward@<port> each.
+tailscalerouter_socat_ports: "{{ range(35500, 35600) | list }}"
+
+host_files_packages: [dnsmasq, socat]
+host_files_list:
+  # The VCN's resolver, which the subnet's DHCP options give every instance:
+  # dnsmasq on the instance's addresses, its GUA from OpenTofu state.
+  - path: /etc/dnsmasq.conf
+    template: true
+    group: dnsmasq
+    mode: "0644"
+    restarts: [dnsmasq]
+  # The tailscale role installs Tailscale from this repository.
+  - path: /etc/yum.repos.d/tailscale.repo
+    mode: "0644"
+  - path: /etc/default/tailscaled
+    mode: "0444"
+    restarts: [tailscaled]
+  # UDP GRO forwarding on, and GRO lists off, on each interface udev adds.
+  - path: /usr/local/libexec/tailscale-gro-tune
+    mode: "0755"
+  - path: /etc/systemd/system/tailscale-gro@.service
+    mode: "0644"
+  - path: /etc/udev/rules.d/99-tailscale-gro.rules
+    mode: "0644"
+  - path: /etc/systemd/system/socat-ipv6-forward@.service
+    mode: "0644"
+    restarts: "{{ tailscalerouter_socat_ports | map('string') | map('regex_replace', '^', 'socat-ipv6-forward@') | list }}"
+  - path: /etc/firewalld/policies/allow-peering-fwd.xml
+    mode: "0644"
+    reloads: [firewalld]
+host_files_units: "{{ ['dnsmasq'] + tailscalerouter_socat_ports | map('string') | map('regex_replace', '^', 'socat-ipv6-forward@') | list }}"

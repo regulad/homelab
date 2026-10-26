@@ -1,0 +1,6 @@
+[Unit]
+Description=Tune UDP GRO forwarding on %I for Tailscale
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/tailscale-gro-tune %I

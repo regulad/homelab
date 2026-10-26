@@ -1,0 +1,12 @@
+[Unit]
+Description=IPv6 to IPv4 port forwarding for port %i
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/socat TCP6-LISTEN:%i,ipv6only=1,reuseaddr,fork TCP4:100.111.222.49:%i
+Restart=always
+SyslogIdentifier=socat-port-%i
+
+[Install]
+WantedBy=multi-user.target

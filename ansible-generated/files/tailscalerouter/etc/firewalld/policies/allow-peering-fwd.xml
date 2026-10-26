@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policy target="ACCEPT">
+  <rule family="ipv4">
+    <destination address="10.23.0.0/20"/>
+    <accept/>
+  </rule>
+  <rule family="ipv4">
+    <destination address="100.64.0.0/10"/>
+    <accept/>
+  </rule>
+  <rule family="ipv6">
+    <destination address="fd83:b84c:aa57::/48"/>
+    <accept/>
+  </rule>
+  <rule family="ipv6">
+    <destination address="fd7a:115c:a1e0::/48"/>
+    <accept/>
+  </rule>
+  <ingress-zone name="public"/>
+  <egress-zone name="ANY"/>
+</policy>

@@ -771,3 +771,9 @@ findings that would help a future session. Append new entries at the end.
 - `ansible.posix.firewalld` 2.2.2 manages zones only, with no policies or direct rules, and adds entries without removing others. `firewalld_info` reads the runtime settings, including the interfaces NetworkManager binds (`ens3`, `enp0s6`), so it cannot show what a zone holds permanently.
 - The OCI images' `/etc/firewalld/direct.xml` holds Oracle's 32 `BareMetalInstanceServices` passthroughs (iSCSI, the metadata service, DNS and NTP on 169.254.0.0/16 and `fd00:c1::`). firewalld rewrites the file in its own format (single quotes, two-space indentation) when a direct rule is added, as on bailout.
 - ansible-galaxy counts a collection bundled with Homebrew's Ansible as installed; `ansible-galaxy collection install 'ansible.posix:==2.2.2' -p collections --force` puts the pinned copy in the stage's own `collections/`.
+
+## tailscalerouter (OCI): its services described (2026-10-26)
+
+- dnsmasq (the VCN's resolver), Tailscale's yum repository and `/etc/default/tailscaled`, the UDP GRO tuning, the 100 `socat-ipv6-forward@` units and the `allow-peering-fwd` policy are host files, byte for byte; dnsmasq's GUA listen address comes from `ipv6_address` in state. The check run showed `changed=0`.
+- `/etc/default/tailscaled` is the package's file, mode 0444, with `FLAGS="--port=41641"` added. The repository is hand-written and no role manages it; the tailscale role runs before `host_files`, so on a new instance it would come too late for Tailscale's install.
+- No security list or NSG opens TCP 35500–35599: the socat ports are reachable only through the all-protocol "LAN" and "Peering" rules, from the VCN, the homelab's IPv4 and the tailnet.

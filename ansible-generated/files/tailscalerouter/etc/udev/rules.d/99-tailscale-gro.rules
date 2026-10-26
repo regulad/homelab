@@ -1,0 +1,2 @@
+ACTION=="add|move", SUBSYSTEM=="net", KERNEL!="lo", KERNEL!="tailscale*", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}+="tailscale-gro@$name.service"
