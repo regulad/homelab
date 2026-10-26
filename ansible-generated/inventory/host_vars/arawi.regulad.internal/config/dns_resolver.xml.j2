@@ -1,3 +1,10 @@
+{#- The OCI subnet's reverse zone, from its encrypted /64 prefix: each of its
+    four hextets as four nibbles, in reverse. -#}
+{%- set hex = namespace(prefix='') -%}
+{%- for hextet in arawi_ipv6_prefixes.oci_subnet.split(':') -%}
+{%- set hex.prefix = hex.prefix ~ ('%04x' | format(hextet | int(0, 16))) -%}
+{%- endfor -%}
+{%- set oci_subnet_reverse_zone = (hex.prefix | reverse | join('.')) ~ '.ip6.arpa.' -%}
 <unbound>
 	<enable></enable>
 	<dnssec></dnssec>
@@ -164,7 +171,7 @@ server:
 		<tls_hostname></tls_hostname>
 	</domainoverrides>
 	<domainoverrides>
-		<domain>0.5.e.a.6.1.0.4.0.2.0.c.3.0.6.2.ip6.arpa.</domain>
+		<domain>{{ oci_subnet_reverse_zone }}</domain>
 		<ip>10.131.80.239</ip>
 		<descr></descr>
 		<tls_hostname></tls_hostname>
@@ -182,7 +189,7 @@ server:
 		<tls_hostname></tls_hostname>
 	</domainoverrides>
 	<domainoverrides>
-		<domain>0.5.e.a.6.1.0.4.0.2.0.c.3.0.6.2.ip6.arpa.</domain>
+		<domain>{{ oci_subnet_reverse_zone }}</domain>
 		<ip>{{ arawi_ipv6_prefixes.oci_subnet }}:0:efc0:c547:1a01</ip>
 		<descr></descr>
 		<tls_hostname></tls_hostname>
