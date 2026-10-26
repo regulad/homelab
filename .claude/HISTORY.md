@@ -674,3 +674,13 @@ findings that would help a future session. Append new entries at the end.
 - `cloud.terraform.tf_output` runs `<binary> output -json <name>` in `project_path`, where the root's `secrets.auto.tfvars.json` supplies the state passphrase, so a sourced `prepare.sh` is all it needs. Its `binary_path` is a path option: a bare `tofu` resolves relative to the working directory and the lookup fails, so the role passes tofu's absolute path. ansible-core reports a failed lookup under `no_log` only as censored, and as `CapturedExceptionMarker` through `debug`.
 - The hosts' previous keys had been deleted in B2 before the new ones were delivered. aboriginal's `mnt-restic.service` keeps its old environment, and so the deleted key, until it restarts.
 - OpenTofu 1.13.2 is installed, while `tofu/oracle` and `tofu/gonkputer` still pin `= 1.13.1`; `tofu/backblaze` pins 1.13.2.
+
+## restic: the shared repository password rotates from maintenance.yml; rotated once (2026-10-25)
+
+- Every restic key file holds the same master keys, so every password opens all of the repository, and a password change re-encrypts nothing. A leaked master key survives any password change; only `restic copy` into a new repository changes it. One shared password is therefore kept; per-host B2 keys limit and revoke access.
+- restic 0.16.4 already has `key add --new-password-file`, `key list --json` (whose `current` field marks the key that opened the repository) and `key remove`, which refuses the current key.
+- `community.general.random_string` draws from `secrets.SystemRandom` unless given a seed.
+- In check mode `ansible.builtin.tempfile` creates nothing and returns no `path`, so the rotation only reports, in check mode, the host it would use. Prune's key listing runs in check mode too (`check_mode: false`), so a check run shows the keys it would remove.
+- A `run_once` task after per-host checks needs `any_errors_fatal`: a host failing its check drops out, and `run_once` moves on to the next host.
+- A prune checks only its own stage's hosts; before the real prune from ansible-generated, a check-mode prune from ansible-hardware confirmed prodingus had the new password.
+- The first rotation replaced the repository's only key, `root@gendo.home.arpa` from 2026-04-12, with `root@aboriginal`.
