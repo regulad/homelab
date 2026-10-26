@@ -20,7 +20,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `base` (shared) | Packages, admin user, time sync, and sshd hardening only where it is already policy | `generated` |
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `generated` |
 | `podman` | Installs Podman | `podman_hosts` |
-| `host_files` | Native files, templates, links, packages, pinned pipx applications and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS; files shared by several hosts from `files/shared/`; optional validation before a file is replaced, and reload instead of restart | generated hosts except `arawi` |
+| `host_files` | Native files, templates, links, packages (APT, or dnf on Enterprise Linux), pinned pipx applications and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS; files shared by several hosts from `files/shared/`; optional validation before a file is replaced, and reload instead of restart | generated hosts except `arawi` |
 | `certbot` | Let's Encrypt certificates through certbot's Cloudflare DNS-01 plugin: issues each listed certificate certbot lacks, keeps its challenge settings, and leaves renewal to `certbot.timer` | `certbot` |
 | `docker` | The distribution's Docker enabled at boot, with `daemon.json` from `docker_ula_prefix` (IPv6 on the default bridge) and `docker_daemon_settings`, rewritten only when its parsed settings differ | `docker_hosts` |
 | `wings` | Pterodactyl Wings at a pinned, checksummed release by its documented installation, on the `docker` role's Docker; never writes the panel's `config.yml`; `playbooks/maintenance.yml` upgrades it to `wings_version` | `wings` |

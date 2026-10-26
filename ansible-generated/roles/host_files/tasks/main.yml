@@ -71,13 +71,25 @@
   register: host_files_downloaded
   notify: [Restart changed host units, Reload changed host units]
 
-# After the files, which can include an apt source a package comes from.
-- name: Host packages
+# After the files, which can include an apt source or a dnf repository a
+# package comes from.
+- name: Host packages (APT)
   ansible.builtin.apt:
     name: "{{ host_files_packages }}"
     state: present
     update_cache: "{{ host_files_written is changed }}"
-  when: host_files_packages | length > 0
+  when:
+    - host_files_packages | length > 0
+    - "'rhel' not in group_names"
+
+- name: Host packages (dnf)
+  ansible.builtin.dnf:
+    name: "{{ host_files_packages }}"
+    state: present
+    update_cache: "{{ host_files_written is changed }}"
+  when:
+    - host_files_packages | length > 0
+    - "'rhel' in group_names"
 
 # Python applications no distribution package provides, through pipx's
 # global install (/opt/pipx, commands in /usr/local/bin), each pinned.

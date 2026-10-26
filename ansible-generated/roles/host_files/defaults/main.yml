@@ -9,7 +9,8 @@
 # restarted when the file changes, reloads those reloaded instead, and
 # validate, a command run on the new file (%s) before it replaces the old one.
 host_files_directories: []
-# Packages those files or units need, from the host's own repositories.
+# Packages those files or units need, from the host's own repositories, through
+# APT or, on Enterprise Linux, dnf.
 host_files_packages: []
 # Symbolic links, each with a path and its target, and optionally restarts
 # or reloads as for files.
