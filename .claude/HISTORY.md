@@ -742,3 +742,7 @@ findings that would help a future session. Append new entries at the end.
 
 - The hook matched only colon-separated literals, so the OCI subnet's `ip6.arpa` reverse zone, written out in `dns_resolver.xml.j2`, passed it; the commits before cc2d016 still hold it. The template now derives the zone from the encrypted `/64`.
 - A reverse name's last label before `ip6.arpa` is the address's first nibble, so the hook matches eight or more nibble labels ending in `2` or `3`: a `/32` or longer under 2000::/3. ULA (`…d.f.ip6.arpa`) and tailnet reverse zones do not match.
+
+## restic: the rgw job succeeds on exit status 3 (2026-10-26)
+
+- Ubuntu's rclone 1.60.1 (`1.60.1+dfsg-4ubuntu3.2`) answers every `listxattr` and `getxattr` on its FUSE mount with EIO, where 1.66 and later report none. restic ignores only ENOTSUP and ENOATTR, so it logs "incomplete metadata … xattr.list … input/output error" for every file and exits 3 with the snapshot saved. The first rgw run read 220,578 files, 22.4 GiB, in 1 h 38 min, with no other error; `SuccessExitStatus=3` makes that a success. restic 0.18.1's `backup` has no option to skip xattrs.

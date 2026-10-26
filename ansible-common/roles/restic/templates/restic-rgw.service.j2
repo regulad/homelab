@@ -11,6 +11,9 @@ Type=oneshot
 EnvironmentFile={{ restic_env_file }}
 Nice=10
 TimeoutStartSec={{ restic_job_timeout }}
+# Ubuntu's rclone 1.60 answers every xattr call on the mount with EIO, which
+# restic reports for each file, saving the snapshot with exit status 3.
+SuccessExitStatus=3
 # A stale lock, left by a run that died, blocks every other command.
 ExecStartPre=/usr/bin/restic unlock
 # A FUSE mount's inode numbers are not stable, so unchanged files are found by
