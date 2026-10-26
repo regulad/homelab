@@ -1,6 +1,9 @@
 ---
 # Collections, each pinned to an exact version when a role first needs it.
 collections:
+  # The tf_output lookup, with which the restic role reads tofu/backblaze.
+  - name: cloud.terraform
+    version: 4.0.0
   # The sops vars plugin, which decrypts *.sops.yml in host_vars and group_vars.
   - name: community.sops
     version: 2.5.0

@@ -1,15 +1,15 @@
 ---
 # The homelab's restic repository: one Backblaze B2 bucket through its S3 API.
-# Its bucket, region and password are shared, from
-# ansible-common/group_vars/all.sops.yml. Each host has its own B2 application
-# key, from its secrets.sops.yml, so a key can be rotated or revoked for one
-# host alone. A host without a key is left alone.
-restic_access_key_id: ""
-restic_secret_access_key: ""
-restic_bucket: ""
-restic_region: ""
+# tofu/backblaze declares the bucket and a key for each host, and its restic
+# output gives the repository and the keys by short hostname. The role reads
+# that output once per play, on the operator's machine, with
+# tofu/backblaze/prepare.sh sourced. A host with no key there is left alone.
+# The repository's password is shared, from ansible-common/group_vars/all.sops.yml.
+restic_tofu_root: "{{ role_path }}/../../../tofu/backblaze"
+# The lookup's binary_path is a path option, which takes a bare name as
+# relative to the working directory, so resolve tofu on PATH.
+restic_tofu_binary: "{{ lookup('ansible.builtin.pipe', 'command -v tofu') }}"
 restic_password: ""
-restic_repository: s3:s3.{{ restic_region }}.backblazeb2.com/{{ restic_bucket }}
 
 # The oldest restic release series accepted: Ubuntu 24.04's. The rbd job needs
 # restic_rbd_minimum_version, for backup --stdin-from-command.

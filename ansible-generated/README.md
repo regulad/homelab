@@ -74,6 +74,7 @@ after installing the pinned collections into the gitignored `collections/`:
 ```bash
 . tofu/oracle/prepare.sh
 . tofu/gonkputer/prepare.sh
+. tofu/backblaze/prepare.sh    # the restic role reads tofu/backblaze's output
 cd ansible-generated
 ansible-galaxy collection install -r requirements.yml -p collections
 ansible-inventory --graph

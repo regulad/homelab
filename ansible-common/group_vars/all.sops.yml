@@ -2,8 +2,6 @@ mail_relay_freeipa_password: ENC[AES256_GCM,data:uwoxstoIUinTHv0J/nV0VGQa6GmHLoq
 tailscale_api_token: ENC[AES256_GCM,data:okoOJpHZrObEkhJ6Yghwdr29UDGtcL3RTd4tiRnpQpfOt5IA1O3XZNOVouIgP9O/y7gr921XbiSfKmnS,iv:5gMjf9bJBnuUpwIqjcOTkSv7LR+gV3znticAayoqLTM=,tag:+PTHTHx+OpGRn5ITbrxgNA==,type:str]
 wifi_psks:
     WahleNet: ENC[AES256_GCM,data:BRfcloUiCAx6KgHjqMR5zyIXp2JISA==,iv:7BQSPFI+Upyil6V6N/TunlXdPubunitvIWkHE6VCnjQ=,tag:A9SqLeaNUSe/RH3RfXNLUw==,type:str]
-restic_bucket: ENC[AES256_GCM,data:P5HHmsGnTaMzQ+2AD3w=,iv:ervDK3Y5lWsc14XtVqgOE6aSUWBMM0uaPg3R6b2iVbM=,tag:wXgXs4F18TO8WZvxkQZnRQ==,type:str]
-restic_region: ENC[AES256_GCM,data:jQaj0kp1PhH5WAw=,iv:tsS8OBIzaYr1Kb0OnHVOSyzuPvjX+fKgd3Qi1mZsxBo=,tag:5c49k0tNbDmETwD6PL28WQ==,type:str]
 restic_password: ENC[AES256_GCM,data:KbtRNleJDDVPWWiaoxFca+WZ,iv:os4pPb2OLKw3VP99dyg+Irn80skaM5mte2j0xB21x0M=,tag:XwwKhkLCLoQw1Yqe+2XkZA==,type:str]
 sops:
     age:
@@ -16,7 +14,7 @@ sops:
             cGtoz53CEG19w7pT3oh40kviLNwrFTdKp84PQ40x+Yyn/vSwEBTfrA==
             -----END AGE ENCRYPTED FILE-----
           recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-10-25T23:03:53Z"
-    mac: ENC[AES256_GCM,data:TY+AXplEQq9564rf7d9e8pKEe7mMJtwFOVrAHh7TbpMPacVcUIUokXwpwkY9gcU+cZgdb4ozoRDz40v7DrvK6cEvfU9fkP1/ffu1m0wDl4wsvEvljD4c5k0QLKYNRhEcbSkaNoQfaOJLsCDkPbQE3aU69FInS6hiaG2p8eJTITw=,iv:FCAj9j7c+zsG73bX9oBLHoyo3shDYP9LQhV+hX1uLsY=,tag:1VjuIzmphhIhUwQi80NfsA==,type:str]
+    lastmodified: "2026-10-26T01:52:51Z"
+    mac: ENC[AES256_GCM,data:o+3Y7kwCb/Th+OpXdq6Qj/kij8BRPN5D5utkaPfX+oeQ8TWMXZjVx7KG4oNcuqPyp5JjV76GU2plqk9fX9/JwOvChv8QwfKoU/on5kCcOkLgZJRTgA807OihnKASrmDx6XaVUICBe522v/69IF1FSJpIbmg6CSDxYZOhIk5/4to=,iv:KuUsL9ljph3Myk+OOX9B/BbL6DwJUuuSTPX9nIyiISA=,tag:u3HIa3FB0qg1rZV+4g3oNg==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3

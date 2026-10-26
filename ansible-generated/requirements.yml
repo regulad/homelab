@@ -1,7 +1,8 @@
 ---
 # Collections, each pinned to an exact version when a role first needs it.
 collections:
-  # The terraform_state inventory plugin.
+  # The terraform_state inventory plugin, and the tf_output lookup the restic role reads
+  # tofu/backblaze with.
   - name: cloud.terraform
     version: 4.0.0
   # The proxmox_pct_remote connection plugin, for LXC containers.

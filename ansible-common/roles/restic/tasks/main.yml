@@ -2,16 +2,24 @@
 # Give a host access to the restic repository: restic itself, the repository
 # password, and the environment its backups and mounts read; then the host's
 # backup and retention jobs. Runs on hardware hosts (Phase 2) and generated
-# hosts (Phase 4) that have a key.
+# hosts (Phase 4) that have a key in tofu/backblaze.
+- name: Read the repository and the hosts' keys from tofu/backblaze
+  ansible.builtin.set_fact:
+    restic_b2: "{{ lookup('cloud.terraform.tf_output', 'restic', project_path=restic_tofu_root, binary_path=restic_tofu_binary) }}"
+  run_once: true
+  no_log: true
+
 - name: Restic
-  when: restic_access_key_id | length > 0
+  when: inventory_hostname_short in restic_b2['keys']
+  vars:
+    restic_key: "{{ restic_b2['keys'][inventory_hostname_short] }}"
   block:
     - name: Gather the environment
       ansible.builtin.set_fact:
         restic_env: >-
-          {{ {'AWS_ACCESS_KEY_ID': restic_access_key_id,
-              'AWS_SECRET_ACCESS_KEY': restic_secret_access_key,
-              'RESTIC_REPOSITORY': restic_repository,
+          {{ {'AWS_ACCESS_KEY_ID': restic_key.access_key_id,
+              'AWS_SECRET_ACCESS_KEY': restic_key.secret_access_key,
+              'RESTIC_REPOSITORY': restic_b2.repository,
               'RESTIC_PASSWORD_FILE': restic_password_file,
               'RESTIC_CACHE_DIR': restic_cache_dir}
              | combine(restic_env_extra) }}
@@ -21,14 +29,11 @@
     - name: Check the repository settings
       ansible.builtin.assert:
         that:
-          - restic_secret_access_key | length > 0
-          - restic_bucket | length > 0
-          - restic_region | length > 0
           - restic_password | length > 0
           - restic_env.values() | reject('match', '^[A-Za-z0-9/+=._:-]+$') | list | length == 0
         fail_msg: >-
-          Set restic_bucket, restic_region and restic_password in the shared SOPS file and
-          the host's key in its own; every value must be free of spaces, quotes and $.
+          Set restic_password in the shared SOPS file; every value must be free of spaces,
+          quotes and $.
         quiet: true
       no_log: true
 

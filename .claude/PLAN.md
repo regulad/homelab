@@ -10,10 +10,12 @@ out of this one: the tailnet's ACL policy and DNS in
 [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and
 workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles).
 
-Ansible runs in two phases, one on each side of OpenTofu, each in its own folder:
+Ansible runs in two phases, one on each side of OpenTofu, each in its own folder.
+The order is `tofu/backblaze`, the hardware hosts, the other OpenTofu roots, then the
+generated hosts:
 - **Hardware hosts** are the machines OpenTofu cannot create, such as the
-  Proxmox nodes. They come first, from `ansible-hardware/`, which reads only an
-  inventory written by hand.
+  Proxmox nodes. They come first, from `ansible-hardware/`, which reads an
+  inventory written by hand, and only `tofu/backblaze`'s restic output besides.
 - **Generated hosts** are the machines OpenTofu creates or adopts: Proxmox
   guests and OCI instances. They come after it, from `ansible-generated/`, which
   reads only an inventory built from OpenTofu's outputs.
@@ -26,7 +28,7 @@ Ansible runs in two phases, one on each side of OpenTofu, each in its own folder
 | 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, pre-commit (file hygiene, OpenTofu, privacy guards), and the Ansible scaffold for both stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
 | 1. Discovery | OCI done, with snapshots kept locally. Proxmox: the `gonkputer` crawl is done, including cluster and Ceph settings, and its open questions are answered (local snapshot and `SUMMARY.md`). Hardware hosts and the per-host service inventory are not started. |
 | 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons. Network switches are Ansible hosts in a `switches` group, all three adopted with no diff; the SG300s' pushes are implemented but not yet tried on a real change. |
-| 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus its snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. Backblaze B2: the whole account is adopted in `tofu/backblaze`, with its state in the same bucket. |
+| 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus its snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. Backblaze B2: the whole account is adopted in `tofu/backblaze` (3 buckets, 1 key), with its state in the same bucket; it runs before Phase 2. |
 | 4. Ansible: generated hosts | Started: `ansible-generated/` reads both roots' state through the `terraform_state` inventory plugin, as one inventory that `site.yml` runs over once: the five OCI instances, which Ansible reaches, and the requested gonkputer guests Ansible manages. Proxmox VMs are moving to cloud-init where they can, and containers will be reached through `proxmox_pct_remote`. The roles are skeletons. |
 | 5. Portability proof | Not started. |
 | 6. Drift and CI (optional) | Not started. |
@@ -142,6 +144,7 @@ key and with its own enforced encryption passphrase, before any import.
 
 #### Backblaze B2 (`tofu/backblaze`): adopted
 - **Scope:** the whole account: its buckets and application keys. The three buckets and the `Clonezilla` key are adopted, and the plan was a no-op.
+- It runs before Phase 2: the `restic` role, which both Ansible stages apply, reads the repository and each host's key from its `restic` output.
 
 #### OCI (`tofu/oracle`): done
 - **Scope:** compute instances and boot volumes, VCN networking (VCNs, subnets, gateways, route tables, security lists, DHCP options), NSGs, and Email Delivery (domain, senders, DKIM, `svc-mail` policy). Out of scope: identity-domain apps/users/groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, the DNS resolvers/views/private zones VCNs create automatically, and boot-volume backups themselves (data, not configuration).

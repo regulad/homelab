@@ -6,7 +6,7 @@ adoption changed nothing. Fixes follow as separate, reviewed changes.
 
 | Location | Configuration |
 |---|---|
-| `bucket-<name>.tf` | One file per bucket: the bucket, then the keys restricted to it |
+| `bucket-<name>.tf` | One file per bucket: the bucket, then the keys restricted to it; `regulad-restic`'s also has the `restic` output |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
@@ -16,6 +16,26 @@ write it as `_`.
 Every bucket keeps only the last version of each file: its lifecycle rule deletes a version a
 day after it is hidden or replaced. Clients that delete through the S3 API, such as restic's
 prune, only hide files; the space returns a day later.
+
+## Restic
+
+`bucket-regulad--restic.tf` declares a key for each host in `local.restic_hosts`, restricted
+to `regulad-restic` and to the capabilities of the S3 operations restic uses. The sensitive
+`restic` output gives the repository, from the account's S3 endpoint, and the keys by short
+hostname. The `restic` role, in both Ansible stages, reads it through the
+`cloud.terraform.tf_output` lookup and configures restic only on the hosts it names. So this
+root runs before the hardware stage, and a host starts or stops backing up when it is added
+to or removed from `local.restic_hosts`.
+
+To rotate a host's key, replace it, then deliver the new one:
+
+```bash
+tofu -chdir=tofu/backblaze apply -replace='b2_application_key.restic["dodo"]'
+# then the restic play of that host's stage's site.yml
+```
+
+B2 deletes the old key as the plan replaces it, so the host's jobs fail until `site.yml`
+writes the new one to `/etc/restic-env`.
 
 ## Running it
 

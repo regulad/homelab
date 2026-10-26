@@ -1,9 +1,10 @@
 # Ansible: hardware hosts
 
 Phase 2 of [`.claude/PLAN.md`](../.claude/PLAN.md): the machines OpenTofu cannot
-create, such as the Proxmox nodes. This stage runs before OpenTofu and reads
-**only** the hand-written `inventory/hardware.yml`; it never sees OpenTofu
-outputs. Generated hosts are configured from
+create, such as the Proxmox nodes. This stage runs after `tofu/backblaze` and before the
+other OpenTofu roots. Its inventory is **only** the hand-written `inventory/hardware.yml`;
+the one OpenTofu output it reads is `tofu/backblaze`'s `restic`, the restic role's
+repository and keys. Generated hosts are configured from
 [`ansible-generated/`](../ansible-generated/README.md).
 
 | Path | Contents |
@@ -39,7 +40,9 @@ host's own automatic updater (unattended-upgrades, dnf-automatic).
 Ansible reads `ansible.cfg` from the current directory, so run from this one:
 
 ```bash
+. tofu/backblaze/prepare.sh    # the restic role reads tofu/backblaze's output
 cd ansible-hardware
+ansible-galaxy collection install -r requirements.yml -p collections
 ansible-inventory --graph
 ansible-playbook playbooks/site.yml --syntax-check
 ansible-lint --offline
