@@ -1,0 +1,15 @@
+# The nas archive, the latest snapshot that mnt-restic.service mounts: the
+# overlays' lower layer, mounted when they need it.
+[Unit]
+Description=/mnt/nas: the restic nas archive, read-only
+DefaultDependencies=no
+Requires=mnt-restic.service
+After=mnt-restic.service
+Conflicts=umount.target
+Before=umount.target
+
+[Mount]
+What=/mnt/restic/snapshots/latest/mnt/nas
+Where=/mnt/nas
+Type=none
+Options=bind,ro

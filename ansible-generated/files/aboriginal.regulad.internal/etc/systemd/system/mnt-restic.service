@@ -1,0 +1,19 @@
+[Unit]
+Description=Restic FUSE mount at /mnt/restic
+Documentation=man:restic(1)
+After=local-fs.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/run/restic-mount.pid
+EnvironmentFile=/etc/restic-env
+# The helper starts restic mount, waits until the FUSE filesystem is there,
+# then exits, so the units that need the mount start only once it is.
+ExecStart=/usr/local/bin/restic-mount-helper
+# Lazy unmount; tolerates lingering processes still inside the mountpoint.
+ExecStop=/bin/fusermount -uz /mnt/restic
+# Only kill the tracked PID (restic), not the short-lived helper.
+KillMode=process
+Restart=on-failure
+RestartSec=5

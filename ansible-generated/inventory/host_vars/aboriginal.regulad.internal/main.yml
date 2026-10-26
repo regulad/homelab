@@ -28,8 +28,60 @@ kdump_sysctls_host:
   vm.panic_on_oom: 0
 
 # Firmware for its passed-through hardware: no task needs it, but devices such
-# as the GPU initialize only with it.
-host_files_packages: [linux-firmware]
+# as the GPU initialize only with it. Then the mounts' FUSE filesystems.
+host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone]
+
+# The mounts under /mnt, beside /mnt/ssd and /mnt/cephfs from fstab: the
+# restic repository, its nas archive, the two overlays of that archive under
+# CephFS, /mnt/media remapped for Nextcloud, and the Ceph RGW through rclone.
+# Mount units are not restarted on change: Docker, and so every container,
+# restarts with them; a change applies at the next mount.
+host_files_directories:
+  - path: /etc/systemd/system/docker.service.d
+    mode: "0755"
+  - path: /etc/systemd/system/smbd.service.d
+    mode: "0755"
+host_files_list:
+  - path: /usr/local/bin/restic-mount-helper
+    mode: "0755"
+  - path: /etc/systemd/system/mnt-restic.service
+    mode: "0644"
+  - path: /etc/systemd/system/mnt-nas.mount
+    mode: "0644"
+  - path: /etc/systemd/system/mnt-media.mount
+    mode: "0644"
+  - path: /etc/systemd/system/mnt-nextcloud.mount
+    mode: "0644"
+  - path: /etc/systemd/system/mnt-media_nextcloud.mount
+    mode: "0644"
+  - path: /etc/systemd/system/mnt-rgw.service
+    mode: "0644"
+    restarts: [mnt-rgw.service]
+  - path: /root/.config/rclone/rclone.conf
+    mode: "0600"
+    content: |
+      [rgw]
+      type = s3
+      no_check_bucket = false
+      provider = Ceph
+      endpoint = https://s3.regulad.xyz
+      access_key_id = {{ rclone_rgw_access_key_id }}
+      secret_access_key = {{ rclone_rgw_secret_access_key }}
+    secret: true
+    restarts: [mnt-rgw.service]
+  - path: /etc/systemd/system/docker.service.d/override.conf
+    mode: "0644"
+  - path: /etc/systemd/system/smbd.service.d/override.conf
+    mode: "0644"
+host_files_units:
+  - mnt-media.mount
+  - mnt-nextcloud.mount
+  - mnt-media_nextcloud.mount
+  - mnt-rgw.service
+
+# mnt-restic.service mounts the repository with /etc/restic-env, so it
+# restarts when that or the password changes, and the mounts above it with it.
+restic_env_units: [mnt-restic.service]
 
 # IPv4 and IPv6 forwarding, as it had by hand.
 kernel_params_ip_forwarding: true

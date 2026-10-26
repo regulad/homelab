@@ -1,0 +1,19 @@
+# The nas archive's media under CephFS's: writes land in CephFS, and files
+# only in the archive are read from it. A mount unit, so the units that need
+# it start only once fuse-overlayfs has mounted it.
+[Unit]
+Description=/mnt/media: the nas archive's media under CephFS's (fuse-overlayfs)
+DefaultDependencies=no
+Requires=mnt-nas.mount mnt-cephfs.mount
+After=mnt-nas.mount mnt-cephfs.mount
+Conflicts=umount.target
+Before=umount.target
+
+[Mount]
+What=fuse-overlayfs
+Where=/mnt/media
+Type=fuse.fuse-overlayfs
+Options=lowerdir=/mnt/nas/media,upperdir=/mnt/cephfs/application/media,workdir=/mnt/cephfs/application/.media-work,allow_other
+
+[Install]
+WantedBy=multi-user.target

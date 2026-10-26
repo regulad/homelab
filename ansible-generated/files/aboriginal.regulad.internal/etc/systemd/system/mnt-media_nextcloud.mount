@@ -1,0 +1,18 @@
+# /mnt/media as Nextcloud's www-data sees it. Bound to the overlay, so it
+# mounts only on top of it, and again whenever it does.
+[Unit]
+Description=bindfs remap of /mnt/media for Nextcloud (1000:1000 ↔ 33:33)
+DefaultDependencies=no
+BindsTo=mnt-media.mount
+After=mnt-media.mount
+Conflicts=umount.target
+Before=umount.target
+
+[Mount]
+What=/mnt/media
+Where=/mnt/media_nextcloud
+Type=fuse.bindfs
+Options=map=1000/33:@1000/@33
+
+[Install]
+WantedBy=multi-user.target
