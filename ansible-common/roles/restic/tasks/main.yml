@@ -59,6 +59,7 @@
         owner: root
         group: root
         mode: "0400"
+      notify: Restart the environment's units
       no_log: true
 
     - name: Repository environment
@@ -73,6 +74,7 @@
         owner: root
         group: root
         mode: "0400"
+      notify: Restart the environment's units
       no_log: true
 
     - name: Jobs

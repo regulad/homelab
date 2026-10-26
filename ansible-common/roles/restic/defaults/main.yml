@@ -32,6 +32,9 @@ restic_cache_dir: /root/.cache/restic
 # Further variables for the environment file, by name. Never RESTIC_HOST: from
 # restic 0.18.1, forget considers only that host's snapshots.
 restic_env_extra: {}
+# Units that read the environment or the password file, such as a restic
+# mount, restarted when either changes.
+restic_env_units: []
 
 # The host's backup and retention jobs, each restic-<job>.service, from its
 # own template, started by restic-<job>.timer. Every job sets on_calendar, the
