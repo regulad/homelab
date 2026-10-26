@@ -49,3 +49,6 @@ groups:
   generated: true
   # Every instance, for what they share: group_vars/oci.yml.
   oci: true
+  # The Enterprise Linux images ship kdump on; it stays on where its
+  # reservation fits, beyond the 1 GiB shapes.
+  kdump: freeform_tags.os == 'rhel' and shape_config[0].memory_in_gbs > 1

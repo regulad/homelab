@@ -759,3 +759,9 @@ findings that would help a future session. Append new entries at the end.
 
 - The Oracle Linux 9.6 images (livekit, mail, tailscalerouter) leave out `rsyslog-logrotate`, which ships `/etc/logrotate.d/rsyslog` on EL9, so `/var/log/messages` and `secure` grew unrotated (693 MB and 317 MB on livekit); bailout's 9.8 image has it. `base_packages` in `group_vars/rhel.yml` installs it.
 - regulad, the admin login of the OCI instances (group `oci`, from the oracle inventory source), has `https://github.com/regulad.keys` as its whole `authorized_keys`. The hand-made copies on livekit, mail and tailscalerouter matched it byte for byte, at modes 0444, 0600 and 0400, two of them with the SELinux type `user_home_t`; `setype: _default` restores `ssh_home_t`. bailout gained the user, and Ansible now logs in there as regulad rather than opc. doppelgangerhq.com, a legacy host, keeps only its image's users.
+
+## kdump: Enterprise Linux's kdump on or off (2026-10-26)
+
+- The Oracle Linux images ship kdump on, with kexec-tools owning `crashkernel=`: its kernel-install plugin `92-crashkernel.install` and its package's posttrans run `kdumpctl _reset-crashkernel-*`, which writes kexec-tools' default back into the boot entries unless `/etc/kdump.conf` says `auto_reset_crashkernel no`. New kernels take their arguments from `/etc/kernel/cmdline`, and `grub2-mkconfig` from `GRUB_CMDLINE_LINUX`; `grubby --update-kernel=ALL --remove-args=crashkernel` clears the existing entries.
+- The E2 images' `crashkernel=1G-64G:448M,64G-:512M` reserved 448 MiB of tailscalerouter's 1 GiB (MemTotal 499 MiB) and nothing on bailout (MemTotal 946 MiB), whose kdump unit therefore failed. Both now have kdump off; the memory returns at their next boot. livekit and mail (A1, 6 GB) keep kdump, with 256 MiB reserved.
+- On OCI the `kdump` group comes from state: Enterprise Linux instances with more than 1 GiB.

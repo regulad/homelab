@@ -1,0 +1,82 @@
+---
+# Kernel crash dumps through kdump-tools, on Debian and Ubuntu. A changed
+# crashkernel= reservation, or a host's first, takes effect on its next boot;
+# until then the crash kernel is not loaded.
+- name: Answer kdump-tools' questions before installing it
+  ansible.builtin.debconf:
+    name: "{{ item.package }}"
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: boolean
+  loop:
+    - { package: kdump-tools, question: kdump-tools/use_kdump, value: true }
+    # kdump-tools' GRUB snippet below reserves the memory, not kexec-tools'.
+    - { package: kexec-tools, question: kexec-tools/use_grub_config, value: false }
+  loop_control:
+    label: "{{ item.question }}"
+
+- name: Install kdump-tools
+  ansible.builtin.package:
+    name: "{{ kdump_packages }}"
+    state: present
+  register: kdump_installed
+
+- name: Crash kernel reservation
+  ansible.builtin.copy:
+    dest: /etc/default/grub.d/kdump-tools.cfg
+    content: |
+      GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT crashkernel={{ kdump_crashkernel }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Update GRUB
+
+- name: Read the memory reserved for the crash kernel
+  ansible.builtin.slurp:
+    src: /sys/kernel/kexec_crash_size
+  register: kdump_crash_size
+
+- name: Note the reservation
+  ansible.builtin.set_fact:
+    kdump_reserved: "{{ kdump_crash_size.content | b64decode | trim }}"
+
+- name: Kdump-tools settings
+  ansible.builtin.lineinfile:
+    path: /etc/default/kdump-tools
+    regexp: '^#?\s*{{ item.key }}='
+    line: "{{ item.key }}={{ item.value }}"
+  loop: "{{ kdump_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Reload the crash kernel
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and kdump_installed is changed)
+
+- name: Panic sysctls
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-panic.conf
+    content: |
+      {% for name, value in (kdump_sysctls | combine(kdump_sysctls_host)).items() %}
+      {{ name }} = {{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply the panic sysctls
+
+- name: Kdump-tools at boot
+  ansible.builtin.systemd_service:
+    name: kdump-tools
+    enabled: true
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and kdump_installed is changed)
+
+# Without reserved memory, kdump-config cannot load the crash kernel and the
+# unit fails; it starts on the boot that first reserves it.
+- name: Crash kernel loaded
+  ansible.builtin.systemd_service:
+    name: kdump-tools
+    state: started
+  when:
+    - kdump_reserved | int > 0
+    - not (ansible_check_mode and kdump_installed is changed)

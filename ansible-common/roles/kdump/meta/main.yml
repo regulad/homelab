@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: Kernel crash dumps through kdump-tools, and the sysctls that turn hangs into panics
+  description: Kernel crash dumps through kdump-tools, and the sysctls that turn hangs into panics; Enterprise Linux's kdump on or off
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []

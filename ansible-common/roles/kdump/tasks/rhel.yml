@@ -1,0 +1,71 @@
+---
+# Kernel crash dumps on Enterprise Linux, through the kdump service its images
+# ship on. On a kdump host, kexec-tools keeps each kernel's crashkernel= at its
+# own default. Elsewhere kdump is off, and from the next boot no memory is
+# reserved for it.
+- name: Kdump on
+  when: kdump_enabled
+  block:
+    - name: Install kexec-tools
+      ansible.builtin.package:
+        name: kexec-tools
+        state: present
+      register: kdump_installed
+
+    - name: Kexec-tools sets the crash kernel reservation
+      ansible.builtin.lineinfile:
+        path: /etc/kdump.conf
+        regexp: '^#?\s*auto_reset_crashkernel\s'
+        line: auto_reset_crashkernel yes
+      # A check run cannot read what an install still pending would create.
+      when: not (ansible_check_mode and kdump_installed is changed)
+
+    - name: Read the memory reserved for the crash kernel
+      ansible.builtin.slurp:
+        src: /sys/kernel/kexec_crash_size
+      register: kdump_crash_size
+
+    # Without reserved memory the unit fails; it starts on the boot that first
+    # reserves it.
+    - name: Kdump at boot, and loaded where memory is reserved
+      ansible.builtin.systemd_service:
+        name: kdump
+        enabled: true
+        state: "{{ 'started' if kdump_crash_size.content | b64decode | int > 0 else omit }}"
+      when: not (ansible_check_mode and kdump_installed is changed)
+
+- name: Kdump off
+  when: not kdump_enabled
+  block:
+    - name: Kdump neither at boot nor loaded
+      ansible.builtin.systemd_service:
+        name: kdump
+        enabled: false
+        state: stopped
+
+    # Otherwise kexec-tools writes its default back on every kernel install.
+    - name: Kexec-tools leaves crashkernel= alone
+      ansible.builtin.lineinfile:
+        path: /etc/kdump.conf
+        regexp: '^#?\s*auto_reset_crashkernel\s'
+        line: auto_reset_crashkernel no
+
+    # New kernels take their arguments from /etc/kernel/cmdline, and
+    # grub2-mkconfig from GRUB_CMDLINE_LINUX.
+    - name: No crash kernel reservation for new kernels
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: '\s+crashkernel=[^\s"]+'
+        replace: ""
+      loop: [/etc/kernel/cmdline, /etc/default/grub]
+
+    - name: Read the boot entries' arguments
+      ansible.builtin.command: grubby --info=ALL
+      register: kdump_boot_entries
+      changed_when: false
+      check_mode: false
+
+    - name: No crash kernel reservation in the boot entries
+      ansible.builtin.command: grubby --update-kernel=ALL --remove-args=crashkernel
+      when: "'crashkernel=' in kdump_boot_entries.stdout"
+      changed_when: true

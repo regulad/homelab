@@ -77,9 +77,10 @@
   roles:
     - netplan
 
-# Kernel crash dumps through kdump-tools, on the hosts in the kdump group.
+# Kernel crash dumps on the hosts in the kdump group, and kdump off on the
+# Enterprise Linux hosts outside it, whose images ship it on.
 - name: Kernel crash dumps
-  hosts: kdump
+  hosts: kdump:rhel
   gather_facts: false
   become: true
   roles:

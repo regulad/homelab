@@ -1,4 +1,11 @@
 ---
+# Whether the host takes crash dumps: those in the kdump group. Enterprise
+# Linux hosts outside it, whose images ship kdump on, have it turned off.
+kdump_enabled: "{{ 'kdump' in group_names }}"
+
+# The rest are kdump-tools', on Debian and Ubuntu. Enterprise Linux keeps its
+# image's kdump.conf, and kexec-tools' own default reservation.
+
 # Packages installed; kdump-tools brings kexec-tools and makedumpfile, and
 # crash reads the dumps.
 kdump_packages:
