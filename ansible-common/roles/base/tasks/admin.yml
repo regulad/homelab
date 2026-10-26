@@ -1,0 +1,46 @@
+---
+# The admin login: base_admin_user in base_admin_group, with sudo without a
+# password and its GitHub keys as its whole authorized_keys. Its password, if
+# it has one, stays as it is.
+- name: Admin user
+  ansible.builtin.user:
+    name: "{{ base_admin_user }}"
+    groups: ["{{ base_admin_group }}"]
+    append: true
+    shell: /bin/bash
+  become: true
+  register: base_admin
+
+- name: Admin SSH directory
+  ansible.builtin.file:
+    path: "{{ base_admin.home | default('/home/' ~ base_admin_user) }}/.ssh"
+    state: directory
+    owner: "{{ base_admin_user }}"
+    group: "{{ base_admin_user }}"
+    mode: "0700"
+    setype: _default
+  become: true
+  # A check run cannot own files by a user still to be created.
+  when: not (ansible_check_mode and base_admin is changed)
+
+- name: Admin SSH keys
+  ansible.builtin.copy:
+    dest: "{{ base_admin.home | default('/home/' ~ base_admin_user) }}/.ssh/authorized_keys"
+    content: "{{ lookup('ansible.builtin.url', base_admin_keys_url, split_lines=false) }}"
+    owner: "{{ base_admin_user }}"
+    group: "{{ base_admin_user }}"
+    mode: "0600"
+    setype: _default
+  become: true
+  when: not (ansible_check_mode and base_admin is changed)
+
+- name: Admin sudo without a password
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/90-{{ base_admin_user }}-nopasswd
+    content: |
+      {{ base_admin_user }} ALL=(ALL) NOPASSWD: ALL
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+  become: true

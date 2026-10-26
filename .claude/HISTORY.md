@@ -754,3 +754,8 @@ findings that would help a future session. Append new entries at the end.
 ## tailscale: the role becomes root everywhere but macOS (2026-10-26)
 
 - The shared baseline play runs unprivileged, because Homebrew on macOS (overture) refuses root, so the tailscale role also ran as the login user on Linux: on tailscalerouter (OCI) its package check ran dnf as regulad, leaving a non-root cache in `/var/tmp/dnf-regulad-*`. Its block now becomes root except on macOS, as `base`'s tasks each do.
+
+## base: per-OS packages and the OCI instances' admin user (2026-10-26)
+
+- The Oracle Linux 9.6 images (livekit, mail, tailscalerouter) leave out `rsyslog-logrotate`, which ships `/etc/logrotate.d/rsyslog` on EL9, so `/var/log/messages` and `secure` grew unrotated (693 MB and 317 MB on livekit); bailout's 9.8 image has it. `base_packages` in `group_vars/rhel.yml` installs it.
+- regulad, the admin login of the OCI instances (group `oci`, from the oracle inventory source), has `https://github.com/regulad.keys` as its whole `authorized_keys`. The hand-made copies on livekit, mail and tailscalerouter matched it byte for byte, at modes 0444, 0600 and 0400, two of them with the SELinux type `user_home_t`; `setype: _default` restores `ssh_home_t`. bailout gained the user, and Ansible now logs in there as regulad rather than opc. doppelgangerhq.com, a legacy host, keeps only its image's users.

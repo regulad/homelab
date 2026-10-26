@@ -1,6 +1,17 @@
 ---
 # Knobs for base, each defaulted here when its tasks land.
 
+# Packages every host of an OS group installs from its own repositories, set in
+# that group's group_vars.
+base_packages: []
+
+# The admin login on the hosts whose group_vars name it, in the OS's admin
+# group, with sudo without a password and the account's keys on GitHub as its
+# whole authorized_keys. Empty: no admin user is managed.
+base_admin_user: ""
+base_admin_group: "{{ 'wheel' if 'rhel' in group_names else 'sudo' }}"
+base_admin_keys_url: https://github.com/{{ base_admin_user }}.keys
+
 # Name the host after its inventory name, the way Ubuntu's installer does: its
 # static hostname is the first label, and /etc/hosts maps 127.0.1.1 to it. Run by
 # playbooks/maintenance.yml --tags hostname, only for hardware installs nothing

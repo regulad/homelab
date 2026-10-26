@@ -1,0 +1,5 @@
+---
+# Every OCI instance, from tofu/oracle's state.
+
+# The login every instance shares, beside its image's own (opc, ubuntu).
+base_admin_user: regulad

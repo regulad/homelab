@@ -1,4 +1,0 @@
----
-# bailout's login user. The operator's SSH configuration sets it only for the
-# short name, and Ansible connects by the VCN DNS name.
-ansible_user: opc

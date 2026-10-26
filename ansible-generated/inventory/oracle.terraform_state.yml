@@ -47,3 +47,5 @@ keyed_groups:
     leading_separator: false
 groups:
   generated: true
+  # Every instance, for what they share: group_vars/oci.yml.
+  oci: true

@@ -1,4 +1,15 @@
 ---
 # Packages, admin user, time sync, and sshd hardening only where it is already
-# the current policy. Runs on hardware hosts (Phase 2) and generated hosts (Phase 4).
-[]
+# the current policy. Runs on hardware hosts (Phase 2) and generated hosts
+# (Phase 4). Its play runs unprivileged, as Homebrew on macOS needs, so each
+# task that needs root says so.
+- name: Base packages
+  ansible.builtin.package:
+    name: "{{ base_packages }}"
+    state: present
+  become: true
+  when: base_packages | length > 0
+
+- name: Admin user
+  ansible.builtin.import_tasks: admin.yml
+  when: base_admin_user | length > 0

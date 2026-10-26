@@ -7,3 +7,6 @@ kernel_params_sysctl_files:
     vm.swappiness: 100
     fs.file-max: 2097152
     kernel.pid_max: 4194304
+
+# A legacy host: no admin login beside its image's own.
+base_admin_user: ""

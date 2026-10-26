@@ -15,3 +15,7 @@ auto_updates_dnf_automatic:
   - {section: email, key: email_to, value: "{{ auto_updates_mail_to }}"}
 
 mail_relay_family: rhel
+
+# rsyslog's log rotation, which the Oracle Linux 9.6 images leave out; without
+# it /var/log/messages and secure grow unrotated.
+base_packages: [rsyslog-logrotate]
