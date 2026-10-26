@@ -701,3 +701,13 @@ findings that would help a future session. Append new entries at the end.
 - `warmup-overlay@.service`, which copied archive-only files into CephFS when opened, had never run: it required the overlays' mount units, which did not exist at boot. It was removed, with `mnt-nas.automount`, whose `BindsTo=` would have stopped it for good whenever the mount went down, and the editor leftovers of interrupted `systemctl edit` sessions.
 - `mnt-restic.service` had kept the deleted B2 key from its start on 2026-10-22, and reads of archive-only files hung; restarted, it read in under a second. It is now in `restic_env_units`.
 - rclone 1.60.1's `rgw:` remote authenticates as RGW user `regulad`; its keys are in aboriginal's SOPS as `rclone_rgw_*`, rendered into `/root/.config/rclone/rclone.conf`.
+
+## ceph_rgw: the RADOS Gateway on prodingus adopted, describing it as found (2026-10-26)
+
+- The gateway is one instance, `ceph-radosgw@rgw.prodingus`, from `[client.rgw.prodingus]` in `/etc/pve/ceph.conf` (`beast endpoint=0.0.0.0:7480`, IPv4 only) and `rgw_dns_name` in Ceph's configuration database. There's no realm, only the default zonegroup and zone. ingress's Caddy proxies `s3.regulad.xyz` to it over `tcp4/`.
+- Both buckets are owned by `regulad`, and each grants its application's user access by bucket policy. Objects belong to their writer, `synapse` in `synapse-media`, so the owner can list them but not read them: the bucket ACL grants only `regulad`, and the policy only `synapse`.
+- `radosgw-admin` can read a bucket's ACL (`policy --bucket`) and, through `metadata get bucket.instance:<name>:<id>`, its policy (attribute `user.rgw.iam-policy`, base64), but cannot set either. The role's `rgw_bucket` module sets them through the S3 API with Signature Version 4 requests it signs itself with the Python standard library, against `http://127.0.0.1:7480` path-style, with region `default`, the zonegroup's API name; prodingus has no `boto3`.
+- `radosgw-admin` takes keys only as arguments; the `rgw_user` module never returns its output, which holds every key, and names keys in its changes without their IDs.
+- Proxmox writes `ceph.conf` with tab-indented options, which `ini_file` would rewrite; the role compares each setting through `ceph-conf --lookup` first and writes only those that differ.
+- RGW returns a user's keys sorted by access key ID; `rgw_keys` keeps that order. `regulad`'s third key is aboriginal's rclone; its first two, `mastodon`'s and `appflowy`'s have no consumer in the repository.
+- Left over from the nodes `jondingus` and `neodingus`, which left the cluster: their `client.rgw.*` cephx entities and keyrings, and a `[client.rgw.jondingus]` section in `ceph.conf`.

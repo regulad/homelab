@@ -96,3 +96,50 @@ restic_retired_scripts:
   - /root/backup_simple.sh
   - /root/backup_cephfs.sh
   - /root/backup_urbackup.sh
+
+# The Ceph RADOS Gateway behind s3.regulad.xyz, which ingress's Caddy proxies
+# to port 7480. Its users' S3 keys are rgw_keys, in the shared SOPS file.
+ceph_rgw_instances:
+  prodingus:
+    host: prodingus
+    rgw_frontends: beast endpoint=0.0.0.0:7480
+ceph_rgw_config:
+  rgw_dns_name: s3.regulad.xyz
+ceph_rgw_users:
+  - uid: regulad
+    display_name: regulad
+  - uid: synapse
+    display_name: Matrix Synapse
+  - uid: mastodon
+    display_name: Mastodon
+  - uid: appflowy
+    display_name: AppFlowy
+# Owned by regulad; each grants its application's user access through its
+# policy.
+ceph_rgw_buckets:
+  - name: synapse-media
+    owner: regulad
+    acl: private
+    policy:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Principal:
+            AWS: arn:aws:iam:::user/synapse
+          Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket]
+          Resource:
+            - arn:aws:s3:::synapse-media
+            - arn:aws:s3:::synapse-media/*
+  - name: mastodon-media
+    owner: regulad
+    acl: public-read
+    policy:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Principal:
+            AWS: arn:aws:iam:::user/mastodon
+          Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket, s3:GetBucketLocation]
+          Resource:
+            - arn:aws:s3:::mastodon-media
+            - arn:aws:s3:::mastodon-media/*

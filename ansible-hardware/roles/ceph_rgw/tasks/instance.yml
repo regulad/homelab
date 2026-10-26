@@ -1,0 +1,43 @@
+---
+# One gateway instance, ceph_rgw_instance: its settings in ceph.conf, compared
+# as Ceph reads them so that Proxmox's formatting stays, and its unit.
+- name: Read the ceph.conf settings of client.rgw.{{ ceph_rgw_instance.key }}
+  ansible.builtin.command:
+    argv: [ceph-conf, -c, "{{ ceph_rgw_conf }}", --name, "client.rgw.{{ ceph_rgw_instance.key }}", --lookup, "{{ item.key }}"]
+  loop: "{{ ceph_rgw_instance.value | dict2items }}"
+  register: ceph_rgw_settings_current
+  changed_when: false
+  # ceph-conf exits 1 for a setting the file lacks.
+  failed_when: ceph_rgw_settings_current.rc not in [0, 1]
+  check_mode: false
+
+- name: Set the differing ceph.conf settings of client.rgw.{{ ceph_rgw_instance.key }}
+  community.general.ini_file:
+    path: "{{ ceph_rgw_conf }}"
+    section: client.rgw.{{ ceph_rgw_instance.key }}
+    option: "{{ item.item.key }}"
+    value: "{{ item.item.value }}"
+    mode: "0640"
+  loop: "{{ ceph_rgw_settings_current.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when: item.stdout != item.item.value | string
+  notify: Restart the gateway
+
+- name: Find the keyring of client.rgw.{{ ceph_rgw_instance.key }}
+  ansible.builtin.stat:
+    path: /etc/pve/priv/ceph.client.rgw.{{ ceph_rgw_instance.key }}.keyring
+  register: ceph_rgw_keyring
+
+# Its keyring is the cluster's, made when the instance was; never written here.
+- name: Check there is a keyring for client.rgw.{{ ceph_rgw_instance.key }}
+  ansible.builtin.assert:
+    that: ceph_rgw_keyring.stat.exists
+    fail_msg: Create client.rgw.{{ ceph_rgw_instance.key }}'s keyring in /etc/pve/priv first.
+    quiet: true
+
+- name: Gateway running, client.rgw.{{ ceph_rgw_instance.key }}
+  ansible.builtin.systemd_service:
+    name: ceph-radosgw@rgw.{{ ceph_rgw_instance.key }}.service
+    enabled: true
+    state: started

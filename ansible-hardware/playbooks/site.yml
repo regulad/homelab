@@ -10,6 +10,14 @@
   roles:
     - proxmox_cluster
 
+# The Ceph RADOS Gateway, with its users and buckets, on the nodes that run one.
+- name: Ceph RADOS Gateway
+  hosts: proxmox_nodes
+  gather_facts: false
+  become: true
+  roles:
+    - ceph_rgw
+
 # Each Arista switch's whole running configuration, from files/<switch>/.
 - name: Arista switches
   hosts: eos

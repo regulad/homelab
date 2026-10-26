@@ -1,0 +1,24 @@
+---
+# The Ceph RADOS Gateway on a Proxmox node: its instances, users and buckets.
+# Each user's S3 keys are rgw_keys[uid], in the shared
+# ansible-common/group_vars/all.sops.yml, which their consumers in either
+# stage read too.
+
+# Instances by name: each is client.rgw.<name> in ceph_rgw_conf, with the
+# settings it holds there, and the unit ceph-radosgw@rgw.<name>, kept running
+# on its keyring in Proxmox's /etc/pve/priv.
+ceph_rgw_instances: {}
+# Options in Ceph's configuration database for every instance (client.rgw).
+ceph_rgw_config: {}
+# Users, each with uid, display_name and max_buckets (default 1000).
+ceph_rgw_users: []
+# Buckets, each with name, owner (a uid), acl (private or public-read; default
+# private) and policy (a bucket policy, or none).
+ceph_rgw_buckets: []
+
+# Proxmox's ceph.conf, which /etc/ceph/ceph.conf links to.
+ceph_rgw_conf: /etc/pve/ceph.conf
+# Where the role sends S3 requests, signed as each bucket's owner, and the
+# zonegroup's API name that signatures name.
+ceph_rgw_endpoint: http://127.0.0.1:7480
+ceph_rgw_region: default

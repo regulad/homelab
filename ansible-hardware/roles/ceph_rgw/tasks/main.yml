@@ -1,0 +1,52 @@
+---
+# The RADOS Gateway on the Proxmox nodes that run one: each instance's
+# ceph.conf settings and unit, the gateway's options in Ceph's configuration
+# database, then its users with their keys and its buckets with their ACLs and
+# policies. Runs on hardware hosts (Phase 2).
+- name: Instances
+  ansible.builtin.include_tasks: instance.yml
+  loop: "{{ ceph_rgw_instances | dict2items }}"
+  loop_control:
+    loop_var: ceph_rgw_instance
+    label: "{{ ceph_rgw_instance.key }}"
+
+- name: Read the gateway's options in Ceph's configuration database
+  ansible.builtin.command:
+    argv: [ceph, config, get, client.rgw, "{{ item.key }}"]
+  loop: "{{ ceph_rgw_config | dict2items }}"
+  register: ceph_rgw_config_current
+  changed_when: false
+  check_mode: false
+
+- name: Set the options that differ
+  ansible.builtin.command:
+    argv: [ceph, config, set, client.rgw, "{{ item.item.key }}", "{{ item.item.value }}"]
+  loop: "{{ ceph_rgw_config_current.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when: item.stdout != item.item.value | string
+  changed_when: true
+
+- name: Users and their S3 keys
+  rgw_user:
+    uid: "{{ item.uid }}"
+    display_name: "{{ item.display_name }}"
+    max_buckets: "{{ item.max_buckets | default(1000) }}"
+    keys: "{{ rgw_keys[item.uid] | default([]) }}"
+  loop: "{{ ceph_rgw_users }}"
+  loop_control:
+    label: "{{ item.uid }}"
+
+- name: Buckets, their ACLs and policies
+  rgw_bucket:
+    name: "{{ item.name }}"
+    owner: "{{ item.owner }}"
+    acl: "{{ item.acl | default('private') }}"
+    policy: "{{ item.policy | default(omit) }}"
+    endpoint: "{{ ceph_rgw_endpoint }}"
+    region: "{{ ceph_rgw_region }}"
+    access_key: "{{ (rgw_keys[item.owner] | first).access_key }}"
+    secret_key: "{{ (rgw_keys[item.owner] | first).secret_key }}"
+  loop: "{{ ceph_rgw_buckets }}"
+  loop_control:
+    label: "{{ item.name }}"

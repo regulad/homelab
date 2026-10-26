@@ -23,6 +23,7 @@ repository and keys. Generated hosts are configured from
 | `base` (shared) | Packages, admin user, time sync, and sshd hardening only where it is already policy | `hardware` |
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `hardware` |
 | `proxmox_cluster` | Proxmox and Ceph cluster settings that `bpg/proxmox` cannot manage | `proxmox_nodes` |
+| `ceph_rgw` | The Ceph RADOS Gateway: each instance's `ceph.conf` section and unit, its options in Ceph's configuration database, its users with their S3 keys from the shared `rgw_keys`, and its buckets with their canned ACLs and policies, through its own `rgw_user` and `rgw_bucket` modules (`radosgw-admin`, and S3 requests it signs itself) | `proxmox_nodes` |
 | `eos` | An Arista switch's whole running configuration, replaced in one EOS configuration session | `eos` |
 | `ciscosmb` | A Cisco SG300's running configuration, converged to the declared one and saved | `ciscosmb` |
 
