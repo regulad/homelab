@@ -26,6 +26,7 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 
 - [ ] AWS
 - [ ] GCP
+- [ ] Azure
 
 ## Additional declarative configuration of services
 
