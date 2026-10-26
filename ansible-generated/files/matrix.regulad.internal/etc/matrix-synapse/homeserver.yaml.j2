@@ -41,8 +41,8 @@ media_storage_providers:
       bucket: synapse-media
       region_name: default
       endpoint_url: https://s3.regulad.xyz
-      access_key_id: {{ synapse_secrets.s3_access_key_id | to_json }}
-      secret_access_key: {{ synapse_secrets.s3_secret_access_key | to_json }}
+      access_key_id: {{ (rgw_keys.synapse | first).access_key | to_json }}
+      secret_access_key: {{ (rgw_keys.synapse | first).secret_key | to_json }}
       # Ceph doesn't support AWS's new checksum behavior
       request_checksum_calculation: "when_required"
       response_checksum_validation: "when_required"

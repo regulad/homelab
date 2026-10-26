@@ -57,6 +57,7 @@ host_files_list:
   - path: /etc/systemd/system/mnt-rgw.service
     mode: "0644"
     restarts: [mnt-rgw.service]
+  # rgw is regulad's third S3 key, from the shared rgw_keys.
   - path: /root/.config/rclone/rclone.conf
     mode: "0600"
     content: |
@@ -65,8 +66,8 @@ host_files_list:
       no_check_bucket = false
       provider = Ceph
       endpoint = https://s3.regulad.xyz
-      access_key_id = {{ rclone_rgw_access_key_id }}
-      secret_access_key = {{ rclone_rgw_secret_access_key }}
+      access_key_id = {{ rgw_keys.regulad[2].access_key }}
+      secret_access_key = {{ rgw_keys.regulad[2].secret_key }}
     secret: true
     restarts: [mnt-rgw.service]
   - path: /etc/systemd/system/docker.service.d/override.conf
