@@ -16,6 +16,7 @@ Where this file and the plan disagree, this file wins.
 
 - **IPv6-first.** The homelab is IPv6-first: wherever a service, route or resolver has an IPv6 address, configure it, and treat IPv4 as the fallback rather than the default.
 - **DRY.** Derive values from their single source instead of restating them: compose from OpenTofu state or outputs where possible, then from another host's declared variables, and write a literal only where no source exists.
+- **No security theatre.** Add a measure only for the risk it actually reduces. Something that looks like hardening but defends nothing only causes confusion, so leave it out. The textbook case is a restic password per host: every repository key opens the same master key, so per-host passwords protect nothing that one shared password does not. What limits and revokes a host's access is its own B2 key.
 
 ## Hard rules
 
