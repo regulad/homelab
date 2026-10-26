@@ -711,3 +711,13 @@ findings that would help a future session. Append new entries at the end.
 - Proxmox writes `ceph.conf` with tab-indented options, which `ini_file` would rewrite; the role compares each setting through `ceph-conf --lookup` first and writes only those that differ.
 - RGW returns a user's keys sorted by access key ID; `rgw_keys` keeps that order. `regulad`'s third key is aboriginal's rclone; its first two, `mastodon`'s and `appflowy`'s have no consumer in the repository.
 - Left over from the nodes `jondingus` and `neodingus`, which left the cluster: their `client.rgw.*` cephx entities and keyrings, and a `[client.rgw.jondingus]` section in `ceph.conf`.
+
+## ceph_rgw: svc-aboriginal reads the buckets for the rgw backup; IPv6 listener; leftovers removed (2026-10-26)
+
+- RGW refuses a request carrying a `Content-Type` it was not asked to sign: debug level 20 logs "Signature rejected: 'content-type' supplied but not in CanonicalHeaders", and the client gets a bare `AccessDenied`. Both curl, without `-H Content-Type`, and Python's urllib add one to a request with a body. `rgw_bucket` now signs its own. Raise the level for the running process only with `ceph daemon <asok> config set debug_rgw 20`; its default is `1/5`.
+- S3's ListBuckets returns only the buckets the requester owns, so a user granted access by bucket policy sees an empty account root. aboriginal's rclone names the buckets with a `combine` remote (rclone 1.60 has it), and the rgw backup's `/mnt/rgw` keeps its two bucket directories.
+- A bucket policy statement granting `svc-aboriginal` `s3:GetObject` and `s3:ListBucket` lets it read objects whose ACL grants only their writer: RGW allows from the policy before the object ACL.
+- beast's `endpoint=[::]:7480` listens for IPv6 alone, as Ceph documents, so IPv4 keeps its own endpoint. `prodingus.regulad.internal` has no AAAA record, so ingress's Caddy still proxies over `tcp4/`; prodingus's EUI-64 ULA on VLAN 1 answers on 7480.
+- `ini_file` writes options without Proxmox's tab indentation; Proxmox re-indents `ceph.conf` whenever it writes it. The failed first apply left the frontends line changed without the handler's restart, which was done by hand.
+- jondingus's and neodingus's `client.rgw.*` cephx entities and keyrings and the `[client.rgw.jondingus]` section were removed by hand, once `ceph -s` showed prodingus's gateway as the only one.
+- `sops set` refuses an index path naming a key with a hyphen (`["rgw_keys"]["svc-aboriginal"]`: "Invalid --set value format"); setting the parent whole works.

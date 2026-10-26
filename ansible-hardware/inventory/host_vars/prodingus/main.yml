@@ -102,7 +102,8 @@ restic_retired_scripts:
 ceph_rgw_instances:
   prodingus:
     host: prodingus
-    rgw_frontends: beast endpoint=0.0.0.0:7480
+    # An IPv6 endpoint listens for IPv6 alone, so IPv4 has its own.
+    rgw_frontends: beast endpoint=[::]:7480 endpoint=0.0.0.0:7480
 ceph_rgw_config:
   rgw_dns_name: s3.regulad.xyz
 ceph_rgw_users:
