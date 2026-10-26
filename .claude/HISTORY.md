@@ -746,3 +746,7 @@ findings that would help a future session. Append new entries at the end.
 ## restic: the rgw job succeeds on exit status 3 (2026-10-26)
 
 - Ubuntu's rclone 1.60.1 (`1.60.1+dfsg-4ubuntu3.2`) answers every `listxattr` and `getxattr` on its FUSE mount with EIO, where 1.66 and later report none. restic ignores only ENOTSUP and ENOATTR, so it logs "incomplete metadata … xattr.list … input/output error" for every file and exits 3 with the snapshot saved. The first rgw run read 220,578 files, 22.4 GiB, in 1 h 38 min, with no other error; `SuccessExitStatus=3` makes that a success. restic 0.18.1's `backup` has no option to skip xattrs.
+
+## tailscalerouter (OCI): the XMRig miner and its ngrok tunnel removed (2026-10-26)
+
+- Installed by hand with the instance on 2025-12-08: `xmrig.service` (disabled) under the user `miner`, which needed `websocat-proxy.service` (enabled and running) tunnelling 127.0.0.1:3333 to an ngrok host. Both units, `/usr/local/bin/websocat`, `~regulad/install_miner.sh`, and the user with its home were removed by hand.
