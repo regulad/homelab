@@ -224,7 +224,7 @@ uptime.regulad.xyz {
 s3.regulad.xyz, *.s3.regulad.xyz {
 	import common
 
-	reverse_proxy tcp4/prodingus.regulad.internal:7480 {
+	reverse_proxy prodingus.regulad.internal:7480 {
 		lb_policy round_robin
 		health_uri /
 		health_interval 10s
