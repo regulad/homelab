@@ -21,3 +21,15 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 ## Resilience
 
 - [ ] Cross-site replication of services such as uptime and aameter
+
+## Additional cloud providers
+
+- [ ] AWS
+- [ ] GCP
+
+## Additional declarative configuration of services
+
+- [ ] nexus
+- [ ] immich
+- [ ] authentik
+- [ ] etc. (not yet thoroughly probed)
