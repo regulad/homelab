@@ -25,11 +25,11 @@ What to add once everything here is declarative is in [`NEW.md`](NEW.md).
 
 ## OCI instances (`ansible-generated/`, from `tofu/oracle`)
 
-- [ ] `bailout`
+- [x] `bailout`: WireGuard to arawi, rendered from the tunnels both hosts read
 - [ ] `doppelgangerhq.com` (legacy `web`): a special case, its network configuration (hostname and `/etc/hosts` included) furnished by Oracle at install time and left as Oracle wrote it
-- [ ] `livekit`
+- [x] `livekit`: LiveKit, lk-jwt-service, nginx and certbot
 - [ ] `mail`
-- [ ] `tailscalerouter`
+- [x] `tailscalerouter`: subnet router, peer relay and the VCN's dnsmasq resolver
 
 ## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
 
@@ -75,10 +75,10 @@ cloud-init.
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
   - [ ] Describe its own services
-- [ ] `dodo` (101)
+- [x] `dodo` (101)
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
-  - [ ] Describe its own services
+  - [x] Describe its own services
 
 ## gonkputer VMs to move into containers
 

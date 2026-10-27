@@ -811,3 +811,7 @@ findings that would help a future session. Append new entries at the end.
 
 - The off path for the 1 GiB E2 shapes is gone: every Enterprise Linux instance is in the `kdump` group and keeps its image's kdump. On bailout and tailscalerouter `crashkernel=1G-64G:448M,64G-:512M`, which `kdumpctl get-default-crashkernel` also gives, was put back in `/etc/kernel/cmdline` and, through `kdumpctl reset-crashkernel --kernel=ALL`, in every boot entry. That command goes through grubby, which also rewrites `GRUB_CMDLINE_LINUX` with the argument appended; it was moved back after `crash_kexec_post_notifiers`, where the images have it.
 - Both are 1 GiB shapes with that argument: at their last boots bailout's kernel logged `cannot allocate crashkernel (size:0x1c000000)` and reserved nothing, so its kdump unit fails, while the router's reserved 448 MB.
+
+## The stateless OCI VMs done: leftovers of their hand setup removed (2026-10-26)
+
+- bailout, livekit and tailscalerouter (OCI) are described and report `changed=0`. Removed by hand from the router: nmap, nmap-ncat, traceroute, conntrack-tools and openldap-clients (with the unused libnetfilter_cthelper, _cttimeout and _queue); from livekit, traceroute; from both, the non-root dnf caches in `/var/tmp/dnf-regulad-*` (about 1.9 GB) and the Postfix files `nullclient.sh` left (`sasl_passwd.db`, `sender_canonical` and its `.db`, `main.cf.backup`), which `mail_relay`'s `texthash:` and `static:` maps never read. regulad's home on all three holds only `.ansible`, the skeleton dotfiles and `.ssh/authorized_keys`.
