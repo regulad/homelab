@@ -1,0 +1,8 @@
+# Managed by Ansible (freeradius).
+{% for name, client in freeradius_clients.items() %}
+
+client {{ name }} {
+	{{ 'ipv6addr' if ':' in client.address else 'ipaddr' }} = {{ client.address }}
+	secret = "{{ client.secret | replace('\\', '\\\\') | replace('"', '\\"') }}"
+}
+{% endfor %}

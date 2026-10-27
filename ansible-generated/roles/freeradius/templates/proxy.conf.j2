@@ -1,0 +1,20 @@
+# Managed by Ansible (freeradius). Every request goes to one home server.
+proxy server {
+	default_fallback = no
+}
+
+home_server home {
+	type = auth+acct
+	ipaddr = {{ freeradius_home_server }}
+	port = 1812
+	secret = "{{ freeradius_home_server_secret | replace('\\', '\\\\') | replace('"', '\\"') }}"
+}
+
+home_server_pool home {
+	type = fail-over
+	home_server = home
+}
+
+realm home {
+	pool = home
+}

@@ -1,0 +1,117 @@
+---
+# Converge FreeRADIUS to the clients and mode the host declares, in a site of
+# the role's own; the package's sites are disabled. Runs on the generated hosts
+# in freeradius_servers (Phase 4).
+- name: Check the settings
+  ansible.builtin.assert:
+    that:
+      - freeradius_mode in ['ldap', 'proxy']
+      - freeradius_clients | length > 0
+      - freeradius_clients.values() | map(attribute='secret') | select | list | length == freeradius_clients | length
+      - freeradius_mode != 'ldap' or freeradius_ldap_password | length > 0
+      - freeradius_mode != 'proxy' or freeradius_home_server_secret | length > 0
+    fail_msg: Declare the clients and the mode's settings, with their secrets in SOPS.
+    quiet: true
+  no_log: true
+
+- name: Install FreeRADIUS
+  ansible.builtin.package:
+    name: [freeradius, freeradius-ldap, freeradius-utils]
+    state: present
+  register: freeradius_installed
+
+# A check run cannot read what an install still pending would create.
+- name: FreeRADIUS configuration
+  when: not (ansible_check_mode and freeradius_installed is changed)
+  block:
+    - name: Clients
+      ansible.builtin.template:
+        src: clients.conf.j2
+        dest: "{{ freeradius_dir }}/clients.conf"
+        owner: root
+        group: "{{ freeradius_group }}"
+        mode: "0640"
+      no_log: true
+      diff: false
+      notify: Restart FreeRADIUS
+
+    - name: LDAP module
+      ansible.builtin.template:
+        src: ldap.j2
+        dest: "{{ freeradius_dir }}/mods-available/ldap"
+        owner: root
+        group: "{{ freeradius_group }}"
+        mode: "0640"
+      when: freeradius_mode == 'ldap'
+      no_log: true
+      diff: false
+      notify: Restart FreeRADIUS
+
+    - name: LDAP module enabled
+      ansible.builtin.file:
+        path: "{{ freeradius_dir }}/mods-enabled/ldap"
+        src: ../mods-available/ldap
+        state: link
+      when: freeradius_mode == 'ldap'
+      notify: Restart FreeRADIUS
+
+    - name: LDAP module disabled outside ldap mode
+      ansible.builtin.file:
+        path: "{{ freeradius_dir }}/mods-enabled/ldap"
+        state: absent
+      when: freeradius_mode != 'ldap'
+      notify: Restart FreeRADIUS
+
+    - name: Home server
+      ansible.builtin.template:
+        src: proxy.conf.j2
+        dest: "{{ freeradius_dir }}/proxy.conf"
+        owner: root
+        group: "{{ freeradius_group }}"
+        mode: "0640"
+      when: freeradius_mode == 'proxy'
+      no_log: true
+      diff: false
+      notify: Restart FreeRADIUS
+
+    - name: The role's site
+      ansible.builtin.template:
+        src: site.j2
+        dest: "{{ freeradius_dir }}/sites-available/homelab"
+        owner: root
+        group: "{{ freeradius_group }}"
+        mode: "0640"
+      notify: Restart FreeRADIUS
+
+    - name: The role's site enabled
+      ansible.builtin.file:
+        path: "{{ freeradius_dir }}/sites-enabled/homelab"
+        src: ../sites-available/homelab
+        state: link
+      notify: Restart FreeRADIUS
+
+    - name: The package's sites disabled
+      ansible.builtin.file:
+        path: "{{ freeradius_dir }}/sites-enabled/{{ item }}"
+        state: absent
+      loop: [default, inner-tunnel]
+      notify: Restart FreeRADIUS
+
+    # EAP needs an Auth-Type EAP section, which only the package's sites have;
+    # the clients send plain passwords.
+    - name: EAP disabled
+      ansible.builtin.file:
+        path: "{{ freeradius_dir }}/mods-enabled/eap"
+        state: absent
+      notify: Restart FreeRADIUS
+
+    - name: Check the configuration
+      ansible.builtin.command: "{{ 'radiusd' if 'rhel' in group_names else 'freeradius' }} -C"
+      changed_when: false
+      check_mode: false
+
+    - name: FreeRADIUS service
+      ansible.builtin.systemd_service:
+        name: "{{ freeradius_service }}"
+        enabled: true
+        state: started

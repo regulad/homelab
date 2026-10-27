@@ -29,6 +29,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `avahi` | mDNS reflection between the podman bridge and the LAN | `podman_hosts` |
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |
 | `freeipa_server` | A FreeIPA server, installed once by `ipa-server-install` with its own CA, no integrated DNS and no NTP client, its passwords from SOPS | `freeipa_servers` |
+| `freeradius` | FreeRADIUS in a site of its own: `ldap` mode checks passwords by binding as each user, `proxy` mode passes every request to one home server; clients and secrets from SOPS | `freeradius_servers` |
 | `pterodactyl` | Installs the Pterodactyl panel where none exists and keeps its `.env`; `playbooks/maintenance.yml` upgrades it to `pterodactyl_version` | `pterodactyl` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),

@@ -1,0 +1,28 @@
+---
+# How the server answers: "ldap" checks each request's password by binding to
+# an LDAP directory as its user; "proxy" passes every request to
+# freeradius_home_server.
+freeradius_mode: ldap
+
+# The clients it answers, by name: each an address (a host or CIDR, IPv4 or
+# IPv6) and its shared secret.
+freeradius_clients: {}
+
+# ldap mode: the directory's URI and base DN, the account that finds users and
+# its password, and the CA that signs the directory's certificate.
+freeradius_ldap_uri: ""
+freeradius_ldap_base_dn: ""
+freeradius_ldap_identity: ""
+freeradius_ldap_password: ""
+freeradius_ldap_ca_file: ""
+
+# proxy mode: the server every request goes to, and the secret it shares with
+# this one.
+freeradius_home_server: ""
+freeradius_home_server_secret: ""
+
+# Where the distribution keeps FreeRADIUS, and what it calls its service and
+# group.
+freeradius_dir: "{{ '/etc/raddb' if 'rhel' in group_names else '/etc/freeradius/3.0' }}"
+freeradius_service: "{{ 'radiusd' if 'rhel' in group_names else 'freeradius' }}"
+freeradius_group: "{{ 'radiusd' if 'rhel' in group_names else 'freerad' }}"
