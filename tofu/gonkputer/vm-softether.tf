@@ -4,9 +4,12 @@ resource "proxmox_virtual_environment_vm" "softether" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
   depends_on = [proxmox_virtual_environment_file.vendor]
 
-  name          = "softether"
-  node_name     = "prodingus"
-  description   = "⚠️ USES EARLYOOM"
+  name        = "softether"
+  node_name   = "prodingus"
+  description = "⚠️ USES EARLYOOM"
+  # Stopped by its HA resource while the softether container, which took its
+  # MAC address, stands in for it.
+  started       = false
   bios          = "ovmf"
   boot_order    = ["virtio0"]
   machine       = "q35"
@@ -101,7 +104,7 @@ resource "proxmox_virtual_environment_vm" "softether" {
 resource "proxmox_haresource" "softether" {
   resource_id = "vm:${proxmox_virtual_environment_vm.softether.vm_id}"
   type        = "vm"
-  state       = "started"
+  state       = "stopped"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
