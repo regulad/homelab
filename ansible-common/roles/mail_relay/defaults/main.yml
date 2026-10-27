@@ -24,10 +24,11 @@ mail_relay_address: "{{ mail_relay_account }}@{{ mail_relay_domain }}"
 # host only relays its own reports, and addresses such as root@ do not exist.
 mail_relay_recipient: regulad@{{ mail_relay_domain }}
 
-# FreeIPA's API, which manages the account. The calls are delegated to the
-# FreeIPA server, the one host that resolves its name and trusts its CA, and
-# authenticate as svc-ansible (User Administrator), from group_vars/all.sops.yml.
-mail_relay_freeipa_delegate: freeipa
-mail_relay_freeipa_host: freeipa.home.arpa
+# FreeIPA's API on wako, which manages the account, as svc-ansible (User
+# Administrator) from group_vars/all.sops.yml. The calls run on
+# mail_relay_freeipa_delegate, which must resolve wako's name and trust its CA:
+# by default the host itself.
+mail_relay_freeipa_delegate: "{{ inventory_hostname }}"
+mail_relay_freeipa_host: wako.regulad.internal
 mail_relay_freeipa_user: svc-ansible
 mail_relay_freeipa_password: ""

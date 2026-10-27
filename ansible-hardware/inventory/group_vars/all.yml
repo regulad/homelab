@@ -5,3 +5,6 @@ mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
 # The updaters mail their reports from that account's address, the only sender
 # mail.regulad.xyz accepts from its login.
 auto_updates_mail_from: "{{ mail_relay_account }}@regulad.xyz"
+# FreeIPA's API calls run on prodingus, which is on the LAN with wako; turk is
+# reached over the tailnet.
+mail_relay_freeipa_delegate: prodingus
