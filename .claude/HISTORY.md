@@ -867,3 +867,14 @@ findings that would help a future session. Append new entries at the end.
 - When migration mode went off, 72 of the 81 migrated users had no Kerberos keys. Their LDAP binds still check `userPassword`; keys come with their next password change.
 - `ca_trust` had put `anchors/ipa-ca.crt` back on wako after `ipa-server-install` deleted it; FreeIPA's tooling treats that name as its own. Dropping a name from `ca_trust_trusted` never removed its anchor, hence `ca_trust_retired`.
 - A delegated task whose delegate is unreachable marks the inventory host itself unreachable and drops it from the rest of the run. From VM 113's destruction until `mail_relay` moved to wako, the hardware stage stopped converging prodingus at `mail_relay`'s FreeIPA call.
+
+## softether: VM 114 replaced by a container running SoftEther 4.44 built from source (2026-10-27)
+
+- SoftEther's 5.x Developer Edition Windows builds are unsigned, and since build 5187 Microsoft Defender quarantines them (`Wacapew.C!ml`, `KepavII!rfn`); upstream answered with exclusion instructions only. The 4.x Windows builds are signed. No distribution packages 4.x: Ubuntu's `softether-vpn` is a 2020 5.x snapshot (5.01.9674), removed from 26.10 because it no longer builds, and Fedora and EPEL have none.
+- 4.44-9807's source builds unmodified with upstream's `src/makefiles/linux_64bit.mak` on Ubuntu 24.04 (GCC 13). GCC 14 rejects its implicit declarations and GCC 15 defaults to C23; Arch adds `-fpermissive -std=gnu18`.
+- Proxmox's `ubuntu-24.04-standard_24.04-2` template carries APT lists from May 2024, so a new container's first install fails with 404s until the lists are refreshed.
+- The container took the VM's MAC and with it the VM's SLAAC addresses, but not its IPv4 lease: Kea had keyed that by the VM's DUID client ID, so the container got 10.23.1.81 in place of 10.23.1.160.
+- FreeRADIUS 3.2.8's `require_message_authenticator = auto` fixes each client's mode by its first packet after a restart, network-defined clients included, despite the comment saying otherwise. A signed `radtest` locked the stand-in's softether client to strict, and from then on it dropped softether's unsigned requests silently, logging nothing.
+- SoftEther 4.44 puts `Proxy-State` (`L2:SEVPN`) in every Access-Request, and signs its requests, and requires signed replies, only with the hub's `RadiusRequireMessageAuthenticator true`. Unsigned, its requests also fall to `limit_proxy_state`. Each failed login shows only as a 10-second timeout and "User authentication failed".
+- After a VPN Azure session connects, the Windows client can take a while to bring its routes up, though DHCP and SLAAC have already completed through the bridge.
+- A Homebrew upgrade of Python under a running `ansible-playbook` removed `jinja2` modules mid-run; the hosts it was on failed with "No module named 'jinja2.debug'" and passed on a rerun.
