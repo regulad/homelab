@@ -858,3 +858,12 @@ findings that would help a future session. Append new entries at the end.
 - FreeRADIUS 3.2.8 (both hosts): the package's `eap` module refuses to start without an `Auth-Type EAP` section, which only the package's sites have, so the role disables it with them. softether's requests are plain PAP.
 - Proxmox deletes a guest's HA resource and its HA rules with the guest, and its API cannot change an HA resource's ID in place. bpg's VM `started` defaults to true, so a VM that HA has stopped needs `started = false` or the next plan starts it again.
 - The OpenTofu API token `root@pam!homelab` expired on 2026-10-27 04:00 UTC; `pveum user token modify root@pam homelab --expire` moved it to 2026-11-26 04:00 UTC, keeping the secret.
+
+## FreeIPA: anonymous reads closed, migration mode off, wako's CA trusted (2026-10-27)
+
+- 389 Directory Server's `nsslapd-allow-anonymous-access: rootdse` refuses every anonymous search except a base search of the empty DN, `cn=schema` included, and takes effect without a restart. wako's access log since the cutover showed no consumer reading anonymously (mail, authentik, Proxmox and RADIUS all bind); the only anonymous reads were tests, the stand-in's schema generator and FreeIPA's own warm-up.
+- FreeIPA's WSGI processes read the schema anonymously over LDAPI at startup (`populate_schema_cache` in `ipaserver/wsgi.py`), so with `rootdse` httpd logs "Failed to pre-populate LDAP schema cache" once per worker at each start. It is harmless: the first authenticated request fills the cache.
+- The stand-in's `ldap-proxy-schema` read wako's schema with `ldapsearch -x`, anonymously; it now takes the subschema on standard input, read on wako as root over LDAPI, and gives a byte-identical `remote.schema`.
+- When migration mode went off, 72 of the 81 migrated users had no Kerberos keys. Their LDAP binds still check `userPassword`; keys come with their next password change.
+- `ca_trust` had put `anchors/ipa-ca.crt` back on wako after `ipa-server-install` deleted it; FreeIPA's tooling treats that name as its own. Dropping a name from `ca_trust_trusted` never removed its anchor, hence `ca_trust_retired`.
+- A delegated task whose delegate is unreachable marks the inventory host itself unreachable and drops it from the rest of the run. From VM 113's destruction until `mail_relay` moved to wako, the hardware stage stopped converging prodingus at `mail_relay`'s FreeIPA call.
