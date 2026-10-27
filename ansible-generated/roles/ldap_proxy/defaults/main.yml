@@ -11,6 +11,11 @@ ldap_proxy_certificate: ""
 ldap_proxy_key: ""
 ldap_proxy_remote_ca: ""
 
+# The inventory host serving the remote, and its LDAPI socket, where root reads
+# the remote's schema: the remote answers no anonymous reads.
+ldap_proxy_schema_host: ""
+ldap_proxy_schema_uri: ""
+
 # slapd's log level: stats logs each connection and operation, for following
 # clients while they move.
 ldap_proxy_loglevel: stats

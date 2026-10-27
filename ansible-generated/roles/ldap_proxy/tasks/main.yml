@@ -12,7 +12,9 @@
       - ldap_proxy_certificate | length > 0
       - ldap_proxy_key | length > 0
       - ldap_proxy_remote_ca | length > 0
-    fail_msg: Declare the suffixes, the remote's URI and CA, and the certificate with its key in SOPS.
+      - ldap_proxy_schema_host | length > 0
+      - ldap_proxy_schema_uri | length > 0
+    fail_msg: Declare the suffixes, the remote's URI, CA and schema source, and the certificate with its key in SOPS.
     quiet: true
   no_log: true
 
@@ -75,13 +77,37 @@
         group: root
         mode: "0755"
 
+    # On the remote itself, which answers no anonymous reads.
+    - name: Read the remote's schema
+      ansible.builtin.command:
+        argv:
+          - ldapsearch
+          - -LLL
+          - -Q
+          - -Y
+          - EXTERNAL
+          - -o
+          - ldif-wrap=no
+          - -H
+          - "{{ ldap_proxy_schema_uri }}"
+          - -b
+          - cn=schema
+          - -s
+          - base
+          - (objectClass=*)
+          - attributeTypes
+          - objectClasses
+      delegate_to: "{{ ldap_proxy_schema_host }}"
+      register: ldap_proxy_remote_schema
+      changed_when: false
+      check_mode: false
+
     - name: The remote's schema
       ansible.builtin.command:
         argv:
           - /usr/local/sbin/ldap-proxy-schema
-          - --uri={{ ldap_proxy_uri }}
-          - --cacert=/etc/ldap/tls/remote-ca.crt
           - --output=/etc/ldap/schema/remote.schema
+        stdin: "{{ ldap_proxy_remote_schema.stdout }}"
       register: ldap_proxy_schema
       changed_when: "'changed' in ldap_proxy_schema.stdout"
       notify: Restart slapd

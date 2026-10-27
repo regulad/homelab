@@ -3,9 +3,9 @@
 
 slapd's ldap backend must know every attribute and object class a filter
 names, or it searches for nothing, and rwm rewrites DNs only in attributes it
-knows hold DNs. This reads the remote's subschema, starts a throwaway slapd with
-OpenLDAP's standard schemas to learn what it already knows (built-ins
-included), and writes the rest: unknown syntaxes become Directory String,
+knows hold DNs. This reads the remote's subschema as LDIF on standard input,
+starts a throwaway slapd with OpenLDAP's standard schemas to learn what it
+already knows (built-ins included), and writes the rest: unknown syntaxes become Directory String,
 unknown matching rules are dropped, and each definition follows what it
 derives from. slaptest then checks the file, and any definition it rejects is
 left out. Prints "changed" when the output file changes.
@@ -28,11 +28,16 @@ STANDARD = ["core", "cosine", "inetorgperson", "nis"]
 DIRECTORY_STRING = "1.3.6.1.4.1.1466.115.121.1.15"
 
 
-def search(uri, base, attrs, env=None):
+def search(uri, base, attrs):
     out = subprocess.run(
         ["ldapsearch", "-LLL", "-x", "-o", "ldif-wrap=no", "-H", uri, "-b", base, "-s", "base",
          "(objectClass=*)"] + attrs,
-        check=True, capture_output=True, text=True, env=env).stdout
+        check=True, capture_output=True, text=True).stdout
+    return parse(out, attrs)
+
+
+def parse(out, attrs):
+    """The values of attrs in unwrapped LDIF, by lowercased name."""
     values = {a.lower(): [] for a in attrs}
     for line in out.splitlines():
         name, sep, value = line.partition(": ")
@@ -167,15 +172,14 @@ def slaptest(slapd_dir, schema_text):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--uri", required=True)
-    p.add_argument("--cacert", required=True)
     p.add_argument("--output", required=True)
     p.add_argument("--slapd-dir", default="/etc/ldap")
     a = p.parse_args()
     os.makedirs(WORK_DIR, exist_ok=True)
 
-    env = dict(os.environ, LDAPTLS_CACERT=a.cacert, LDAPTLS_REQCERT="demand")
-    remote = search(a.uri, "cn=schema", ["attributeTypes", "objectClasses"], env)
+    remote = parse(sys.stdin.read(), ["attributeTypes", "objectClasses"])
+    if not remote["attributetypes"]:
+        sys.exit("no attribute types in the subschema on standard input")
     local = local_schema(a.slapd_dir)
     local_ids = known(local["attributetypes"] + local["objectclasses"])
     syntaxes = {oid(s) for s in local["ldapsyntaxes"]}
