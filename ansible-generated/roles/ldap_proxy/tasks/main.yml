@@ -1,0 +1,122 @@
+---
+# Converge an OpenLDAP proxy: slapd's ldap backend with the rwm overlay,
+# passing every operation to ldap_proxy_uri with its DNs rewritten, over TLS
+# with the certificate the clients expect. Runs on the generated Debian and
+# Ubuntu hosts in ldap_proxies (Phase 4).
+- name: Check the settings
+  ansible.builtin.assert:
+    that:
+      - ldap_proxy_suffix | length > 0
+      - ldap_proxy_uri | length > 0
+      - ldap_proxy_remote_suffix | length > 0
+      - ldap_proxy_certificate | length > 0
+      - ldap_proxy_key | length > 0
+      - ldap_proxy_remote_ca | length > 0
+    fail_msg: Declare the suffixes, the remote's URI and CA, and the certificate with its key in SOPS.
+    quiet: true
+  no_log: true
+
+# Without this the package sets up a database of its own.
+- name: Install slapd without a database
+  ansible.builtin.debconf:
+    name: slapd
+    question: slapd/no_configuration
+    value: "true"
+    vtype: boolean
+
+- name: Install slapd
+  ansible.builtin.apt:
+    name: [slapd, ldap-utils]
+    state: present
+  register: ldap_proxy_installed
+
+# A check run cannot read what an install still pending would create.
+- name: Proxy configuration
+  when: not (ansible_check_mode and ldap_proxy_installed is changed)
+  block:
+    - name: TLS directory
+      ansible.builtin.file:
+        path: /etc/ldap/tls
+        state: directory
+        owner: root
+        group: openldap
+        mode: "0750"
+
+    - name: Certificate and the remote's CA
+      ansible.builtin.copy:
+        dest: /etc/ldap/tls/{{ item.name }}
+        content: "{{ item.content }}"
+        owner: root
+        group: openldap
+        mode: "0644"
+      loop:
+        - {name: proxy.crt, content: "{{ ldap_proxy_certificate }}"}
+        - {name: remote-ca.crt, content: "{{ ldap_proxy_remote_ca }}"}
+      loop_control:
+        label: "{{ item.name }}"
+      notify: Restart slapd
+
+    - name: Key
+      ansible.builtin.copy:
+        dest: /etc/ldap/tls/proxy.key
+        content: "{{ ldap_proxy_key }}"
+        owner: root
+        group: openldap
+        mode: "0640"
+      no_log: true
+      diff: false
+      notify: Restart slapd
+
+    - name: Schema generator
+      ansible.builtin.copy:
+        src: ldap-proxy-schema
+        dest: /usr/local/sbin/ldap-proxy-schema
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: The remote's schema
+      ansible.builtin.command:
+        argv:
+          - /usr/local/sbin/ldap-proxy-schema
+          - --uri={{ ldap_proxy_uri }}
+          - --cacert=/etc/ldap/tls/remote-ca.crt
+          - --output=/etc/ldap/schema/remote.schema
+      register: ldap_proxy_schema
+      changed_when: "'changed' in ldap_proxy_schema.stdout"
+      notify: Restart slapd
+
+    - name: Proxy settings
+      ansible.builtin.template:
+        src: slapd.conf.j2
+        dest: /etc/ldap/slapd.conf
+        owner: root
+        group: openldap
+        mode: "0640"
+      notify: Restart slapd
+
+    # Before any restart; slaptest cannot read Ansible's temporary copy under
+    # AppArmor, so the file itself is checked.
+    - name: Check the proxy settings
+      ansible.builtin.command: slaptest -u -f /etc/ldap/slapd.conf
+      changed_when: false
+      # In a check run the file is not written.
+      when: not ansible_check_mode
+
+    - name: Service settings
+      ansible.builtin.lineinfile:
+        path: /etc/default/slapd
+        regexp: '^#?\s*{{ item.key }}='
+        line: '{{ item.key }}="{{ item.value }}"'
+      loop:
+        - {key: SLAPD_CONF, value: /etc/ldap/slapd.conf}
+        - {key: SLAPD_SERVICES, value: "ldap:/// ldaps:/// ldapi:///"}
+      loop_control:
+        label: "{{ item.key }}"
+      notify: Restart slapd
+
+    - name: Slapd service
+      ansible.builtin.systemd_service:
+        name: slapd
+        enabled: true
+        state: started

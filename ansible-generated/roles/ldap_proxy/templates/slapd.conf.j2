@@ -1,0 +1,32 @@
+# Managed by Ansible (ldap_proxy). Every operation under {{ ldap_proxy_suffix }}
+# goes to {{ ldap_proxy_uri }} as {{ ldap_proxy_remote_suffix }}.
+include /etc/ldap/schema/core.schema
+include /etc/ldap/schema/cosine.schema
+include /etc/ldap/schema/inetorgperson.schema
+include /etc/ldap/schema/nis.schema
+include /etc/ldap/schema/remote.schema
+
+pidfile /run/slapd/slapd.pid
+argsfile /run/slapd/slapd.args
+loglevel {{ ldap_proxy_loglevel }}
+
+modulepath /usr/lib/ldap
+moduleload back_ldap
+moduleload rwm
+
+TLSCertificateFile /etc/ldap/tls/proxy.crt
+TLSCertificateKeyFile /etc/ldap/tls/proxy.key
+
+database ldap
+suffix "{{ ldap_proxy_suffix }}"
+uri "{{ ldap_proxy_uri }}"
+# No client certificate: the remote's TLS settings default to the server's own,
+# and 389 Directory Server drops a handshake whose client certificate it does
+# not trust.
+tls ldaps tls_cert="" tls_key="" tls_cacert=/etc/ldap/tls/remote-ca.crt tls_reqcert=demand
+# A client's own bind is replayed when the proxy reconnects for it.
+rebind-as-user yes
+chase-referrals no
+
+overlay rwm
+rwm-suffixmassage "{{ ldap_proxy_suffix }}" "{{ ldap_proxy_remote_suffix }}"

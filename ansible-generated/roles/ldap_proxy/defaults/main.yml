@@ -1,0 +1,16 @@
+---
+# The suffix clients see, and the directory every operation goes to, under its
+# own suffix; rwm rewrites DNs between the two in both directions.
+ldap_proxy_suffix: ""
+ldap_proxy_uri: ""
+ldap_proxy_remote_suffix: ""
+
+# The certificate the proxy presents and its key (from SOPS), and the CA that
+# signs the remote's certificate, all as PEM.
+ldap_proxy_certificate: ""
+ldap_proxy_key: ""
+ldap_proxy_remote_ca: ""
+
+# slapd's log level: stats logs each connection and operation, for following
+# clients while they move.
+ldap_proxy_loglevel: stats

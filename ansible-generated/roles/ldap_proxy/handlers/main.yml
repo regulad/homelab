@@ -1,0 +1,6 @@
+---
+- name: Restart slapd
+  ansible.builtin.systemd_service:
+    name: slapd
+    state: restarted
+  when: not (ansible_check_mode and ldap_proxy_installed is changed)
