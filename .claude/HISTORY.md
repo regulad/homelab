@@ -820,3 +820,9 @@ findings that would help a future session. Append new entries at the end.
 
 - Both were rebooted onto kernel 6.12.0-207.111.5.6 with `crashkernel=1G-64G:448M,64G-:512M`. bailout, which had logged `cannot allocate crashkernel` on .5.5, reserved 448 MB and armed kdump; the router, which had reserved 448 MB on .5.4, logged `cannot allocate crashkernel (size:0x1c000000)`, and its kdump unit failed. The same argument on the same kernel gives either outcome on these 1 GiB shapes; the cause was not established. Moving off the 1 GiB VMs ends it.
 - After the router's reboot Oracle's hook kept `/etc/hosts` on its current name (`PRESERVE_HOSTINFO=0`), and Tailscale came back with both of its primary routes.
+
+## gonkputer: container templates downloaded through OpenTofu (2026-10-27)
+
+- `templates.tf` declares cephfs's three templates as `proxmox_download_file`, each from Proxmox's template index: AlmaLinux 10 (new, for wako), and the Ubuntu 24.04 and 26.04 ones that had been downloaded by hand.
+- `download.proxmox.com` answers only over HTTP, from the operator's machine and from prodingus alike, so each resource carries the SHA-512 from the index that `pveam update` verifies against Proxmox's signature (`/var/lib/pve-manager/apl-info/download.proxmox.com` on the node). The hand-downloaded files matched it.
+- An import (`prodingus/cephfs:vztmpl/<file>`) records neither URL nor checksum, which the provider then treats as changes forcing replacement, so adopting a template deletes and downloads it once.
