@@ -23,3 +23,7 @@ freeipa_server:
   fqdn: wako.regulad.internal
   ipv4: 10.23.2.34
   domain: regulad.internal
+# mail_relay manages each host's null- account on it, through FreeIPA's API on
+# the server itself, which trusts its own CA.
+mail_relay_freeipa_host: "{{ freeipa_server.fqdn }}"
+mail_relay_freeipa_delegate: "{{ freeipa_server.fqdn }}"
