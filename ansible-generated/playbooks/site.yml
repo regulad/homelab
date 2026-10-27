@@ -82,6 +82,14 @@
   roles:
     - host_files
 
+# FreeIPA's servers, after the host files that give them their /etc/hosts.
+- name: FreeIPA servers
+  hosts: freeipa_servers
+  gather_facts: false
+  become: true
+  roles:
+    - freeipa_server
+
 # Installs the panel where none exists and keeps its .env; upgrades are
 # playbooks/maintenance.yml.
 - name: Pterodactyl panel

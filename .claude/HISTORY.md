@@ -832,3 +832,9 @@ findings that would help a future session. Append new entries at the end.
 - wako (203) is an unprivileged AlmaLinux 10 container, as Ubuntu ships no FreeIPA server. EL 10's x86-64-v3 baseline suits prodingus's Ryzen 9 5950X, and AlmaLinux 10.2 ships ipa-server 4.13.4, the old server's version.
 - Proxmox's type for it is `centos`. pve-container 6.1.14 accepts the family's releases 5 to 10 and writes NetworkManager keyfiles for 10, which dropped the network scripts.
 - The gonkputer inventory lifts only the `ansible_host` variables its `compose` names, so wako's MAC is `eth0_mac_address`, as on the VMs; arawi's static mapping reads it.
+
+## freeipa_server: FreeIPA for regulad.internal installed on wako (2026-10-27)
+
+- `ipa-server-install` runs unattended with domain `regulad.internal`, realm `REGULAD.INTERNAL`, its own CA, no DNS and `--no-ntp`, as a container cannot set the clock. All seven services run in the unprivileged container.
+- Proxmox writes `127.0.1.1 <fqdn> <name>` into a DHCP container's `/etc/hosts`, which the installer rejects, so wako has `/etc/.pve-ignore.hosts` and its own `/etc/hosts` naming 10.23.2.34, its static mapping on arawi.
+- `ipa-server-install` deletes `/etc/pki/ca-trust/source/anchors/ipa-ca.crt`, the path `ca_trust` gives the old CA, since FreeIPA manages that name itself and trusts its CA through `/etc/pki/ca-trust/source/ipa.p11-kit`. The old CA was no longer trusted on wako afterwards.

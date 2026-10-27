@@ -1,0 +1,32 @@
+---
+# Install a FreeIPA server once, with its own CA and no integrated DNS, which
+# arawi's unbound serves. Runs on the generated hosts in freeipa_servers
+# (Phase 4). In a container time comes from the Proxmox node, which the
+# container cannot set, so the server runs no NTP client.
+- name: Check the passwords are set
+  ansible.builtin.assert:
+    that:
+      - freeipa_server_ds_password | length > 0
+      - freeipa_server_admin_password | length > 0
+    fail_msg: Set both FreeIPA passwords in the host's secrets.sops.yml.
+    quiet: true
+  no_log: true
+
+- name: Install FreeIPA's server
+  ansible.builtin.dnf:
+    name: ipa-server
+    state: present
+
+- name: Set up the server
+  ansible.builtin.command:
+    argv:
+      - ipa-server-install
+      - --unattended
+      - --domain={{ freeipa_server_domain }}
+      - --realm={{ freeipa_server_realm }}
+      - --hostname={{ inventory_hostname }}
+      - --ds-password={{ freeipa_server_ds_password }}
+      - --admin-password={{ freeipa_server_admin_password }}
+      - --no-ntp
+    creates: /etc/ipa/default.conf
+  no_log: true
