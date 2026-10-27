@@ -17,12 +17,13 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] `ipa-migrate` from the old server, `--dryrun` first: users, groups, hosts, services, sudo and HBAC rules carry over, and `userPassword` must too, so LDAP binds keep their passwords; Kerberos keys are generated again in migration mode, and certificates re-issued from the new CA
   - [x] `regulad`'s uid and gid, 1000 on the old server, moved into the deployment's ID range, clear of local Linux IDs
   - [ ] The new CA in `ca_trust`, beside `ipa-ca` until the old server is gone. `ca_trust`'s anchor `anchors/ipa-ca.crt` is the path FreeIPA's own tooling manages, and `ipa-server-install` deleted it on wako, so the anchors need other names
-  - [ ] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with a certificate from wako's CA; and a RADIUS proxy for the existing clients. No Kerberos
+  - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with a certificate from wako's CA; and a RADIUS proxy for the existing clients. No Kerberos
+  - [ ] The hardware stage's `mail_relay`, which still manages null- accounts through the old server's name: delegate to a host that trusts wako's CA once `ca_trust` has it. The generated stage already uses wako
   - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud and Jellyfin on aboriginal; Synapse; Open WebUI; softether's RADIUS
-  - [ ] A new inner FreeRADIUS against wako, behind the shim's RADIUS proxy, replacing the one set up by hand on the FreeIPA VM with three clients
+  - [x] A new inner FreeRADIUS against wako, behind the shim's RADIUS proxy, replacing the one set up by hand on the FreeIPA VM with three clients
   - [ ] Backups: `ipa-backup` and restic; today there is only the weekly vzdump
   - [ ] Decide on anonymous LDAP read, open by FreeIPA's default
-  - [ ] VM 113 retired
+  - [x] VM 113 retired; its last vzdump backups stay on cephfs
 
 ## Hardware hosts (`ansible-hardware/`)
 
@@ -128,7 +129,7 @@ Services to move off their VMs into containers.
 - [x] `authentik` (109): moved to the `authentik` container (201); the VM is destroyed
 - [x] `git` (110): moved to the `git` container (200); the VM is destroyed
 - [x] `matrix` (107): moved to the `matrix` container (202); the VM is destroyed
-- [ ] `freeipa` (113): to the `wako` container, as the `regulad.internal` deployment above
+- [x] `freeipa` (113): moved to the `wako` container (203), as the `regulad.internal` deployment above; the VM is destroyed, and the `freeipa` container (204) stands in at its address
 - [ ] `softether` (114): to an unprivileged container. Its one hub is a local bridge onto VLAN 1, which needs no tun device or kernel modules
   - [ ] A bulk-transfer test through a test container first: SoftEther can turn off offloads only on its own end of the veth
   - [ ] The NIC's firewall off, as Proxmox's MAC filter would drop the bridged clients' frames
