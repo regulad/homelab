@@ -166,6 +166,38 @@
 			<custom_kea_config></custom_kea_config>
 		</staticmap>
 		<staticmap>
+			<mac>{{ hostvars[freeipa_server.fqdn].eth0_mac_address }}</mac>
+			<cid></cid>
+			<ipaddr>{{ freeipa_server.ipv4 }}</ipaddr>
+			<hostname>{{ freeipa_server.fqdn | split('.') | first }}</hostname>
+			<descr>FreeIPA</descr>
+			<earlydnsregpolicy>default</earlydnsregpolicy>
+			<arp_table_static_entry></arp_table_static_entry>
+			<filename></filename>
+			<rootpath></rootpath>
+			<defaultleasetime></defaultleasetime>
+			<maxleasetime></maxleasetime>
+			<gateway>10.23.0.1</gateway>
+			<domain></domain>
+			<domainsearchlist></domainsearchlist>
+			<ddnsdomain></ddnsdomain>
+			<ddnsdomainprimary></ddnsdomainprimary>
+			<ddnsdomainsecondary></ddnsdomainsecondary>
+			<ddnsdomainkeyname></ddnsdomainkeyname>
+			<ddnsdomainkeyalgorithm></ddnsdomainkeyalgorithm>
+			<ddnsdomainkey></ddnsdomainkey>
+			<tftp></tftp>
+			<ldap></ldap>
+			<nextserver></nextserver>
+			<filename32></filename32>
+			<filename64></filename64>
+			<filename32arm></filename32arm>
+			<filename64arm></filename64arm>
+			<uefihttpboot></uefihttpboot>
+			<numberoptions></numberoptions>
+			<custom_kea_config></custom_kea_config>
+		</staticmap>
+		<staticmap>
 			<mac>bc:24:11:c8:9b:09</mac>
 			<cid></cid>
 			<ipaddr>10.23.2.41</ipaddr>

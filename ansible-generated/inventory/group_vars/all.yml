@@ -16,3 +16,9 @@ lan_arawi:
 lan_upstream_router:
   ipv4: 10.23.0.1
   ipv6_link_local: fe80::1ef4:3fff:fe14:4bee
+
+# FreeIPA's server for regulad.internal, at the address its static mapping on
+# arawi fixes for it.
+freeipa_server:
+  fqdn: wako.regulad.internal
+  ipv4: 10.23.2.34
