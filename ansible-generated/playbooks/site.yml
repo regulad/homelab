@@ -106,6 +106,13 @@
   roles:
     - freeradius
 
+- name: SoftEther VPN servers
+  hosts: softether_servers
+  gather_facts: false
+  become: true
+  roles:
+    - softether
+
 # Installs the panel where none exists and keeps its .env; upgrades are
 # playbooks/maintenance.yml.
 - name: Pterodactyl panel

@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+[Unit]
+Description=SoftEther VPN Server
+After=network-online.target
+Wants=network-online.target
+# Without its configuration the server would write a default one, with an empty
+# administrator password, and listen on the LAN.
+ConditionPathExists={{ softether_dir }}/vpn_server.config
+
+# Without upstream's "Hardening" section, which keeps CAP_SYS_ADMIN and so can
+# be undone by the server itself; README.md says why.
+[Service]
+Type=forking
+WorkingDirectory={{ softether_dir }}
+ExecStart={{ softether_dir }}/vpnserver start
+ExecStop={{ softether_dir }}/vpnserver stop
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,122 @@
+---
+# Build SoftEther VPN Server's Stable edition from upstream's source, and run
+# it from softether_dir under systemd once its configuration is there. Runs on
+# the generated Debian and Ubuntu hosts in softether_servers (Phase 4). A hub's
+# local bridge is a packet socket in promiscuous mode on a NIC, which needs no
+# device node or kernel module.
+- name: Check the source's checksum is set
+  ansible.builtin.assert:
+    that: softether_source_sha256 | length == 64
+    fail_msg: Pin softether_source_sha256 to the source tarball's SHA-256.
+    quiet: true
+
+# ethtool, which the server runs to turn off offloads on a bridged NIC. The
+# lists are refreshed when a day old: a new container's come from its template.
+- name: Build tools, libraries and ethtool
+  ansible.builtin.apt:
+    name: [gcc, make, libc6-dev, libssl-dev, libreadline-dev, libncurses-dev, zlib1g-dev, ethtool]
+    state: present
+    update_cache: true
+    cache_valid_time: 86400
+  register: softether_packages
+
+- name: Source cache
+  ansible.builtin.file:
+    path: /var/cache/softether
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Source tarball
+  ansible.builtin.get_url:
+    url: "{{ softether_source_url }}"
+    dest: /var/cache/softether/softether-src-{{ softether_version }}.tar.gz
+    checksum: sha256:{{ softether_source_sha256 }}
+    owner: root
+    group: root
+    mode: "0644"
+  register: softether_source
+
+# A check run cannot build from what a pending install or download would bring.
+- name: Build and install
+  when: not (ansible_check_mode and (softether_packages is changed or softether_source is changed))
+  block:
+    - name: Build directory
+      ansible.builtin.file:
+        path: "{{ softether_build_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Unpack the source
+      ansible.builtin.unarchive:
+        src: /var/cache/softether/softether-src-{{ softether_version }}.tar.gz
+        dest: "{{ softether_build_dir }}"
+        remote_src: true
+        extra_opts: [--strip-components=1]
+        creates: "{{ softether_build_dir }}/src"
+
+    # The Makefile upstream's configure script would pick for 64-bit Linux.
+    - name: Makefile
+      ansible.builtin.copy:
+        src: "{{ softether_build_dir }}/src/makefiles/linux_64bit.mak"
+        dest: "{{ softether_build_dir }}/Makefile"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Build
+      ansible.builtin.command:
+        cmd: make
+        chdir: "{{ softether_build_dir }}"
+        creates: "{{ softether_build_dir }}/bin/vpnserver/vpnserver"
+
+    - name: Server directory
+      ansible.builtin.file:
+        path: "{{ softether_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    # vpncmd shares the server's hamcore.se2.
+    - name: Server, its resources and vpncmd
+      ansible.builtin.copy:
+        src: "{{ softether_build_dir }}/bin/{{ item.from }}"
+        dest: "{{ softether_dir }}/{{ item.from | basename }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - {from: vpnserver/vpnserver, mode: "0755"}
+        - {from: vpnserver/hamcore.se2, mode: "0644"}
+        - {from: vpncmd/vpncmd, mode: "0755"}
+      loop_control:
+        label: "{{ item.from }}"
+      notify: Restart SoftEther
+
+- name: Service unit
+  ansible.builtin.template:
+    src: vpnserver.service.j2
+    dest: /etc/systemd/system/vpnserver.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart SoftEther
+
+- name: Read whether the configuration is in place
+  ansible.builtin.stat:
+    path: "{{ softether_dir }}/vpn_server.config"
+  register: softether_config
+
+# Enabled always; started once vpn_server.config has been moved in.
+- name: SoftEther service
+  ansible.builtin.systemd_service:
+    name: vpnserver
+    enabled: true
+    state: "{{ 'started' if softether_config.stat.exists else omit }}"
+    daemon_reload: true

@@ -1,0 +1,6 @@
+---
+- name: Restart SoftEther
+  ansible.builtin.systemd_service:
+    name: vpnserver
+    state: restarted
+    daemon_reload: true

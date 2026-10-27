@@ -1,0 +1,16 @@
+---
+# SoftEther VPN Server's Stable edition (4.x), built from upstream's source
+# tarball, pinned by its SHA-256. README.md says why not 5.x, nor a package.
+softether_version: v4.44-9807-rtm
+softether_release_date: 2025.04.16
+softether_source_dir: https://www.softether-download.com/files/softether/{{ softether_version }}-{{ softether_release_date }}-tree/Source_Code
+softether_source_url: "{{ softether_source_dir }}/softether-src-{{ softether_version }}.tar.gz"
+softether_source_sha256: f4fdc5f791ae318c4a70c1bc95b15ee24c264d8f3dc32e626ee9d5382da849e7
+
+# Where the server runs from. It keeps vpn_server.config beside itself and
+# rewrites it as it runs, so the configuration is state, moved there by hand,
+# and the role never writes it.
+softether_dir: /usr/local/vpnserver
+
+# Where the source is unpacked and built, one directory per version.
+softether_build_dir: /usr/local/src/softether-{{ softether_version }}
