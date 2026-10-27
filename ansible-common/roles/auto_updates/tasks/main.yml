@@ -92,38 +92,43 @@
       ansible.builtin.package:
         name: dnf-automatic
         state: present
+      register: auto_updates_dnf_installed
 
-    - name: Read automatic.conf
-      ansible.builtin.slurp:
-        src: /etc/dnf/automatic.conf
-      register: auto_updates_dnf_conf
+    # A check run cannot read what an install still pending would create.
+    - name: Dnf-automatic's configuration and timer
+      when: not (ansible_check_mode and auto_updates_dnf_installed is changed)
+      block:
+        - name: Read automatic.conf
+          ansible.builtin.slurp:
+            src: /etc/dnf/automatic.conf
+          register: auto_updates_dnf_conf
 
-    - name: Check every key is present once in its section
-      ansible.builtin.assert:
-        that: >-
-          auto_updates_dnf_conf.content | b64decode
-          | regex_search('(?s)(?:^|\n)\[' ~ (item.section | regex_escape) ~ '\]\n(.*?)(?:\n\[|$)', '\\1') | first
-          | regex_findall('(?m)^' ~ (item.key | regex_escape) ~ '\s*=')
-          | length == 1
-        fail_msg: "{{ item.key }} is not a single line in [{{ item.section }}] of automatic.conf."
-        quiet: true
-      loop: "{{ auto_updates_dnf_automatic }}"
-      loop_control:
-        label: "{{ item.section }}: {{ item.key }}"
+        - name: Check every key is present once in its section
+          ansible.builtin.assert:
+            that: >-
+              auto_updates_dnf_conf.content | b64decode
+              | regex_search('(?s)(?:^|\n)\[' ~ (item.section | regex_escape) ~ '\]\n(.*?)(?:\n\[|$)', '\\1') | first
+              | regex_findall('(?m)^' ~ (item.key | regex_escape) ~ '\s*=')
+              | length == 1
+            fail_msg: "{{ item.key }} is not a single line in [{{ item.section }}] of automatic.conf."
+            quiet: true
+          loop: "{{ auto_updates_dnf_automatic }}"
+          loop_control:
+            label: "{{ item.section }}: {{ item.key }}"
 
-    - name: Dnf-automatic settings
-      ansible.builtin.replace:
-        path: /etc/dnf/automatic.conf
-        after: '\[{{ item.section | regex_escape }}\]\n'
-        before: '\n\['
-        regexp: '^{{ item.key | regex_escape }}\s*=.*$'
-        replace: "{{ item.key }} = {{ item.value }}"
-      loop: "{{ auto_updates_dnf_automatic }}"
-      loop_control:
-        label: "{{ item.section }}: {{ item.key }}"
+        - name: Dnf-automatic settings
+          ansible.builtin.replace:
+            path: /etc/dnf/automatic.conf
+            after: '\[{{ item.section | regex_escape }}\]\n'
+            before: '\n\['
+            regexp: '^{{ item.key | regex_escape }}\s*=.*$'
+            replace: "{{ item.key }} = {{ item.value }}"
+          loop: "{{ auto_updates_dnf_automatic }}"
+          loop_control:
+            label: "{{ item.section }}: {{ item.key }}"
 
-    - name: Dnf-automatic timer
-      ansible.builtin.systemd_service:
-        name: dnf-automatic.timer
-        enabled: true
-        state: started
+        - name: Dnf-automatic timer
+          ansible.builtin.systemd_service:
+            name: dnf-automatic.timer
+            enabled: true
+            state: started
