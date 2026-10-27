@@ -13,6 +13,24 @@
         fail_msg: Declare tailscale_tags for every Tailscale node.
         quiet: true
 
+    # Ahead of the install, which needs it on a new host.
+    - name: Tailscale's dnf repository
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/tailscale.repo
+        content: |
+          [tailscale-stable]
+          name=Tailscale stable
+          baseurl=https://pkgs.tailscale.com/stable/{{ tailscale_dnf_path }}/$basearch
+          enabled=1
+          type=rpm
+          repo_gpgcheck=1
+          gpgcheck=1
+          gpgkey=https://pkgs.tailscale.com/stable/{{ tailscale_dnf_path }}/repo.gpg
+        owner: root
+        group: root
+        mode: "0644"
+      when: "'rhel' in group_names"
+
     - name: Install Tailscale
       ansible.builtin.package:
         name: tailscale

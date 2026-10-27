@@ -2,6 +2,11 @@
 # Hosts that run Tailscale set this; on others the role does nothing.
 tailscale_enabled: false
 
+# Tailscale's dnf repository for Enterprise Linux, by distribution and major
+# release, as pkgs.tailscale.com lays it out.
+tailscale_dnf_path: >-
+  {{ 'oracle' if ansible_facts['distribution'] == 'OracleLinux' else 'rhel' }}/{{ ansible_facts['distribution_major_version'] }}
+
 # The node's tags, without "tag:". A joined node whose tags differ fails the run;
 # a new node joins with a one-off, pre-approved key carrying exactly these tags.
 tailscale_tags: []

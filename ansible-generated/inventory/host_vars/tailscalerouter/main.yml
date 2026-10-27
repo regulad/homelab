@@ -44,9 +44,6 @@ host_files_list:
     group: dnsmasq
     mode: "0644"
     restarts: [dnsmasq]
-  # The tailscale role installs Tailscale from this repository.
-  - path: /etc/yum.repos.d/tailscale.repo
-    mode: "0644"
   - path: /etc/default/tailscaled
     mode: "0444"
     restarts: [tailscaled]

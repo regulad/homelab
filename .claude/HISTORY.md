@@ -796,3 +796,7 @@ findings that would help a future session. Append new entries at the end.
 - LiveKit's `config.yaml` holds one API key pair, the same key and secret lk-jwt-service reads from `/etc/lk-jwt-service/key` and `secret` (no trailing newline); it is in SOPS once as `livekit_api_key` and `livekit_api_secret`.
 - certbot 4.2.0 with certbot-nginx runs from the virtual environment `/opt/certbot` (system Python 3.9), built after `dnf install python3 python3-devel gcc augeas augeas-libs python3-augeas`; it renews from a line in the crontabs package's `/etc/crontab`, and certbot edited `nginx.conf` for TLS and the redirect.
 - `httpd_can_network_connect` is set persistently (`semanage boolean -l -C` lists it), for nginx's proxying to localhost.
+
+## tailscale: the role writes Tailscale's dnf repository (2026-10-26)
+
+- On Enterprise Linux the role now writes `/etc/yum.repos.d/tailscale.repo` ahead of the install, byte for byte as tailscalerouter (OCI) had it by hand, with the path from facts (`oracle/9`). As a host file it came after the tailscale role, too late for a new instance's install. The Debian and Ubuntu hosts' APT sources for Tailscale are still not managed.
