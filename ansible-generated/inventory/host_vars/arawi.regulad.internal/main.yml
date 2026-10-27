@@ -21,7 +21,8 @@ pfsense_setup:
 # pfSense trusts its own two CAs itself, from each CA's trust flag below
 # (/usr/local/etc/ssl/certs/<hash>.crt), so ca_trust adds only the others.
 ca_trust_trusted:
-  - ipa-ca
+  - freeipa-regulad.internal
+  - freeipa-home.arpa
   - pve-root-ca
 
 pfsense_cas:

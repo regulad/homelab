@@ -9,7 +9,7 @@ ldap_proxy_uri: ldaps://{{ freeipa_server.fqdn }}
 ldap_proxy_remote_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
 ldap_proxy_certificate: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../files/' ~ inventory_hostname ~ '/etc/ldap/tls/proxy.crt') }}"
 ldap_proxy_key: "{{ ldap_proxy_tls_key }}"
-ldap_proxy_remote_ca: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../files/shared/freeipa/regulad.internal-ca.crt') }}"
+ldap_proxy_remote_ca: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../../ansible-common/roles/ca_trust/files/trusted/freeipa-regulad.internal.crt') }}"
 
 freeradius_mode: proxy
 freeradius_clients:

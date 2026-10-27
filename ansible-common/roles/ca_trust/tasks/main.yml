@@ -1,7 +1,7 @@
 ---
 # Trust ca_trust_trusted and distrust ca_trust_distrusted in the system trust
 # store, the way the host's packaging expects, so both survive ca-certificates
-# upgrades. Runs on
+# upgrades, and remove the anchors of ca_trust_retired. Runs on
 # hardware hosts (Phase 2) and generated hosts (Phase 4) in an OS group.
 - name: Check the trust store family
   ansible.builtin.assert:
@@ -76,5 +76,29 @@
     group: "{{ ca_trust_file_group }}"
     mode: "0644"
   loop: "{{ ca_trust_trusted }}"
+  when: ca_trust_family == 'freebsd'
+  notify: Rehash FreeBSD CA store
+
+- name: Remove retired roots from /usr/local/share/ca-certificates
+  ansible.builtin.file:
+    path: "{{ ca_trust_debian_anchor_dir }}/{{ item }}.crt"
+    state: absent
+  loop: "{{ ca_trust_retired }}"
+  when: ca_trust_family == 'debian'
+  notify: Update Debian CA store
+
+- name: Remove retired roots from p11-kit's anchors
+  ansible.builtin.file:
+    path: "{{ ca_trust_rhel_anchor_dir }}/{{ item }}.crt"
+    state: absent
+  loop: "{{ ca_trust_retired }}"
+  when: ca_trust_family == 'rhel'
+  notify: Update RHEL CA store
+
+- name: Remove retired roots from certctl's local directory
+  ansible.builtin.file:
+    path: "{{ ca_trust_freebsd_anchor_dir }}/{{ item }}.pem"
+    state: absent
+  loop: "{{ ca_trust_retired }}"
   when: ca_trust_family == 'freebsd'
   notify: Rehash FreeBSD CA store
