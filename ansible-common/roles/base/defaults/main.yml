@@ -5,6 +5,9 @@
 # that group's group_vars.
 base_packages: []
 
+# Every host's timezone; empty leaves it alone.
+base_timezone: America/New_York
+
 # The admin login on the hosts whose group_vars name it, in the OS's admin
 # group, with sudo without a password and the account's keys on GitHub as its
 # whole authorized_keys. Empty: no admin user is managed.

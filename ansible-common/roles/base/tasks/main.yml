@@ -10,6 +10,34 @@
   become: true
   when: base_packages | length > 0
 
+# Set only where the effective zone differs, whatever form /etc/localtime takes.
+- name: Timezone
+  community.general.timezone:
+    name: "{{ base_timezone }}"
+  become: true
+  when: base_timezone | length > 0
+
+# Debian's /etc/timezone, on the hosts that keep one, which timedatectl leaves
+# as it was. On some hosts the path is an empty directory instead, left alone.
+- name: Read whether the host keeps /etc/timezone
+  ansible.builtin.stat:
+    path: /etc/timezone
+  register: base_etc_timezone
+  when:
+    - base_timezone | length > 0
+    - ansible_facts['os_family'] == 'Debian'
+
+- name: Timezone in /etc/timezone
+  ansible.builtin.copy:
+    dest: /etc/timezone
+    content: |
+      {{ base_timezone }}
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: base_etc_timezone.stat.isreg | default(false)
+
 - name: Admin user
   ansible.builtin.import_tasks: admin.yml
   when: base_admin_user | length > 0

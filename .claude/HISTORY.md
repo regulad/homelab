@@ -800,3 +800,9 @@ findings that would help a future session. Append new entries at the end.
 ## tailscale: the role writes Tailscale's dnf repository (2026-10-26)
 
 - On Enterprise Linux the role now writes `/etc/yum.repos.d/tailscale.repo` ahead of the install, byte for byte as tailscalerouter (OCI) had it by hand, with the path from facts (`oracle/9`). As a host file it came after the tailscale role, too late for a new instance's install. The Debian and Ubuntu hosts' APT sources for Tailscale are still not managed.
+
+## base: every host on America/New_York; the router's frozen hostname files restored (2026-10-26)
+
+- `base_timezone` sets the zone through `community.general.timezone`, which compares the effective zone, so the mix of relative and absolute `/etc/localtime` links on hosts already in America/New_York stays as it is. It changed authentik, git, matrix and vkasm (from `Etc/UTC`) and bailout and livekit (from `GMT`). Debian's timedated leaves `/etc/timezone` as it was, so `base` writes it where it is a regular file; on aboriginal, cordpepperer and peppercord the path is an empty directory made by root, left alone.
+- On tailscalerouter (OCI), `PRESERVE_HOSTINFO=2` in `/etc/oci-hostname.conf`, set by hand on 2026-02-20, had stopped `oci-linux-config`'s `oci-dhclient.sh` from updating `/etc/hosts`, which kept the old name `pubsub-wahlecloud--tailscalerouter`. The file is back to the package's (`0`), the stale line now names `tailscalerouter`, and the hand-made `/etc/dhcp/dhclient.conf`, which NetworkManager's internal DHCP client never read, is gone.
+- dnsmasq serves `/etc/hosts` (there is no `no-hosts`) and rereads it only on SIGHUP; its unit has no reload, so it needs `systemctl kill -s HUP dnsmasq`. Until then it still answered the old name for the VCN.
