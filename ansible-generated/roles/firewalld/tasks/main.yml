@@ -7,14 +7,11 @@
     state: present
     permanent: true
   loop: "{{ firewalld_zones.keys() | list }}"
-  register: firewalld_created
+  notify: Reload firewalld
 
 # A new zone takes entries only once firewalld has loaded it.
 - name: Load new zones
-  ansible.builtin.systemd_service:
-    name: firewalld
-    state: reloaded
-  when: firewalld_created is changed
+  ansible.builtin.meta: flush_handlers
 
 - name: Zone targets
   ansible.posix.firewalld:
