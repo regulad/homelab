@@ -1,16 +1,15 @@
 ---
-# Converge FreeRADIUS to the clients and mode the host declares, in a site of
-# the role's own; the package's sites are disabled. Runs on the generated hosts
-# in freeradius_servers (Phase 4).
+# Converge FreeRADIUS to the clients the host declares, in a site of the role's
+# own that checks each password by binding to the directory as its user; the
+# package's sites are disabled. Runs on the generated hosts in
+# freeradius_servers (Phase 4).
 - name: Check the settings
   ansible.builtin.assert:
     that:
-      - freeradius_mode in ['ldap', 'proxy']
       - freeradius_clients | length > 0
       - freeradius_clients.values() | map(attribute='secret') | select | list | length == freeradius_clients | length
-      - freeradius_mode != 'ldap' or freeradius_ldap_password | length > 0
-      - freeradius_mode != 'proxy' or freeradius_home_server_secret | length > 0
-    fail_msg: Declare the clients and the mode's settings, with their secrets in SOPS.
+      - freeradius_ldap_password | length > 0
+    fail_msg: Declare the clients and the directory, with their secrets in SOPS.
     quiet: true
   no_log: true
 
@@ -42,7 +41,6 @@
         owner: root
         group: "{{ freeradius_group }}"
         mode: "0640"
-      when: freeradius_mode == 'ldap'
       no_log: true
       diff: false
       notify: Restart FreeRADIUS
@@ -52,26 +50,6 @@
         path: "{{ freeradius_dir }}/mods-enabled/ldap"
         src: ../mods-available/ldap
         state: link
-      when: freeradius_mode == 'ldap'
-      notify: Restart FreeRADIUS
-
-    - name: LDAP module disabled outside ldap mode
-      ansible.builtin.file:
-        path: "{{ freeradius_dir }}/mods-enabled/ldap"
-        state: absent
-      when: freeradius_mode != 'ldap'
-      notify: Restart FreeRADIUS
-
-    - name: Home server
-      ansible.builtin.template:
-        src: proxy.conf.j2
-        dest: "{{ freeradius_dir }}/proxy.conf"
-        owner: root
-        group: "{{ freeradius_group }}"
-        mode: "0640"
-      when: freeradius_mode == 'proxy'
-      no_log: true
-      diff: false
       notify: Restart FreeRADIUS
 
     - name: The role's site

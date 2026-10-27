@@ -1,4 +1,4 @@
-# Managed by Ansible (freeradius), in {{ freeradius_mode }} mode.
+# Managed by Ansible (freeradius).
 server homelab {
 	listen {
 		type = auth
@@ -26,35 +26,22 @@ server homelab {
 
 	authorize {
 		preprocess
-{% if freeradius_mode == 'proxy' %}
-		update control {
-			&Proxy-To-Realm := "home"
-		}
-{% else %}
 		ldap
 		if ((ok || updated) && User-Password) {
 			update control {
 				&Auth-Type := ldap
 			}
 		}
-{% endif %}
 	}
 
 	authenticate {
-{% if freeradius_mode == 'ldap' %}
 		Auth-Type LDAP {
 			ldap
 		}
-{% endif %}
 	}
 
 	preacct {
 		preprocess
-{% if freeradius_mode == 'proxy' %}
-		update control {
-			&Proxy-To-Realm := "home"
-		}
-{% endif %}
 	}
 
 	accounting {

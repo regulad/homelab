@@ -30,7 +30,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |
 | `freeipa_server` | A FreeIPA server, installed once by `ipa-server-install` with its own CA, no integrated DNS and no NTP client, its passwords from SOPS; its directory answers anonymous clients only with the root DSE, and migration mode is off | `freeipa_servers` |
 | `ldap_proxy` | An OpenLDAP proxy (`ldap` backend and `rwm` overlay) rewriting one suffix into another's, presenting a given certificate, with the remote's schema, read as root on the remote, generated into it so filters on its attributes work | `ldap_proxies` |
-| `freeradius` | FreeRADIUS in a site of its own: `ldap` mode checks passwords by binding as each user, `proxy` mode passes every request to one home server; clients and secrets from SOPS | `freeradius_servers` |
+| `freeradius` | FreeRADIUS in a site of its own, checking each password by binding to an LDAP directory as the user; clients and secrets from SOPS | `freeradius_servers` |
 | [`softether`](roles/softether/README.md) | SoftEther VPN Server's Stable edition (4.x, not 5.x, whose Windows builds are unsigned and flagged by Defender), built from upstream's source tarball pinned by SHA-256, run from `/usr/local/vpnserver` under systemd once its `vpn_server.config`, state moved by hand, is in place | `softether_servers` |
 | `pterodactyl` | Installs the Pterodactyl panel where none exists and keeps its `.env`; `playbooks/maintenance.yml` upgrades it to `pterodactyl_version` | `pterodactyl` |
 
