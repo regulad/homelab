@@ -40,6 +40,7 @@
       {{ ['postfix', 'libsasl2-modules', 'bsd-mailx'] if mail_relay_family == 'debian'
          else ['postfix', 'cyrus-sasl-plain', 's-nail'] }}
     state: present
+  register: mail_relay_installed
 
 - name: Relay login
   ansible.builtin.copy:
@@ -117,6 +118,8 @@
       myorigin: $mydomain
       sender_canonical_maps: static:{{ mail_relay_address }}
       recipient_canonical_maps: static:{{ mail_relay_recipient }}
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and mail_relay_installed is changed)
 
 # Set from mail_relay_name, or removed so Postfix derives it.
 - name: Postfix's own name
@@ -127,12 +130,16 @@
     state: "{{ 'present' if mail_relay_name else 'absent' }}"
     insertafter: EOF
   notify: Restart Postfix
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and mail_relay_installed is changed)
 
 - name: Postfix service
   ansible.builtin.systemd_service:
     name: postfix
     enabled: true
     state: started
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and mail_relay_installed is changed)
 
 - name: Flush handlers so the check sees the running configuration
   ansible.builtin.meta: flush_handlers

@@ -1,12 +1,15 @@
 ---
 # inet_interfaces only changes on a restart; the other settings and the
-# texthash login are reread on a reload.
+# texthash login are reread on a reload. A check run that would first install
+# Postfix has no unit to act on.
 - name: Restart Postfix
   ansible.builtin.systemd_service:
     name: postfix
     state: restarted
+  when: not (ansible_check_mode and mail_relay_installed is changed)
 
 - name: Reload Postfix
   ansible.builtin.systemd_service:
     name: postfix
     state: reloaded
+  when: not (ansible_check_mode and mail_relay_installed is changed)
