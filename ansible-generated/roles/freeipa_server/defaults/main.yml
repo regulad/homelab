@@ -2,7 +2,7 @@
 # The deployment the server installs: its DNS domain and Kerberos realm. The
 # server is the host itself, by its inventory name, which must resolve to its
 # own address rather than loopback.
-freeipa_server_domain: regulad.internal
+freeipa_server_domain: ""
 freeipa_server_realm: "{{ freeipa_server_domain | upper }}"
 
 # The Directory Manager's and admin's passwords, from the host's

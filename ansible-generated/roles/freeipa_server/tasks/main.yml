@@ -6,9 +6,10 @@
 - name: Check the passwords are set
   ansible.builtin.assert:
     that:
+      - freeipa_server_domain | length > 0
       - freeipa_server_ds_password | length > 0
       - freeipa_server_admin_password | length > 0
-    fail_msg: Set both FreeIPA passwords in the host's secrets.sops.yml.
+    fail_msg: Set the domain, and both FreeIPA passwords in the host's secrets.sops.yml.
     quiet: true
   no_log: true
 

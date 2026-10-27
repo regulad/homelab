@@ -1,4 +1,7 @@
 ---
+# The deployment's domain, declared once with the server in group_vars.
+freeipa_server_domain: "{{ freeipa_server.domain }}"
+
 # FreeIPA for regulad.internal. Proxmox writes 127.0.1.1 for the hostname into
 # a DHCP container's /etc/hosts, which FreeIPA's installer rejects, so
 # .pve-ignore.hosts keeps Proxmox out and /etc/hosts names the address arawi's
