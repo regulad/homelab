@@ -2,8 +2,8 @@
 # Server, whose one hub is a local bridge onto VLAN 1, so VPN clients appear on
 # the LAN as hosts of their own. The bridge is a packet socket in promiscuous
 # mode on eth0, which container root may open on its own veth, so it needs no
-# tun device, kernel module or privilege. It takes over the softether VM's MAC
-# address, and with it the VM's address.
+# tun device, kernel module or privilege. It took over the softether VM's MAC
+# address, and with it the VM's IPv6 addresses.
 
 resource "proxmox_virtual_environment_container" "softether" {
   node_name = "prodingus"
@@ -52,7 +52,7 @@ resource "proxmox_virtual_environment_container" "softether" {
     # Off: Proxmox's MAC filter would drop the frames of the VPN clients the
     # hub bridges onto the LAN, each with a MAC of its own.
     firewall = false
-    # The softether VM's, so its address follows.
+    # The softether VM's, so its SLAAC addresses followed.
     mac_address = "BC:24:11:04:C4:A0"
     name        = "eth0"
     vlan_id     = 1
@@ -68,9 +68,7 @@ resource "proxmox_virtual_environment_container" "softether" {
   depends_on = [proxmox_download_file.ubuntu_24_04_standard]
 }
 
-# FIXME: labelled apart from the softether VM's HA resource while both guests
-# exist. Revisit once the VM is destroyed: rename it softether, with a moved block.
-resource "proxmox_haresource" "softether_container" {
+resource "proxmox_haresource" "softether" {
   resource_id = "ct:${proxmox_virtual_environment_container.softether.vm_id}"
   type        = "ct"
   state       = "started"
@@ -78,7 +76,7 @@ resource "proxmox_haresource" "softether_container" {
 
 # Listed in the Ansible inventory while its HA resource is requested.
 resource "ansible_host" "softether" {
-  count = proxmox_haresource.softether_container.state == "started" ? 1 : 0
+  count = proxmox_haresource.softether.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_container.softether.initialization[0].hostname}.${local.guest_domain}"
   groups = ["gonkputer", "proxmox_containers", "softether_servers", "ubuntu"]

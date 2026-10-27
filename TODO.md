@@ -131,7 +131,7 @@ Services to move off their VMs into containers.
 - [x] `git` (110): moved to the `git` container (200); the VM is destroyed
 - [x] `matrix` (107): moved to the `matrix` container (202); the VM is destroyed
 - [x] `freeipa` (113): moved to the `wako` container (203), as the `regulad.internal` deployment above; the VM is destroyed, and the `freeipa` container (204) stands in at its address
-- [ ] `softether` (114): to the `softether` container (205), unprivileged, with the VM's MAC address; SoftEther 4.44 Stable built from source on Ubuntu 24.04. Its one hub is a local bridge onto VLAN 1, which needs no tun device or kernel modules. The VM is stopped, and destroyed once VPN clients work through the container
+- [x] `softether` (114): moved to the `softether` container (205), unprivileged, with the VM's MAC address; SoftEther 4.44 Stable built from source on Ubuntu 24.04. Its one hub is a local bridge onto VLAN 1, which needs no tun device or kernel modules. The VM is destroyed
   - [x] A client login through VPN Azure, with DHCP and SLAAC from the LAN through the bridge
   - [ ] A bulk transfer from the LAN to a VPN client: SoftEther turns off offloads only on its own end of the veth, and on prodingus's end segmentation offloads stay on
   - [x] The NIC's firewall off, as Proxmox's MAC filter would drop the bridged clients' frames
