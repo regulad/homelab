@@ -826,3 +826,9 @@ findings that would help a future session. Append new entries at the end.
 - `templates.tf` declares cephfs's three templates as `proxmox_download_file`, each from Proxmox's template index: AlmaLinux 10 (new, for wako), and the Ubuntu 24.04 and 26.04 ones that had been downloaded by hand.
 - `download.proxmox.com` answers only over HTTP, from the operator's machine and from prodingus alike, so each resource carries the SHA-512 from the index that `pveam update` verifies against Proxmox's signature (`/var/lib/pve-manager/apl-info/download.proxmox.com` on the node). The hand-downloaded files matched it.
 - An import (`prodingus/cephfs:vztmpl/<file>`) records neither URL nor checksum, which the provider then treats as changes forcing replacement, so adopting a template deletes and downloads it once.
+
+## wako: an AlmaLinux 10 container for FreeIPA (2026-10-27)
+
+- wako (203) is an unprivileged AlmaLinux 10 container, as Ubuntu ships no FreeIPA server. EL 10's x86-64-v3 baseline suits prodingus's Ryzen 9 5950X, and AlmaLinux 10.2 ships ipa-server 4.13.4, the old server's version.
+- Proxmox's type for it is `centos`. pve-container 6.1.14 accepts the family's releases 5 to 10 and writes NetworkManager keyfiles for 10, which dropped the network scripts.
+- The gonkputer inventory lifts only the `ansible_host` variables its `compose` names, so wako's MAC is `eth0_mac_address`, as on the VMs; arawi's static mapping reads it.
