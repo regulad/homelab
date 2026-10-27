@@ -1,6 +1,7 @@
 # wako: container, its HA resource and its Ansible host: FreeIPA for
-# regulad.internal (realm REGULAD.INTERNAL), replacing the freeipa VM
-# (vm-freeipa.tf). AlmaLinux, since Ubuntu ships no FreeIPA server.
+# regulad.internal (realm REGULAD.INTERNAL). The old home.arpa directory's
+# consumers reach it through the freeipa stand-in (lxc-freeipa.tf). AlmaLinux,
+# since Ubuntu ships no FreeIPA server.
 
 resource "proxmox_virtual_environment_container" "wako" {
   node_name = "prodingus"
