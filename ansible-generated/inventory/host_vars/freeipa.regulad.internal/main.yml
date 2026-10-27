@@ -1,0 +1,31 @@
+---
+# The old FreeIPA server's stand-in while its consumers move to wako: LDAP and
+# LDAPS rewritten between the old suffix and wako's, with the old server's own
+# certificate, so clients that verify its name and CA see no change; and RADIUS
+# for softether, proxied to wako. The certificate's key and softether's secret
+# are in secrets.sops.yml.
+ldap_proxy_suffix: dc=home,dc=arpa
+ldap_proxy_uri: ldaps://{{ freeipa_server.fqdn }}
+ldap_proxy_remote_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
+ldap_proxy_certificate: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../files/' ~ inventory_hostname ~ '/etc/ldap/tls/proxy.crt') }}"
+ldap_proxy_key: "{{ ldap_proxy_tls_key }}"
+ldap_proxy_remote_ca: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/../files/shared/freeipa/regulad.internal-ca.crt') }}"
+
+freeradius_mode: proxy
+freeradius_clients:
+  # SoftEther, whose VPN users authenticate by RADIUS, from anywhere on the LAN
+  # as the old server allowed.
+  softether:
+    address: 10.23.0.0/20
+    secret: "{{ radius_proxy_softether_secret }}"
+freeradius_home_server: "{{ freeipa_server.ipv4 }}"
+freeradius_home_server_secret: "{{ hostvars[freeipa_server.fqdn].freeradius_proxy_secret }}"
+
+# Its DHCP requests carry no hostname, so arawi registers no name for it, and
+# the VM's client identifier, so it keeps the VM's address.
+host_files_directories:
+  - {path: /etc/systemd/network/eth0.network.d, mode: "0755"}
+host_files_list:
+  - path: /etc/systemd/network/eth0.network.d/50-dhcp.conf
+    mode: "0644"
+    restarts: [systemd-networkd]

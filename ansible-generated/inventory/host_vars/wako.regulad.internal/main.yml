@@ -13,3 +13,16 @@ host_files_list:
   - path: /etc/hosts
     template: true
     mode: "0644"
+
+# RADIUS for the freeipa container's proxy, checking each password by binding
+# to this directory as the user, as svc-freeradius finds them. Its password and
+# the proxy's secret are in secrets.sops.yml.
+freeradius_mode: ldap
+freeradius_clients:
+  freeipa:
+    address: "{{ freeipa_legacy.ipv4 }}"
+    secret: "{{ freeradius_proxy_secret }}"
+freeradius_ldap_uri: ldaps://{{ inventory_hostname }}
+freeradius_ldap_base_dn: "{{ freeipa_server_domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
+freeradius_ldap_identity: uid=svc-freeradius,cn=users,cn=accounts,{{ freeradius_ldap_base_dn }}
+freeradius_ldap_ca_file: /etc/ipa/ca.crt

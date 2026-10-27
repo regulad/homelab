@@ -90,6 +90,22 @@
   roles:
     - freeipa_server
 
+# The old FreeIPA server's stand-in, rewriting LDAP for wako.
+- name: LDAP proxies
+  hosts: ldap_proxies
+  gather_facts: false
+  become: true
+  roles:
+    - ldap_proxy
+
+# RADIUS: wako against its own directory, and the stand-in's proxy to it.
+- name: RADIUS servers
+  hosts: freeradius_servers
+  gather_facts: false
+  become: true
+  roles:
+    - freeradius
+
 # Installs the panel where none exists and keeps its .env; upgrades are
 # playbooks/maintenance.yml.
 - name: Pterodactyl panel
