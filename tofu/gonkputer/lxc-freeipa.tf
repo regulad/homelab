@@ -1,6 +1,6 @@
 # freeipa: container, its HA resource and its Ansible host: the old FreeIPA
 # server's stand-in while its consumers move to wako. It rewrites LDAP between
-# dc=home,dc=arpa and wako's dc=regulad,dc=internal, and proxies RADIUS to wako.
+# dc=home,dc=arpa and wako's dc=regulad,dc=internal.
 # It took over the freeipa VM's MAC address, and with it the VM's address.
 
 resource "proxmox_virtual_environment_container" "freeipa" {
@@ -73,7 +73,7 @@ resource "ansible_host" "freeipa" {
   count = proxmox_haresource.freeipa.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_container.freeipa.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["freeradius_servers", "gonkputer", "ldap_proxies", "proxmox_containers", "ubuntu"]
+  groups = ["gonkputer", "ldap_proxies", "proxmox_containers", "ubuntu"]
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

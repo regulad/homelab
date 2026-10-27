@@ -17,10 +17,10 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] `ipa-migrate` from the old server, `--dryrun` first: users, groups, hosts, services, sudo and HBAC rules carry over, and `userPassword` must too, so LDAP binds keep their passwords; Kerberos keys are generated again in migration mode, and certificates re-issued from the new CA
   - [x] `regulad`'s uid and gid, 1000 on the old server, moved into the deployment's ID range, clear of local Linux IDs
   - [x] The new CA in `ca_trust` as `freeipa-regulad.internal`, beside the old server's, renamed `freeipa-home.arpa`, while the stand-in presents the old server's certificate. FreeIPA's own tooling deletes anchors named `ipa-ca`, as `ipa-server-install` did on wako, so `ca_trust_retired` removes the old name
-  - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with the old server's own certificate; and a RADIUS proxy for the existing clients. No Kerberos
+  - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with the old server's own certificate. No Kerberos; its RADIUS proxy is retired, as softether, the last RADIUS client, uses wako directly
   - [x] The hardware stage's `mail_relay` manages its null- accounts on wako, through prodingus, as the generated stage does through wako itself
-  - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud and Jellyfin on aboriginal; Synapse; Open WebUI; softether's RADIUS
-  - [x] A new inner FreeRADIUS against wako, behind the shim's RADIUS proxy, replacing the one set up by hand on the FreeIPA VM with three clients
+  - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud and Jellyfin on aboriginal; Synapse; Open WebUI
+  - [x] A new FreeRADIUS on wako, against its directory, replacing the one set up by hand on the FreeIPA VM with three clients; softether is its one client
   - [x] Backups: the weekly vzdump, which covers wako; no `ipa-backup`
   - [x] Anonymous LDAP read closed: anonymous clients get only the root DSE
   - [x] Migration mode off. Users who had not logged in since the migration keep their LDAP passwords, and get Kerberos keys at their next password change
@@ -136,8 +136,7 @@ Services to move off their VMs into containers.
   - [ ] A bulk transfer from the LAN to a VPN client: SoftEther turns off offloads only on its own end of the veth, and on prodingus's end segmentation offloads stay on
   - [x] The NIC's firewall off, as Proxmox's MAC filter would drop the bridged clients' frames
   - [x] `vpn_server.config` moved whole, with both servers stopped; it is state the server rewrites, not a host file
-  - [ ] Rotate the RADIUS shared secret between softether and the freeipa stand-in
-  - [ ] Its RADIUS client entry on the new FreeIPA
+  - [x] Its RADIUS on wako directly, over IPv6, with a new shared secret; the stand-in's proxy and the old secret are retired
 
 ## gonkputer VMs with cloud-init (`tofu/gonkputer` vendor files)
 

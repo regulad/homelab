@@ -14,14 +14,16 @@ host_files_list:
     template: true
     mode: "0644"
 
-# RADIUS for the freeipa container's proxy, checking each password by binding
-# to this directory as the user, as svc-freeradius finds them. Its password and
-# the proxy's secret are in secrets.sops.yml.
-freeradius_mode: ldap
+# RADIUS for softether, checking each password by binding to this directory as
+# the user, as svc-freeradius finds them. svc-freeradius's password and
+# softether's secret are in secrets.sops.yml.
 freeradius_clients:
-  freeipa:
-    address: "{{ freeipa_legacy.ipv4 }}"
-    secret: "{{ freeradius_proxy_secret }}"
+  # From anywhere on the LAN's ULA /64, as the old server allowed it anywhere on
+  # the LAN. Its RadiusServerName is this server's ULA: SoftEther tries a name's
+  # IPv4 address first.
+  softether:
+    address: fd83:b84c:aa57:1::/64
+    secret: "{{ freeradius_softether_secret }}"
 freeradius_ldap_uri: ldaps://{{ inventory_hostname }}
 freeradius_ldap_base_dn: "{{ freeipa_server_domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
 freeradius_ldap_identity: uid=svc-freeradius,cn=users,cn=accounts,{{ freeradius_ldap_base_dn }}

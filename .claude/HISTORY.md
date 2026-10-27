@@ -878,3 +878,8 @@ findings that would help a future session. Append new entries at the end.
 - SoftEther 4.44 puts `Proxy-State` (`L2:SEVPN`) in every Access-Request, and signs its requests, and requires signed replies, only with the hub's `RadiusRequireMessageAuthenticator true`. Unsigned, its requests also fall to `limit_proxy_state`. Each failed login shows only as a 10-second timeout and "User authentication failed".
 - After a VPN Azure session connects, the Windows client can take a while to bring its routes up, though DHCP and SLAAC have already completed through the bridge.
 - A Homebrew upgrade of Python under a running `ansible-playbook` removed `jinja2` modules mid-run; the hosts it was on failed with "No module named 'jinja2.debug'" and passed on a rerun.
+
+## softether: RADIUS on wako directly, the stand-in's proxy retired (2026-10-27)
+
+- SoftEther reads `RadiusServerName` as a list. For each entry it tries an IPv4 lookup before IPv6, and on each retry it moves to the next address. A name with an A record therefore always goes over IPv4, so the entry is wako's ULA literal, and wako accepts softether from the LAN's ULA /64.
+- `apt-get purge` of FreeRADIUS on the stand-in left the role's own `sites-available/homelab` and its link, which no package owns, under `/etc/freeradius/3.0`.
