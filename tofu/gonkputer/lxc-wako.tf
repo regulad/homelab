@@ -71,7 +71,7 @@ resource "ansible_host" "wako" {
   count = proxmox_haresource.wako.state == "started" ? 1 : 0
 
   name   = "${proxmox_virtual_environment_container.wako.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["freeipa_servers", "gonkputer", "proxmox_containers", "rhel"]
+  groups = ["freeipa_servers", "freeradius_servers", "gonkputer", "proxmox_containers", "rhel"]
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the
   # container. arawi's DHCP static mapping reads the MAC Proxmox generated.
