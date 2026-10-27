@@ -28,6 +28,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `watchdog` | The watchdog daemon pinging the VM's virtual watchdog device, with the package's debconf answers kept in step so upgrades keep the module | `watchdog`, the VMs whose watchdog device OpenTofu enables |
 | `avahi` | mDNS reflection between the podman bridge and the LAN | `podman_hosts` |
 | `quadlet` | Quadlet units rendered from each host's `quadlet_services` | `podman_hosts` |
+| `freeipa_server` | A FreeIPA server, installed once by `ipa-server-install` with its own CA, no integrated DNS and no NTP client, its passwords from SOPS | `freeipa_servers` |
 | `pterodactyl` | Installs the Pterodactyl panel where none exists and keeps its `.env`; `playbooks/maintenance.yml` upgrades it to `pterodactyl_version` | `pterodactyl` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
