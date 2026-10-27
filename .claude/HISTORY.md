@@ -815,3 +815,8 @@ findings that would help a future session. Append new entries at the end.
 ## The stateless OCI VMs done: leftovers of their hand setup removed (2026-10-26)
 
 - bailout, livekit and tailscalerouter (OCI) are described and report `changed=0`. Removed by hand from the router: nmap, nmap-ncat, traceroute, conntrack-tools and openldap-clients (with the unused libnetfilter_cthelper, _cttimeout and _queue); from livekit, traceroute; from both, the non-root dnf caches in `/var/tmp/dnf-regulad-*` (about 1.9 GB) and the Postfix files `nullclient.sh` left (`sasl_passwd.db`, `sender_canonical` and its `.db`, `main.cf.backup`), which `mail_relay`'s `texthash:` and `static:` maps never read. regulad's home on all three holds only `.ansible`, the skeleton dotfiles and `.ssh/authorized_keys`.
+
+## bailout and tailscalerouter rebooted: the crash reservation varies boot to boot (2026-10-26)
+
+- Both were rebooted onto kernel 6.12.0-207.111.5.6 with `crashkernel=1G-64G:448M,64G-:512M`. bailout, which had logged `cannot allocate crashkernel` on .5.5, reserved 448 MB and armed kdump; the router, which had reserved 448 MB on .5.4, logged `cannot allocate crashkernel (size:0x1c000000)`, and its kdump unit failed. The same argument on the same kernel gives either outcome on these 1 GiB shapes; the cause was not established. Moving off the 1 GiB VMs ends it.
+- After the router's reboot Oracle's hook kept `/etc/hosts` on its current name (`PRESERVE_HOSTINFO=0`), and Tailscale came back with both of its primary routes.
