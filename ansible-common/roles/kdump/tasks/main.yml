@@ -1,12 +1,9 @@
 ---
 # Converge kernel crash dumps. Runs on the hosts in the kdump group, hardware
-# (Phase 2) and generated (Phase 4), and on the Enterprise Linux hosts outside
-# it, whose images ship kdump on, to turn it off.
+# (Phase 2) and generated (Phase 4).
 - name: Kdump-tools
   ansible.builtin.import_tasks: debian.yml
-  when:
-    - kdump_enabled
-    - "'rhel' not in group_names"
+  when: "'rhel' not in group_names"
 
 - name: Kdump on Enterprise Linux
   ansible.builtin.import_tasks: rhel.yml
