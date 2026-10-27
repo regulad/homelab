@@ -9,3 +9,16 @@ freeipa_server_realm: "{{ freeipa_server_domain | upper }}"
 # secrets.sops.yml.
 freeipa_server_ds_password: ""
 freeipa_server_admin_password: ""
+
+# The directory's suffix, and its LDAPI socket, where root binds as the
+# Directory Manager.
+freeipa_server_suffix: "{{ freeipa_server_domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
+freeipa_server_ldapi_uri: ldapi://%2Frun%2Fslapd-{{ freeipa_server_realm | replace('.', '-') }}.socket
+
+# What anonymous clients may read: rootdse limits them to the root DSE, which
+# clients discover the server by; FreeIPA's default, on, lets them read most of
+# the directory.
+freeipa_server_anonymous_access: rootdse
+
+# Migration mode, in which an LDAP bind generates a migrated user's Kerberos keys.
+freeipa_server_migration_enabled: false

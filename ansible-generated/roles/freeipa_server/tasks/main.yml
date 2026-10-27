@@ -1,8 +1,9 @@
 ---
 # Install a FreeIPA server once, with its own CA and no integrated DNS, which
-# arawi's unbound serves. Runs on the generated hosts in freeipa_servers
-# (Phase 4). In a container time comes from the Proxmox node, which the
-# container cannot set, so the server runs no NTP client.
+# arawi's unbound serves, then converge its directory's anonymous access and
+# migration mode. Runs on the generated hosts in freeipa_servers (Phase 4). In
+# a container time comes from the Proxmox node, which the container cannot
+# set, so the server runs no NTP client.
 - name: Check the passwords are set
   ansible.builtin.assert:
     that:
@@ -30,4 +31,21 @@
       - --admin-password={{ freeipa_server_admin_password }}
       - --no-ntp
     creates: /etc/ipa/default.conf
+  register: freeipa_server_installed
   no_log: true
+
+# A check run cannot reach the directory an install still pending would create.
+- name: Directory settings
+  community.general.ldap_attrs:
+    dn: "{{ item.dn }}"
+    attributes: "{{ item.attributes }}"
+    state: exact
+    server_uri: "{{ freeipa_server_ldapi_uri }}"
+  loop:
+    - dn: cn=config
+      attributes: {nsslapd-allow-anonymous-access: "{{ freeipa_server_anonymous_access }}"}
+    - dn: cn=ipaConfig,cn=etc,{{ freeipa_server_suffix }}
+      attributes: {ipaMigrationEnabled: "{{ 'TRUE' if freeipa_server_migration_enabled else 'FALSE' }}"}
+  loop_control:
+    label: "{{ item.dn }}"
+  when: not (ansible_check_mode and freeipa_server_installed is changed)

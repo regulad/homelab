@@ -14,7 +14,8 @@ collections:
   # Modules that edit pfSense's config.xml, for arawi.
   - name: pfsensible.core
     version: 0.7.1
-  # ipa_user, which manages each host's FreeIPA mail account over the JSON-RPC API.
+  # ipa_user, which manages each host's FreeIPA mail account over the JSON-RPC API, and
+  # ldap_attrs, for the FreeIPA server's directory settings.
   - name: community.general
     version: 13.5.0
   # firewalld zones and SELinux booleans on the Enterprise Linux hosts.
