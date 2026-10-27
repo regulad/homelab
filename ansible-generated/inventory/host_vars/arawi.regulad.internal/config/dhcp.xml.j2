@@ -104,8 +104,9 @@
 		<staticmap>
 			<mac>bc:24:11:7d:6f:9b</mac>
 			<cid></cid>
-			<ipaddr>10.23.2.32</ipaddr>
-			<hostname>freeipa</hostname>
+			<ipaddr>{{ freeipa_legacy.ipv4 }}</ipaddr>
+{# No name in unbound: the CR1000B holds freeipa.regulad-verizon-livingston.internal. #}
+			<hostname></hostname>
 			<descr>Legacy DNS</descr>
 			<earlydnsregpolicy>disable</earlydnsregpolicy>
 			<arp_table_static_entry></arp_table_static_entry>
