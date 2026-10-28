@@ -116,7 +116,8 @@ cloud-init.
     - [x] jenkins: to the `jenkins` container (207), a Quadlet behind Caddy on ingress, with `jenkins_home` on its own RBD mount point; its compose project, image, build context, data and host user removed from aboriginal
       - [ ] Its LDAP realm to wako, where `svc-jenkins` exists
       - [ ] Its GitHub organization folder: a working credential, or the folder deleted
-    - [ ] docker-nexus, with `/nexus-data` on its own RBD mount point
+    - [x] docker-nexus: to the `nexus` container (209), a read-only Quadlet behind Caddy on ingress, with `/nexus-data` on its own RBD mount point and `cr` as a virtual host; its compose project, images and data removed from aboriginal
+      - [ ] From OrientDB to H2, with 3.70's database migrator, then a pinned release
     - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
       - [ ] qb-clearnet's I2P address, `172.0.0.1` today, set to `i2p.regulad.internal`
       - [ ] The old I2P's Docker volumes and the tunnel's dead `i2p` route removed from aboriginal
@@ -129,7 +130,7 @@ cloud-init.
     - [ ] cloudflared: retired once every route its tunnel carries has moved
     - [ ] Native services: llama-server, Samba, NUT, lime; and the leftovers (wings, ollama, bees, libvirt, MariaDB)
     - [ ] firewalld, with `eth0` in the `trusted` zone today
-  - [ ] Disk: the root btrfs is 93% full, 82 G of it Nexus's, which moves
+  - [x] Disk: the root btrfs is 62 % full with Nexus moved, from 93 %
 - [x] `dodo` (101)
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust

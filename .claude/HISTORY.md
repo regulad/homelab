@@ -974,3 +974,12 @@ findings that would help a future session. Append new entries at the end.
 - Its REST tasks API lists, runs and stops tasks but cannot create them, and its script API is off by default. ExtDirect's `coreui_Task.create`, as the UI calls it, creates them, and answers 200 with `success: false` when it fails. Basic authentication skips the anti-CSRF check, which covers session logins only.
 - 35 G of aboriginal's 83 G were soft-deleted blobs, Docker's abandoned upload chunks, which no compaction had ever reclaimed; the first took under a minute and left 48 G.
 - `frozen.marker` in Nexus's `db` directory, an empty list from 2024, does not mean Nexus is frozen: `/service/rest/v1/read-only` says it is not.
+
+## nexus: moved from aboriginal's compose project to the nexus container (209) (2026-10-28)
+
+- Nexus 3.70 serves a Docker repository's API under `/repository/<name>/v2/` on its main port, token endpoint included, and hands out the token realm `<host>/v2/token`. Caddy serves `cr.regulad.xyz` by rewriting `/v2/*` to `/repository/cr/v2/*`, Sonatype's reverse-proxy recipe, so `cr` needs no connector port of its own.
+- rsync 3.5.0 refuses a destination under `/proc/<pid>/root` ("Too many levels of symbolic links"); `--rsync-path="pct exec <id> -- rsync"` writes from inside the container instead, with its own uids (`--chown=200:200`).
+- 50.6 GB went over the node's bridge in 174 s while aboriginal kept serving. With Nexus stopped, the final pass moved 65 files, 441 MB, in 15 s, and a `--checksum` pass over `db/` found nothing more. `--delete-excluded` beside an exclude for `blobs/` would have deleted the destination's blobs.
+- `latest-3.70.x` started on 3.70.4's OrientDB in 25 seconds, read-only by the role's default.
+- A tunnel route reaches Caddy on ingress as `https://ingress.regulad.internal` with `originRequest.httpHostHeader` and `originServerName` set to its own hostname, which kept proxied DNS answers working through the cutover.
+- Its only LDAP server was `freeipa.home.arpa`, unresolvable since the old directory went; the realm and the server are removed through the API.

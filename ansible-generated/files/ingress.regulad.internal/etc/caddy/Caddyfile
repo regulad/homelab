@@ -85,7 +85,7 @@ http://ios.regulad.xyz, https://ios.regulad.xyz {
 	handle {
 		rewrite * /repository/ios{uri}
 
-		reverse_proxy https://repo.regulad.xyz {
+		reverse_proxy nexus.regulad.internal:8081 {
 			header_up Host repo.regulad.xyz
 		}
 	}
@@ -239,6 +239,28 @@ ci.regulad.xyz {
 	import common
 
 	reverse_proxy jenkins.regulad.internal:8080 {
+	}
+}
+
+repo.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy nexus.regulad.internal:8081 {
+	}
+}
+
+# The Docker API, which clients expect at the root, from the cr repository's
+# path on Nexus's one port, as Sonatype's reverse-proxy guide does it. Nexus's
+# token realm, <host>/v2/token, comes through the same rewrite.
+cr.regulad.xyz {
+	import hsts
+	import common
+
+	@docker path /v2 /v2/*
+	rewrite @docker /repository/cr{uri}
+
+	reverse_proxy nexus.regulad.internal:8081 {
 	}
 }
 
