@@ -168,7 +168,7 @@ plan shows an unintended destroy or replace.
 - **Addresses:** GUA host addresses are `cidrhost(var.ipv6_subnet_cidr, parseint("<64-bit hex suffix>", 16))`. Enclosing prefixes are derived from the encrypted `/64`, never written.
 - **Lookups:** read a host's VNIC through a `data "oci_core_vnic_attachments"` filtered to `ATTACHED` and `one()`, so a second VNIC fails loudly instead of being guessed.
 - **Inputs:** sensitive inputs are `sensitive = true` and `nullable = false` and come from `secrets.sops.json`. Non-sensitive values are inline HCL, not variables. Resource-free constants shared by several roots live in `tofu/shared`.
-- **Versions:** pins live only in each root's `versions.tf`. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
+- **Versions:** pins live only in each root's `versions.tf`. OpenTofu's own version is its `language { compatible_with { opentofu } }` block, since OpenTofu ignores `required_version` in `.tf` files. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
 - **Tags:** every OCI instance sets `freeform_tags = { "managed-by" = "opentofu", "os" = "<os group>" }` as its last scalar argument.
 - **Deferred problems:** a setting known to be wrong but kept for now gets `# FIXME: <what is wrong>. Revisit <when>.` on the lines directly above it.
 - **Labels:** resource labels are stable identities; renaming one needs a `moved` block. NSG rules are labelled `<host>_<protocol>_<port or range>`; bailout's two family-specific rules keep their adopted `bailout_rule_NN` labels.

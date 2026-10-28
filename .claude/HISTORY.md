@@ -1045,3 +1045,9 @@ findings that would help a future session. Append new entries at the end.
 - With caching off, its inventory is byte-identical to 4.0.0's, by `ansible-inventory --list`'s hash over 35 hosts. A load that reads the state takes about 22 s, a cached one 1.8 to 2.2 s; an ad-hoc module on a container, with pipelining, went from about 24 s to 4.3 s.
 - The settings sit once in `ansible.cfg`'s `[inventory]`, for both sources. The jsonfile plugin writes a file per source, 13 and 30 KB, mode 0644, in `~/.cache/ansible/terraform_state` under a home directory of mode 0700.
 - `ansible-galaxy collection install -r requirements.yml` installs git requirements again on every run, community.proxmox's included, and skips the pinned Galaxy ones. The hardware stage keeps 4.0.0, which it needs only for `tf_output`.
+
+## tofu: OpenTofu's version pinned in a language block, which it enforces (2026-10-28)
+
+- Since 1.12, OpenTofu reads `terraform { required_version }` in a `.tf` file as its predecessor's constraint and ignores it (opentofu/opentofu#3871). It enforces `required_version` only in `.tofu` files, and a top-level `language { compatible_with { opentofu = "..." } }` block in either. The roots' `= 1.13.1` pins had never applied: 1.13.2 accepted `= 1.12.0`, `~> 1.14.0` and `> 9.0.0`. `tofu validate` enforces the `language` block too, failing with "Incompatible module", so a root's pin can be checked without credentials.
+- Where `versions.tf` and `versions.tofu` both exist, OpenTofu ignores `versions.tf` entirely, `required_providers` included, so the block stays in `versions.tf`.
+- tflint 0.64's default `terraform_required_version` rule still wants `required_version`, and reports it on whichever `terraform` block it meets, `versions.tf`'s or `state.tf`'s, so both files carry `tflint-ignore-file`. In `--recursive` mode tflint resolves a relative `--config` inside each module, and never reads a `tofu/.tflint.hcl`; an absolute `--config` path works.

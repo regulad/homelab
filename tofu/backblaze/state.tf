@@ -1,3 +1,4 @@
+# tflint-ignore-file: terraform_required_version  # OpenTofu's version is versions.tf's language block.
 # State lives in the homelab-tofu-state bucket that tofu/oracle manages, under
 # this root's own key, encrypted client-side with this root's own passphrase.
 variable "state_encryption_passphrase" {
