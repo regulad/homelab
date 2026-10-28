@@ -126,7 +126,7 @@ cloud-init.
       - [ ] The old I2P's Docker volumes and the tunnel's dead `i2p` route removed from aboriginal
   - [x] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
   - [ ] Retire qb-tor with its tor sidecar: the compose project, its volumes and images, and the tunnel's `qb-tor` route with its DNS record; its downloads in `/mnt/cephfs/homes/regulad/downloads-tor` stay
-  - [ ] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: `vm-aboriginal.tf` does not declare it, and OpenTofu's state does not track it
+  - [x] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: declared in `vm-aboriginal.tf`, its changes ignored while the provider leaves a TPM at its defaults out of state
   - [ ] Describe its own services
     - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, qb-tor, ringmqtt
     - [ ] Decide on the stopped projects (mollysocket, monero, timebomb, visualstudiocode) and the orphaned volumes

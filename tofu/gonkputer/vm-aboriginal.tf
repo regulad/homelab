@@ -112,6 +112,11 @@ EOT
     up_delay = 120
   }
 
+  # lime's credential is sealed to this TPM.
+  tpm_state {
+    datastore_id = "local-lvm"
+  }
+
   usb {
     mapping = proxmox_hardware_mapping_usb.ax200.name
   }
@@ -154,6 +159,12 @@ EOT
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
+    # FIXME: the provider puts a TPM on local-lvm at v2.0, its defaults, into
+    # state only once state holds one, so it reads this one as absent, and
+    # applying tpm_state could swap it for a new, empty TPM. Revisit once the
+    # provider reads it, pending
+    # https://github.com/bpg/terraform-provider-proxmox/issues/3229.
+    ignore_changes = [tpm_state]
   }
 }
 

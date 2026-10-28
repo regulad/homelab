@@ -15,9 +15,10 @@ own.
   `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
 - **lime**: its credential is sealed to the VM's vTPM (`tpmstate0` on
-  `local-lvm`), which `vm-aboriginal.tf` does not declare and OpenTofu's state
-  does not track. The password itself is in `secrets.sops.yml`
-  (`lime_passwords`), so the credential can be sealed again.
+  `local-lvm`), which `vm-aboriginal.tf` declares with its changes ignored, as
+  applying it would replace the TPM with an empty one. The password itself is
+  in `secrets.sops.yml` (`lime_passwords`), so the credential can be sealed
+  again.
 - **homeassistant, matter-server, mosquitto and ringmqtt.** They would suit a
   Home Assistant OS VM with the USB devices passed through, but Home Assistant
   needs the host's Bluetooth stack: its Bluetooth integrations reach BlueZ
