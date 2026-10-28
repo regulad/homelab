@@ -120,7 +120,7 @@ cloud-init.
       - [x] Its LDAP realm on wako, bound as `svc-nexus`, with the `nx-admin` group as Nexus's `nx-admin` role
       - [x] From OrientDB to H2, with 3.70.5's database migrator: `maintenance.yml`'s `nexus-h2`
       - [x] A pinned release, 3.97.3, upgraded by `maintenance.yml`'s `nexus-upgrade`, which keeps a copy to roll back to
-      - [ ] The OrientDB files left in `db/`, which Nexus warns about at each start, and the migration's `h2-migration` directory, removed
+      - [x] The OrientDB files left in `db/`, which Nexus warned about at each start, and the migration's `h2-migration` directory, removed
     - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
       - [ ] qb-clearnet's I2P address, `172.0.0.1` today, set to `i2p.regulad.internal`
       - [ ] The old I2P's Docker volumes and the tunnel's dead `i2p` route removed from aboriginal
