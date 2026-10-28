@@ -39,14 +39,13 @@ own.
     folder whose credential is dead. Its Docker cloud `tinker` and its one
     agent, a phone, were unreachable and are removed, with aboriginal's
     `jenkins` user, which only carried the tunnel to `tinker`.
-- **I2P**: the `i2p` container runs i2pd, whose SAM the qBittorrents are to
-  use in place of `172.0.0.1`, where nothing serves it.
+- **I2P**: the `i2p` container runs i2pd, whose SAM qb-clearnet is to use in
+  place of `172.0.0.1`, where nothing serves it.
 
 ## Moving
 
 - **docker-nexus**: to a container of its own, with `/nexus-data` (82 G, most
   of aboriginal's 93 % full root) on its own RBD mount point.
-- **tor**, later: to a container of its own.
 
 ## Removed
 
@@ -62,6 +61,10 @@ own.
 
 ## Retiring
 
+- **qb-tor**, with its tor sidecar. Nothing else uses tor, so no tor
+  container replaces it. The Tor Project calls BitTorrent over Tor unsafe,
+  as clients leak their address outside the proxy, and a burden on its exits.
+  Its downloads on CephFS stay.
 - **cloudflared**: once every route its tunnel carries has moved.
 
 ## Not yet decided
@@ -71,5 +74,3 @@ own.
   route. Its ldap-auth guards `archive` alone and still binds to the freeipa
   stand-in.
 - **qb-clearnet**: idle, with no torrents.
-- **qb-tor**: seeding through its own tor, with no listening port. Its paths
-  are all on CephFS.
