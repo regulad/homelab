@@ -374,3 +374,235 @@
       delay: 15
       when: not ansible_check_mode
       no_log: true
+
+# Nexus's newest release, beside the one services.yml declares, so a bump to it
+# is a one-line edit before the upgrade below. Docker Hub tags each release
+# with its version and, for the newest, latest too: the version tag with
+# latest's digest names it. A play of its own, so Nexus's credentials never
+# reach Docker Hub.
+- name: Nexus's newest release
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-upgrade]
+  tasks:
+    - name: The latest tag
+      ansible.builtin.uri:
+        url: https://hub.docker.com/v2/repositories/sonatype/nexus3/tags/latest
+      register: nexus_newest_latest
+      check_mode: false
+
+    - name: The most recently pushed tags
+      ansible.builtin.uri:
+        url: https://hub.docker.com/v2/repositories/sonatype/nexus3/tags?page_size=100&ordering=last_updated
+      register: nexus_newest_tags
+      check_mode: false
+
+    - name: Report the newest release
+      ansible.builtin.debug:
+        msg: >-
+          Newest release: {{ nexus_newest_tags.json.results
+          | selectattr('digest', 'equalto', nexus_newest_latest.json.digest)
+          | map(attribute='name') | select('match', '^[0-9]+\.[0-9]+\.[0-9]+$')
+          | first | default('not among the 100 most recently pushed tags') }}.
+          services.yml declares {{ (quadlet_services | selectattr('name', 'eq', 'nexus') | first).image }}.
+
+# Upgrade Nexus to the release services.yml declares: bump the image there, then
+# run this play rather than site.yml, which would restart onto it with no copy
+# to return to. With Nexus stopped, it copies everything but blob content and
+# logs, and the Quadlet unit; then it starts the new release once, from the
+# quadlet role's own template, and waits for it to accept writes, report the
+# declared version, and finish its upgrade tasks. If any of that fails, it puts
+# the copy and the old unit back, when the copy was complete, and starts the old
+# release again, then fails: revert services.yml before the next site.yml. It refuses a downgrade, which
+# a migrated database cannot take, and does nothing where the declared release
+# already runs. A short nexus_upgrade_timeout forces the rollback, for a test.
+- name: Nexus upgrade to its declared release
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-upgrade]
+  vars:
+    nexus_upgrade_service: "{{ quadlet_services | selectattr('name', 'eq', 'nexus') | first }}"
+    # The tag's release, without a variant suffix such as -ubi.
+    nexus_upgrade_release: "{{ nexus_upgrade_service.image.split(':')[-1] | regex_replace('-.*$', '') }}"
+    nexus_upgrade_data: /mnt/nexus/data
+    nexus_upgrade_backup: /mnt/nexus/upgrade-backup
+    nexus_upgrade_unit: /etc/containers/systemd/nexus.container
+    # What a rollback leaves alone: blob content, which an upgrade does not
+    # rewrite, logs, and scratch space.
+    nexus_upgrade_excludes: [/blobs/*/content/, /log/, /tmp/, /h2-migration/]
+    # Seconds the new release has to accept writes.
+    nexus_upgrade_timeout: 1800
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  tasks:
+    - name: The running container
+      ansible.builtin.command:
+        argv: [podman, container, inspect, nexus]
+      register: nexus_upgrade_container
+      changed_when: false
+      check_mode: false
+
+    - name: The running release
+      ansible.builtin.set_fact:
+        nexus_upgrade_running: >-
+          {{ (nexus_upgrade_container.stdout | from_json)[0].Config.Labels.version | regex_replace('-.*$', '') }}
+
+    - name: No downgrade, which a migrated database cannot take
+      ansible.builtin.assert:
+        that: nexus_upgrade_release is version(nexus_upgrade_running, '>=')
+        fail_msg: services.yml declares {{ nexus_upgrade_release }}, older than the running {{ nexus_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared release already runs
+      ansible.builtin.meta: end_host
+      when: nexus_upgrade_release == nexus_upgrade_running
+
+    - name: Whether the declared image is here
+      ansible.builtin.command:
+        argv: [podman, image, exists, "{{ nexus_upgrade_service.image }}"]
+      register: nexus_upgrade_image
+      changed_when: false
+      failed_when: nexus_upgrade_image.rc not in [0, 1]
+      check_mode: false
+
+    - name: The declared image, pulled while the old release still serves
+      ansible.builtin.command:
+        argv: [podman, pull, "{{ nexus_upgrade_service.image }}"]
+      changed_when: true
+      when: nexus_upgrade_image.rc == 1
+
+    - name: Directory for the copy, which holds Nexus's keystores
+      ansible.builtin.file:
+        path: "{{ nexus_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: Nexus stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: nexus
+            state: stopped
+
+        - name: Copy of Nexus's data, blob content and logs aside
+          ansible.builtin.command:
+            argv: >-
+              {{ ['rsync', '-a', '--delete']
+                 + nexus_upgrade_excludes | map('regex_replace', '^', '--exclude=') | list
+                 + [nexus_upgrade_data ~ '/', nexus_upgrade_backup ~ '/data/'] }}
+          changed_when: true
+
+        - name: Copy of the Quadlet unit
+          ansible.builtin.copy:
+            src: "{{ nexus_upgrade_unit }}"
+            dest: "{{ nexus_upgrade_backup }}/nexus.container"
+            remote_src: true
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            nexus_upgrade_copied: true
+
+        - name: The unit with the declared release
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../roles/quadlet/templates/service.container.j2"
+            dest: "{{ nexus_upgrade_unit }}"
+            owner: root
+            group: root
+            mode: "0644"
+          vars:
+            quadlet_dir: "{{ nexus_upgrade_unit | dirname }}"
+          loop: "{{ [nexus_upgrade_service] }}"
+          loop_control:
+            label: "{{ item.name }}"
+
+        - name: Nexus started on the declared release
+          ansible.builtin.systemd_service:
+            name: nexus
+            state: started
+            daemon_reload: true
+
+        - name: Wait for the declared release to accept writes
+          ansible.builtin.uri:
+            url: "{{ nexus_url }}/service/rest/v1/status/writable"
+          register: nexus_upgrade_writable
+          until: nexus_upgrade_writable.status == 200
+          retries: "{{ [(nexus_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+          no_log: true
+
+        - name: The declared release is the one serving
+          ansible.builtin.assert:
+            that: >-
+              (nexus_upgrade_writable.server | default('')) is search('^Nexus/' ~ (nexus_upgrade_release | regex_escape) ~ '-')
+            fail_msg: Nexus answers as {{ nexus_upgrade_writable.server | default('nothing') }}, not {{ nexus_upgrade_release }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        # A restart before they finish can damage the browse and search indexes.
+        - name: Wait for the upgrade tasks to finish
+          ansible.builtin.uri:
+            url: "{{ nexus_url }}/service/rest/v1/tasks"
+          register: nexus_upgrade_tasks
+          until: >-
+            nexus_upgrade_tasks.json['items'] | selectattr('currentState', 'equalto', 'RUNNING') | list | length == 0
+          retries: 240
+          delay: 15
+          when: not ansible_check_mode
+          no_log: true
+
+      rescue:
+        - name: Nexus stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: nexus
+            state: stopped
+
+        - name: Nexus's data put back from the copy
+          ansible.builtin.command:
+            argv: >-
+              {{ ['rsync', '-a', '--delete']
+                 + nexus_upgrade_excludes | map('regex_replace', '^', '--exclude=') | list
+                 + [nexus_upgrade_backup ~ '/data/', nexus_upgrade_data ~ '/'] }}
+          changed_when: true
+          when: nexus_upgrade_copied | default(false)
+
+        - name: The old unit put back
+          ansible.builtin.copy:
+            src: "{{ nexus_upgrade_backup }}/nexus.container"
+            dest: "{{ nexus_upgrade_unit }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: nexus_upgrade_copied | default(false)
+
+        - name: Nexus started on the old release
+          ansible.builtin.systemd_service:
+            name: nexus
+            state: started
+            daemon_reload: true
+
+        - name: Wait for the old release to accept writes
+          ansible.builtin.uri:
+            url: "{{ nexus_url }}/service/rest/v1/status/writable"
+          register: nexus_upgrade_rolled_back
+          until: nexus_upgrade_rolled_back.status == 200
+          retries: 60
+          delay: 10
+          no_log: true
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to {{ nexus_upgrade_release }} failed, and Nexus runs
+              {{ nexus_upgrade_running }} again{{ ' from the copy' if nexus_upgrade_copied | default(false) else '' }}.
+              Revert the image in services.yml to
+              {{ (nexus_upgrade_container.stdout | from_json)[0].ImageName }} before the next site.yml.

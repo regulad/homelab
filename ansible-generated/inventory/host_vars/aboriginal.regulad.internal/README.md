@@ -42,8 +42,8 @@ own.
 - **I2P**: the `i2p` container runs i2pd, whose SAM qb-clearnet is to use in
   place of `172.0.0.1`, where nothing serves it.
 - **docker-nexus**: to the `nexus` container, a read-only Quadlet of
-  `sonatype/nexus3:latest-3.70.x` behind Caddy on ingress, with its data on
-  its own mount point. `cr.regulad.xyz` is a virtual host on Nexus's one port
+  `sonatype/nexus3`, since moved from OrientDB to H2, behind Caddy on ingress,
+  with its data on its own mount point. `cr.regulad.xyz` is a virtual host on Nexus's one port
   in place of a connector of its own. Compacting its blob store first gave
   back 35 G of abandoned Docker uploads, and its dead LDAP realm is gone.
   aboriginal's root went from 93 % to 62 % full.

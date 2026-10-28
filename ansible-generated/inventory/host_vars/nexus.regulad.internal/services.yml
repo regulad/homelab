@@ -4,15 +4,13 @@ quadlet_services:
     description: Sonatype Nexus Repository
     after: [network-online.target]
     wants: [network-online.target]
-    # Sonatype's channel for the 3.70 line, the last that runs OrientDB. The
-    # database is H2 since maintenance.yml's nexus-h2 moved it off OrientDB, so
-    # later releases can follow.
-    image: docker.io/sonatype/nexus3:latest-3.70.x
+    # A release, bumped by hand: Sonatype tags only releases and latest. After
+    # a bump, maintenance.yml --tags nexus-upgrade upgrades to it with a copy
+    # to roll back to; site.yml would restart onto it with none. Auto-update
+    # still brings in Sonatype's rebuilds of the same release.
+    image: docker.io/sonatype/nexus3:3.97.3
     container_name: nexus
     auto_update: registry
-    # FIXME: Nexus listens on IPv4 only. The image's nexus.vmoptions sets
-    # -Djava.net.preferIPv4Stack=true after INSTALL4J_ADD_VM_PARAMS, so the
-    # environment cannot override it. Revisit with the move off OrientDB.
     # The web UI and every repository on 8081; Caddy serves cr's Docker API
     # from its path there.
     network: host
