@@ -75,6 +75,10 @@ own.
 - **Leftovers**: wings, bees (built from source and never run, with no hash
   table), MariaDB's data and user, and libvirt's configuration. ollama was
   already gone.
+- **The HOME.ARPA FreeIPA client**: its packages, the SSSD suite and what
+  only they needed, with their PAM profile, NSS entries, Kerberos and LDAP
+  client configuration, and state. The HOME.ARPA CA stays trusted, from
+  `ca_trust`.
 
 ## Retiring
 
