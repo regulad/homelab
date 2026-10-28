@@ -1080,3 +1080,8 @@ findings that would help a future session. Append new entries at the end.
 - krb5-config's postinst recreates a missing `/etc/krb5.conf` from its template with debconf's `krb5-config/default_realm`, which still held `HOME.ARPA`; that answer and `add_servers_realm` were cleared before `krb5.conf` was deleted.
 - The stock `ldap.conf` sets no `TLS_CACERT`, so the live file's was an addition too. The stock file came from the installed version's `.deb` (`apt-get download`, `dpkg-deb --fsys-tarfile`), checked against dpkg's recorded conffile checksum; a modified conffile would stop unattended-upgrades from upgrading `libldap-common` when a release changes it.
 - `qm agent 100 ping` from prodingus answers, so the guest agent (`qm guest exec 100`) reaches aboriginal if its logins break.
+
+## aboriginal: winbind and cloudflared uninstalled (2026-10-28)
+
+- winbind ran from a hand-edited copy of its unit in `/etc/systemd/system`; samba and cifs-utils only recommend it, so purging it removed nothing else.
+- cloudflared came from Cloudflare's own apt repository (`/etc/apt/sources.list.d/cloudflare.sources`, signed by `/usr/share/keyrings/cloudflare-main.gpg`), with its token in the `ExecStart` of a unit `cloudflared service install` wrote to `/etc/systemd/system`, beside a disabled `cloudflared-update` service and timer; the package's purge removes none of these. The `aboriginal` tunnel, `down` with no connections since, was deleted with its last three routes' CNAMEs; no Access application covered them.

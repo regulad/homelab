@@ -79,16 +79,16 @@ own.
   only they needed, with their PAM profile, NSS entries, Kerberos and LDAP
   client configuration, and state. The HOME.ARPA CA stays trusted, from
   `ca_trust`.
-
-## Retiring
-
-- **cloudflared**: once every route its tunnel carries has moved:
-  `hass-livingston`, `archive` and `qb-clearnet`.
+- **winbind**: a standalone Samba does not use it.
+- **cloudflared**, ahead of its last routes, `hass-livingston`, `archive` and
+  `qb-clearnet`, none of them needed, with the tunnel and those routes' DNS
+  records.
 
 ## Not yet decided
 
-- **nginxproxymanagerlocal**: only one of its proxy hosts is live, `archive`
-  (regulad's rootless `dcef`); its `ci` host died with the tunnel's `ci`
-  route. Its ldap-auth guards `archive` alone and still binds to the freeipa
-  stand-in.
-- **qb-clearnet**: idle, with no torrents.
+- **nginxproxymanagerlocal**: its one live proxy host, `archive` (regulad's
+  rootless `dcef`), was reached through the tunnel; its `ci` host died with
+  the tunnel's `ci` route. Its ldap-auth guards `archive` alone and still
+  binds to the freeipa stand-in.
+- **qb-clearnet**: idle, with no torrents, and its web UI's tunnel route gone
+  with cloudflared.
