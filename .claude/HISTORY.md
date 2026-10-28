@@ -1004,3 +1004,11 @@ findings that would help a future session. Append new entries at the end.
 - Jenkins 2.580's login form carries a `Jenkins-Crumb`; a POST to `j_spring_security_check` without the session and crumb goes to `loginError` before any LDAP lookup. A probe with them, for a user that does not exist, shows the manager bind and the filtered search in wako's access log.
 - 389-ds buffers its access log, so entries appear some seconds after the operation.
 - Jenkins's JVM reached wako over IPv4 (10.23.1.75 to 10.23.2.34) though the container connects over IPv6: Java prefers IPv4 addresses unless `java.net.preferIPv6Addresses` is set.
+
+## nexus: its LDAP realm on wako, bound as svc-nexus (2026-10-28)
+
+- `svc-nexus`'s password, which no copy recorded, was reset from new entropy into `nexus_servers.sops.yml`. A password an admin sets in FreeIPA expires at once: `ipa_user` with both `password` and `krbpasswordexpiration` left `krbPasswordExpiration` at the moment of the change, and a second call with only `krbpasswordexpiration` set it to 2038, as `mail_relay` does for its accounts.
+- Through `pct exec`, `ldapwhoami -y /dev/stdin` fails with "Permission denied"; a mode-600 temporary file written from stdin works.
+- Nexus's truststore held the retired `HOME.ARPA` CA, which the old realm's LDAPS used; wako's `REGULAD.INTERNAL` CA is added beside it, and the server uses the truststore. Creating an LDAP server through `/v1/security/ldap` activates `LdapRealm` itself, appended after the other realms.
+- With `groupType: dynamic` on `memberOf`, a user's external roles are the names of every IPA group, role, privilege and permission it is in. The group `nx-admin` matches Nexus's built-in `nx-admin` role by name, so no external role mapping is needed, and the other names match no Nexus role.
+- wako's `global_policy` sets a 90-day `krbMaxPwdLife`, which is where dates such as `svc-jenkins`'s 2027-01-26, 90 days after the migration, come from. Expiry is understood not to be enforced, and several `svc-` accounts are already past theirs, back to 2025-12-29.

@@ -117,6 +117,7 @@ cloud-init.
       - [x] Its LDAP realm on wako, bound as `svc-jenkins`, admitting only the `jenkinsusers` group
       - [ ] Its GitHub organization folder: a working credential, or the folder deleted
     - [x] docker-nexus: to the `nexus` container (209), a read-only Quadlet behind Caddy on ingress, with `/nexus-data` on its own RBD mount point and `cr` as a virtual host; its compose project, images and data removed from aboriginal
+      - [x] Its LDAP realm on wako, bound as `svc-nexus`, with the `nx-admin` group as Nexus's `nx-admin` role
       - [ ] From OrientDB to H2, with 3.70's database migrator, then a pinned release
     - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
       - [ ] qb-clearnet's I2P address, `172.0.0.1` today, set to `i2p.regulad.internal`
