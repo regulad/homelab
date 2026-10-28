@@ -50,6 +50,14 @@ ca_trust_debian_anchor_dir: /usr/local/share/ca-certificates
 ca_trust_rhel_anchor_dir: /etc/pki/ca-trust/source/anchors
 ca_trust_freebsd_anchor_dir: /usr/local/share/certs
 
+# Java's copy of the system store, for hosts whose Java services must trust
+# the roots above. On debian, ca-certificates-java builds
+# /etc/ssl/certs/java/cacerts with a headless JRE and rebuilds it on every
+# update-ca-certificates, distrusted roots included; rhel's update-ca-trust
+# already extracts /etc/pki/ca-trust/extracted/java/cacerts without a JRE.
+ca_trust_java: false
+ca_trust_debian_java_packages: [ca-certificates-java, default-jre-headless]
+
 # p11-kit's blocklist directory. p11-kit before 0.24 names it blacklist.
 ca_trust_rhel_blocklist_dir: /etc/pki/ca-trust/source/blocklist
 

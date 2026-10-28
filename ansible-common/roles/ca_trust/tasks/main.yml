@@ -102,3 +102,15 @@
   loop: "{{ ca_trust_retired }}"
   when: ca_trust_family == 'freebsd'
   notify: Rehash FreeBSD CA store
+
+- name: Java's copy of the system store
+  # After the anchors: the package's postinst builds the keystore from the
+  # store as it stands, and the handler's update-ca-certificates brings it up
+  # to date with anything changed above. A new container's template carries
+  # stale package lists, so they are refreshed first.
+  ansible.builtin.apt:
+    name: "{{ ca_trust_debian_java_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 86400
+  when: ca_trust_java and ca_trust_family == 'debian'
