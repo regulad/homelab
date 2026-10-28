@@ -12,14 +12,14 @@ Discovery for each host is in the operator's local `docs/snapshot/<host>-index.m
 `regulad.net` supersedes `regulad.xyz` for external-facing services, service by
 service; inner services live under `regulad.internal`. FreeIPA moves first.
 
-- [ ] FreeIPA: a fresh deployment on `wako`, an AlmaLinux 10 container, for `regulad.internal` (realm `REGULAD.INTERNAL`), replacing `freeipa.home.arpa` (VM 113, realm `HOME.ARPA`), whose domain and realm cannot be renamed
+- [x] FreeIPA: a fresh deployment on `wako`, an AlmaLinux 10 container, for `regulad.internal` (realm `REGULAD.INTERNAL`), replacing `freeipa.home.arpa` (VM 113, realm `HOME.ARPA`), whose domain and realm cannot be renamed
   - [x] `wako` itself (203), with IPA 4.13.4 as on the old server; Ubuntu ships no FreeIPA server
   - [x] `ipa-migrate` from the old server, `--dryrun` first: users, groups, hosts, services, sudo and HBAC rules carry over, and `userPassword` must too, so LDAP binds keep their passwords; Kerberos keys are generated again in migration mode, and certificates re-issued from the new CA
   - [x] `regulad`'s uid and gid, 1000 on the old server, moved into the deployment's ID range, clear of local Linux IDs
   - [x] The new CA in `ca_trust` as `freeipa-regulad.internal`, beside the old server's, renamed `freeipa-home.arpa`, while the stand-in presents the old server's certificate. FreeIPA's own tooling deletes anchors named `ipa-ca`, as `ipa-server-install` did on wako, so `ca_trust_retired` removes the old name
   - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with the old server's own certificate. No Kerberos; its RADIUS proxy is retired, as softether, the last RADIUS client, uses wako directly
   - [x] The hardware stage's `mail_relay` manages its null- accounts on wako, through prodingus, as the generated stage does through wako itself
-  - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud, Jellyfin, Jenkins and NPMplus's ldap-auth on aboriginal; Synapse; Open WebUI
+  - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud, Jellyfin and NPMplus's ldap-auth on aboriginal; Synapse; Open WebUI
   - [x] A new FreeRADIUS on wako, against its directory, replacing the one set up by hand on the FreeIPA VM with three clients; softether is its one client
   - [x] Backups: the weekly vzdump, which covers wako; no `ipa-backup`
   - [x] Anonymous LDAP read closed: anonymous clients get only the root DSE
@@ -114,7 +114,7 @@ cloud-init.
   - [ ] Move to containers of their own
     - [x] rsshub: to the `rsshub` container (206), a Quadlet without browserless or Redis, behind Caddy on ingress in place of the tunnel; the compose project, its images and its clone removed
     - [x] jenkins: to the `jenkins` container (207), a Quadlet behind Caddy on ingress, with `jenkins_home` on its own RBD mount point; its compose project, image, build context, data and host user removed from aboriginal
-      - [ ] Its LDAP realm to wako, where `svc-jenkins` exists
+      - [x] Its LDAP realm on wako, bound as `svc-jenkins`, admitting only the `jenkinsusers` group
       - [ ] Its GitHub organization folder: a working credential, or the folder deleted
     - [x] docker-nexus: to the `nexus` container (209), a read-only Quadlet behind Caddy on ingress, with `/nexus-data` on its own RBD mount point and `cr` as a virtual host; its compose project, images and data removed from aboriginal
       - [ ] From OrientDB to H2, with 3.70's database migrator, then a pinned release

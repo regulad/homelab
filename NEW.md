@@ -35,4 +35,5 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [ ] nexus
 - [ ] immich
 - [ ] authentik
+- [ ] jenkins: its LDAP realm and other settings live in `config.xml`, Jenkins's own state
 - [ ] etc. (not yet thoroughly probed)
