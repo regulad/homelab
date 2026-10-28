@@ -12,3 +12,7 @@ ansible_become: false
 # nodes with x86-64-v3; the tag reaches Ansible as a group of the same name.
 # Elsewhere the role removes the variant.
 apt_amd64v3_enabled: "{{ 'amd64v3' in group_names }}"
+# One pct exec per module, with the module on its stdin, instead of a temporary
+# directory, a copy and several more: proxmox_pct_remote's pipelining, from the
+# fork in requirements.yml.
+ansible_pipelining: true
