@@ -123,15 +123,16 @@ cloud-init.
       - [x] The OrientDB files left in `db/`, which Nexus warned about at each start, and the migration's `h2-migration` directory, removed
     - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
       - [ ] qb-clearnet's I2P address, `172.0.0.1` today, set to `i2p.regulad.internal`
-      - [ ] The old I2P's Docker volumes and the tunnel's dead `i2p` route removed from aboriginal
+      - [x] The old I2P's Docker volumes and the tunnel's dead `i2p` route, with its DNS record, removed from aboriginal
   - [x] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
-  - [ ] Retire qb-tor with its tor sidecar: the compose project, its volumes and images, and the tunnel's `qb-tor` route with its DNS record; its downloads in `/mnt/cephfs/homes/regulad/downloads-tor` stay
+  - [x] Retire qb-tor with its tor sidecar: the compose project, its volumes and image, the tunnel's `qb-tor` route with its DNS record, and its downloads in `/mnt/cephfs/homes/regulad/downloads-tor`
+  - [x] Remove the stopped compose projects (mollysocket, monero, timebomb, visualstudiocode) with their volumes, and the leftovers: wings, bees, MariaDB's data and user, libvirt's configuration; ollama was already gone
   - [x] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: declared in `vm-aboriginal.tf`, its changes ignored while the provider leaves a TPM at its defaults out of state
   - [ ] Describe its own services
-    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, qb-tor, ringmqtt
-    - [ ] Decide on the stopped projects (mollysocket, monero, timebomb, visualstudiocode) and the orphaned volumes
-    - [ ] cloudflared: retired once every route its tunnel carries has moved
-    - [ ] Native services: llama-server, Samba, NUT, lime; and the leftovers (wings, ollama, bees, libvirt, MariaDB)
+    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, ringmqtt
+    - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`
+    - [ ] cloudflared: retired once every route its tunnel carries has moved: `hass-livingston`, `archive` and `qb-clearnet`
+    - [ ] Native services: llama-server, Samba, NUT, lime
     - [ ] firewalld, with `eth0` in the `trusted` zone today
   - [x] Disk: the root btrfs is 62 % full with Nexus moved, from 93 %
 - [x] `dodo` (101)

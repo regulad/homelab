@@ -41,7 +41,8 @@ own.
     agent, a phone, were unreachable and are removed, with aboriginal's
     `jenkins` user, which only carried the tunnel to `tinker`.
 - **I2P**: the `i2p` container runs i2pd, whose SAM qb-clearnet is to use in
-  place of `172.0.0.1`, where nothing serves it.
+  place of `172.0.0.1`, where nothing serves it. The old I2P's volumes and its
+  tunnel route are removed.
 - **docker-nexus**: to the `nexus` container, a read-only Quadlet of
   `sonatype/nexus3`, since moved from OrientDB to H2, behind Caddy on ingress,
   with its data on its own mount point. `cr.regulad.xyz` is a virtual host on Nexus's one port
@@ -59,15 +60,23 @@ own.
 - **vsftpd**: cleartext FTP for local users, on no other host. Its logs, kept
   since it was installed on 2026-02-24, showed logins only on that day, and
   after that only refused anonymous logins, the last on 2026-07-21.
-- **The tor snap**: it served nothing; qb-tor runs its own tor.
+- **The tor snap**: it served nothing; qb-tor ran its own tor.
+- **qb-tor**, with its tor sidecar, its route, its DNS record and its
+  downloads, kept only for seeding; what was wanted had been copied out.
+  Nothing else used tor, so no tor container replaces it. The Tor Project
+  calls BitTorrent over Tor unsafe, as clients leak their address outside the
+  proxy, and a burden on its exits.
+- **The stopped compose projects**: mollysocket, monero, timebomb and
+  visualstudiocode, with their volumes. monero's held no wallet.
+- **The orphaned Docker volumes**, of projects long gone or moved.
+- **Leftovers**: wings, bees (built from source and never run, with no hash
+  table), MariaDB's data and user, and libvirt's configuration. ollama was
+  already gone.
 
 ## Retiring
 
-- **qb-tor**, with its tor sidecar. Nothing else uses tor, so no tor
-  container replaces it. The Tor Project calls BitTorrent over Tor unsafe,
-  as clients leak their address outside the proxy, and a burden on its exits.
-  Its downloads on CephFS stay.
-- **cloudflared**: once every route its tunnel carries has moved.
+- **cloudflared**: once every route its tunnel carries has moved:
+  `hass-livingston`, `archive` and `qb-clearnet`.
 
 ## Not yet decided
 
