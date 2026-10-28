@@ -883,3 +883,9 @@ findings that would help a future session. Append new entries at the end.
 
 - SoftEther reads `RadiusServerName` as a list. For each entry it tries an IPv4 lookup before IPv6, and on each retry it moves to the next address. A name with an A record therefore always goes over IPv4, so the entry is wako's ULA literal, and wako accepts softether from the LAN's ULA /64.
 - `apt-get purge` of FreeRADIUS on the stand-in left the role's own `sites-available/homelab` and its link, which no package owns, under `/etc/freeradius/3.0`.
+
+## Guest firewalls for wako and the freeipa stand-in; softether's disabled (2026-10-27)
+
+- pve-firewall applies its DHCP rules to a guest unless `dhcp` is explicitly 0, although its option schema gives 0 as the default. Its `ndp` option, on by default, always admits inbound router advertisements, so SLAAC keeps working behind an input policy of `DROP`.
+- The `Ping` macro covers ICMPv6 echo as well, through pve-firewall's IPv6 macro overrides. `OpenVPN` is UDP 1194 only.
+- softether's firewall stays off: its hub bridges VPN clients through its NIC, so a guest firewall would filter them as the container's own traffic, and its NAT traversal answers on random UDP ports.

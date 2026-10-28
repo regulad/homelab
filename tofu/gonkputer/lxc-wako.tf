@@ -67,6 +67,99 @@ resource "proxmox_haresource" "wako" {
   state       = "started"
 }
 
+# In: FreeIPA's own services, and RADIUS for softether. Not rpcbind, kadmind's
+# kadmin (749) or Dogtag's 8080 and 8443, which httpd's /ca proxies.
+resource "proxmox_virtual_environment_firewall_rules" "wako" {
+  node_name    = proxmox_virtual_environment_container.wako.node_name
+  container_id = proxmox_virtual_environment_container.wako.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "HTTP"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "HTTPS"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "LDAP"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "LDAPS"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    proto  = "tcp"
+    dport  = "88" # Kerberos
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    proto  = "udp"
+    dport  = "88" # Kerberos
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    proto  = "tcp"
+    dport  = "464" # Kerberos password changes
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    proto  = "udp"
+    dport  = "464" # Kerberos password changes
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    proto  = "udp"
+    dport  = "1812" # RADIUS
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "wako" {
+  node_name     = proxmox_virtual_environment_container.wako.node_name
+  container_id  = proxmox_virtual_environment_container.wako.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.wako]
+}
+
 # Listed in the Ansible inventory while its HA resource is requested.
 resource "ansible_host" "wako" {
   count = proxmox_haresource.wako.state == "started" ? 1 : 0

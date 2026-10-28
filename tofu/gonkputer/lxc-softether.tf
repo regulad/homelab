@@ -49,8 +49,7 @@ resource "proxmox_virtual_environment_container" "softether" {
   }
 
   network_interface {
-    # Off: Proxmox's MAC filter would drop the frames of the VPN clients the
-    # hub bridges onto the LAN, each with a MAC of its own.
+    # Off, as its firewall options say why.
     firewall = false
     # The softether VM's, so its SLAAC addresses followed.
     mac_address = "BC:24:11:04:C4:A0"
@@ -72,6 +71,27 @@ resource "proxmox_haresource" "softether" {
   resource_id = "ct:${proxmox_virtual_environment_container.softether.vm_id}"
   type        = "ct"
   state       = "started"
+}
+
+# Disabled, and bypassed anyway: net0 has no firewall flag. The hub bridges the
+# VPN clients onto VLAN 1 through this NIC, so a guest firewall would filter
+# their traffic as the container's own, its MAC filter would drop their frames,
+# and SoftEther's NAT traversal answers on random UDP ports no rule can name. The
+# clients are LAN hosts, behind arawi like the rest. The other options repeat
+# Proxmox's effective defaults, because the provider's own ndp and radv
+# defaults differ.
+resource "proxmox_virtual_environment_firewall_options" "softether" {
+  node_name     = proxmox_virtual_environment_container.softether.node_name
+  container_id  = proxmox_virtual_environment_container.softether.vm_id
+  enabled       = false
+  dhcp          = true
+  input_policy  = "DROP"
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
 }
 
 # Listed in the Ansible inventory while its HA resource is requested.

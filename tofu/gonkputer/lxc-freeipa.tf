@@ -68,6 +68,52 @@ resource "proxmox_haresource" "freeipa" {
   state       = "started"
 }
 
+# In: the LDAP proxy. Not sshd, which the template ships: Ansible reaches the
+# container through pct.
+resource "proxmox_virtual_environment_firewall_rules" "freeipa" {
+  node_name    = proxmox_virtual_environment_container.freeipa.node_name
+  container_id = proxmox_virtual_environment_container.freeipa.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "LDAP"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "LDAPS"
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "freeipa" {
+  node_name     = proxmox_virtual_environment_container.freeipa.node_name
+  container_id  = proxmox_virtual_environment_container.freeipa.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.freeipa]
+}
+
 # Listed in the Ansible inventory while its HA resource is requested.
 resource "ansible_host" "freeipa" {
   count = proxmox_haresource.freeipa.state == "started" ? 1 : 0
