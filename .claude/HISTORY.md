@@ -907,3 +907,7 @@ findings that would help a future session. Append new entries at the end.
 
 - Matrix's federation tester passes over ingress's GUA as well as its IPv4 address.
 - Testing from OCI misleads: tailscalerouter's router advertisements route OCI's /64 and the tailnet's /48 through itself, so ingress answers OCI addresses through the tailnet, and connections from bailout to ingress's GUA over the internet time out.
+
+## llamarpcmaster (119) destroyed (2026-10-27)
+
+- llamarpcmaster's two vzdump archives stayed on CephFS after its destroy.

@@ -85,7 +85,6 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] Inbound IPv6: Matrix's federation tester passes over both families since the CR1000B's firewall was changed on 2026-10-27
   - [ ] From OCI over IPv6: bailout's connections to ingress's GUA time out. tailscalerouter's router advertisements route OCI's /64 through the tailnet, so ingress's replies take another path than the requests
 - [x] `matrix` (202): Synapse 1.163 and its bridges as native units, the database on `/mnt/synapse`, served by Caddy on ingress; moved from the matrix VM (107)
-- [ ] `llamarpcmaster` (119): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [ ] `mastodon` (105): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `ncsusplitt` (125)
 - [ ] `openclaw` (103): low priority
