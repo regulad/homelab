@@ -22,6 +22,11 @@
 	tls {
 		issuer acme {
 			profile shortlived
+			# The DNS challenge's propagation check follows CNAMEs, and the LAN's
+			# resolver answers _acme-challenge.s3.regulad.xyz from the
+			# *.s3.regulad.xyz wildcard and its split-horizon rewrite, so it never
+			# sees the TXT record. Public resolvers see the record itself.
+			resolvers [2606:4700:4700::1111]:53 [2606:4700:4700::1001]:53 1.1.1.1:53 1.0.0.1:53
 		}
 	}
 }

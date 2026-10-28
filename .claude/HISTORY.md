@@ -960,3 +960,10 @@ findings that would help a future session. Append new entries at the end.
 - The gonkputer inventory lifts each `ansible_host` variable out of `variables.value` by name, in `compose`; `i2pd_port` was undefined until listed there.
 - `prepare.sh` refuses to run while `secrets.auto.tfvars.json` differs from `secrets.sops.json`, as it does after a new key; without its `AWS_ENDPOINT_URL_S3`, OpenTofu fell back to a global `AWS_ENDPOINT_URL` in the shell and tried another S3 endpoint.
 - i2pd logs finding the CR1000B's UPnP gateway at error level.
+
+## ingress: s3.regulad.xyz's certificates renewing again (2026-10-28)
+
+- Caddy's DNS-01 propagation check follows CNAMEs through the system resolver. Public DNS's `*.s3.regulad.xyz` wildcard CNAME also covers `_acme-challenge.s3.regulad.xyz`, and on the LAN that chain ends at `ingress.regulad.internal`, so the check never saw the TXT record. Both S3 certificates, the name and its wildcard, expired on 2026-10-27; other sites, with no wildcard over their challenge name, kept renewing. The ACME issuer's `resolvers` now points the check at Cloudflare's public resolvers.
+- A failed renewal retries every six hours. A reload with the fix brought no new attempt; after a restart both certificates renewed within 20 seconds.
+- Restarting Caddy on ingress, xcaddy's build included, takes about 8 seconds.
+- `prepare.sh`'s `AWS_ENDPOINT_URL_S3` and a shell's global `AWS_ENDPOINT_URL` (here `s3.regulad.xyz`) can coexist; OpenTofu reached the RGW, and its expired certificate, only when `prepare.sh` had refused to run.
