@@ -983,3 +983,9 @@ findings that would help a future session. Append new entries at the end.
 - `latest-3.70.x` started on 3.70.4's OrientDB in 25 seconds, read-only by the role's default.
 - A tunnel route reaches Caddy on ingress as `https://ingress.regulad.internal` with `originRequest.httpHostHeader` and `originServerName` set to its own hostname, which kept proxied DNS answers working through the cutover.
 - Its only LDAP server was `freeipa.home.arpa`, unresolvable since the old directory went; the realm and the server are removed through the API.
+
+## ingress: every site behind Souin's cache, storing only what upstream marks cacheable (2026-10-28)
+
+- cache-handler (Souin) treats a response without `Cache-Control` as public for its TTL, 120 s by default, so `ai`'s `/api/config` and Nextcloud's `status.php` were being served from the cache. The global `cache { default_cache_control no-store }` makes such responses uncacheable; explicit headers still apply: `private` and `no-store` are never stored, and `no-cache` is stored but revalidated.
+- Each site imports the `cache` snippet on its own line, so a site that misbehaves with it can drop it alone.
+- A full `site.yml` run on ingress takes about 8.5 minutes. The inventory's three `terraform_state` sources take 27 s. `proxmox_pct_remote` opens an SSH connection to the node for each task, at about 1.9 s through the agent, then makes several `pct exec` calls per module, about 0.45 s each, because it does not declare `has_pipelining`.

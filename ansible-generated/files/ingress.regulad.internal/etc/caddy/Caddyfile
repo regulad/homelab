@@ -5,6 +5,13 @@
 
 	# Coraza runs before any other handler in the sites that import it.
 	order coraza_waf first
+
+	# The sites that import cache store only what their upstream marks
+	# cacheable: Souin treats a response without Cache-Control as public, for
+	# its TTL, unless this default applies.
+	cache {
+		default_cache_control no-store
+	}
 	
 	# WebSockets-over-h3 is broken in Chrome from Caddy, somehow
 	servers {
@@ -57,6 +64,7 @@ http://kodi.regulad.xyz, https://kodi.regulad.xyz {
 	# legacy
 	
 	import common
+	import cache
 	import hsts
 
 	root * /srv/kodi
@@ -67,6 +75,7 @@ http://ios.regulad.xyz, https://ios.regulad.xyz {
 	# legacy	
 
 	import common
+	import cache
 	import hsts
 
 	encode zstd gzip
@@ -94,6 +103,7 @@ http://ios.regulad.xyz, https://ios.regulad.xyz {
 
 kasm.regulad.xyz {
 	import common
+	import cache
 	import hsts
 
 	reverse_proxy https://vkasm.regulad.internal:443 {
@@ -111,6 +121,7 @@ kasm.regulad.xyz {
 pterodactyl.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	@needs_cert {
 		not path /api/remote/*
@@ -126,6 +137,7 @@ openclaw.regulad.xyz {
 	import hsts
 	import mtls
 	import common	
+	import cache
 	
 	reverse_proxy openclaw.regulad.internal:18789 {
 	}
@@ -134,6 +146,7 @@ openclaw.regulad.xyz {
 tvheadend-livingston.regulad.xyz {
 	import hsts
 	import common
+	import cache
 	
 	reverse_proxy tvheadend.regulad.internal:9981 {
 	}
@@ -163,6 +176,7 @@ nextcloud.regulad.xyz {
 jf.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy aboriginal.regulad.internal:8096 {
 	}
@@ -171,6 +185,7 @@ jf.regulad.xyz {
 immich.regulad.xyz {
 	import hsts
 	import common
+	import cache
 	import mtls
 
 	reverse_proxy immich.regulad.internal:2283 {
@@ -180,6 +195,7 @@ immich.regulad.xyz {
 git.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy git.regulad.internal:3000 {
 	}
@@ -188,6 +204,7 @@ git.regulad.xyz {
 authentik.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy authentik.regulad.internal:9000 {
 	}
@@ -196,6 +213,7 @@ authentik.regulad.xyz {
 matrix.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy matrix.regulad.internal:80 {
 	}
@@ -204,6 +222,7 @@ matrix.regulad.xyz {
 vw.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy vaultwarden.regulad.internal:8000 {
 	}
@@ -229,6 +248,7 @@ uptime.regulad.xyz {
 rsshub.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy rsshub.regulad.internal:1200 {
 	}
@@ -237,6 +257,7 @@ rsshub.regulad.xyz {
 ci.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy jenkins.regulad.internal:8080 {
 	}
@@ -245,6 +266,7 @@ ci.regulad.xyz {
 repo.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	reverse_proxy nexus.regulad.internal:8081 {
 	}
@@ -256,6 +278,7 @@ repo.regulad.xyz {
 cr.regulad.xyz {
 	import hsts
 	import common
+	import cache
 
 	@docker path /v2 /v2/*
 	rewrite @docker /repository/cr{uri}
@@ -266,6 +289,7 @@ cr.regulad.xyz {
 
 s3.regulad.xyz, *.s3.regulad.xyz {
 	import common
+	import cache
 
 	reverse_proxy prodingus.regulad.internal:7480 {
 		lb_policy round_robin
@@ -278,6 +302,7 @@ s3.regulad.xyz, *.s3.regulad.xyz {
 
 gonkputer.regulad.xyz {
 	import common
+	import cache
 	import mtls
 
 	reverse_proxy https://prodingus:8006 {
