@@ -19,7 +19,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] The new CA in `ca_trust` as `freeipa-regulad.internal`, beside the old server's, renamed `freeipa-home.arpa`, while the stand-in presents the old server's certificate. FreeIPA's own tooling deletes anchors named `ipa-ca`, as `ipa-server-install` did on wako, so `ca_trust_retired` removes the old name
   - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with the old server's own certificate. No Kerberos; its RADIUS proxy is retired, as softether, the last RADIUS client, uses wako directly
   - [x] The hardware stage's `mail_relay` manages its null- accounts on wako, through prodingus, as the generated stage does through wako itself
-  - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud and Jellyfin on aboriginal; Synapse; Open WebUI
+  - [ ] Consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud, Jellyfin and NPMplus's ldap-auth on aboriginal; Synapse; Open WebUI
   - [x] A new FreeRADIUS on wako, against its directory, replacing the one set up by hand on the FreeIPA VM with three clients; softether is its one client
   - [x] Backups: the weekly vzdump, which covers wako; no `ipa-backup`
   - [x] Anonymous LDAP read closed: anonymous clients get only the root DSE
@@ -108,16 +108,24 @@ First installed on hardware and later imaged into VMs, so each carries a
 hardware install rather than a cloud image. Ansible configures them, not
 cloud-init.
 
-- [ ] `aboriginal` (100): also a remote workstation, so nothing under `/home/regulad` is managed
+- [ ] `aboriginal` (100): also a remote workstation, so nothing under `/home/regulad` is managed. What stays and what moves is in its [README](ansible-generated/inventory/host_vars/aboriginal.regulad.internal/README.md)
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
+  - [ ] Move to containers of their own
+    - [x] rsshub: to the `rsshub` container (206), a Quadlet without browserless or Redis, behind Caddy on ingress in place of the tunnel; the compose project, its images and its clone removed
+    - [ ] jenkins, with `jenkins_home` on its own RBD mount point
+    - [ ] docker-nexus, with `/nexus-data` on its own RBD mount point
+    - [ ] tor, later
+    - [ ] I2P, later, for the qBittorrents' I2P, which points at `172.0.0.1` today
+  - [ ] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
+  - [ ] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: `vm-aboriginal.tf` does not declare it, and OpenTofu's state does not track it
   - [ ] Describe its own services
-    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, docker-nexus, homeassistant, jellyfin, jenkins, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, qb-tor, ringmqtt, rsshub
+    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, qb-tor, ringmqtt
     - [ ] Decide on the stopped projects (mollysocket, monero, timebomb, visualstudiocode) and the orphaned volumes
-    - [ ] cloudflared, its tunnel token moved out of the world-readable unit into SOPS
-    - [ ] Native services: llama-server, Samba, NFS, vsftpd, NUT, the tor snap; and the leftovers (lime, llama-rpc, wings, ollama, bees, libvirt, MariaDB)
+    - [ ] cloudflared: retired once every route its tunnel carries has moved
+    - [ ] Native services: llama-server, Samba, NUT, lime; and the leftovers (wings, ollama, bees, libvirt, MariaDB)
     - [ ] firewalld, with `eth0` in the `trusted` zone today
-  - [ ] Disk: the root btrfs is 93% full, 82 G of it Nexus's
+  - [ ] Disk: the root btrfs is 93% full, 82 G of it Nexus's, which moves
 - [x] `dodo` (101)
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust

@@ -1,0 +1,63 @@
+# aboriginal
+
+VM 100 on gonkputer: a hardware install of Ubuntu imaged into a VM, and also a
+remote workstation, so nothing under `/home/regulad` is managed. Its services
+are Docker compose projects under `/root/compose` and a few native units. What
+ties a service to this VM is the hardware passed through to it or the mounts
+of the restic `nas` archive. Services with neither move to containers of their
+own.
+
+## Staying
+
+- **jellyfin and llama-server**: the passed-through RX 6800 (`renderD129`),
+  Jellyfin for VA-API transcoding and llama-server through ROCm.
+- **nextcloud, bandcampsync and Samba**: the `nas` archive's overlays,
+  `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
+- **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
+- **lime**: its credential is sealed to the VM's vTPM (`tpmstate0` on
+  `local-lvm`), which `vm-aboriginal.tf` does not declare and OpenTofu's state
+  does not track. The password itself is in `secrets.sops.yml`
+  (`lime_passwords`), so the credential can be sealed again.
+- **homeassistant, matter-server, mosquitto and ringmqtt.** They would suit a
+  Home Assistant OS VM with the USB devices passed through, but Home Assistant
+  needs the host's Bluetooth stack: its Bluetooth integrations reach BlueZ
+  over `/run/dbus`. ZHA holds the Zigbee stick on `/dev/ttyUSB0`.
+
+## Moved
+
+- **rsshub**: to the `rsshub` container, a Quadlet behind Caddy on ingress,
+  in place of aboriginal's Cloudflare tunnel.
+  - Stateless. The four routes it serves all declare `requirePuppeteer: false`,
+    and browserless served no session in a week, so the browserless container
+    was dropped.
+  - RSSHub's in-memory cache, its default, replaced Redis, which held 33 keys.
+
+## Moving
+
+- **jenkins**: to a container of its own, with `jenkins_home` (401 M) on its
+  own RBD mount point.
+- **docker-nexus**: to a container of its own, with `/nexus-data` (82 G, most
+  of aboriginal's 93 % full root) on its own RBD mount point.
+- **tor and I2P**, later: each to a container of its own. The tor snap serves
+  nothing; qb-tor runs its own tor. Both qBittorrents point I2P at `172.0.0.1`,
+  where nothing serves it.
+
+## Removing
+
+- **llama-rpc**: disabled, and its cache directory empty.
+- **The NFS server**: it exported only Jellyfin's config and cache, to two
+  rffmpeg transcode hosts. The stock Jellyfin image it runs has no rffmpeg.
+- **vsftpd**: cleartext FTP for local users, on no other host. Its logs, kept
+  since it was installed on 2026-02-24, show logins only on that day, and
+  after that only refused anonymous logins, the last on 2026-07-21.
+- **The tor snap**.
+- **cloudflared**: once every route its tunnel carries has moved.
+
+## Not yet decided
+
+- **nginxproxymanagerlocal**: only two of its proxy hosts are live, `ci`
+  (jenkins) and `archive` (regulad's rootless `dcef`). Its ldap-auth guards
+  `archive` alone and still binds to the freeipa stand-in.
+- **qb-clearnet**: idle, with no torrents.
+- **qb-tor**: seeding through its own tor, with no listening port. Its paths
+  are all on CephFS.
