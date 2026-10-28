@@ -137,3 +137,240 @@
         label: "{{ item.name }}"
       when: not ansible_check_mode
       no_log: true
+
+# Move Nexus off OrientDB, which 3.70.x is the last release to run, to H2, by
+# Sonatype's Database Migrator procedure: export the databases, stop Nexus,
+# migrate the export with the migrator of the 3.70.5 release it runs, put
+# nexus.mv.db in place, enable the datastore, and start it again on 3.70.5.
+# services.yml then moves the image to a current release. Rerunning is safe:
+# a host already on H2 is skipped, and an unfinished run starts over from a
+# fresh export. The OrientDB files stay in place until removed by hand.
+- name: Nexus database from OrientDB to H2
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-h2]
+  vars:
+    nexus_h2_data: /mnt/nexus/data
+    # On the data volume, as the export task writes it from inside Nexus's
+    # container, where the volume is /nexus-data.
+    nexus_h2_work: "{{ nexus_h2_data }}/h2-migration"
+    nexus_h2_migrator_url: https://download.sonatype.com/nexus/nxrm3-migrator/nexus-db-migrator-3.70.5-02.jar
+    nexus_h2_migrator_checksum: sha256:b026493c5dd331523d61bc39a54fcef7e1b3efe7f9d6409fd44a8345e01f0492
+    # The migrator runs on the Java 8 of the release it belongs to.
+    nexus_h2_migrator_image: docker.io/sonatype/nexus3:3.70.5
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  tasks:
+    - name: Nexus's properties
+      ansible.builtin.slurp:
+        src: "{{ nexus_h2_data }}/etc/nexus.properties"
+      register: nexus_h2_properties
+
+    - name: Stop here where Nexus already runs on H2
+      ansible.builtin.meta: end_host
+      when: >-
+        nexus_h2_properties.content | b64decode
+        is search('(?m)^nexus\.datastore\.enabled\s*=\s*true')
+
+    - name: Work directory, and the migrator's temporary directory in it
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "200"
+        group: "200"
+        mode: "0755"
+      loop:
+        - "{{ nexus_h2_work }}"
+        - "{{ nexus_h2_work }}/tmp"
+
+    - name: Earlier runs' exports and output
+      ansible.builtin.find:
+        paths: "{{ nexus_h2_work }}"
+        patterns: ["*.bak", "nexus.mv.db", "nexus.trace.db"]
+      register: nexus_h2_stale
+
+    - name: No earlier runs' exports or output
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ nexus_h2_stale.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: The 3.70.5 Database Migrator
+      ansible.builtin.get_url:
+        url: "{{ nexus_h2_migrator_url }}"
+        checksum: "{{ nexus_h2_migrator_checksum }}"
+        dest: "{{ nexus_h2_work }}/nexus-db-migrator.jar"
+        owner: "200"
+        group: "200"
+        mode: "0644"
+      when: not ansible_check_mode
+
+    - name: Nexus running, for the export
+      ansible.builtin.systemd_service:
+        name: nexus
+        state: started
+
+    - name: Wait for Nexus to accept writes
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/writable"
+      register: nexus_h2_writable
+      until: nexus_h2_writable.status == 200
+      retries: 60
+      delay: 10
+      when: not ansible_check_mode
+      no_log: true
+
+    - name: Export tasks
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks?type=db.backup"
+      register: nexus_h2_export_tasks
+      check_mode: false
+      no_log: true
+
+    - name: Create the export task where there is none
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/extdirect"
+        method: POST
+        body_format: json
+        body:
+          action: coreui_Task
+          method: create
+          type: rpc
+          tid: 1
+          data:
+            - enabled: true
+              name: Export databases for the H2 migration
+              typeId: db.backup
+              schedule: manual
+              notificationCondition: FAILURE
+              properties:
+                location: /nexus-data/h2-migration
+      register: nexus_h2_export_created
+      # ExtDirect answers 200 whatever happened; its result says.
+      failed_when: not (nexus_h2_export_created.json.result.success | default(false))
+      changed_when: true
+      when: nexus_h2_export_tasks.json['items'] | length == 0
+      no_log: true
+
+    - name: Export tasks, a created one included
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks?type=db.backup"
+      register: nexus_h2_export_tasks
+      check_mode: false
+      no_log: true
+
+    - name: Run the export
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks/{{ nexus_h2_export_tasks.json['items'][0].id }}/run"
+        method: POST
+        status_code: 204
+      changed_when: true
+      when: not ansible_check_mode
+      no_log: true
+
+    - name: Wait for the export to finish
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks/{{ nexus_h2_export_tasks.json['items'][0].id }}"
+      register: nexus_h2_export_status
+      until: nexus_h2_export_status.json.currentState == 'WAITING'
+      retries: 120
+      delay: 10
+      failed_when: >-
+        nexus_h2_export_status.json.currentState == 'WAITING'
+        and nexus_h2_export_status.json.lastRunResult != 'OK'
+      when: not ansible_check_mode
+      no_log: true
+
+    - name: The export's files
+      ansible.builtin.find:
+        paths: "{{ nexus_h2_work }}"
+        patterns: ["component-*.bak", "config-*.bak", "security-*.bak"]
+      register: nexus_h2_exports
+
+    - name: One export of each database the migrator reads
+      ansible.builtin.assert:
+        that: >-
+          nexus_h2_exports.files | map(attribute='path') | map('basename')
+          | map('regex_replace', '-.*$', '') | sort | list
+          == ['component', 'config', 'security']
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Nexus stopped, for the migration
+      ansible.builtin.systemd_service:
+        name: nexus
+        state: stopped
+
+    # Sonatype documents a 16 GB heap; a 4 GB one is plenty for this
+    # instance's database of under 1 GB, and fits in the container with
+    # Nexus stopped.
+    - name: Migrate the export to H2
+      ansible.builtin.command:
+        argv:
+          - podman
+          - run
+          - --rm
+          - --network=none
+          - --user=200:200
+          - --volume={{ nexus_h2_work }}:/work
+          - --workdir=/work
+          - --entrypoint=java
+          - "{{ nexus_h2_migrator_image }}"
+          - -Xmx4g
+          - -XX:+UseG1GC
+          - -XX:MaxDirectMemorySize=1g
+          - -Djava.io.tmpdir=/work/tmp
+          - -jar
+          - /work/nexus-db-migrator.jar
+          - --migration_type=h2
+          - --yes
+      changed_when: true
+
+    - name: The migrated database
+      ansible.builtin.copy:
+        src: "{{ nexus_h2_work }}/nexus.mv.db"
+        dest: "{{ nexus_h2_data }}/db/nexus.mv.db"
+        remote_src: true
+        owner: "200"
+        group: "200"
+        mode: "0644"
+      when: not ansible_check_mode
+
+    - name: Nexus on its datastore
+      ansible.builtin.lineinfile:
+        path: "{{ nexus_h2_data }}/etc/nexus.properties"
+        regexp: '^#?\s*nexus\.datastore\.enabled\s*='
+        line: nexus.datastore.enabled=true
+
+    - name: Nexus running again, on H2
+      ansible.builtin.systemd_service:
+        name: nexus
+        state: started
+
+    - name: Wait for Nexus to accept writes on H2
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/writable"
+      register: nexus_h2_writable
+      until: nexus_h2_writable.status == 200
+      retries: 60
+      delay: 10
+      when: not ansible_check_mode
+      no_log: true
+
+    # Nexus rebuilds its browse and search indexes after a migration, and
+    # must not restart until they finish.
+    - name: Wait for the post-migration tasks to finish
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks"
+      register: nexus_h2_tasks
+      until: >-
+        nexus_h2_tasks.json['items'] | selectattr('currentState', 'equalto', 'RUNNING') | list | length == 0
+      retries: 240
+      delay: 15
+      when: not ansible_check_mode
+      no_log: true

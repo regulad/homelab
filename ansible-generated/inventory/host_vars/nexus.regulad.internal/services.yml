@@ -4,9 +4,9 @@ quadlet_services:
     description: Sonatype Nexus Repository
     after: [network-online.target]
     wants: [network-online.target]
-    # Sonatype's channel for the 3.70 line, the last that runs OrientDB, which
-    # this instance's database still is. Later releases need it migrated to H2
-    # first, with the database migrator of the 3.70 release it runs.
+    # Sonatype's channel for the 3.70 line, the last that runs OrientDB. The
+    # database is H2 since maintenance.yml's nexus-h2 moved it off OrientDB, so
+    # later releases can follow.
     image: docker.io/sonatype/nexus3:latest-3.70.x
     container_name: nexus
     auto_update: registry
