@@ -8,7 +8,6 @@ quadlet_services:
     container_name: cloudflare-ddns
     user: "1000:1000"
     auto_update: registry
-    read_only: true
     drop_capabilities: [all]
     no_new_privileges: true
     # Sees the host's own addresses, IPv6 included.

@@ -7,8 +7,6 @@ quadlet_services:
     image: docker.io/jenkins/jenkins:lts-jdk21
     container_name: jenkins
     auto_update: registry
-    # Jenkins writes only jenkins_home and /tmp, as on aboriginal.
-    read_only: true
     # The web UI on 8080, on every address, IPv6 included, for Caddy on ingress.
     network: host
     volumes:

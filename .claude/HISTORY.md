@@ -931,3 +931,13 @@ findings that would help a future session. Append new entries at the end.
 - tar extracting under `pct exec` lands files with the container's uid shift. ext4's `lost+found` on a mount point belongs to the node's root, and refuses chown from inside.
 - aboriginal's `jenkins` user existed only for a socket-activated SSH tunnel to Podman on `tinker`, the dead Docker cloud.
 - Jenkins exits 143 on SIGTERM, so its stopped Quadlet unit shows `failed`.
+
+## Quadlets read-only by default (2026-10-28)
+
+- In these LXC containers `podman diff` lists files that came with the image as added (RSSHub's `dist`, cloudflared's and aameterd's binaries). A `find` over `/proc/<pid>/root` with `-xdev`, for files whose ctime is after the container started, lists only what it writes at runtime, without its volumes or bind mounts.
+- With `ReadOnly=true`, Podman mounts tmpfs on `/tmp`, `/var/tmp`, `/run` and `/dev` itself, and still writes the `/etc/passwd` and `/etc/group` entries a numeric `User=` needs.
+- timemachine stays writable: its entrypoint creates its user in `/etc/passwd` and `/etc/shadow` and writes `smb.conf`, its Avahi service and s6's supervise state under `/etc` at every start.
+- open-webui copies the frontend's static files into the image's static directory at startup, each copy in a `try`, so read-only it logs the failures and serves the image's own copies. A tmpfs there would hide the three swagger-ui files only the image has.
+- RSSHub's file logs turn off with `NO_LOGFILES`; npm, which starts it, writes under `/root/.npm`. uptime-kuma's image runs nscd, which writes `/var/cache/nscd`.
+- An `ansible-playbook` killed in its handlers leaves a unit written but its service not restarted, and a rerun finds the unit unchanged and never restarts it: rsshub needed `systemctl daemon-reload` and a restart by hand.
+- Ad-hoc `ansible -a` arguments that start with `{` are parsed as JSON, and Podman's `{{ }}` format strings are templated by Jinja; the `script` module runs a probe verbatim.

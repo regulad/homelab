@@ -9,7 +9,6 @@ quadlet_services:
     container_name: tvheadend
     user: "1000:1000"
     auto_update: registry
-    read_only: true
     # Web UI on 9981, HTSP on 9982, and SSDP discovery.
     network: host
     volumes:

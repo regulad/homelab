@@ -10,6 +10,9 @@ quadlet_services:
     container_name: open-webui
     auto_update: registry
     network: host
+    # Read-only, so its startup copy of the frontend's static files into the
+    # image's static directory fails, logged and ignored; the image's own
+    # copies of them serve.
     volumes:
       - open-webui_open-webui:/app/backend/data
       - /etc/ipa/ca.crt:/ipa-ca.crt:ro

@@ -9,7 +9,6 @@ quadlet_services:
     image: docker.io/diygod/rsshub:latest
     container_name: rsshub
     auto_update: registry
-    read_only: true
     # Listens on 1200 on every address, IPv6 included; caches in memory, its
     # default. None of the routes it serves needs a browser.
     network: host

@@ -8,6 +8,10 @@ quadlet_services:
     image: docker.io/mbentley/timemachine:latest
     container_name: timemachine
     auto_update: registry
+    # Not read-only: at every start its entrypoint creates TM_USERNAME in
+    # /etc/passwd and /etc/shadow, and writes smb.conf, its Avahi service and
+    # s6's supervise state under /etc.
+    read_only: false
     # Samba and the image's own Avahi advertise the share on the LAN.
     network: host
     volumes:

@@ -9,6 +9,9 @@ quadlet_services:
     auto_update: registry
     # Listens on 3001 on every address, and probes the LAN and tailnet directly.
     network: host
+    # The image runs nscd, whose host cache is the only file it writes outside
+    # its volume.
+    tmpfs: [/var/cache/nscd]
     volumes:
       - uptime-kuma_data:/app/data
       # The host's trust store, which the ca_trust role maintains.

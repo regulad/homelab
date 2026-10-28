@@ -18,7 +18,7 @@ User={{ item.user }}
 {% if item.auto_update is defined %}
 AutoUpdate={{ item.auto_update }}
 {% endif %}
-{% if item.read_only | default(false) %}
+{% if item.read_only | default(true) %}
 ReadOnly=true
 {% endif %}
 {% for capability in item.drop_capabilities | default([]) %}
