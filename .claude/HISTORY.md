@@ -902,3 +902,8 @@ findings that would help a future session. Append new entries at the end.
 - On a new host, the `mail_relay` task that creates the FreeIPA account reported a change on the second run as well, and none on the third.
 - A remote-managed tunnel's routes are edited with a GET and a PUT of its whole configuration (`/accounts/{account}/cfd_tunnel/{id}/configurations`); removing a route leaves its DNS record alone.
 - Removing the compose project, its three images and its 1.2 G upstream clone freed about 5 G on aboriginal's root.
+
+## ingress: inbound IPv6 works since the CR1000B's firewall change (2026-10-27)
+
+- Matrix's federation tester passes over ingress's GUA as well as its IPv4 address.
+- Testing from OCI misleads: tailscalerouter's router advertisements route OCI's /64 and the tailnet's /48 through itself, so ingress answers OCI addresses through the tailnet, and connections from bailout to ingress's GUA over the internet time out.
