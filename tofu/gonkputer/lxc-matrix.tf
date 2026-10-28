@@ -44,8 +44,10 @@ resource "proxmox_virtual_environment_container" "matrix" {
     swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 
-  # Synapse's database: the Postgres cluster's data directory.
+  # Synapse's database: the Postgres cluster's data directory. Proxmox's backups
+  # leave a volume mount point out unless backup is set.
   mount_point {
+    backup        = true
     mount_options = ["discard", "lazytime"]
     path          = "/mnt/synapse"
     size          = "128G"

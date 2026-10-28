@@ -916,3 +916,8 @@ findings that would help a future session. Append new entries at the end.
 
 - `rpc-svcgssd.service`, which failed at every boot for want of an NFS keytab, came from `nfs-common`. Nothing mounted NFS, so `nfs-common` and `rpcbind` were purged with the server, closing 111 and 2049. The unit's failed state outlived the package until `systemctl reset-failed`.
 - Purging `nfs-kernel-server` and `vsftpd` left `/var/lib/nfs`, the vsftpd logs and the `ftp` user and group, removed by hand.
+
+## matrix: Synapse's database included in the weekly backups (2026-10-27)
+
+- vzdump leaves a container's volume mount points out unless their `backup` flag is set ("excluding volume mount point mp0 ('/mnt/synapse') from backup (disabled)"), so matrix's 62 G PostgreSQL cluster had been in no backup since the move.
+- Setting `backup` on the mount point updated the container in place, but the provider restarted it; Synapse was serving again within 20 seconds.
