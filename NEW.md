@@ -15,6 +15,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   pelican) before Parker did
 - [ ] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
   block superfluous traffic
+- [ ] Proxmox firewalls for the guests created before AGENTS.md required one of
+  every new guest: firewall options and rules for each, as a new guest gets
 - [ ] Egress firewalls everywhere, to contain a compromise such as a botnet's spam
   attempts should one occur
 
