@@ -889,3 +889,8 @@ findings that would help a future session. Append new entries at the end.
 - pve-firewall applies its DHCP rules to a guest unless `dhcp` is explicitly 0, although its option schema gives 0 as the default. Its `ndp` option, on by default, always admits inbound router advertisements, so SLAAC keeps working behind an input policy of `DROP`.
 - The `Ping` macro covers ICMPv6 echo as well, through pve-firewall's IPv6 macro overrides. `OpenVPN` is UDP 1194 only.
 - softether's firewall stays off: its hub bridges VPN clients through its NIC, so a guest firewall would filter them as the container's own traffic, and its NAT traversal answers on random UDP ports.
+
+## aboriginal: lime's password copied into SOPS ahead of any vTPM change (2026-10-27)
+
+- VM 100's vTPM (`tpmstate0`, on `local-lvm`) is in neither `vm-aboriginal.tf` nor OpenTofu's state, though the guest has `/dev/tpm0`. lime's `lime.overture` credential was encrypted `--with-key=host+tpm2`, so losing the vTPM or `/var/lib/systemd/credential.secret` loses it; `systemd-creds decrypt --name=lime.overture <file> -` recovers it while both are there.
+- lime ignores one trailing newline in a credential, so SOPS holds `lime_passwords.overture` without one.
