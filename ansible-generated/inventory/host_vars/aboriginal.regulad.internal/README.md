@@ -39,13 +39,14 @@ own.
     folder whose credential is dead. Its Docker cloud `tinker` and its one
     agent, a phone, were unreachable and are removed, with aboriginal's
     `jenkins` user, which only carried the tunnel to `tinker`.
+- **I2P**: the `i2p` container runs i2pd, whose SAM the qBittorrents are to
+  use in place of `172.0.0.1`, where nothing serves it.
 
 ## Moving
 
 - **docker-nexus**: to a container of its own, with `/nexus-data` (82 G, most
   of aboriginal's 93 % full root) on its own RBD mount point.
-- **tor and I2P**, later: each to a container of its own. Both qBittorrents
-  point I2P at `172.0.0.1`, where nothing serves it.
+- **tor**, later: to a container of its own.
 
 ## Removed
 

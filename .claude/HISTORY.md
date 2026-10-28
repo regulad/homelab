@@ -950,3 +950,13 @@ findings that would help a future session. Append new entries at the end.
 - immich's machine-learning image writes ONNX Runtime's telemetry device ID under `/root/.cache`.
 - authentik's worker, run as root, starts with `chown -R authentik:authentik /data /certs` under `set -e` in `/lifecycle/ak`. With `/certs` not mounted and the root read-only, it exited at once and restarted in a loop (153 times in ten minutes) while the server kept serving logins; a tmpfs on `/certs` restores it. Running the worker as its own user would skip that chown, since root was only for the Docker socket this stack leaves out.
 - `immich.regulad.xyz` requires a client certificate (`import mtls` in the Caddyfile), so a plain `curl` gets "certificate required" whatever immich's state.
+
+## i2p: i2pd in a container of its own (208) (2026-10-28)
+
+- Ubuntu ships i2pd only as frozen universe releases: 26.04 has 2.59.0 and 24.04 still 2.49.0, with no updates since release. Fedora's `rpms/i2pd` repository is empty and EPEL has none. Upstream's image tags `latest-release`, the same digest as its newest release, and `latest`, a daily build of main.
+- Java I2P's packaged unit sets `AppArmorProfile=system_i2p`, which fails in LXC containers (exit 231/APPARMOR, per the Proxmox forum); i2pd's image needs no profile.
+- The image runs as `i2pd` on Alpine and writes only its data volume. Its entrypoint appends extra arguments after `--datadir`, so `--conf` points it at a bind-mounted file, and it runs read-only with nothing more.
+- SAM on `::` takes IPv4 and IPv6 clients alike. A LAN client reaching the guest's GUA arrives from its own GUA, so the firewall admits the LAN's GUA /64, now `lan_ipv6_cidr` in `secrets.sops.json`, beside its ULA and IPv4.
+- The gonkputer inventory lifts each `ansible_host` variable out of `variables.value` by name, in `compose`; `i2pd_port` was undefined until listed there.
+- `prepare.sh` refuses to run while `secrets.auto.tfvars.json` differs from `secrets.sops.json`, as it does after a new key; without its `AWS_ENDPOINT_URL_S3`, OpenTofu fell back to a global `AWS_ENDPOINT_URL` in the shell and tried another S3 endpoint.
+- i2pd logs finding the CR1000B's UPnP gateway at error level.

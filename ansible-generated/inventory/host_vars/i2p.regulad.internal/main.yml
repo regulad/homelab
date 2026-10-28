@@ -1,0 +1,46 @@
+---
+# i2pd, from upstream's image as a Quadlet: an I2P router whose SAM bridge
+# serves the qBittorrents on the LAN as i2p.regulad.internal:7656. This
+# configuration replaces the one the image carries in its data directory, whose
+# volume keeps the router identity and network database.
+host_files_directories:
+  - path: /etc/i2pd
+    mode: "0755"
+host_files_list:
+  # Options left out keep i2pd's defaults, logging to stdout among them.
+  - path: /etc/i2pd/i2pd.conf
+    mode: "0644"
+    content: |
+      # Both transports, NTCP2 and SSU2, on the port lxc-i2p.tf admits.
+      port = {{ i2pd_port }}
+      ipv4 = true
+      ipv6 = true
+      # Transit: class P, 2048 KB/s, half of it for other routers' tunnels.
+      bandwidth = P
+      share = 50
+
+      # The web console, on loopback only.
+      [http]
+      address = 127.0.0.1
+
+      # The qBittorrents use SAM alone.
+      [httpproxy]
+      enabled = false
+
+      [socksproxy]
+      enabled = false
+
+      # Every address, both families; lxc-i2p.tf admits the LAN alone.
+      [sam]
+      enabled = true
+      address = ::
+
+      # The CR1000B maps the transports' IPv4 port.
+      [upnp]
+      enabled = true
+
+      # Reseed files are checked against the certificates the image carries;
+      # i2pd's own default is not to.
+      [reseed]
+      verify = true
+    restarts: [i2pd.service]

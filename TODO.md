@@ -118,7 +118,9 @@ cloud-init.
       - [ ] Its GitHub organization folder: a working credential, or the folder deleted
     - [ ] docker-nexus, with `/nexus-data` on its own RBD mount point
     - [ ] tor, later
-    - [ ] I2P, later, for the qBittorrents' I2P, which points at `172.0.0.1` today
+    - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
+      - [ ] The qBittorrents' I2P address, `172.0.0.1` today, set to `i2p.regulad.internal`
+      - [ ] The old I2P's Docker volumes and the tunnel's dead `i2p` route removed from aboriginal
   - [x] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
   - [ ] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: `vm-aboriginal.tf` does not declare it, and OpenTofu's state does not track it
   - [ ] Describe its own services

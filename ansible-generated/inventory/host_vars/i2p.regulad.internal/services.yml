@@ -1,0 +1,19 @@
+---
+quadlet_services:
+  - name: i2pd
+    description: i2pd, an I2P router
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream's release channel; latest is a daily build of its main branch.
+    image: docker.io/purplei2p/i2pd:latest-release
+    container_name: i2pd
+    auto_update: registry
+    # SAM, the transports and UPnP, at the container's own addresses.
+    network: host
+    volumes:
+      - i2pd_data:/home/i2pd/data
+      - /etc/i2pd/i2pd.conf:/etc/i2pd/i2pd.conf:ro
+    # After the image's own --datadir.
+    exec: --conf=/etc/i2pd/i2pd.conf
+    restart: always
+    wanted_by: [multi-user.target, default.target]

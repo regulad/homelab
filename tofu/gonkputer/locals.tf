@@ -13,6 +13,13 @@ locals {
   # The tailnet's MagicDNS domain, for guests Ansible reaches over the tailnet.
   tailnet_domain = "tail11540.ts.net"
 
+  # VLAN 1's (the LAN's) own ranges, by IP family. Its GUA /64 comes from the
+  # ISP's router and is var.lan_ipv6_cidr.
+  dual_stack_lan_cidrs = {
+    ipv4 = "10.23.0.0/20"
+    ipv6 = "fd83:b84c:aa57:1::/64"
+  }
+
   # Guest tags, by name. A guest lists the ones it carries in Proxmox's sorted
   # order; every guest carries `terraform`, marking it as managed by OpenTofu.
   tags = {
