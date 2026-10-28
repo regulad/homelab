@@ -911,3 +911,8 @@ findings that would help a future session. Append new entries at the end.
 ## llamarpcmaster (119) destroyed (2026-10-27)
 
 - llamarpcmaster's two vzdump archives stayed on CephFS after its destroy.
+
+## aboriginal: llama-rpc, NFS, vsftpd and the tor snap removed (2026-10-27)
+
+- `rpc-svcgssd.service`, which failed at every boot for want of an NFS keytab, came from `nfs-common`. Nothing mounted NFS, so `nfs-common` and `rpcbind` were purged with the server, closing 111 and 2049. The unit's failed state outlived the package until `systemctl reset-failed`.
+- Purging `nfs-kernel-server` and `vsftpd` left `/var/lib/nfs`, the vsftpd logs and the `ftp` user and group, removed by hand.

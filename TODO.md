@@ -117,7 +117,7 @@ cloud-init.
     - [ ] docker-nexus, with `/nexus-data` on its own RBD mount point
     - [ ] tor, later
     - [ ] I2P, later, for the qBittorrents' I2P, which points at `172.0.0.1` today
-  - [ ] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
+  - [x] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
   - [ ] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: `vm-aboriginal.tf` does not declare it, and OpenTofu's state does not track it
   - [ ] Describe its own services
     - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, qb-tor, ringmqtt

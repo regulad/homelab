@@ -38,19 +38,23 @@ own.
   own RBD mount point.
 - **docker-nexus**: to a container of its own, with `/nexus-data` (82 G, most
   of aboriginal's 93 % full root) on its own RBD mount point.
-- **tor and I2P**, later: each to a container of its own. The tor snap serves
-  nothing; qb-tor runs its own tor. Both qBittorrents point I2P at `172.0.0.1`,
-  where nothing serves it.
+- **tor and I2P**, later: each to a container of its own. Both qBittorrents
+  point I2P at `172.0.0.1`, where nothing serves it.
 
-## Removing
+## Removed
 
-- **llama-rpc**: disabled, and its cache directory empty.
-- **The NFS server**: it exported only Jellyfin's config and cache, to two
-  rffmpeg transcode hosts. The stock Jellyfin image it runs has no rffmpeg.
+- **llama-rpc**: disabled, and its cache directory empty. Its master,
+  the dormant `llamarpcmaster` container, is destroyed too.
+- **NFS**: the server exported only Jellyfin's config and cache, to two
+  rffmpeg transcode hosts, and the stock Jellyfin image it runs has no
+  rffmpeg. Nothing mounted NFS, so `nfs-common` and `rpcbind` went with it.
 - **vsftpd**: cleartext FTP for local users, on no other host. Its logs, kept
-  since it was installed on 2026-02-24, show logins only on that day, and
+  since it was installed on 2026-02-24, showed logins only on that day, and
   after that only refused anonymous logins, the last on 2026-07-21.
-- **The tor snap**.
+- **The tor snap**: it served nothing; qb-tor runs its own tor.
+
+## Retiring
+
 - **cloudflared**: once every route its tunnel carries has moved.
 
 ## Not yet decided
