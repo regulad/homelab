@@ -1038,3 +1038,10 @@ findings that would help a future session. Append new entries at the end.
 - 3.97's image bundles Java 21 and no longer forces `-Djava.net.preferIPv4Stack=true`: Nexus listens on `*:8081` and answers directly over IPv6. `INSTALL4J_ADD_VM_PARAMS` now sets only `-Djava.util.prefs.userRoot`.
 - 3.97 logs "Database directory contains unsupported legacy database files" while the OrientDB files remain in `db/`, and dropped the H2 migration's export task, whose `db.backup` type it no longer has; the compaction task stayed.
 - Of `db/`, only `nexus.mv.db` and `nexus.trace.db` are H2's; `OSystem`, `analytics` (481 MB of the 636), `component`, `config`, `security`, `frozen.marker` and `model.properties` were OrientDB's, and are removed with the migration's `h2-migration`. The upgrade copy in `/mnt/nexus/upgrade-backup` still holds them until the next upgrade's `rsync --delete`.
+
+## ansible-generated: the terraform_state inventory cached, from a cloud.terraform fork (2026-10-28)
+
+- cloud.terraform 4.0.0's `terraform_state` plugin cannot cache, so every load ran `tofu init` and `tofu state pull` per source. regulad/cloud.terraform's `terraform_state_inventory_cache` (ansible-collections/cloud.terraform#220, for #219) adds `Cacheable`: it caches each selected resource's name, type and attributes under the inventory file's path, never the state file, and `--flush-cache` or an expired `cache_timeout` reads the state again.
+- With caching off, its inventory is byte-identical to 4.0.0's, by `ansible-inventory --list`'s hash over 35 hosts. A load that reads the state takes about 22 s, a cached one 1.8 to 2.2 s; an ad-hoc module on a container, with pipelining, went from about 24 s to 4.3 s.
+- The settings sit once in `ansible.cfg`'s `[inventory]`, for both sources. The jsonfile plugin writes a file per source, 13 and 30 KB, mode 0644, in `~/.cache/ansible/terraform_state` under a home directory of mode 0700.
+- `ansible-galaxy collection install -r requirements.yml` installs git requirements again on every run, community.proxmox's included, and skips the pinned Galaxy ones. The hardware stage keeps 4.0.0, which it needs only for `tf_output`.

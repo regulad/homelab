@@ -97,6 +97,7 @@ pre-commit run --all-files
 - Run plans from a root, never from a child module.
 - Write plaintext plan output and saved plans to `docs/snapshot/`. State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
 - Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op. The state bucket's versioning keeps every earlier state version, so applies need no separate backups.
+- After an apply to `tofu/oracle` or `tofu/gonkputer`, run the next `ansible-generated` command with `--flush-cache`: its inventory caches their state for an hour.
 - The OCI session token lasts 60 minutes, and refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate` himself.
 
 ## Verification before review

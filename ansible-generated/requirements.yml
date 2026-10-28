@@ -2,9 +2,12 @@
 # Collections, each pinned to an exact version when a role first needs it.
 collections:
   # The terraform_state inventory plugin, and the tf_output lookup the restic role reads
-  # tofu/backblaze with.
-  - name: cloud.terraform
-    version: 4.0.0
+  # tofu/backblaze with: the head of regulad/cloud.terraform's terraform_state_inventory_cache
+  # branch, which adds inventory caching, pending ansible-collections/cloud.terraform#220. It
+  # installs as 5.0.0-dev0, the version in that commit's galaxy.yml; it is not a release.
+  - name: https://github.com/regulad/cloud.terraform.git
+    type: git
+    version: 4d748cb61147f9c8ec8955f957885d59667429de
   # The proxmox_pct_remote connection plugin, for LXC containers: the head of
   # regulad/community.proxmox's feat/proxmox-pct-remote-pipelining branch, which adds
   # pipelining, pending ansible-collections/community.proxmox#549. It installs as 3.0.0,
