@@ -9,10 +9,15 @@ quadlet_services:
     image: docker.io/diygod/rsshub:latest
     container_name: rsshub
     auto_update: registry
+    read_only: true
     # Listens on 1200 on every address, IPv6 included; caches in memory, its
     # default. None of the routes it serves needs a browser.
     network: host
+    # npm, which the image starts RSSHub through, writes its own logs here.
+    tmpfs: [/root/.npm]
     environment:
       NODE_ENV: production
+      # Its log files would repeat what the journal already has from stdout.
+      NO_LOGFILES: "true"
     restart: always
     wanted_by: [multi-user.target, default.target]
