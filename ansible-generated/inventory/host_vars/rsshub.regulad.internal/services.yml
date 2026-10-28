@@ -1,0 +1,18 @@
+---
+quadlet_services:
+  - name: rsshub
+    description: RSSHub
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream publishes only latest, chromium-bundled, dated and per-commit
+    # builds.
+    image: docker.io/diygod/rsshub:latest
+    container_name: rsshub
+    auto_update: registry
+    # Listens on 1200 on every address, IPv6 included; caches in memory, its
+    # default. None of the routes it serves needs a browser.
+    network: host
+    environment:
+      NODE_ENV: production
+    restart: always
+    wanted_by: [multi-user.target, default.target]

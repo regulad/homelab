@@ -221,6 +221,14 @@ uptime.regulad.xyz {
 	}
 }
 
+rsshub.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy rsshub.regulad.internal:1200 {
+	}
+}
+
 s3.regulad.xyz, *.s3.regulad.xyz {
 	import common
 

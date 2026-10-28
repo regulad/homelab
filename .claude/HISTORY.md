@@ -894,3 +894,11 @@ findings that would help a future session. Append new entries at the end.
 
 - VM 100's vTPM (`tpmstate0`, on `local-lvm`) is in neither `vm-aboriginal.tf` nor OpenTofu's state, though the guest has `/dev/tpm0`. lime's `lime.overture` credential was encrypted `--with-key=host+tpm2`, so losing the vTPM or `/var/lib/systemd/credential.secret` loses it; `systemd-creds decrypt --name=lime.overture <file> -` recovers it while both are there.
 - lime ignores one trailing newline in a credential, so SOPS holds `lime_passwords.overture` without one.
+
+## rsshub: moved from aboriginal's compose project to the rsshub container (206) (2026-10-27)
+
+- RSSHub publishes only `latest`, `chromium-bundled`, dated and per-commit tags. Each route declares `requirePuppeteer`; the four in use declare `false`, and browserless had served no session in a week, so neither browserless nor Redis came along: RSSHub caches in memory by default. It listens on `::` unless `DISABLE_IPV6` is set.
+- On a container from Proxmox's `ubuntu-26.04-standard_26.04-1`, which has no unattended-upgrades, the first `--check` stops at `auto_updates` reading the package's `50unattended-upgrades`.
+- On a new host, the `mail_relay` task that creates the FreeIPA account reported a change on the second run as well, and none on the third.
+- A remote-managed tunnel's routes are edited with a GET and a PUT of its whole configuration (`/accounts/{account}/cfd_tunnel/{id}/configurations`); removing a route leaves its DNS record alone.
+- Removing the compose project, its three images and its 1.2 G upstream clone freed about 5 G on aboriginal's root.
