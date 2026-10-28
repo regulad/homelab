@@ -185,8 +185,9 @@ resource "ansible_host" "aboriginal" {
 
   name = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.guest_domain}"
   # The watchdog group, for the watchdog daemon, follows the VM's watchdog device.
+  # nexus_servers while Nexus runs here, until the nexus container takes it over.
   groups = sort(concat(
-    ["gonkputer", "kdump", "proxmox_vms", "ubuntu"],
+    ["gonkputer", "kdump", "nexus_servers", "proxmox_vms", "ubuntu"],
     [for device in proxmox_virtual_environment_vm.aboriginal.watchdog : "watchdog" if device.enabled],
   ))
 

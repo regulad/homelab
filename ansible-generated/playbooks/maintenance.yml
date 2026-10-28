@@ -44,3 +44,96 @@
       ansible.builtin.include_role:
         name: swap
         tasks_from: resize
+
+# Compact each of Nexus's blob stores, reclaiming the space of soft-deleted
+# blobs, such as Docker's abandoned upload chunks, which Nexus keeps until a
+# compaction. Nexus 3.70's REST API runs and polls tasks but cannot create
+# them, so a missing compaction task is created through ExtDirect, as Nexus's
+# own UI does, with a manual schedule. Basic authentication skips Nexus's
+# anti-CSRF check, which applies to UI sessions only.
+- name: Nexus blob store compaction
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-compact]
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  tasks:
+    - name: Blob stores
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/blobstores"
+      register: nexus_blobstores
+      check_mode: false
+      no_log: true
+
+    - name: Compaction tasks
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks?type=blobstore.compact"
+      register: nexus_compact_tasks
+      check_mode: false
+      no_log: true
+
+    - name: Create a compaction task for each blob store without one
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/extdirect"
+        method: POST
+        body_format: json
+        body:
+          action: coreui_Task
+          method: create
+          type: rpc
+          tid: 1
+          data:
+            - enabled: true
+              name: Compact blob store {{ item }}
+              typeId: blobstore.compact
+              schedule: manual
+              notificationCondition: FAILURE
+              properties:
+                blobstoreName: "{{ item }}"
+      register: nexus_compact_created
+      # ExtDirect answers 200 whatever happened; its result says.
+      failed_when: not (nexus_compact_created.json.result.success | default(false))
+      changed_when: true
+      loop: >-
+        {{ nexus_blobstores.json | map(attribute='name')
+           | reject('in', nexus_compact_tasks.json['items'] | map(attribute='name')
+                          | map('regex_replace', '^Compact blob store ', '') | list)
+           | list }}
+      no_log: true
+
+    - name: Compaction tasks, created ones included
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks?type=blobstore.compact"
+      register: nexus_compact_tasks
+      check_mode: false
+      no_log: true
+
+    - name: Run each compaction task
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks/{{ item.id }}/run"
+        method: POST
+        status_code: 204
+      changed_when: true
+      loop: "{{ nexus_compact_tasks.json['items'] }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+
+    - name: Wait for each compaction to finish
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks/{{ item.id }}"
+      register: nexus_compact_status
+      until: nexus_compact_status.json.currentState == 'WAITING'
+      retries: 240
+      delay: 15
+      failed_when: >-
+        nexus_compact_status.json.currentState == 'WAITING'
+        and nexus_compact_status.json.lastRunResult != 'OK'
+      loop: "{{ nexus_compact_tasks.json['items'] }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: not ansible_check_mode
+      no_log: true

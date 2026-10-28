@@ -1,0 +1,5 @@
+---
+# Nexus's API, as svc-ansible (nx-admin), whose password is in
+# nexus_servers.sops.yml. The public URL reaches Nexus wherever it runs.
+nexus_url: https://repo.regulad.xyz
+nexus_api_user: svc-ansible

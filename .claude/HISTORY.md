@@ -967,3 +967,10 @@ findings that would help a future session. Append new entries at the end.
 - A failed renewal retries every six hours. A reload with the fix brought no new attempt; after a restart both certificates renewed within 20 seconds.
 - Restarting Caddy on ingress, xcaddy's build included, takes about 8 seconds.
 - `prepare.sh`'s `AWS_ENDPOINT_URL_S3` and a shell's global `AWS_ENDPOINT_URL` (here `s3.regulad.xyz`) can coexist; OpenTofu reached the RGW, and its expired certificate, only when `prepare.sh` had refused to run.
+
+## nexus: an API credential, and blob store compaction as a maintenance play (2026-10-28)
+
+- Nexus 3.70 keeps its users in OrientDB's `security` database, which it locks while it runs. With Nexus stopped, the same image's `lib/support/nexus-orient-console.jar`, run as uid 200 against the data volume, connects with `plocal:/nexus-data/db/security admin admin` and inserts a `user` (`id`, names, `email`, `password`, `status = 'active'`) and its `user_role_mapping` (`userId`, `source = 'default'`, `roles`). The password is Shiro's `$shiro1$SHA-512$1024$<salt>$<hash>`: SHA-512 over the salt and the password, rehashed 1023 more times, both in base64. Nexus was down 6 seconds and served again 15 seconds later.
+- Its REST tasks API lists, runs and stops tasks but cannot create them, and its script API is off by default. ExtDirect's `coreui_Task.create`, as the UI calls it, creates them, and answers 200 with `success: false` when it fails. Basic authentication skips the anti-CSRF check, which covers session logins only.
+- 35 G of aboriginal's 83 G were soft-deleted blobs, Docker's abandoned upload chunks, which no compaction had ever reclaimed; the first took under a minute and left 48 G.
+- `frozen.marker` in Nexus's `db` directory, an empty list from 2024, does not mean Nexus is frozen: `/service/rest/v1/read-only` says it is not.
