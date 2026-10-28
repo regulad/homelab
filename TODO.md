@@ -133,6 +133,8 @@ cloud-init.
     - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`
     - [ ] cloudflared: retired once every route its tunnel carries has moved: `hass-livingston`, `archive` and `qb-clearnet`
     - [ ] Native services: llama-server, Samba, NUT, lime
+      - [x] NUT: upsd alone, for Home Assistant; upsmon disabled, as nothing is to act on a power cut for now, and the APC's section in `ups.conf` commented out while it is under maintenance
+    - [x] logrotate: the obsolete `/etc/logrotate.d/cloud-init` removed, which repeated `cloud-init-base`'s `/var/log/cloud-init*.log` and failed every run
     - [ ] firewalld, with `eth0` in the `trusted` zone today
   - [x] Disk: the root btrfs is 62 % full with Nexus moved, from 93 %
 - [x] `dodo` (101)

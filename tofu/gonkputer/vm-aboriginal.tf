@@ -129,7 +129,9 @@ EOT
     mapping = proxmox_hardware_mapping_usb.bcm20702a0.name
   }
 
-  # The APC UPS is under maintenance; restore this block when it is back.
+  # The APC UPS is under maintenance; restore this block when it is back. Its
+  # [apc] section in aboriginal's /etc/nut/ups.conf is commented out with it,
+  # so restore that too.
   # usb {
   #   mapping = proxmox_hardware_mapping_usb.back_ups.name
   # }

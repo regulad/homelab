@@ -1066,3 +1066,9 @@ findings that would help a future session. Append new entries at the end.
 - bees was installed from source, not a package (`/usr/sbin/beesd`, `/usr/lib/bees`, `beesd@.service` in `/usr/lib/systemd/system`), for the root filesystem's UUID, and never created its `.beeshome` subvolume.
 - `userdel` on aboriginal prints `sss_cache` errors, as `sssd-common` is installed without SSSD configured; the user and its group are removed regardless.
 - `mnt-media.service` and `mnt-nextcloud.service`, replaced by `.mount` units on 2026-10-25, lingered in systemd's failed list until a `reset-failed`.
+
+## aboriginal: NUT down to upsd, and logrotate's duplicate removed (2026-10-28)
+
+- `upsmon.conf` was the package's stock file, with only its commented example `MONITOR` lines, and `upsd.users` held only `hass`, so `nut-monitor` had failed at every start ("insufficient power configured") on every boot in the journal. Disabling it also removes its `upsmon.service` alias.
+- `nut-driver-enumerator` generates a `nut-driver@<section>` instance for each `ups.conf` section, with drop-ins under `/etc/systemd/system/nut-driver@<section>.service.d/`, and `nut-driver-enumerator.path` reruns it when `ups.conf` changes. A driver therefore goes by removing its section; a disabled instance would be enabled again. The APC's, with no device behind it, had retried forever.
+- cloud-init's logrotate file moved from the `cloud-init` package to `cloud-init-base`, and dpkg kept the old `/etc/logrotate.d/cloud-init` as an obsolete conffile, byte for byte the same. logrotate rejects the second claim on `/var/log/cloud-init*.log`, skips that file, rotates the rest, and exits 1, so only the unit's status suffered. Of the Ubuntu hosts in `ansible-generated`, only aboriginal had it.

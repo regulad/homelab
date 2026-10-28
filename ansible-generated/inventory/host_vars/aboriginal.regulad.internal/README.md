@@ -14,6 +14,9 @@ own.
 - **nextcloud, bandcampsync and Samba**: the `nas` archive's overlays,
   `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
+  upsd runs alone: nothing is to act on a power cut for now, so upsmon is
+  disabled. The APC's section in `ups.conf` is commented out while it is under
+  maintenance, its passthrough removed with it.
 - **lime**: its credential is sealed to the VM's vTPM (`tpmstate0` on
   `local-lvm`), which `vm-aboriginal.tf` declares with its changes ignored, as
   applying it would replace the TPM with an empty one. The password itself is
