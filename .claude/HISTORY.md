@@ -1085,3 +1085,11 @@ findings that would help a future session. Append new entries at the end.
 
 - winbind ran from a hand-edited copy of its unit in `/etc/systemd/system`; samba and cifs-utils only recommend it, so purging it removed nothing else.
 - cloudflared came from Cloudflare's own apt repository (`/etc/apt/sources.list.d/cloudflare.sources`, signed by `/usr/share/keyrings/cloudflare-main.gpg`), with its token in the `ExecStart` of a unit `cloudflared service install` wrote to `/etc/systemd/system`, beside a disabled `cloudflared-update` service and timer; the package's purge removes none of these. The `aboriginal` tunnel, `down` with no connections since, was deleted with its last three routes' CNAMEs; no Access application covered them.
+
+## aboriginal: lime under the `lime` role, built on the host (2026-10-28)
+
+- lime publishes no releases, so the role builds `regulad/lime` at a pinned commit with Ubuntu's `cargo` and `rustc` (1.93), and `cmake`, which `aws-lc-sys`, under russh, needs for its C. The first `site.yml` run took 444 s with the build; the build leaves 369 M in `target/` and a 210 M crate cache. The Build task runs cargo every time and reports a change only when cargo prints `Compiling`, so cargo's own fingerprints decide what to rebuild.
+- `systemd-creds decrypt` of the existing `lime.overture` matched `lime_passwords.overture`, so the credential was kept; encryption is not deterministic, so decrypting is the only comparison.
+- The README's dry run (`systemd-run` with the unit's `ImportCredential`, `DynamicUser` and `StateDirectory`) identified overture by its host key as booted, and the running service logs `booted (password accepted, account turned away)` every 30 s. overture announced itself from two addresses, 10.23.1.63 and 10.23.1.141, on different checks.
+- `lime.toml` names each Mac's unlock account, which the public repository keeps in SOPS (`lime_unlock_users`) like the passwords, so the Configuration task sets `no_log` and `diff: false`.
+- Every SSH server announced over mDNS on `eth0` gets a handshake: both SG300s, which offer only SHA-1 key exchange, log a warning at each check, and an unlisted Mac that announces SSH but is unreachable logs `No route to host`.

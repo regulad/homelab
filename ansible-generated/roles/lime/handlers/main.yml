@@ -1,0 +1,6 @@
+---
+- name: Restart lime
+  ansible.builtin.systemd_service:
+    name: lime
+    state: restarted
+    daemon_reload: true

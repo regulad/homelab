@@ -1,0 +1,21 @@
+---
+# lime, built from its source at a pinned commit: it publishes no releases.
+lime_repo: https://github.com/regulad/lime.git
+lime_commit: 3b430b41c5448e31da07dacff4a24c3b8d52c1d6
+
+# Where the source is checked out and built, and cargo's crate cache.
+lime_build_dir: /usr/local/src/lime
+lime_cargo_home: /var/cache/lime/cargo
+
+# Interfaces lime browses mDNS on, each on the Macs' own network with mDNS on
+# in systemd-resolved.
+lime_interfaces: []
+
+# The Macs lime unlocks, each a name (a label for logs, which names its
+# credential, lime.<name>), its unlock_user (the hidden FileVault account that
+# answers the pre-boot unlock, referenced from SOPS) and every one of its
+# host_keys, by which lime identifies it.
+lime_macs: []
+
+# Each Mac's unlock password, by name, from SOPS, without a trailing newline.
+lime_passwords: {}

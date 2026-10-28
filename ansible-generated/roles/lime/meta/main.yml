@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: lime, built from its source, unlocking FileVault Macs at macOS's pre-boot SSH unlock
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

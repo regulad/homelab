@@ -113,6 +113,13 @@
   roles:
     - softether
 
+- name: FileVault unlocking (lime)
+  hosts: lime
+  gather_facts: false
+  become: true
+  roles:
+    - lime
+
 # Installs the panel where none exists and keeps its .env; upgrades are
 # playbooks/maintenance.yml.
 - name: Pterodactyl panel

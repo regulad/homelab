@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Each field is explained in lime.example.toml, beside lime's source.
+
+interfaces = {{ lime_interfaces | to_json }}
+{% for mac in lime_macs %}
+
+[[mac]]
+name = {{ mac.name | to_json }}
+unlock_user = {{ mac.unlock_user | to_json }}
+host_keys = [
+{% for key in mac.host_keys %}
+    {{ key | to_json }},
+{% endfor %}
+]
+{% endfor %}

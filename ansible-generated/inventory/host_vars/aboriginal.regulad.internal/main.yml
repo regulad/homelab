@@ -41,6 +41,8 @@ host_files_directories:
     mode: "0755"
   - path: /etc/systemd/system/smbd.service.d
     mode: "0755"
+  - path: /etc/systemd/resolved.conf.d
+    mode: "0755"
 host_files_list:
   - path: /usr/local/bin/restic-mount-helper
     mode: "0755"
@@ -80,6 +82,14 @@ host_files_list:
     mode: "0644"
   - path: /etc/systemd/system/smbd.service.d/override.conf
     mode: "0644"
+  # mDNS in systemd-resolved, which lime browses; the netplan drop-in below
+  # turns it on for eth0.
+  - path: /etc/systemd/resolved.conf.d/mdns.conf
+    mode: "0644"
+    content: |
+      [Resolve]
+      MulticastDNS = yes
+    restarts: [systemd-resolved.service]
 rgw_backup_buckets: [synapse-media, mastodon-media]
 host_files_units:
   - mnt-media.mount
@@ -198,3 +208,16 @@ restic_retired_scripts:
   - /root/backup.sh
   - /root/forget.sh
   - /root/backup_rgw.sh
+
+# lime unlocks overture's FileVault at its pre-boot SSH unlock, finding it by
+# mDNS on eth0. Its unlock account and password are in secrets.sops.yml.
+lime_interfaces: [eth0]
+lime_macs:
+  - name: overture
+    unlock_user: "{{ lime_unlock_users.overture }}"
+    host_keys:
+      # yamllint disable-line rule:line-length
+      - ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCLQT50ghsr6xjwQ23l6P3SngzAxFRzkFO9t2WuuahN8tVvK5Uhceln/K4Yw35rf7KyMVu3NYCPKUSofx73+u3M=
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKLO8lBBQnXIv5q1jUvzZuFylziJ8ucltk+vKmySrsMW
+      # yamllint disable-line rule:line-length
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCjRuDCNvMTBXVfpu6ArjGu+3w8sAwZpGsbOdw7DxIuS7NdR3Wt+2MJe8VAQE5oj2uTcDyNLvmZDa0jgFxNkP4WtDNZp988mfRz3B53VByJ01YY1786VqZwX0fBPSqLz7RgzfG+crE8mOwjNdkTHZcEW2bOT7dmNA2cBXySAPGJcgpgIqBx3JamTRqrQCGS57UezZBCjAKNstCXjXVQx3JlqvBeP1QFmlL090zgb8YWRryQH2fsXsbTBcRBBF+HT0HNTnoc6y31c9gB+un+Fd4UiPMjYMB+y+KxS5+TyQcIC5OT7sGy3RuMPTq85DflOogKYRqx47hpoI82AXe6ui1wAvoJmBzAxazAMAy4QwON8O03EIkli4Tx8mQ51IpAujUv9O2Pan23qsIPJTgfbIxMvXhQsDZJkjaZ6VKc13adShbx0o8Nv/BP9BIt8Q/5UPceRobH4Q4VY2UcVmuDfwxV7/g7UvOagvBBXuyyHG7Tp4TwcFPeCis/S8SRcdf7HBU=

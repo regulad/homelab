@@ -17,11 +17,13 @@ own.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
   disabled. The APC's section in `ups.conf` is commented out while it is under
   maintenance, its passthrough removed with it.
-- **lime**: its credential is sealed to the VM's vTPM (`tpmstate0` on
-  `local-lvm`), which `vm-aboriginal.tf` declares with its changes ignored, as
-  applying it would replace the TPM with an empty one. The password itself is
-  in `secrets.sops.yml` (`lime_passwords`), so the credential can be sealed
-  again.
+- **lime**, which unlocks overture's FileVault at its pre-boot SSH unlock:
+  the `lime` role builds it on this host and runs it at boot. Its credential
+  is sealed to the VM's vTPM (`tpmstate0` on `local-lvm`), which
+  `vm-aboriginal.tf` declares with its changes ignored, as applying it would
+  replace the TPM with an empty one. The password itself is in
+  `secrets.sops.yml` (`lime_passwords`), and the role seals it again wherever
+  the credential no longer decrypts.
 - **homeassistant, matter-server, mosquitto and ringmqtt.** They would suit a
   Home Assistant OS VM with the USB devices passed through, but Home Assistant
   needs the host's Bluetooth stack: its Bluetooth integrations reach BlueZ

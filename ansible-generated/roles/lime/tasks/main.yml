@@ -1,0 +1,169 @@
+---
+# Build lime from its source at lime_commit, and run it under systemd to unlock
+# each Mac in lime_macs at macOS's pre-boot SSH unlock. Each Mac's password is
+# a systemd credential sealed to this host's TPM. Runs on the generated Ubuntu
+# hosts in the lime group (Phase 4).
+- name: Check the commit is pinned
+  ansible.builtin.assert:
+    that: lime_commit is match('^[0-9a-f]{40}$')
+    fail_msg: Pin lime_commit to a full commit hash.
+    quiet: true
+
+- name: Check every Mac has a password
+  ansible.builtin.assert:
+    that: item.name in lime_passwords
+    fail_msg: lime_passwords has no password for {{ item.name }}.
+    quiet: true
+  loop: "{{ lime_macs }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# aws-lc-sys, under russh, builds its C with cmake.
+- name: Build tools
+  ansible.builtin.apt:
+    name: [cargo, rustc, cmake, gcc, libc6-dev, git]
+    state: present
+    update_cache: true
+    cache_valid_time: 86400
+  register: lime_packages
+
+- name: Source
+  ansible.builtin.git:
+    repo: "{{ lime_repo }}"
+    dest: "{{ lime_build_dir }}"
+    version: "{{ lime_commit }}"
+  register: lime_source
+
+# A check run cannot build from what a pending install or checkout would bring.
+- name: Build and install
+  when: not (ansible_check_mode and (lime_packages is changed or lime_source is changed))
+  block:
+    # Cargo.lock pins every crate by checksum, and --locked refuses any other.
+    # cargo compiles only what changed, such as after a new commit or rustc.
+    - name: Build
+      ansible.builtin.command:
+        cmd: cargo build --release --locked
+        chdir: "{{ lime_build_dir }}"
+      environment:
+        CARGO_HOME: "{{ lime_cargo_home }}"
+      register: lime_build
+      changed_when: "'Compiling' in lime_build.stderr"
+
+    - name: Binary
+      ansible.builtin.copy:
+        src: "{{ lime_build_dir }}/target/release/lime"
+        dest: /usr/local/bin/lime
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart lime
+
+    - name: Unit
+      ansible.builtin.copy:
+        src: "{{ lime_build_dir }}/lime.service"
+        dest: /etc/systemd/system/lime.service
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart lime
+
+    # The unit's Documentation=.
+    - name: README directory
+      ansible.builtin.file:
+        path: /usr/local/share/doc/lime
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: README
+      ansible.builtin.copy:
+        src: "{{ lime_build_dir }}/README.md"
+        dest: /usr/local/share/doc/lime/README.md
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Configuration directory
+  ansible.builtin.file:
+    path: /etc/lime
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Kept out of logs and diffs, as it names each Mac's unlock account.
+- name: Configuration
+  ansible.builtin.template:
+    src: lime.toml.j2
+    dest: /etc/lime/lime.toml
+    owner: root
+    group: root
+    mode: "0644"
+  diff: false
+  no_log: true
+  notify: Restart lime
+
+- name: Credential store
+  ansible.builtin.file:
+    path: /etc/credstore.encrypted
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# Encryption is not deterministic, so each credential is compared by
+# decrypting it, and encrypted again where it is missing, holds another
+# password, or no longer decrypts, as after losing the TPM.
+- name: Read the credentials
+  ansible.builtin.command:
+    cmd: systemd-creds decrypt --name=lime.{{ item.name }} /etc/credstore.encrypted/lime.{{ item.name }} -
+  loop: "{{ lime_macs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: lime_credentials
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+# host+tpm2: a copied file is useless without this host's TPM and its
+# credential secret.
+- name: Credentials
+  ansible.builtin.command:
+    cmd: systemd-creds encrypt --with-key=host+tpm2 --name=lime.{{ item.item.name }} - /etc/credstore.encrypted/lime.{{ item.item.name }}
+    stdin: "{{ lime_passwords[item.item.name] }}"
+    stdin_add_newline: false
+  loop: "{{ lime_credentials.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.rc != 0 or item.stdout != lime_passwords[item.item.name]
+  changed_when: true
+  notify: Restart lime
+  no_log: true
+
+# The unit imports every lime.* credential.
+- name: Find the credentials
+  ansible.builtin.find:
+    paths: /etc/credstore.encrypted
+    patterns: lime.*
+  register: lime_credential_files
+
+- name: No credentials for Macs no longer listed
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ lime_credential_files.files | map(attribute='path') | difference(lime_credential_paths) }}"
+  vars:
+    lime_credential_paths: "{{ lime_macs | map(attribute='name') | map('regex_replace', '^', '/etc/credstore.encrypted/lime.') }}"
+  notify: Restart lime
+
+- name: The lime service
+  ansible.builtin.systemd_service:
+    name: lime
+    enabled: true
+    state: started
+    daemon_reload: true

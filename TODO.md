@@ -31,6 +31,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [ ] `prodingus`: the Proxmox VE node of `gonkputer`
 - [ ] `turk`: Ubuntu 24.04 with VMware Workstation
 - [ ] `overture`: macOS
+  - [ ] lime's side, by lime's README: the hidden FileVault unlock account, and the sshd drop-in `50-lime-unlock.conf` that leaves it nowhere once the Mac is booted
 
 ## Network switches (`ansible-hardware/`, the `switches` group)
 
@@ -134,6 +135,7 @@ cloud-init.
     - [x] cloudflared and winbind uninstalled, with cloudflared's units, apt source and key, and winbind's hand-edited unit
       - [x] The `aboriginal` tunnel and its routes' DNS records (`hass-livingston`, `archive`, `qb-clearnet`) deleted from Cloudflare
     - [ ] Native services: llama-server, Samba, NUT, lime
+      - [x] lime: the `lime` role, building `regulad/lime` at a pinned commit on the host, with overture's password sealed to the vTPM from SOPS; enabled at boot
       - [x] NUT: upsd alone, for Home Assistant; upsmon disabled, as nothing is to act on a power cut for now, and the APC's section in `ups.conf` commented out while it is under maintenance
     - [x] logrotate: the obsolete `/etc/logrotate.d/cloud-init` removed, which repeated `cloud-init-base`'s `/var/log/cloud-init*.log` and failed every run
     - [ ] firewalld, with `eth0` in the `trusted` zone today
