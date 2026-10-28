@@ -99,8 +99,11 @@ resource "proxmox_haresource" "ingress" {
 resource "ansible_host" "ingress" {
   count = proxmox_haresource.ingress.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.ingress.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.ingress.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.ingress.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

@@ -18,7 +18,7 @@ SOPS vars plugin loads the one file.
 
 | Role | Purpose |
 |---|---|
-| `apt_amd64v3` | APT's `amd64v3` architecture variant on Ubuntu 25.10 and later where the CPU supports x86-64-v3, removed elsewhere; refreshes the lists but never upgrades |
+| `apt_amd64v3` | APT's `amd64v3` architecture variant on Ubuntu 25.10 and later where the CPU supports x86-64-v3 and `apt_amd64v3_enabled` is set (on generated containers, by their `amd64v3` tag), removed elsewhere; refreshes the lists but never upgrades |
 | `base` | Packages, admin user, time sync, and sshd hardening only where it is already policy: so far each OS group's `base_packages`, every host's `base_timezone` (America/New_York, with `/etc/timezone` kept in step where it is a file), and the `base_admin_user` (in the OS's admin group, sudo without a password, its GitHub keys as its whole `authorized_keys`) where a group names one; and, through `playbooks/maintenance.yml --tags hostname`, the hostname and its installer-style `/etc/hosts` line where `base_hostname_managed` is set (Ubuntu hardware installs) |
 | `tailscale` | Tailscale client, from Tailscale's dnf repository on Enterprise Linux: checks each node's tags, converges its settings and Serve/Funnel, and joins a new node with a one-off tagged key only when `tailscale_join` is set; `tailscale_protected` nodes are never joined or re-authenticated |
 | `ca_trust` | The homelab's roots of trust (arawi's two CAs, wako's and the old FreeIPA server's, and the Proxmox cluster's, from `files/trusted/`) trusted, compromised roots distrusted, and the anchors of retired names removed, in the system trust store, by OS group; with `ca_trust_java`, in Java's copy of it too |

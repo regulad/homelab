@@ -78,8 +78,11 @@ resource "proxmox_haresource" "uptime" {
 resource "ansible_host" "uptime" {
   count = proxmox_haresource.uptime.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.uptime.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.uptime.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.uptime.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

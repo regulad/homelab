@@ -5,8 +5,9 @@
 # Defaults every container shares: a root disk on Ceph (rbd) mounted with
 # discard and lazytime, DHCP for IPv4 and SLAAC for IPv6 on VLAN 1, effectively
 # unlimited swap, nesting (for Podman), all of the node's threads capped by
-# limit, and an HA resource that starts it. Proxmox generates the VMID and the
-# MAC address, so neither is stated.
+# limit, the amd64v3 tag that Ubuntu 26.04's amd64v3 builds need, and an HA
+# resource that starts it, with its entry in local.ha_containers in ha.tf.
+# Proxmox generates the VMID and the MAC address, so neither is stated.
 
 # <name>: container <vmid once created>, its HA resource and its Ansible host.
 
@@ -15,7 +16,7 @@ resource "proxmox_virtual_environment_container" "<name_with_underscores>" {
   # HA starts the container, not Proxmox's own start on boot.
   start_on_boot = false
   unprivileged  = true
-  tags          = [local.tags.terraform]
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
@@ -76,8 +77,12 @@ resource "ansible_host" "<name_with_underscores>" {
   count = proxmox_haresource.<name_with_underscores>.state == "started" ? 1 : 0
 
   name = "${proxmox_virtual_environment_container.<name_with_underscores>.initialization[0].hostname}.${local.guest_domain}"
-  # Its OS group, plus groups such as podman_hosts for the roles it gets.
-  groups = ["gonkputer", "proxmox_containers", "ubuntu"]
+  # Its OS group, groups such as podman_hosts for the roles it gets, and its
+  # tags that Ansible keys on.
+  groups = sort(setunion(
+    ["gonkputer", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.<name_with_underscores>.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

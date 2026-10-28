@@ -74,8 +74,11 @@ resource "proxmox_haresource" "pterodactyl" {
 resource "ansible_host" "pterodactyl" {
   count = proxmox_haresource.pterodactyl.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.pterodactyl.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "php_fpm", "proxmox_containers", "pterodactyl", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.pterodactyl.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "php_fpm", "proxmox_containers", "pterodactyl", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.pterodactyl.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

@@ -75,8 +75,11 @@ resource "proxmox_haresource" "pihole" {
 resource "ansible_host" "pihole" {
   count = proxmox_haresource.pihole.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.pihole.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.pihole.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.pihole.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

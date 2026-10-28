@@ -43,10 +43,13 @@ A `-` inside a guest name is written as `--` (`vm-resolute--template.tf`).
   logical CPUs, and caps CPU time with `limit`. The provider cannot leave `cores` unset
   (which Proxmox treats as every core): it reads a missing `cores` as 1 and sends 1 whenever
   the `cpu` block changes.
-- **Tags and VMIDs:** every guest carries the tag `terraform`. The 14 containers that need
-  the x86-64-v3 microarchitecture level carry `amd64v3`, which used to be their whole
-  description. Tag names come from `local.tags` in `locals.tf`. The cluster's `next_id`
-  starts at 200, so new guests are set apart from the adopted ones, whose IDs are below 200
+- **Tags and VMIDs:** every guest carries the tag `terraform`. Containers that need the
+  x86-64-v3 microarchitecture level carry `amd64v3`: the HA rule `amd64v3` in `ha.tf` keeps
+  them on the nodes in `local.amd64v3_nodes`, and their `ansible_host` lists the tag as a
+  group, so only they get Ubuntu's amd64v3 builds. The rule finds them through
+  `local.ha_containers`, which lists every container with an HA resource. Tag names come
+  from `local.tags` in `locals.tf`. The cluster's `next_id` starts at 200, so new guests
+  are set apart from the adopted ones, whose IDs are below 200
   or 8000.
 - **VM 100 never reboots on its own:** its passed-through AMD GPU does not reset properly when
   the KVM host detaches and re-attaches it. It sets `reboot_after_update = false`, and is

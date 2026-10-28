@@ -8,7 +8,7 @@ resource "proxmox_virtual_environment_container" "freeipa" {
   # HA starts the container, not Proxmox's own start on boot.
   start_on_boot = false
   unprivileged  = true
-  tags          = [local.tags.terraform]
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
@@ -118,8 +118,11 @@ resource "proxmox_virtual_environment_firewall_options" "freeipa" {
 resource "ansible_host" "freeipa" {
   count = proxmox_haresource.freeipa.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.freeipa.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "ldap_proxies", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.freeipa.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "ldap_proxies", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.freeipa.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

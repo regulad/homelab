@@ -75,8 +75,11 @@ resource "proxmox_haresource" "openclaw" {
 resource "ansible_host" "openclaw" {
   count = proxmox_haresource.openclaw.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.openclaw.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.openclaw.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.openclaw.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

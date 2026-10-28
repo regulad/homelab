@@ -77,8 +77,11 @@ resource "proxmox_haresource" "tsexit" {
 resource "ansible_host" "tsexit" {
   count = proxmox_haresource.tsexit.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.tsexit.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.tsexit.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.tsexit.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

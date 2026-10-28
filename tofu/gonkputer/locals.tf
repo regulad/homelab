@@ -29,4 +29,8 @@ locals {
     terraform      = "terraform"
     virtiofsd      = "virtiofsd"
   }
+
+  # The tags each container's ansible_host also lists as Ansible groups of the
+  # same name, for the roles that key on them.
+  ansible_group_tags = [local.tags.amd64v3]
 }

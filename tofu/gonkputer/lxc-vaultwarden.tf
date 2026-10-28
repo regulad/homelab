@@ -74,8 +74,11 @@ resource "proxmox_haresource" "vaultwarden" {
 resource "ansible_host" "vaultwarden" {
   count = proxmox_haresource.vaultwarden.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.vaultwarden.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.vaultwarden.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.vaultwarden.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

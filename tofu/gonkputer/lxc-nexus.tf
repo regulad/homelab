@@ -7,7 +7,7 @@ resource "proxmox_virtual_environment_container" "nexus" {
   # HA starts the container, not Proxmox's own start on boot.
   start_on_boot = false
   unprivileged  = true
-  tags          = [local.tags.terraform]
+  tags          = [local.tags.amd64v3, local.tags.terraform]
 
   console {}
 
@@ -125,8 +125,11 @@ resource "proxmox_virtual_environment_firewall_options" "nexus" {
 resource "ansible_host" "nexus" {
   count = proxmox_haresource.nexus.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.nexus.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "nexus_servers", "podman_hosts", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.nexus.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "nexus_servers", "podman_hosts", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.nexus.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {

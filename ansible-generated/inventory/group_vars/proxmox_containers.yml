@@ -8,3 +8,7 @@ ansible_user: root
 # pct already runs as root inside the container, so plays that become root do
 # not wrap their commands in the container's sudo.
 ansible_become: false
+# Ubuntu's amd64v3 builds only on containers tagged amd64v3, which HA keeps on
+# nodes with x86-64-v3; the tag reaches Ansible as a group of the same name.
+# Elsewhere the role removes the variant.
+apt_amd64v3_enabled: "{{ 'amd64v3' in group_names }}"

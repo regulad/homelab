@@ -75,8 +75,11 @@ resource "proxmox_haresource" "cordpepperer" {
 resource "ansible_host" "cordpepperer" {
   count = proxmox_haresource.cordpepperer.state == "started" ? 1 : 0
 
-  name   = "${proxmox_virtual_environment_container.cordpepperer.initialization[0].hostname}.${local.guest_domain}"
-  groups = ["gonkputer", "peppercord", "podman_hosts", "proxmox_containers", "ubuntu"]
+  name = "${proxmox_virtual_environment_container.cordpepperer.initialization[0].hostname}.${local.guest_domain}"
+  groups = sort(setunion(
+    ["gonkputer", "peppercord", "podman_hosts", "proxmox_containers", "ubuntu"],
+    setintersection(proxmox_virtual_environment_container.cordpepperer.tags, local.ansible_group_tags),
+  ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
   variables = {
