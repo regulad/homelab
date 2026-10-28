@@ -921,3 +921,13 @@ findings that would help a future session. Append new entries at the end.
 
 - vzdump leaves a container's volume mount points out unless their `backup` flag is set ("excluding volume mount point mp0 ('/mnt/synapse') from backup (disabled)"), so matrix's 62 G PostgreSQL cluster had been in no backup since the move.
 - Setting `backup` on the mount point updated the container in place, but the provider restarted it; Synapse was serving again within 20 seconds.
+
+## jenkins: moved from aboriginal's compose project to the jenkins container (207) (2026-10-27)
+
+- Inside Podman inside an LXC container, the JVM sees no memory limit and the node's whole RAM, so the heap is capped with `-Xmx` in `JENKINS_JAVA_OPTS`.
+- The jenkins image's JDK keeps its own keystore. `ca_trust_java` installs `ca-certificates-java` and a headless JRE; its `/etc/ca-certificates/update.d/jks-keystore` hook applies each `update-ca-certificates` run's additions and removals to `/etc/ssl/certs/java/cacerts`, distrusted roots included, and the container reads that through `-Djavax.net.ssl.trustStore`.
+- A first run that fails after `ca_trust`'s anchor tasks loses their `update-ca-certificates` handler, and the rerun finds the anchors already in place and never notifies it: jenkins had the five anchors but not one of them in `/etc/ssl/certs`, until `update-ca-certificates` was run by hand.
+- The 26.04 template's APT lists are stale too: an update had left the mirror, so the first JRE install got a 404 until the role's install refreshed the cache.
+- tar extracting under `pct exec` lands files with the container's uid shift. ext4's `lost+found` on a mount point belongs to the node's root, and refuses chown from inside.
+- aboriginal's `jenkins` user existed only for a socket-activated SSH tunnel to Podman on `tinker`, the dead Docker cloud.
+- Jenkins exits 143 on SIGTERM, so its stopped Quadlet unit shows `failed`.

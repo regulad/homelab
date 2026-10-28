@@ -31,11 +31,17 @@ own.
     and browserless served no session in a week, so the browserless container
     was dropped.
   - RSSHub's in-memory cache, its default, replaced Redis, which held 33 keys.
+- **jenkins**: to the `jenkins` container, a Quadlet behind Caddy on ingress,
+  in place of NPMplus and the tunnel, with `jenkins_home` on its own mount
+  point. The stock image reads the container's Java keystore, which
+  `ca_trust_java` keeps, in place of the `jenkins-ca` build.
+  - It builds nothing: no executors, and no job but a GitHub organization
+    folder whose credential is dead. Its Docker cloud `tinker` and its one
+    agent, a phone, were unreachable and are removed, with aboriginal's
+    `jenkins` user, which only carried the tunnel to `tinker`.
 
 ## Moving
 
-- **jenkins**: to a container of its own, with `jenkins_home` (401 M) on its
-  own RBD mount point.
 - **docker-nexus**: to a container of its own, with `/nexus-data` (82 G, most
   of aboriginal's 93 % full root) on its own RBD mount point.
 - **tor and I2P**, later: each to a container of its own. Both qBittorrents
@@ -59,9 +65,10 @@ own.
 
 ## Not yet decided
 
-- **nginxproxymanagerlocal**: only two of its proxy hosts are live, `ci`
-  (jenkins) and `archive` (regulad's rootless `dcef`). Its ldap-auth guards
-  `archive` alone and still binds to the freeipa stand-in.
+- **nginxproxymanagerlocal**: only one of its proxy hosts is live, `archive`
+  (regulad's rootless `dcef`); its `ci` host died with the tunnel's `ci`
+  route. Its ldap-auth guards `archive` alone and still binds to the freeipa
+  stand-in.
 - **qb-clearnet**: idle, with no torrents.
 - **qb-tor**: seeding through its own tor, with no listening port. Its paths
   are all on CephFS.

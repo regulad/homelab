@@ -113,7 +113,9 @@ cloud-init.
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
   - [ ] Move to containers of their own
     - [x] rsshub: to the `rsshub` container (206), a Quadlet without browserless or Redis, behind Caddy on ingress in place of the tunnel; the compose project, its images and its clone removed
-    - [ ] jenkins, with `jenkins_home` on its own RBD mount point
+    - [x] jenkins: to the `jenkins` container (207), a Quadlet behind Caddy on ingress, with `jenkins_home` on its own RBD mount point; its compose project, image, build context, data and host user removed from aboriginal
+      - [ ] Its LDAP realm to wako, where `svc-jenkins` exists
+      - [ ] Its GitHub organization folder: a working credential, or the folder deleted
     - [ ] docker-nexus, with `/nexus-data` on its own RBD mount point
     - [ ] tor, later
     - [ ] I2P, later, for the qBittorrents' I2P, which points at `172.0.0.1` today

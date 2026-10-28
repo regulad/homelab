@@ -1,0 +1,9 @@
+---
+# The Jenkins controller, moved here from aboriginal. jenkins_home is the
+# container's own mount point, owned by the image's jenkins user (1000).
+host_files_directories:
+  - {path: /mnt/jenkins, owner: "1000", group: "1000", mode: "0755"}
+
+# Java's copy of the system trust store, /etc/ssl/certs/java/cacerts, which the
+# Jenkins container reads for its LDAP server's certificate.
+ca_trust_java: true

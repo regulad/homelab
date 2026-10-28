@@ -1,0 +1,28 @@
+---
+quadlet_services:
+  - name: jenkins
+    description: Jenkins
+    after: [network-online.target]
+    wants: [network-online.target]
+    image: docker.io/jenkins/jenkins:lts-jdk21
+    container_name: jenkins
+    auto_update: registry
+    # Jenkins writes only jenkins_home and /tmp, as on aboriginal.
+    read_only: true
+    # The web UI on 8080, on every address, IPv6 included, for Caddy on ingress.
+    network: host
+    volumes:
+      - /mnt/jenkins:/var/jenkins_home
+      # The host's trust store, which the ca_trust role maintains, with the Java
+      # keystore that ca-certificates-java builds from it.
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    tmpfs:
+      - /tmp
+    environment:
+      # The image's JDK keeps its own keystore, without the homelab's CAs.
+      JAVA_OPTS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts
+      # The controller's heap. Inside Podman inside the container, the JVM sees
+      # no memory limit and the node's whole RAM.
+      JENKINS_JAVA_OPTS: -Xmx1g
+    restart: always
+    wanted_by: [multi-user.target, default.target]

@@ -229,6 +229,14 @@ rsshub.regulad.xyz {
 	}
 }
 
+ci.regulad.xyz {
+	import hsts
+	import common
+
+	reverse_proxy jenkins.regulad.internal:8080 {
+	}
+}
+
 s3.regulad.xyz, *.s3.regulad.xyz {
 	import common
 
