@@ -12,8 +12,9 @@ name: immich
 # From Immich v3.3.5's release docker-compose.yml, run by podman-compose
 # through podman-compose@immich.service. Changed from upstream: every service
 # carries podman-auto-update's label, Valkey and Postgres track their tags
-# instead of digests (Immich allows this; Postgres stays on major 14), and the
-# stack is not a pod.
+# instead of digests (Immich allows this; Postgres stays on major 14), the
+# stack is not a pod, and every container is read-only, with a tmpfs for each
+# path outside its volumes that its image writes.
 x-podman:
   in_pod: false
 
@@ -34,6 +35,7 @@ services:
       - .env
     ports:
       - '2283:2283'
+    read_only: true
     depends_on:
       - redis
       - database
@@ -53,6 +55,10 @@ services:
     #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
     volumes:
       - model-cache:/cache
+    read_only: true
+    # ONNX Runtime keeps its telemetry device ID here.
+    tmpfs:
+      - /root/.cache
     env_file:
       - .env
     restart: always
@@ -66,6 +72,11 @@ services:
       io.containers.autoupdate: registry
     healthcheck:
       test: redis-cli ping | grep -q PONG || exit 1
+    read_only: true
+    # Its snapshot: a job queue with no volume upstream, so lost with the
+    # container already. Unwritable, Valkey would refuse writes.
+    tmpfs:
+      - /data
     restart: always
 
   database:
@@ -84,6 +95,11 @@ services:
       # Do not edit the next line. If you want to change the database storage location on your system, edit the value of DB_DATA_LOCATION in the .env file
       - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
     shm_size: 128mb
+    read_only: true
+    # The entrypoint writes postgresql.conf here from its template at every
+    # start; the image's directory is empty.
+    tmpfs:
+      - /etc/postgresql
     restart: always
     healthcheck:
       disable: false

@@ -941,3 +941,12 @@ findings that would help a future session. Append new entries at the end.
 - RSSHub's file logs turn off with `NO_LOGFILES`; npm, which starts it, writes under `/root/.npm`. uptime-kuma's image runs nscd, which writes `/var/cache/nscd`.
 - An `ansible-playbook` killed in its handlers leaves a unit written but its service not restarted, and a rerun finds the unit unchanged and never restarts it: rsshub needed `systemctl daemon-reload` and a restart by hand.
 - Ad-hoc `ansible -a` arguments that start with `{` are parsed as JSON, and Podman's `{{ }}` format strings are templated by Jinja; the `script` module runs a probe verbatim.
+
+## authentik and immich: their compose stacks read-only (2026-10-28)
+
+- podman-compose turns a service's `read_only` into `podman run --read-only`, whose `--read-only-tmpfs` default gives the same tmpfs on `/tmp`, `/var/tmp`, `/run` and `/dev` as a Quadlet's `ReadOnly=`.
+- immich's Valkey had no volume: its `dump.rdb` went to the container layer, which auto-update recreations already discard. Read-only without a tmpfs on `/data`, Valkey would fail its snapshots and, by default, refuse writes.
+- immich's postgres image starts with an empty, world-writable `/etc/postgresql`, into which its entrypoint copies `postgresql.conf` from a template at every start; `postgres` runs with `-c config_file=` pointing there.
+- immich's machine-learning image writes ONNX Runtime's telemetry device ID under `/root/.cache`.
+- authentik's worker, run as root, starts with `chown -R authentik:authentik /data /certs` under `set -e` in `/lifecycle/ak`. With `/certs` not mounted and the root read-only, it exited at once and restarted in a loop (153 times in ten minutes) while the server kept serving logins; a tmpfs on `/certs` restores it. Running the worker as its own user would skip that chown, since root was only for the Docker socket this stack leaves out.
+- `immich.regulad.xyz` requires a client certificate (`import mtls` in the Caddyfile), so a plain `curl` gets "certificate required" whatever immich's state.

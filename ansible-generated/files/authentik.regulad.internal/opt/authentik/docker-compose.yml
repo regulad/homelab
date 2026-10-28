@@ -5,7 +5,9 @@ name: authentik
 # upstream: every service carries podman-auto-update's label, the server tracks
 # its release's tag (2026.8) instead of a patch release, /data and /templates
 # are named volumes, the worker has no Docker socket (only the embedded outpost
-# runs, with no service connection) or /certs, and the stack is not a pod.
+# runs, with no service connection) or /certs, the stack is not a pod, and every
+# container is read-only; only the worker's entrypoint writes outside the
+# volumes, to /certs, now a tmpfs.
 # authentik upgrades one release at a time and cannot downgrade: move the tag
 # to the next release only after the stack runs its latest patch.
 x-podman:
@@ -30,6 +32,7 @@ services:
     image: docker.io/library/postgres:16-alpine
     labels:
       io.containers.autoupdate: registry
+    read_only: true
     restart: unless-stopped
     volumes:
     - database:/var/lib/postgresql/data
@@ -52,6 +55,7 @@ services:
     ports:
     - ${COMPOSE_PORT_HTTP:-9000}:9000
     - ${COMPOSE_PORT_HTTPS:-9443}:9443
+    read_only: true
     restart: unless-stopped
     shm_size: 512mb
     volumes:
@@ -73,8 +77,13 @@ services:
     image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8}
     labels:
       io.containers.autoupdate: registry
+    read_only: true
     restart: unless-stopped
     shm_size: 512mb
+    # Its entrypoint, as root, chowns /certs, which this stack does not mount,
+    # and exits if it cannot.
+    tmpfs:
+    - /certs
     user: root
     volumes:
     - data:/data
