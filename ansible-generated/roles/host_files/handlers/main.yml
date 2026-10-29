@@ -8,7 +8,8 @@
   loop: >-
     {{ (host_files_written.results | default([]) + host_files_templated.results | default([])
         + host_files_linked.results | default([]) + host_files_downloaded.results | default([])
-        + host_files_extracted.results | default([])) | selectattr('changed')
+        + host_files_extracted.results | default([]) + host_files_tree_written.results | default([])
+        + host_files_tree_removed.results | default([])) | selectattr('changed')
        | map(attribute='item') | map(attribute='restarts', default=[]) | flatten | unique | list }}
   register: host_files_units_restarted
   # A unit another role creates later in the run, such as a Quadlet, does not
@@ -25,7 +26,8 @@
   loop: >-
     {{ (host_files_written.results | default([]) + host_files_templated.results | default([])
         + host_files_linked.results | default([]) + host_files_downloaded.results | default([])
-        + host_files_extracted.results | default([])) | selectattr('changed')
+        + host_files_extracted.results | default([]) + host_files_tree_written.results | default([])
+        + host_files_tree_removed.results | default([])) | selectattr('changed')
        | map(attribute='item') | map(attribute='reloads', default=[]) | flatten | unique | list }}
   register: host_files_units_reloaded
   failed_when:

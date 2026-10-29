@@ -36,6 +36,14 @@ host_files_venvs: []
 # SELinux booleans set persistently, each a name mapped to true or false.
 host_files_selinux_booleans: {}
 host_files_list: []
+# Directories that hold exactly the files directly in a directory here, each
+# with its path on the host, optionally src (relative to host_files_dir;
+# default: the same path), a mode for its files and directory_mode for itself
+# (default 0755), an owner and group (default root), restarts or reloads as
+# for files, and check, a command run whenever the tree changed, before those
+# units restart or reload, such as a check of the whole configuration it is
+# part of. Any other file in the directory is removed.
+host_files_trees: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 # Files several hosts share, for an item's shared_src (relative to this
 # directory), such as those a group's group_vars place.

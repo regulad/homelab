@@ -57,6 +57,73 @@
   register: host_files_templated
   notify: [Restart changed host units, Reload changed host units]
 
+# Directories holding exactly the files of a directory here: each copied, any
+# other removed, and the whole checked before any unit restarts or reloads.
+- name: Host trees' directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.directory_mode | default('0755') }}"
+  loop: "{{ host_files_trees }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_tree_directories
+
+- name: Host trees' files
+  ansible.builtin.copy:
+    dest: "{{ item.path }}"
+    src: "{{ item.src }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ host_files_trees | host_files_tree_files(host_files_dir) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_tree_written
+  notify: [Restart changed host units, Reload changed host units]
+  # A check run cannot copy into a directory it has not created.
+  when: >-
+    not (ansible_check_mode
+         and item.tree in host_files_tree_directories.results | selectattr('changed')
+                          | map(attribute='item') | map(attribute='path'))
+
+- name: Find the host trees' files on the host
+  ansible.builtin.find:
+    paths: "{{ item.path }}"
+    file_type: any
+    hidden: true
+  loop: "{{ host_files_trees }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_tree_found
+
+- name: No other files in the host trees
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: >-
+    {{ host_files_tree_found.results
+       | host_files_tree_extras(host_files_trees, host_files_trees | host_files_tree_files(host_files_dir)) }}
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_tree_removed
+  notify: [Restart changed host units, Reload changed host units]
+
+# A check reads the whole configuration a tree belongs to, so it runs once the
+# tree is in place and before the handlers; a check run skips it.
+- name: Check the host trees that changed
+  ansible.builtin.command: "{{ item.check }}"
+  loop: >-
+    {{ host_files_trees | selectattr('check', 'defined')
+       | selectattr('path', 'in', (host_files_tree_written.results + host_files_tree_removed.results)
+                                  | selectattr('changed') | map(attribute='item') | map(attribute='tree') | list)
+       | list }}
+  loop_control:
+    label: "{{ item.path }}"
+  changed_when: false
+
 - name: Host links
   ansible.builtin.file:
     path: "{{ item.path }}"
