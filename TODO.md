@@ -133,7 +133,7 @@ cloud-init.
   - [x] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: declared in `vm-aboriginal.tf`, its changes ignored while the provider leaves a TPM at its defaults out of state
   - [ ] Describe its own services
     - [ ] Off Docker onto Podman, with secrets in SOPS and images pinned
-      - [ ] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
+      - [x] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
       - [ ] homeassistant, jellyfin and nextcloud: podman-compose stacks of the compose projects under `/root/compose`
         - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
