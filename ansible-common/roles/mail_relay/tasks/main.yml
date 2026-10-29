@@ -61,6 +61,12 @@
   check_mode: false
   when: mail_relay_myhostname | length == 0
 
+# Without the root's trailing dot, which Postfix refuses in myhostname. Proxmox
+# writes one into its containers' /etc/hosts when the node's search domain has it.
+- name: Drop the canonical name's trailing dot
+  ansible.builtin.set_fact:
+    mail_relay_canonical: "{{ mail_relay_fqdn.stdout | default('') | trim | regex_replace('[.]$', '') }}"
+
 # The first default route, by metric, whose link has a DHCP domain: a link
 # networkd configures without UseDomains passes none to systemd-resolved.
 - name: Read the DHCP domain of the default routes' links
@@ -81,14 +87,14 @@
   check_mode: false
   when:
     - mail_relay_myhostname | length == 0
-    - "'.' not in mail_relay_fqdn.stdout | default('')"
+    - "'.' not in mail_relay_canonical"
 
 - name: Decide the name Postfix gives itself
   ansible.builtin.set_fact:
     mail_relay_name: >-
       {{ mail_relay_myhostname
-         or ((mail_relay_fqdn.stdout | trim) if '.' in mail_relay_fqdn.stdout | default('') else '')
-         or (((inventory_hostname | split('.') | first) ~ '.' ~ (mail_relay_dhcp_domain.stdout | trim))
+         or (mail_relay_canonical if '.' in mail_relay_canonical else '')
+         or (((inventory_hostname | split('.') | first) ~ '.' ~ (mail_relay_dhcp_domain.stdout | trim | regex_replace('[.]$', '')))
              if mail_relay_dhcp_domain.stdout | default('') | trim else '') }}
 
 - name: Postfix settings
