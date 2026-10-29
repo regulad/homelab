@@ -6,6 +6,9 @@ tailscale_enabled: false
 # release, as pkgs.tailscale.com lays it out.
 tailscale_dnf_path: >-
   {{ 'oracle' if ansible_facts['distribution'] == 'OracleLinux' else 'rhel' }}/{{ ansible_facts['distribution_major_version'] }}
+# The SHA-256 of Tailscale's apt signing key, the same for every Ubuntu
+# release, as pkgs.tailscale.com served it on 2026-10-28.
+tailscale_apt_key_sha256: 3e03dacf222698c60b8e2f990b809ca1b3e104de127767864284e6c228f1fb39
 
 # The node's tags, without "tag:". A joined node whose tags differ fails the run;
 # a new node joins with a one-off, pre-approved key carrying exactly these tags.

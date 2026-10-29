@@ -31,6 +31,41 @@
         mode: "0644"
       when: "'rhel' in group_names"
 
+    # Tailscale's own key and list, byte for byte as its install script put
+    # them on the Ubuntu hosts before. prodingus, on Debian, has a deb822
+    # tailscale.sources instead.
+    - name: Tailscale's apt key and repository
+      when: "'ubuntu' in group_names"
+      block:
+        - name: Tailscale's apt key
+          ansible.builtin.get_url:
+            url: https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_facts['distribution_release'] }}.noarmor.gpg
+            dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+            checksum: sha256:{{ tailscale_apt_key_sha256 }}
+            owner: root
+            group: root
+            mode: "0644"
+          register: tailscale_apt_key
+
+        - name: Tailscale's apt repository
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/tailscale.list
+            content: |
+              # Tailscale packages for ubuntu {{ tailscale_apt_release }}
+              deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu {{ tailscale_apt_release }} main
+            owner: root
+            group: root
+            mode: "0644"
+          vars:
+            tailscale_apt_release: "{{ ansible_facts['distribution_release'] }}"
+          register: tailscale_apt_list
+
+        # Before the install, which a handler would come after.
+        - name: Read Tailscale's apt repository  # noqa: no-handler
+          ansible.builtin.apt:
+            update_cache: true
+          when: tailscale_apt_key is changed or tailscale_apt_list is changed
+
     - name: Install Tailscale
       ansible.builtin.package:
         name: tailscale
@@ -99,7 +134,8 @@
               Authorization: Bearer {{ tailscale_api_token }}
             body_format: json
             body:
-              description: ansible {{ inventory_hostname }}
+              # Letters, digits, spaces and hyphens alone.
+              description: ansible {{ inventory_hostname | regex_replace('[^A-Za-z0-9 -]', '-') }}
               expirySeconds: 3600
               capabilities:
                 devices:
