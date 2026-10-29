@@ -13,8 +13,8 @@
             "source": {
               "source": "github",
               "repo": "regulad/alock",
-              "ref": "alock--v0.1.0",
-              "sha": "eb222dff1f711a16b9dd3a85247a12e05d5c98bb"
+              "ref": "alock--v0.2.0",
+              "sha": "075ca4a182b961e0d06b1a47cf96b3a635007b91"
             }
           }
         ]
