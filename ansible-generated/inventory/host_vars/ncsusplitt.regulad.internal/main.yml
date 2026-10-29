@@ -7,9 +7,15 @@ tailscale_settings:
 
 # The split tunnel to NCSU: openconnect, with vpn-slice routing only NCSU's
 # networks, and a keepalive query through it.
+# The secret of the Duo Mobile device whose TOTP codes are its second password,
+# at the path ncsu-tun.service loads it from: state of this host, which
+# maintenance.yml --tags ncsu-duo writes and nothing else keeps.
+ncsu_duo_totp_file: /var/lib/ncsu-tun/totp
 host_files_directories:
   - path: /etc/openconnect
     mode: "0755"
+  - path: "{{ ncsu_duo_totp_file | dirname }}"
+    mode: "0700"
   - path: /etc/systemd/system/tpm-udev.path.d
     mode: "0755"
   - path: /etc/systemd/system/tpm-udev.service.d
@@ -20,8 +26,8 @@ host_files_list:
     # The SOPS value loses its final newline on the way in.
     content: "{{ ncsu_vpn_password }}\n"
     secret: true
-  # Not restarted on change: each start is a Duo push. The new unit applies
-  # from the tunnel's next start.
+  # Not restarted on change: each start is an NCSU login, of the 3 the unit
+  # allows in 10 minutes. The new unit applies from the tunnel's next start.
   - path: /etc/systemd/system/ncsu-tun.service
     mode: "0644"
   - path: /etc/systemd/system/ncsu-keepalive.service

@@ -980,3 +980,134 @@
               The upgrade to Jellyfin {{ jellyfin_major }} failed, and it runs {{ jellyfin_upgrade_running }}
               again{{ ' from the copy' if jellyfin_upgrade_copied | default(false) else '' }}.
               Revert jellyfin_major to {{ jellyfin_upgrade_running.split('.') | first }} before the next site.yml.
+
+# Give the NCSU tunnel its Duo passcodes. In NC State's Duo device management,
+# add a tablet with Duo Mobile, then pass the activation code its QR code holds,
+# <code>-<base64 of Duo's API host>, as -e ncsu_duo_activation=... after
+# site.yml has installed the unit. The play activates a device as Duo Mobile
+# would, writes the secret Duo returns to ncsu_duo_totp_file, and starts the
+# tunnel on it. The secret is state of the host, kept nowhere else, and each
+# activation code works once: a lost secret is replaced by activating another
+# device, after which the old one is removed in Duo.
+- name: NCSU tunnel's Duo device
+  hosts: ncsusplitt.regulad.internal
+  gather_facts: false
+  become: true
+  tags: [ncsu-duo]
+  vars:
+    ncsu_duo_code: "{{ ncsu_duo_activation.split('-', 1) | first }}"
+    ncsu_duo_api: "{{ (ncsu_duo_activation.split('-', 1) | last ~ '==') | b64decode }}"
+  tasks:
+    - name: An activation code for Duo's API
+      ansible.builtin.assert:
+        that:
+          - ncsu_duo_activation is defined
+          - ncsu_duo_activation is match('^[A-Za-z0-9]+-[A-Za-z0-9+/]+=*$')
+          - ncsu_duo_api is match('^api-[a-z0-9]+\.duosecurity\.com$')
+        fail_msg: Pass the QR code's activation code, <code>-<base64 of api-*.duosecurity.com>, as ncsu_duo_activation.
+        quiet: true
+
+    # Before the code is spent, as it works only once.
+    - name: The secret's directory, from site.yml
+      ansible.builtin.stat:
+        path: "{{ ncsu_duo_totp_file | dirname }}"
+      register: ncsu_duo_directory
+
+    - name: Site.yml has run
+      ansible.builtin.assert:
+        that: ncsu_duo_directory.stat.isdir | default(false)
+        fail_msg: Run site.yml first, which creates {{ ncsu_duo_totp_file | dirname }}.
+        quiet: true
+
+    - name: Report a check run
+      ansible.builtin.debug:
+        msg: A run would activate a Duo Mobile device through {{ ncsu_duo_api }} and start ncsu-tun.service on its secret.
+      when: ansible_check_mode
+
+    - name: Activate, then start the tunnel on the secret
+      when: not ansible_check_mode
+      block:
+        # Duo Mobile signs its answers to pushes with this key. This device
+        # never answers one, so the private half is never kept.
+        - name: A public key for the device
+          ansible.builtin.shell:
+            cmd: set -o pipefail && openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | openssl pkey -pubout
+            executable: /bin/bash
+          register: ncsu_duo_pubkey
+          changed_when: false
+
+        # The request Duo Mobile for Android sends, with the fields duolibre
+        # (github.com/evan-goode/duolibre) sends; Duo refuses an old
+        # app_version. model names the device in Duo's device list.
+        - name: Activate a Duo Mobile device
+          ansible.builtin.uri:
+            url: https://{{ ncsu_duo_api }}/push/v2/activation/{{ ncsu_duo_code }}?customer_protocol=1
+            method: POST
+            http_agent: okhttp/4.0.0
+            body_format: form-urlencoded
+            body:
+              touchid_status: not_supported
+              jailbroken: "false"
+              architecture: arm64
+              region: US
+              app_id: com.duosecurity.duomobile
+              full_disk_encryption: "true"
+              passcode_status: "true"
+              platform: Android
+              pkpush: rsa-sha512
+              pubkey: "{{ ncsu_duo_pubkey.stdout }}"
+              app_version: 4.115.0
+              app_build_number: "411500"
+              version: 9.0.0
+              manufacturer: unknown
+              language: en
+              model: "{{ inventory_hostname_short }}"
+              security_patch_level: "2019-07-05"
+          register: ncsu_duo_activated
+          changed_when: true
+          # The next task reports a failure without the answer's secrets.
+          failed_when: false
+          no_log: true
+
+        - name: Duo activated the device
+          ansible.builtin.assert:
+            that: ncsu_duo_activated.json.response.hotp_secret | default('') | length > 0
+            fail_msg: >-
+              Duo answered {{ ncsu_duo_activated.status | default('nothing') }}:
+              {{ ncsu_duo_activated.json.message | default(ncsu_duo_activated.msg | default('no secret')) }}.
+            quiet: true
+
+        # Duo still calls it hotp_secret, but checks a current Duo Mobile's
+        # passcodes as TOTP codes: 6 digits every 30 seconds, keyed by the
+        # secret's own bytes. The file holds those in openconnect's hex form,
+        # so that no character of the secret is read as syntax.
+        - name: The secret
+          ansible.builtin.copy:
+            dest: "{{ ncsu_duo_totp_file }}"
+            content: "0x{{ ncsu_duo_activated.json.response.hotp_secret.encode().hex() }}\n"
+            owner: root
+            group: root
+            mode: "0600"
+          no_log: true
+          diff: false
+
+        # A tunnel that gave up after its 3 starts refuses another for 10 minutes.
+        - name: The tunnel's start limit reset
+          ansible.builtin.command:
+            argv: [systemctl, reset-failed, ncsu-tun.service]
+          changed_when: false
+
+        - name: The tunnel started on the secret
+          ansible.builtin.systemd_service:
+            name: ncsu-tun.service
+            state: restarted
+
+        # The keepalive's query is answered only through the tunnel.
+        - name: Wait for the tunnel to carry the keepalive
+          ansible.builtin.systemd_service:
+            name: ncsu-keepalive.service
+            state: started
+          register: ncsu_duo_keepalive
+          until: ncsu_duo_keepalive is succeeded
+          retries: 18
+          delay: 10
