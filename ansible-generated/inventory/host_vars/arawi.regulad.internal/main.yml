@@ -696,7 +696,9 @@ pfsense_directories:
     mode: "0700"
 pfsense_files:
   # Run by cron every minute; publishes each named host's IPv6 addresses, from
-  # the NDP table, as AAAA and PTR records in /var/unbound/ndp-aaaa.conf.
+  # the NDP table, as AAAA and PTR records: the ULAs for every client in
+  # /var/unbound/ndp-aaaa.conf, and the GUAs too for VLAN 1's, in the "local"
+  # view's /var/unbound/view-local-aaaa.conf.
   - path: /usr/local/bin/ndp-aaaa.php
     mode: "0700"
     src: usr/local/bin/ndp-aaaa.php

@@ -13,11 +13,19 @@
  * the shorter of its NDP entry's remaining lifetime and what is left of the
  * MAC's DHCP lease, or the NDP lifetime alone without a lease.
  *
- * The records are handled as pfSense handles its A records: global
- * local-data in an include file, /var/unbound/ndp-aaaa.conf, which the DNS
- * resolver's custom options include through a glob, so Unbound starts
- * without it. As kea2unbound does, the file is replaced only when it changes,
- * and Unbound fast-reloaded; a file Unbound would reject is put back first.
+ * GUAs are served only on their own link, VLAN 1, whose clients the DNS
+ * resolver's "local" view holds; every other client, on another VLAN, the
+ * tailnet or OCI, reaches the hosts by their ULAs. So the records go in two
+ * include files, both read through globs in the resolver's custom options so
+ * that Unbound starts without them:
+ *
+ *   /var/unbound/ndp-aaaa.conf          global local-data: the ULAs' AAAA
+ *                                       records, and every PTR record
+ *   /var/unbound/view-local-aaaa.conf   the "local" view's local-data: every
+ *                                       AAAA record, GUAs and ULAs alike
+ *
+ * As kea2unbound does, the files are replaced only when they change, and
+ * Unbound fast-reloaded; files Unbound would reject are put back first.
  *
  * Run by cron every minute. With --dry-run it prints the file it would write
  * and changes nothing.
@@ -31,6 +39,7 @@ $UNBOUND_CONF    = "/var/unbound/unbound.conf";
 $UNBOUND_CONTROL = "/usr/local/sbin/unbound-control -c $UNBOUND_CONF";
 $CHECKCONF       = "/usr/local/sbin/unbound-checkconf $UNBOUND_CONF";
 $INCLUDE         = "/var/unbound/ndp-aaaa.conf";
+$VIEW_INCLUDE    = "/var/unbound/view-local-aaaa.conf";
 $DOMAIN          = "regulad.internal.";
 $KEA_CONF        = "/usr/local/etc/kea/kea-dhcp4.conf";
 $KEA_LEASES      = "/var/db/kea/dhcp4.leases";
@@ -84,6 +93,12 @@ function is_mac(string $mac): bool
     return preg_match('/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/', $mac) === 1;
 }
 
+/* Whether an IPv6 address is a ULA, in fc00::/7. */
+function is_ula(string $address): bool
+{
+    return (ord(inet_pton($address)[0]) & 0xfe) === 0xfc;
+}
+
 /* The name of an IPv6 address's PTR record. */
 function reverse_name(string $address): string
 {
@@ -99,6 +114,18 @@ function aaaa_of(string $include): array
         $records["$name $address"] = true;
     }
     return $records;
+}
+
+/* Put the previous include files back, or remove those there were none of. */
+function restore(array $previous): void
+{
+    foreach ($previous as $path => $contents) {
+        if ($contents !== false) {
+            @rename("$path.previous", $path);
+        } else {
+            @unlink($path);
+        }
+    }
 }
 
 /* Wake every neighbour, so that the addresses of the hosts that are up are in
@@ -213,56 +240,73 @@ foreach ($neighbours as $neighbour) {
 
 ksort($aaaa);
 ksort($ptr);
-$include = "# Written by /usr/local/bin/ndp-aaaa.php from the NDP table; do not edit.\nserver:\n";
+$global = "# Written by /usr/local/bin/ndp-aaaa.php from the NDP table; do not edit.\nserver:\n";
+/* No clause header: the file is included inside the "local" view's clause. */
+$view = "# Written by /usr/local/bin/ndp-aaaa.php from the NDP table, for the \"local\" view; do not edit.\n";
 foreach ($aaaa as $name => $addresses) {
     foreach ($addresses as $address => $ttl) {
-        $include .= "local-data: \"$name $ttl IN AAAA $address\"\n";
+        $record = "local-data: \"$name $ttl IN AAAA $address\"\n";
+        $view .= $record;
+        if (is_ula($address)) {
+            $global .= $record;
+        }
     }
 }
 foreach ($ptr as $address => [$name, $ttl]) {
-    $include .= "local-data: \"" . reverse_name($address) . " $ttl IN PTR $name\"\n";
+    $global .= "local-data: \"" . reverse_name($address) . " $ttl IN PTR $name\"\n";
 }
+$files = [$INCLUDE => $global, $VIEW_INCLUDE => $view];
 
 if ($dry_run) {
-    echo $include;
+    foreach ($files as $path => $contents) {
+        echo "### $path\n$contents";
+    }
     exit(0);
 }
 
-$previous = @file_get_contents($INCLUDE);
-if ($previous === $include) {
+$previous = [];
+foreach (array_keys($files) as $path) {
+    $previous[$path] = @file_get_contents($path);
+}
+if ($previous === $files) {
     exit(0);
 }
 
-/* Replace the file, keeping the previous one until Unbound accepts the new. */
-$temporary = "$INCLUDE.new";
-if (file_put_contents($temporary, $include) === false || !chmod($temporary, 0640)
-    || !chgrp($temporary, "unbound")) {
-    fail("cannot write $temporary");
+/* Replace both files, keeping the previous ones until Unbound accepts the new
+ * pair: each file's records depend on the other's. */
+foreach ($files as $path => $contents) {
+    $temporary = "$path.new";
+    if (file_put_contents($temporary, $contents) === false || !chmod($temporary, 0640)
+        || !chgrp($temporary, "unbound")) {
+        fail("cannot write $temporary");
+    }
+    if ($previous[$path] !== false && !copy($path, "$path.previous")) {
+        fail("cannot keep $path.previous");
+    }
 }
-if ($previous !== false && !copy($INCLUDE, "$INCLUDE.previous")) {
-    fail("cannot keep $INCLUDE.previous");
-}
-if (!rename($temporary, $INCLUDE)) {
-    fail("cannot replace $INCLUDE");
+foreach (array_keys($files) as $path) {
+    if (!rename("$path.new", $path)) {
+        restore($previous);
+        fail("cannot replace $path");
+    }
 }
 [$rc, , $err] = run_status($CHECKCONF);
 if ($rc !== 0) {
-    if ($previous !== false) {
-        rename("$INCLUDE.previous", $INCLUDE);
-    } else {
-        unlink($INCLUDE);
-    }
+    restore($previous);
     fail("Unbound rejects the new records, kept the previous ones: " . trim($err));
 }
-@unlink("$INCLUDE.previous");
-/* fast_reload keeps Unbound answering; no fallback to a full reload, which
- * would stop it on a configuration it rejects. */
+foreach (array_keys($files) as $path) {
+    @unlink("$path.previous");
+}
+/* fast_reload keeps Unbound answering, views included; no fallback to a full
+ * reload, which would stop it on a configuration it rejects. */
 run("$UNBOUND_CONTROL fast_reload");
 
 /* A line per change, at notice, the least pfSense keeps in system.log;
- * syslogd drops a message longer than its line. */
-$before = aaaa_of((string)$previous);
-$after = aaaa_of($include);
+ * syslogd drops a message longer than its line. The view's file holds every
+ * AAAA record; before it existed, the global file did. */
+$before = aaaa_of((string)($previous[$VIEW_INCLUDE] !== false ? $previous[$VIEW_INCLUDE] : $previous[$INCLUDE]));
+$after = aaaa_of($view);
 foreach (array_keys(array_diff_key($after, $before)) as $record) {
     syslog(LOG_NOTICE, "added $record");
 }

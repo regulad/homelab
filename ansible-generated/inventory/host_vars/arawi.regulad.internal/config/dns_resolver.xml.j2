@@ -5,6 +5,14 @@
 {%- set hex.prefix = hex.prefix ~ ('%04x' | format(hextet | int(0, 16))) -%}
 {%- endfor -%}
 {%- set oci_subnet_reverse_zone = (hex.prefix | reverse | join('.')) ~ '.ip6.arpa.' -%}
+{#- What the "local" and "remote" views share, for clients the split-horizon
+    RPZ treats as "lan". -#}
+{%- set lan_view_data = '
+    #
+    # regulad.xyz names are rewritten by the split-horizon RPZ below, which also
+    # matches CNAME targets; view local-data matches only the name asked for.
+    local-zone: "mynetworksettings.com." redirect
+    local-data: "mynetworksettings.com. 60 IN CNAME cr1000b.regulad-verizon-livingston.internal."' -%}
 <unbound>
 	<enable></enable>
 	<dnssec></dnssec>
@@ -20,12 +28,19 @@ view:
 
 view:
     name: "local"
-    view-first: yes
+    view-first: yes{{ lan_view_data }}
     #
-    # regulad.xyz names are rewritten by the split-horizon RPZ below, which also
-    # matches CNAME targets; view local-data matches only the name asked for.
-    local-zone: "mynetworksettings.com." redirect
-    local-data: "mynetworksettings.com. 60 IN CNAME cr1000b.regulad-verizon-livingston.internal."
+    # The clients on VLAN 1, the GUAs' own link, get every AAAA record, GUAs and
+    # ULAs alike, which ndp-aaaa.php writes for this view; everyone else gets
+    # the global records, which hold the ULAs alone. typetransparent leaves the
+    # other types, A records among them, to the global zone. A glob, so that
+    # Unbound starts before the file exists.
+    local-zone: "regulad.internal." typetransparent
+    include: "/var/unbound/view-local-aaaa*.conf"
+
+view:
+    name: "remote"
+    view-first: yes{{ lan_view_data }}
 
 server:
     # RPZ needs the respip module. This replaces the module-config pfSense
@@ -38,29 +53,39 @@ server:
     domain-insecure: "regulad.internal."
     local-zone: "regulad.internal." static
     #
-    # AAAA and PTR records for named hosts' SLAAC addresses, beside the A
-    # records, which /usr/local/bin/ndp-aaaa.php writes from the NDP table
-    # every minute. A glob, so that Unbound starts before the file exists.
+    # AAAA records for named hosts' SLAAC ULAs, and PTR records for all their
+    # addresses, beside the A records, which /usr/local/bin/ndp-aaaa.php writes
+    # from the NDP table every minute; the GUAs' AAAA records are the "local"
+    # view's. A glob, so that Unbound starts before the file exists.
     include: "/var/unbound/ndp-aaaa*.conf"
     #
     private-domain: "regulad-verizon-livingston.internal."
     domain-insecure: "regulad-verizon-livingston.internal."
     #
-    # Every "local" netblock carries the "lan" tag on exactly the same netblock:
-    # each client matches one access-control entry, its most specific, and
-    # entries inherit no tags or views from wider ones.
+    # Every "local" and "remote" netblock carries the "lan" tag on exactly the
+    # same netblock: each client matches one access-control entry, its most
+    # specific, and entries inherit no tags or views from wider ones.
     define-tag: "lan"
-    access-control-view: 10.23.0.0/16 local
-    access-control-tag: 10.23.0.0/16 "lan"
+    #
+    # VLAN 1, the GUAs' own link, by its IPv4 range and its ULAs. A client that
+    # asks from its GUA, whose prefix the ISP may change, gets the global
+    # records, the ULAs alone.
+    access-control-view: 10.23.0.0/20 local
+    access-control-tag: 10.23.0.0/20 "lan"
     access-control-view: fd83:b84c:aa57:0001::/64 local
     access-control-tag: fd83:b84c:aa57:0001::/64 "lan"
-    access-control-view: 100.64.0.0/10 local
+    #
+    # Every other internal client: the other VLANs, the tailnet and OCI's pubsub
+    # subnet.
+    access-control-view: 10.23.0.0/16 remote
+    access-control-tag: 10.23.0.0/16 "lan"
+    access-control-view: 100.64.0.0/10 remote
     access-control-tag: 100.64.0.0/10 "lan"
-    access-control-view: fd7a:115c:a1e0::/48 local
+    access-control-view: fd7a:115c:a1e0::/48 remote
     access-control-tag: fd7a:115c:a1e0::/48 "lan"
-    access-control-view: 10.131.80.239/24 local
+    access-control-view: 10.131.80.239/24 remote
     access-control-tag: 10.131.80.239/24 "lan"
-    access-control-view: {{ arawi_ipv6_prefixes.oci_subnet }}::/64 local
+    access-control-view: {{ arawi_ipv6_prefixes.oci_subnet }}::/64 remote
     access-control-tag: {{ arawi_ipv6_prefixes.oci_subnet }}::/64 "lan"
     #
     access-control-view: 10.23.128.0/20 guest
