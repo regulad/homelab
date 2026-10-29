@@ -1140,3 +1140,12 @@ findings that would help a future session. Append new entries at the end.
 - Hooks run in Claude Code's own environment, which `CLAUDE_ENV_FILE`'s exports never reach, so a project hook can't tell from `ALOCK_SESSION` whether alock loaded. No fail-closed project hook is used here.
 - The Bash tool hands commands non-blocking stdout and stderr, and Ansible refuses to start on them ("Ansible requires blocking IO"). alock's `ansible-playbook` shim makes them blocking, so piping a run through `cat` is no longer needed.
 - The lock timeout is 600 s, longer than the Bash tool's foreground limit of 120 s by default and 600 s at most, so applies run in the background.
+
+## wako: FreeIPA waits at boot for its DHCP address (2026-10-29)
+
+- After the whole cluster booted at 02:41, wako's DHCPv6 lease came at 02:43 and its IPv4 lease, 10.23.2.34, at 02:44: arawi was still starting. `NetworkManager-wait-online` gave up at 02:42, and NetworkManager counted eth0 as activated on IPv6 alone, so `network-online.target` would not have held FreeIPA long enough.
+- With no IPv4 on any interface, `getaddrinfo` (`AI_ADDRCONFIG`, as APR calls it) skips `/etc/hosts`' IPv4 entry for the hostname, and nss-myhostname answers with the link-local address. httpd then names itself `fe80::…`, and `ipa-httpd-pwdreader`, which finds the key's passphrase in `/var/lib/ipa/passwds/<server name>-443-RSA`, has none to give, so `httpd.key` fails to decrypt ("wrong tag") and `ipactl` stops every service it had started. radiusd, ordered after `ipa.service`, failed in turn. FreeIPA stayed down until `systemctl start ipa.service` about 12 hours later.
+- `ipa.service.d/wait-for-address.conf` holds `ipa.service`'s start until `freeipa_server.ipv4` is on an interface. `ipa.service` already has `TimeoutStartSec=infinity`.
+- A reboot of wako alone tested it: the wait held `ipa.service` for 8 s, until the lease, and httpd, now without AH00558, and every other service came up, radiusd included. `systemctl show ipa.service -p ExecStartPre` keeps the wait's start and stop times.
+- `null-wako`'s password had been set on 2026-10-28, giving it the 90-day `krbPasswordExpiration` of `global_policy`; `mail_relay`'s `ipa_user` puts it back to 2038 whenever it runs.
+- Under `EnterWorktree`'s isolation, Claude Code refuses to source `prepare.sh`, which runs `git`; entering the worktree with `cd` instead works.
