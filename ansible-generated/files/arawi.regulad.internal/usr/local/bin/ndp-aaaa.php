@@ -139,16 +139,24 @@ foreach ($kea["Dhcp4"]["subnet4"] ?? [] as $subnet) {
     }
 }
 /* Kea's memfile appends a line per change, so an address's last line is its
- * lease; Kea escapes commas within fields. An infinite lease's expiry is far
- * off, which leaves the NDP lifetime as the TTL. */
+ * lease; Kea escapes commas within fields. Its lease file cleanup moves the
+ * older lines out of the file itself, so the files are read as Kea loads them
+ * at startup: .completed, or else .2 and then .1, and the file itself last.
+ * An infinite lease's expiry is far off, which leaves the NDP lifetime as the
+ * TTL. */
 $leases = [];
-$lines = @file($KEA_LEASES, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-$header = $lines ? explode(",", array_shift($lines)) : [];
-foreach ($lines as $line) {
-    $fields = explode(",", $line);
-    if (count($fields) >= count($header)) {
-        $lease = array_combine($header, array_slice($fields, 0, count($header)));
-        $leases[$lease["address"]] = $lease;
+$lease_files = file_exists("$KEA_LEASES.completed")
+    ? ["$KEA_LEASES.completed", $KEA_LEASES]
+    : ["$KEA_LEASES.2", "$KEA_LEASES.1", $KEA_LEASES];
+foreach ($lease_files as $lease_file) {
+    $lines = @file($lease_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+    $header = $lines ? explode(",", array_shift($lines)) : [];
+    foreach ($lines as $line) {
+        $fields = explode(",", $line);
+        if (count($fields) >= count($header)) {
+            $lease = array_combine($header, array_slice($fields, 0, count($header)));
+            $leases[$lease["address"]] = $lease;
+        }
     }
 }
 $now = time();
