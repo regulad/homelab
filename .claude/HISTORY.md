@@ -1093,3 +1093,10 @@ findings that would help a future session. Append new entries at the end.
 - The README's dry run (`systemd-run` with the unit's `ImportCredential`, `DynamicUser` and `StateDirectory`) identified overture by its host key as booted, and the running service logs `booted (password accepted, account turned away)` every 30 s. overture announced itself from two addresses, 10.23.1.63 and 10.23.1.141, on different checks.
 - `lime.toml` names each Mac's unlock account, which the public repository keeps in SOPS (`lime_unlock_users`) like the passwords, so the Configuration task sets `no_log` and `diff: false`.
 - Every SSH server announced over mDNS on `eth0` gets a handshake: both SG300s, which offer only SHA-1 key exchange, log a warning at each check, and an unlisted Mac that announces SSH but is unreachable logs `No route to host`.
+
+## aboriginal: Jellyfin's rffmpeg remains and root's old tooling removed (2026-10-28)
+
+- Jellyfin's `encoding.xml` still names `/usr/local/bin/ffmpeg`, rffmpeg's wrapper, which the stock image lacks; the image's `JELLYFIN_FFMPEG=/usr/lib/jellyfin-ffmpeg/ffmpeg` overrides it, so dropping rffmpeg's three mounts (quoted in the compose file) and recreating the container changed nothing else. Its `/health` answered 200 about 10 s after the start.
+- `/root/.b2_account_info`, the B2 command-line tool's SQLite account file, held no application key.
+- `/root/vda-gpt-backup.bin` (2026-07-19) recorded the original disk: 864,305,152 sectors (about 412 GiB), the root partition ending at sector 864,305,118, where this SSD's ends at 500,118,158; partitions 1 and 2 were unchanged.
+- The `nextcloud-ca` build context is gone, so that image can no longer be rebuilt here; Nextcloud runs the local image until it moves to the stock one.

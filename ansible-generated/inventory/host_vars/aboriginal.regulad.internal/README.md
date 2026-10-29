@@ -61,7 +61,8 @@ own.
   the dormant `llamarpcmaster` container, is destroyed too.
 - **NFS**: the server exported only Jellyfin's config and cache, to two
   rffmpeg transcode hosts, and the stock Jellyfin image it runs has no
-  rffmpeg. Nothing mounted NFS, so `nfs-common` and `rpcbind` went with it.
+  rffmpeg. Nothing mounted NFS, so `nfs-common` and `rpcbind` went with it,
+  and so did rffmpeg's configuration, key and mounts.
 - **vsftpd**: cleartext FTP for local users, on no other host. Its logs, kept
   since it was installed on 2026-02-24, showed logins only on that day, and
   after that only refused anonymous logins, the last on 2026-07-21.
@@ -82,6 +83,10 @@ own.
   client configuration, and state. The HOME.ARPA CA stays trusted, from
   `ca_trust`.
 - **winbind**: a standalone Samba does not use it.
+- **Old tooling in root's home**: a B2 pruning script with an account file
+  holding no key, the mail null-client script, an old backup run's output, a
+  GPT backup of the original, larger disk, the IPA client's directory, and
+  the `nextcloud-ca` build context.
 - **cloudflared**, ahead of its last routes, `hass-livingston`, `archive` and
   `qb-clearnet`, none of them needed, with the tunnel and those routes' DNS
   records.
