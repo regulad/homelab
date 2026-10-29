@@ -1166,3 +1166,10 @@ findings that would help a future session. Append new entries at the end.
 - A user manager can't order a unit after the system's `/mnt/media`, so `ExecStartPre=mountpoint -q /mnt/media`, with `Restart=always`, `RestartSec=1min` and `StartLimitIntervalSec=0`, is meant to retry at boot until it is mounted; no boot has tested it yet. Quadlet also adds `RequiresMountsFor=` for each bind mount's source.
 - Under Docker, a remount of `/mnt/media` restarted every container with `docker.service`. Nothing restarts this one, so after a remount, as when `mnt-restic.service` restarts, run `systemctl --user restart bandcampsync` as regulad.
 - It syncs once when it starts, then daily at `RUN_DAILY_AT` plus a random offset (3478 s for its first scheduled run).
+
+## aboriginal: mosquitto and ring-mqtt off Docker onto Quadlets (2026-10-29)
+
+- Inside Docker, mosquitto listened on IPv4 only (`listener 1883 0.0.0.0`, `socket_domain ipv4`), but Docker published 1883 on both families. On the host's network, a plain `listener 1883` keeps both. Nothing listened on 9001, nor on ring-mqtt's 8123, published as 8172.
+- In its image (`RUNMODE=docker`), ring-mqtt 5.9 reads only `/data/config.json`; the compose file's `MQTTHOST`, `RINGTOKEN` and the rest were unused, and only Home Assistant's add-on reads its environment. Its stream sources use `getHostIp()`, which on the host's network is the host's own address. At its first start it saved its refreshed `ring-state.json` into the new volume.
+- site.yml's Podman and Quadlet plays had no `become`: every earlier `podman_hosts` member was a container reached as root through `pct`. aboriginal, reached over SSH as regulad, failed at writing `/etc/containers/systemd`, after Docker's containers had been stopped, so MQTT and Ring were down from 16:12 to 16:20.
+- A `tofu/gonkputer` apply moves alock's record for every host its inventory lists, so after it, a worktree applying to any gonkputer host needs that commit. Here it tied `clamav` to `aboriginal`: each branch then carried one applied commit the other lacked, and neither can be rebased again.
