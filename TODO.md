@@ -132,8 +132,13 @@ cloud-init.
   - [x] Remove Jellyfin's rffmpeg remains (its mounts, `/etc/rffmpeg`, `/var/lib/rffmpeg`) and root's old tooling: `/root/b2`, `.b2_account_info`, `nullclient.sh`, `error.txt`, `vda-gpt-backup.bin`, `.ipa`, `nextcloud-ca`, `jellyfin-rffmpeg`
   - [x] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: declared in `vm-aboriginal.tf`, its changes ignored while the provider leaves a TPM at its defaults out of state
   - [ ] Describe its own services
-    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, ringmqtt
-      - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
+    - [ ] Off Docker onto Podman, with secrets in SOPS and images pinned
+      - [ ] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
+      - [ ] homeassistant, jellyfin and nextcloud: podman-compose stacks of the compose projects under `/root/compose`
+        - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
+      - [ ] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
+      - [ ] nginxproxymanagerlocal: not yet decided (README)
+      - [ ] Docker removed once nothing runs on it, with root's prune cron jobs and `docker.service.d`'s override
     - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`
     - [x] cloudflared and winbind uninstalled, with cloudflared's units, apt source and key, and winbind's hand-edited unit
       - [x] The `aboriginal` tunnel and its routes' DNS records (`hass-livingston`, `archive`, `qb-clearnet`) deleted from Cloudflare

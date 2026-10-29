@@ -43,6 +43,10 @@ host_files_directories:
     mode: "0755"
   - path: /etc/systemd/resolved.conf.d
     mode: "0755"
+  - path: /etc/mosquitto
+    mode: "0755"
+  - path: /etc/ring-mqtt
+    mode: "0755"
 host_files_list:
   - path: /usr/local/bin/restic-mount-helper
     mode: "0755"
@@ -90,7 +94,46 @@ host_files_list:
       [Resolve]
       MulticastDNS = yes
     restarts: [systemd-resolved.service]
+  # mosquitto's configuration, its whole /mosquitto/config (services.yml).
+  - path: /etc/mosquitto/mosquitto.conf
+    mode: "0644"
+    content: |
+      # Both families on every address, as Docker published it; logins only.
+      listener 1883
+      allow_anonymous false
+      password_file /mosquitto/config/mosquitto.passwd
+    restarts: [mosquitto.service]
+  # Home Assistant's and ring-mqtt's logins, owned by the image's mosquitto
+  # user as they were in Docker's volume.
+  - path: /etc/mosquitto/mosquitto.passwd
+    mode: "0600"
+    owner: "1883"
+    group: "1883"
+    content: "{{ mosquitto_passwd }}"
+    secret: true
+    restarts: [mosquitto.service]
+  - path: /etc/ring-mqtt/config.json
+    mode: "0600"
+    content: "{{ ring_mqtt_config | to_nice_json }}\n"
+    secret: true
+    restarts: [ring-mqtt.service]
 rgw_backup_buckets: [synapse-media, mastodon-media]
+
+# ring-mqtt's config.json, which it reads and never writes; outside Home
+# Assistant's add-on it reads no MQTT or Ring settings from its environment.
+# mqtt_url holds ring's mosquitto login.
+ring_mqtt_config:
+  mqtt_url: "{{ ring_mqtt_url }}"
+  mqtt_options: ""
+  livestream_user: ring_rtsp
+  livestream_pass: "{{ ring_mqtt_livestream_pass }}"
+  disarm_code: ""
+  enable_cameras: true
+  enable_modes: false
+  enable_panic: false
+  hass_topic: homeassistant/status
+  ring_topic: ring
+  location_ids: "{{ ring_mqtt_location_ids }}"
 host_files_units:
   - mnt-media.mount
   - mnt-nextcloud.mount

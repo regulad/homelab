@@ -2,10 +2,13 @@
 
 VM 100 on gonkputer: a hardware install of Ubuntu imaged into a VM, and also a
 remote workstation, so nothing under `/home/regulad` is managed. Its services
-are Docker compose projects under `/root/compose` and a few native units. What
-ties a service to this VM is the hardware passed through to it or the mounts
-of the restic `nas` archive. Services with neither move to containers of their
-own.
+are a few native units and containers, which are moving off Docker onto
+Podman, as Parker decided, although AGENTS.md otherwise keeps a host on its
+runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`); the other
+compose projects under `/root/compose` are to become podman-compose stacks.
+What ties a service to this VM is the hardware passed through to it or the
+mounts of the restic `nas` archive. Services with neither move to containers
+of their own.
 
 ## Staying
 
@@ -24,10 +27,14 @@ own.
   replace the TPM with an empty one. The password itself is in
   `secrets.sops.yml` (`lime_passwords`), and the role seals it again wherever
   the credential no longer decrypts.
-- **homeassistant, matter-server, mosquitto and ringmqtt.** They would suit a
+- **homeassistant, matter-server, mosquitto and ring-mqtt.** They would suit a
   Home Assistant OS VM with the USB devices passed through, but Home Assistant
   needs the host's Bluetooth stack: its Bluetooth integrations reach BlueZ
   over `/run/dbus`. ZHA holds the Zigbee stick on `/dev/ttyUSB0`.
+  - mosquitto and ring-mqtt share the host's network, as Home Assistant does,
+    which reaches mosquitto on localhost. Their configuration is host files,
+    and ring-mqtt's Ring refresh token is state in its volume. Podman's
+    auto-update replaces the watchtower ring-mqtt had of its own.
 
 ## Moved
 

@@ -1,0 +1,36 @@
+---
+# Home Assistant's MQTT: mosquitto, and ring-mqtt, which bridges the Ring
+# account's devices through it. Both share the host's network, as Home
+# Assistant does: Docker published their ports on both families, which
+# Podman's default network, IPv4 only, would not. Their files are host files
+# (main.yml).
+quadlet_services:
+  - name: mosquitto
+    description: Mosquitto, the MQTT broker for Home Assistant and ring-mqtt
+    after: [network-online.target]
+    wants: [network-online.target]
+    image: docker.io/library/eclipse-mosquitto:2
+    container_name: mosquitto
+    auto_update: registry
+    network: host
+    volumes:
+      - /etc/mosquitto:/mosquitto/config:ro
+    restart: always
+    wanted_by: [multi-user.target, default.target]
+  - name: ring-mqtt
+    description: ring-mqtt, the Ring account's devices in Home Assistant over MQTT
+    after: [network-online.target, mosquitto.service]
+    wants: [network-online.target, mosquitto.service]
+    # A release, bumped by hand: upstream tags only releases and latest.
+    image: docker.io/tsightler/ring-mqtt:5.9.3
+    container_name: ring-mqtt
+    auto_update: registry
+    # Its RTSP server on 8554, and mosquitto on loopback.
+    network: host
+    # ring-state.json, the Ring refresh token it rotates, and go2rtc.yaml, which
+    # it writes at each start, are state; config.json is a host file.
+    volumes:
+      - ring-mqtt_data:/data
+      - /etc/ring-mqtt/config.json:/data/config.json:ro
+    restart: always
+    wanted_by: [multi-user.target, default.target]
