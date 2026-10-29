@@ -6,6 +6,9 @@ freeipa_server_domain: "{{ freeipa_server.domain }}"
 # a DHCP container's /etc/hosts, which FreeIPA's installer rejects, so
 # .pve-ignore.hosts keeps Proxmox out and /etc/hosts names the address arawi's
 # static mapping fixes.
+host_files_directories:
+  - path: /etc/systemd/system/ipa.service.d
+    mode: "0755"
 host_files_list:
   - path: /etc/.pve-ignore.hosts
     content: ""
@@ -13,6 +16,18 @@ host_files_list:
   - path: /etc/hosts
     template: true
     mode: "0644"
+  # getaddrinfo ignores that address until an interface carries IPv4
+  # (AI_ADDRCONFIG). Without it, httpd names itself by its link-local address
+  # and finds no passphrase for its key, and ipactl stops every service. When
+  # the whole cluster boots, arawi's lease can come minutes late, after
+  # network-online.target, so ipa.service waits for the address itself. It
+  # applies at ipa.service's next start, not restarting FreeIPA.
+  - path: /etc/systemd/system/ipa.service.d/wait-for-address.conf
+    mode: "0644"
+    content: |
+      # FreeIPA finds this host by its /etc/hosts address; wait for DHCP to assign it.
+      [Service]
+      ExecStartPre=/bin/sh -c 'until ip -4 -o address show to {{ freeipa_server.ipv4 }} | grep -q .; do sleep 2; done'
 
 # RADIUS for softether, checking each password by binding to this directory as
 # the user, as svc-freeradius finds them. svc-freeradius's password and
