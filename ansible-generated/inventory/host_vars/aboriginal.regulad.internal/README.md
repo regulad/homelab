@@ -16,9 +16,9 @@ of their own.
 
 - **jellyfin and llama-server**: the passed-through RX 6800 (`renderD129`),
   Jellyfin for VA-API transcoding and llama-server through ROCm.
-  - Jellyfin's image follows `jellyfin_major` (10), which only
+  - Jellyfin's image follows `jellyfin_major` (12), which only
     `maintenance.yml`'s `jellyfin-upgrade` moves, with a copy to roll back to
-    and its plugins rebuilt for the new release; upstream's next release is 12.
+    and its plugins rebuilt for the new release.
     Its LDAP plugin reads its CA from `LdapRootCaPath`, to which `ca_trust`'s
     HOME.ARPA anchor is bound while it binds to the freeipa stand-in.
 - **nextcloud and Samba**: the `nas` archive's overlays,

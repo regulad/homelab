@@ -144,7 +144,7 @@ rgw_backup_buckets: [synapse-media, mastodon-media]
 # bump it and run maintenance.yml's jellyfin-upgrade, not site.yml: site.yml
 # would restart onto it with no copy to return to, and with plugins built for
 # the old release.
-jellyfin_major: 10
+jellyfin_major: 12
 # Its config and data directory, on the SSD.
 jellyfin_config_dir: /mnt/ssd/jellyfin/config
 
