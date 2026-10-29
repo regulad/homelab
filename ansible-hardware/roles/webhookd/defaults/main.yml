@@ -1,0 +1,19 @@
+---
+# webhookd, from azlux's APT repository: an HTTP endpoint that runs one script
+# per hook, with the request body as the script's $1. Uptime Kuma's webhook
+# notifications call it to reboot the guests whose monitors go down.
+
+# Its settings, WHD_* by name, in /etc/webhookd.env, which the unit reads after
+# the package's /etc/default/webhookd.env. The package does not register that
+# one as a conffile, so every upgrade replaces it with its commented sample; it
+# creates /etc/webhookd.env only when the file is missing. WHD_HOOK_SCRIPTS is
+# webhookd_hook_dir.
+webhookd_env: {}
+# Hooks by name: <name>.sh in webhookd_hook_dir, which runs its command as root
+# through sudo when Uptime Kuma's payload reports the monitor down, and ignores
+# every other payload.
+webhookd_hooks: {}
+webhookd_hook_dir: /etc/webhookd/scripts
+
+# azlux's repository signing key, as https://azlux.fr/repo.gpg serves it.
+webhookd_apt_key_sha256: 9767f7060fe0bedf00964813a843c10f5b5d566b5deaf369c18454b8926bf243

@@ -161,3 +161,23 @@ ceph_rgw_buckets:
           Resource:
             - arn:aws:s3:::mastodon-media
             - arn:aws:s3:::mastodon-media/*
+
+# webhookd for Uptime Kuma's webhook notifications, which post to
+# https://prodingus.regulad.internal:8108/<hook> with a basic-auth header. The
+# certificate, from the regulad.internal CA, its key and the .htpasswd stay
+# host data.
+webhookd_env:
+  WHD_LISTEN_ADDR: ":8108"
+  WHD_TLS_ENABLED: "true"
+  WHD_TLS_CERT_FILE: /etc/webhookd/prodingus.regulad.internal.crt
+  WHD_TLS_KEY_FILE: /etc/webhookd/prodingus.regulad.internal.key
+  WHD_PASSWD_FILE: /etc/webhookd/.htpasswd
+  # Seconds, the hooks' own reboot timeout; webhookd's default is 10.
+  WHD_HOOK_TIMEOUT: "120"
+webhookd_hooks:
+  # FIXME: VM 113 no longer exists; FreeIPA is wako, container 203. Revisit
+  # with the freeipa monitor.
+  freeipa: /usr/sbin/qm reboot 113 --timeout 120
+  cordpepperer: /usr/sbin/pct reboot 118 --timeout 120
+  peppercord: /usr/sbin/pct reboot 126 --timeout 120
+  ncsusplitt: /usr/sbin/pct reboot 125 --timeout 120

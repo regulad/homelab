@@ -18,6 +18,13 @@
   roles:
     - ceph_rgw
 
+# webhookd, which reboots the guests whose Uptime Kuma monitors go down.
+- name: Uptime Kuma's webhooks
+  hosts: webhookd
+  become: true
+  roles:
+    - webhookd
+
 # Each Arista switch's whole running configuration, from files/<switch>/.
 - name: Arista switches
   hosts: eos

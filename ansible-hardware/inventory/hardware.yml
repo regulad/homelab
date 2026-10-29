@@ -24,6 +24,10 @@ hardware:
     kdump:
       hosts:
         prodingus:
+    # webhookd, for Uptime Kuma's webhook notifications.
+    webhookd:
+      hosts:
+        prodingus:
 
 # Network switches: configured over SSH by Ansible's network modules, which run
 # on the control node, through each platform's CLI. Kept outside the hardware

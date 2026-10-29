@@ -1,0 +1,108 @@
+---
+# webhookd from azlux's repository, its settings, one script and one sudo rule
+# per hook, and the APT hook that starts it again after its package upgrades.
+# Runs on hardware hosts (Phase 2).
+- name: Azlux's repository signing key
+  ansible.builtin.get_url:
+    url: https://azlux.fr/repo.gpg
+    dest: /usr/share/keyrings/azlux-archive-keyring.gpg
+    checksum: sha256:{{ webhookd_apt_key_sha256 }}
+    owner: root
+    group: root
+    mode: "0644"
+  register: webhookd_apt_key
+
+- name: Azlux's repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/azlux.sources
+    content: |
+      Types: deb
+      URIs: http://packages.azlux.fr/debian/
+      Suites: {{ ansible_facts['distribution_release'] }}
+      Components: main
+      Signed-By: /usr/share/keyrings/azlux-archive-keyring.gpg
+    owner: root
+    group: root
+    mode: "0644"
+  register: webhookd_apt_source
+
+# Before the install, which a handler would come after.
+- name: Read azlux's repository  # noqa: no-handler
+  ansible.builtin.apt:
+    update_cache: true
+  when: webhookd_apt_key is changed or webhookd_apt_source is changed
+
+# Updates come from unattended-upgrades; jq reads Uptime Kuma's payload.
+- name: Install webhookd and jq
+  ansible.builtin.apt:
+    name: [webhookd, jq]
+    state: present
+
+# The package stops webhookd before an upgrade, and its postinst starts it
+# again only when dpkg passes "upgrade", which dpkg never does: each upgrade
+# left it stopped. Started after every dpkg run while it is enabled; a running
+# webhookd is left alone.
+- name: Start webhookd after its package upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/80webhookd-start
+    content: |
+      DPkg::Post-Invoke { "if systemctl is-enabled --quiet webhookd.service; then systemctl start webhookd.service || true; fi"; };
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Settings
+  ansible.builtin.copy:
+    dest: /etc/webhookd.env
+    content: |
+      {% for name, value in (webhookd_env | combine({'WHD_HOOK_SCRIPTS': webhookd_hook_dir})).items() %}
+      {{ name }}={{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart webhookd
+
+- name: Unit drop-in
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/webhookd.service.d/override.conf
+    content: |
+      [Service]
+      WorkingDirectory=/etc/webhookd
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart webhookd
+
+- name: Hook scripts
+  ansible.builtin.copy:
+    dest: "{{ webhookd_hook_dir }}/{{ item.key }}.sh"
+    content: |
+      #!/bin/bash
+      set -eu
+      [ "$(printf '%s' "${1:-}" | jq -r '.heartbeat.status')" = "0" ] || exit 0
+      exec sudo -n {{ item.value }} 2>&1
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ webhookd_hooks | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Each hook's command, as root through sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/webhookd
+    content: |
+      {% for command in webhookd_hooks.values() %}
+      %webhookd ALL=(root) NOPASSWD: {{ command }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+
+- name: Keep webhookd running
+  ansible.builtin.systemd_service:
+    name: webhookd.service
+    enabled: true
+    state: started

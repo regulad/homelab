@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: webhookd, running a script per hook for Uptime Kuma's webhook notifications
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []
