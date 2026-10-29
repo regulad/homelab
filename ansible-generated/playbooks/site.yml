@@ -139,6 +139,7 @@
 
 - name: Podman hosts
   hosts: podman_hosts
+  become: true
   roles:
     - podman
     - avahi
@@ -146,5 +147,6 @@
 # Rendered from host_vars/<host>/services.yml.
 - name: Quadlet services
   hosts: podman_hosts
+  become: true
   roles:
     - quadlet
