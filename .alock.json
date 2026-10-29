@@ -1,0 +1,19 @@
+{
+  "tf": {
+    "tofu/backblaze": {},
+    "tofu/gonkputer": {
+      "hosts": {
+        "dir": "ansible-generated",
+        "inventory": ["inventory/gonkputer.terraform_state.yml"],
+        "path": ["bin"]
+      }
+    },
+    "tofu/oracle": {
+      "hosts": {
+        "dir": "ansible-generated",
+        "inventory": ["inventory/oracle.terraform_state.yml"],
+        "path": ["bin"]
+      }
+    }
+  }
+}

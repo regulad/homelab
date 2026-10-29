@@ -61,6 +61,8 @@ docs/snapshot/
 
 # --- Local editor / OS ------------------------------------------------------
 .claude/settings.local.json
+# Agents' worktrees (AGENTS.md, Parallel agents), each a checkout of its own branch.
+.claude/worktrees/
 .DS_Store
 Thumbs.db
 

@@ -1,0 +1,24 @@
+{
+  "enabledPlugins": {
+    "alock@alock": true
+  },
+  "extraKnownMarketplaces": {
+    "alock": {
+      "source": {
+        "source": "settings",
+        "name": "alock",
+        "plugins": [
+          {
+            "name": "alock",
+            "source": {
+              "source": "github",
+              "repo": "regulad/alock",
+              "ref": "alock--v0.1.0",
+              "sha": "eb222dff1f711a16b9dd3a85247a12e05d5c98bb"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

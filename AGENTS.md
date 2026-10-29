@@ -30,7 +30,7 @@ Where this file and the plan disagree, this file wins.
 5. **Don't invent facts.** Discover with read-only commands, keep raw output in the gitignored `docs/snapshot/`, and ask about anything unknown. Verify provider and tool details (resource names, import ID formats, flags) against current docs.
 6. **Stop and ask** when a plan shows any destroy or replace, when an Ansible `--check` shows unexpected changes on a production host, or at an auth or permission wall.
 7. **Pin everything:** providers with a committed `.terraform.lock.hcl`, Ansible collections in `requirements.yml`, container image tags (never `latest`, except where upstream publishes no version or channel tag besides dated or per-commit builds), and pre-commit hook revisions.
-8. **Commits only when Parker asks.** Keep each one small and single-purpose, with a conventional-commit message. Every commit carries the contributing agent's own `Co-authored-by` trailer. Never add `Signed-off-by` with Parker's identity unless he says so for those commits, and never bypass commit signing.
+8. **Commits only when Parker asks.** The one exception: an agent working in a worktree of its own commits on that worktree's branch before applying, because alock applies only from commits (see [Parallel agents](#parallel-agents)); what reaches master is still Parker's call. Keep each one small and single-purpose, with a conventional-commit message. Every commit carries the contributing agent's own `Co-authored-by` trailer. Never add `Signed-off-by` with Parker's identity unless he says so for those commits, and never bypass commit signing.
 
 ## Model architecture
 
@@ -41,7 +41,8 @@ model is Parker's decision.
 ```
 homelab/
 ├── AGENTS.md, README.md
-├── .claude/                     # PLAN.md, HISTORY.md
+├── .alock.json                  # alock's OpenTofu roots, each with the inventory of the hosts it creates
+├── .claude/                     # PLAN.md, HISTORY.md, settings.json (pins the alock plugin), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy, Ansible lint hooks
 ├── .sops.yaml, .gitignore
 ├── docs/
@@ -95,10 +96,25 @@ pre-commit run --all-files
 ```
 
 - Run plans from a root, never from a child module.
-- Write plaintext plan output and saved plans to `docs/snapshot/`. State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
+- Write plaintext plan output and saved plans to `docs/snapshot/`, each saved plan named for the commit it was made at, `<root>@<commit>.tfplan` (see [Parallel agents](#parallel-agents)). State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
 - Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op. The state bucket's versioning keeps every earlier state version, so applies need no separate backups.
 - After an apply to `tofu/oracle` or `tofu/gonkputer`, run the next `ansible-generated` command with `--flush-cache`: its inventory caches their state for an hour.
 - The OCI session token lasts 60 minutes, and refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate` himself.
+
+## Parallel agents
+
+Several agents may work on this repository at once. The [alock](https://github.com/regulad/alock) plugin, pinned in `.claude/settings.json` and configured by `.alock.json`, keeps their applies apart. While a `tofu`, `terraform` or `ansible-playbook` change runs, it locks the OpenTofu root with every host that root's inventory lists, or each host an Ansible run resolves to. It refuses an apply whose HEAD lacks the commit any of those targets was last applied from, so no apply undoes another. Read-only calls, such as `plan` and `--check`, pass straight through.
+
+- **Worktree or main checkout:** when Parker asks for work, ask him whether to do it in a worktree of its own or in the main checkout; never assume either. A worktree lives at `.claude/worktrees/<name>` on a branch of the same name. It starts without the gitignored files: run its roots' `prepare.sh`, and symlink `ansible-*/collections/` and `tofu/*/.terraform/` from the main checkout rather than installing them again (rule 3).
+- **Apply from a commit.** alock refuses a worktree with uncommitted changes. In a worktree, commit on its branch first (rule 8's exception). In the main checkout, that commit lands on master, so Parker approves it along with the apply.
+- **Saved plans** are made and applied at the same commit, and named for it: `docs/snapshot/<root>@<commit>.tfplan`, with at least seven characters of the commit.
+- **Run applies in the background** (`run_in_background`). alock waits up to 10 minutes for a held lock, longer than the Bash tool lets a foreground command run.
+- **A lock that stays held** makes the change fail without running, naming its holder. Report that to Parker. If the holder is gone, message the other agents working on this repository, so a live one can object; then Parker runs `/alock:break -C <repository> <target>`. Agents never run it.
+- **To roll a target back,** `git revert` the applied commit on a branch that contains it, and apply the revert. There is no other way to undo an apply.
+- **After an apply moves a target's record forward,** other worktrees can't apply to that target until they contain the commit. Tell the other agents working on this repository, so they can rebase onto it.
+- **`alock.mode` is Parker's:** `local`, in this clone's `.git/config`, as every agent applies from this one clone. Agents may read it, never change it.
+- **A new OpenTofu root** goes into `.alock.json`, with the inventory listing the hosts it creates; alock refuses a root it doesn't list.
+- **Unlocked:** ad hoc `ansible`, `pct`, `qm`, `ssh` and web interfaces bypass alock. Before changing a host one of those ways, check with Parker that no other agent is applying to it.
 
 ## Verification before review
 

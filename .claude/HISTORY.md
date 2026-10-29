@@ -1132,3 +1132,11 @@ findings that would help a future session. Append new entries at the end.
 ## .gitignore: public keys committed, whatever their name (2026-10-29)
 
 - The `id_rsa*` pattern also matched aameter's `files/aameter.regulad.internal/etc/thylacine-tunnel/id_rsa.pub`, which `host_files` installs, so the key had never been committed: a fresh clone or worktree lacked it and could not converge aameter. `!*.pub`, after the key patterns, admits public keys; private keys are still ignored.
+
+## alock: parallel agents' applies locked, and checked against what was last applied (2026-10-29)
+
+- alock ([regulad/alock](https://github.com/regulad/alock)) is pinned in `.claude/settings.json` through an inline `settings` marketplace whose plugin source is `github` with `ref` and `sha`: a marketplace source can pin only a branch or tag. The `claude plugin` CLI can't see a project's inline marketplace until a session in the trusted folder registers it; after one minimal `claude -p` run here, `claude plugin install alock@alock --scope project` installed it.
+- `.alock.json` resolves `tofu/gonkputer` to itself and 31 hosts and `tofu/oracle` to itself and 5, through `ansible-inventory --flush-cache` in `ansible-generated` with its `bin/` on `PATH`, so an apply needs `prepare.sh`'s backend credentials in its environment; `tofu/backblaze` creates no hosts.
+- Hooks run in Claude Code's own environment, which `CLAUDE_ENV_FILE`'s exports never reach, so a project hook can't tell from `ALOCK_SESSION` whether alock loaded. No fail-closed project hook is used here.
+- The Bash tool hands commands non-blocking stdout and stderr, and Ansible refuses to start on them ("Ansible requires blocking IO"). alock's `ansible-playbook` shim makes them blocking, so piping a run through `cat` is no longer needed.
+- The lock timeout is 600 s, longer than the Bash tool's foreground limit of 120 s by default and 600 s at most, so applies run in the background.
