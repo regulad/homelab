@@ -136,7 +136,7 @@ cloud-init.
       - [ ] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
       - [ ] homeassistant, jellyfin and nextcloud: podman-compose stacks of the compose projects under `/root/compose`
         - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
-      - [ ] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
+      - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [ ] nginxproxymanagerlocal: not yet decided (README)
       - [ ] Docker removed once nothing runs on it, with root's prune cron jobs and `docker.service.d`'s override
     - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`

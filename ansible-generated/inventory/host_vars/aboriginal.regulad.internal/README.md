@@ -14,7 +14,7 @@ of their own.
 
 - **jellyfin and llama-server**: the passed-through RX 6800 (`renderD129`),
   Jellyfin for VA-API transcoding and llama-server through ROCm.
-- **nextcloud, bandcampsync and Samba**: the `nas` archive's overlays,
+- **nextcloud and Samba**: the `nas` archive's overlays,
   `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
@@ -64,6 +64,10 @@ of their own.
   in place of a connector of its own. Compacting its blob store first gave
   back 35 G of abandoned Docker uploads, and its dead LDAP realm is gone.
   aboriginal's root went from 93 % to 62 % full.
+- **bandcampsync**: to regulad, a rootless Quadlet of his own in
+  `~/.config/containers/systemd`, set up by hand and not managed here, as its
+  Bandcamp session cookies are volatile and renewed by hand. It still saves
+  into `/mnt/media/Bandcamp`.
 
 ## Removed
 
