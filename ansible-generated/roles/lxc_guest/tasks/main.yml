@@ -1,0 +1,19 @@
+---
+# What a Proxmox container needs from inside. A privileged one must run without
+# AppArmor, so its package is purged; dpkg leaves the profile stubs that other
+# packages put in /etc/apparmor.d. Runs on the generated hosts in
+# proxmox_containers (Phase 4), before Podman and the services.
+- name: Read the container's user ID map
+  ansible.builtin.slurp:
+    src: /proc/self/uid_map
+  register: lxc_guest_uid_map
+
+# A privileged container maps every ID to itself; an unprivileged one maps its
+# IDs onto the node's from 100000.
+- name: No AppArmor in a privileged container
+  ansible.builtin.apt:
+    name: apparmor
+    state: absent
+    purge: true
+  when: (lxc_guest_uid_map.content | b64decode).split() == ['0', '0', '4294967295']
+  notify: Forget AppArmor's failed unit

@@ -1,0 +1,6 @@
+---
+# apparmor.service fails at a privileged container's boot, and systemd lists it
+# as failed after the purge until reset.
+- name: Forget AppArmor's failed unit
+  ansible.builtin.command: systemctl reset-failed apparmor.service  # noqa: command-instead-of-module
+  changed_when: true

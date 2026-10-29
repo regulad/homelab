@@ -6,6 +6,14 @@
 - name: Plays both stages share
   ansible.builtin.import_playbook: ../../ansible-common/playbooks/site.yml
 
+# Before Podman and the services: no AppArmor in a privileged container.
+- name: Proxmox containers
+  hosts: proxmox_containers
+  gather_facts: false
+  become: true
+  roles:
+    - lxc_guest
+
 # firewalld's zones on the Enterprise Linux hosts; their policies and direct
 # rules are host files.
 - name: Firewall zones
