@@ -606,3 +606,377 @@
               {{ nexus_upgrade_running }} again{{ ' from the copy' if nexus_upgrade_copied | default(false) else '' }}.
               Revert the image in services.yml to
               {{ (nexus_upgrade_container.stdout | from_json)[0].ImageName }} before the next site.yml.
+
+# Upgrade Jellyfin to the major release jellyfin_major declares: bump it, then
+# run this play rather than site.yml, with --limit <host> so alock locks that
+# host alone. A major release migrates the database in a way only a full
+# restore undoes, and needs its plugins rebuilt for it, so, as Jellyfin's
+# release notes direct, with Jellyfin stopped it copies the config directory (a
+# reflink copy on the SSD's btrfs, sharing its blocks until they change) and
+# the compose file, and removes the repository plugins. It then starts the new
+# release once, migrating the database without them; adds back each plugin's
+# newest build for that release, from the stable plugin repository, verified by
+# its checksum; and starts it again, checking each loads. It refuses to begin
+# while a plugin has no such build, refuses a downgrade, and does nothing where
+# the declared major release already runs. If anything fails after the copy,
+# it puts the copy and the old compose file back, starts the old release again,
+# then fails: revert jellyfin_major before the next site.yml. What a release's
+# notes ask for afterwards, such as 12.0's full library scan, is left to the
+# dashboard.
+- name: Jellyfin upgrade to its declared major release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [jellyfin-upgrade]
+  vars:
+    jellyfin_upgrade_image: docker.io/jellyfin/jellyfin:{{ jellyfin_major }}
+    jellyfin_upgrade_unit: podman-compose@jellyfin.service
+    jellyfin_upgrade_compose: /opt/jellyfin/docker-compose.yml
+    jellyfin_upgrade_plugins_dir: "{{ jellyfin_config_dir }}/plugins"
+    jellyfin_upgrade_backup: "{{ jellyfin_config_dir | dirname }}/upgrade-backup"
+    jellyfin_upgrade_downloads: /var/cache/jellyfin-upgrade
+    jellyfin_upgrade_repository: https://repo.jellyfin.org/files/plugin/manifest.json
+    jellyfin_upgrade_url: http://127.0.0.1:8096
+    # Seconds each start has to report itself healthy; the first one runs the
+    # migrations, which on a large library take a while.
+    jellyfin_upgrade_timeout: 3600
+  tasks:
+    - name: Only where Jellyfin is declared
+      ansible.builtin.meta: end_host
+      when: jellyfin_major is not defined
+
+    - name: Jellyfin's newest release
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/jellyfin/jellyfin/releases/latest
+      register: jellyfin_upgrade_newest
+      check_mode: false
+
+    - name: Report the newest release
+      ansible.builtin.debug:
+        msg: >-
+          Newest release: {{ jellyfin_upgrade_newest.json.tag_name | regex_replace('^v', '') }}.
+          jellyfin_major declares {{ jellyfin_major }}.
+
+    - name: The running container
+      ansible.builtin.command:
+        argv: [podman, container, inspect, jellyfin]
+      register: jellyfin_upgrade_container
+      changed_when: false
+      check_mode: false
+
+    - name: The running release
+      ansible.builtin.set_fact:
+        jellyfin_upgrade_running: >-
+          {{ (jellyfin_upgrade_container.stdout | from_json)[0].Config.Labels['org.opencontainers.image.version'] }}
+
+    - name: No downgrade, which a migrated database cannot take
+      ansible.builtin.assert:
+        that: jellyfin_major | int >= jellyfin_upgrade_running.split('.') | first | int
+        fail_msg: jellyfin_major declares {{ jellyfin_major }}, older than the running {{ jellyfin_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared major release already runs
+      ansible.builtin.meta: end_host
+      when: jellyfin_major | int == jellyfin_upgrade_running.split('.') | first | int
+
+    - name: The declared major release, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ jellyfin_upgrade_image }}"]
+      changed_when: true
+
+    - name: The pulled image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ jellyfin_upgrade_image }}"]
+      register: jellyfin_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The release to upgrade to, as four parts like a plugin's targetAbi
+      ansible.builtin.set_fact:
+        jellyfin_upgrade_target: >-
+          {{ ((((jellyfin_upgrade_pulled.stdout | from_json)[0].Labels['org.opencontainers.image.version'])
+               if jellyfin_upgrade_pulled.rc == 0 else jellyfin_major ~ '.0').split('.') + ['0', '0', '0'])[:4] | join('.') }}
+
+    - name: The pulled image is the declared major release
+      ansible.builtin.assert:
+        that: jellyfin_upgrade_target.split('.') | first | int == jellyfin_major | int
+        fail_msg: "{{ jellyfin_upgrade_image }} is release {{ jellyfin_upgrade_target }}."
+        quiet: true
+
+    - name: The config directory's owner, whom the plugins' files belong to
+      ansible.builtin.stat:
+        path: "{{ jellyfin_config_dir }}"
+      register: jellyfin_upgrade_owner
+
+    - name: The repository plugins' metadata
+      ansible.builtin.find:
+        paths: "{{ jellyfin_upgrade_plugins_dir }}"
+        patterns: [meta.json]
+        recurse: true
+        depth: 2
+      register: jellyfin_upgrade_meta_files
+
+    - name: Read each plugin's metadata
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      loop: "{{ jellyfin_upgrade_meta_files.files }}"
+      loop_control:
+        label: "{{ item.path | dirname | basename }}"
+      register: jellyfin_upgrade_meta
+
+    - name: The stable plugin repository
+      ansible.builtin.uri:
+        url: "{{ jellyfin_upgrade_repository }}"
+      register: jellyfin_upgrade_manifest
+      check_mode: false
+
+    # Each plugin's newest build whose targetAbi is the declared major release,
+    # and no newer than the release pulled. Plugins are matched by GUID.
+    - name: Each plugin's build for the declared release
+      ansible.builtin.set_fact:
+        jellyfin_upgrade_plugins: >-
+          {{ jellyfin_upgrade_plugins | default([])
+             + [{'installed': item.source | dirname, 'guid': plugin_meta.guid,
+                 'name': plugin_entry.name | default(plugin_meta.name),
+                 'build': plugin_builds | first | default({})}] }}
+      vars:
+        plugin_meta: "{{ item.content | b64decode | from_json }}"
+        plugin_entry: "{{ jellyfin_upgrade_manifest.json | selectattr('guid', 'equalto', plugin_meta.guid) | first | default({}) }}"
+        plugin_builds: >-
+          {{ plugin_entry.versions | default([])
+             | selectattr('targetAbi', 'version', jellyfin_major ~ '.0.0.0', '>=')
+             | selectattr('targetAbi', 'version', jellyfin_upgrade_target, '<=')
+             | sort(attribute='timestamp', reverse=true) }}
+      loop: "{{ jellyfin_upgrade_meta.results }}"
+      loop_control:
+        label: "{{ item.source | dirname | basename }}"
+
+    - name: Every plugin has a build for the declared release
+      ansible.builtin.assert:
+        that: jellyfin_upgrade_plugins | default([]) | map(attribute='build') | reject | list | length == 0
+        fail_msg: >-
+          No build for Jellyfin {{ jellyfin_upgrade_target }} in the stable plugin repository of:
+          {{ jellyfin_upgrade_plugins | selectattr('build', 'equalto', {}) | map(attribute='name') | join(', ') }}.
+          Remove those plugins from the dashboard first, or wait for their builds.
+        quiet: true
+
+    - name: Directory for the plugins' downloads
+      ansible.builtin.file:
+        path: "{{ jellyfin_upgrade_downloads }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: The plugins' builds, fetched while the old release still serves
+      ansible.builtin.get_url:
+        url: "{{ item.build.sourceUrl }}"
+        dest: "{{ jellyfin_upgrade_downloads }}/{{ item.guid }}_{{ item.build.version }}.zip"
+        checksum: "md5:{{ item.build.checksum }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ jellyfin_upgrade_plugins | default([]) }}"
+      loop_control:
+        label: "{{ item.name }} {{ item.build.version }}"
+      # A check run creates no directory to download into.
+      when: not ansible_check_mode
+
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ jellyfin_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: Jellyfin stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: "{{ jellyfin_upgrade_unit }}"
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ jellyfin_upgrade_backup }}/config"
+            state: absent
+
+        - name: Copy of the config directory
+          ansible.builtin.command:
+            argv: [cp, -a, --reflink=always, "{{ jellyfin_config_dir }}", "{{ jellyfin_upgrade_backup }}/config"]
+          changed_when: true
+
+        - name: Copy of the compose file
+          ansible.builtin.copy:
+            src: "{{ jellyfin_upgrade_compose }}"
+            dest: "{{ jellyfin_upgrade_backup }}/docker-compose.yml"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            jellyfin_upgrade_copied: true
+
+        - name: The plugins built for the old release removed
+          ansible.builtin.file:
+            path: "{{ item.installed }}"
+            state: absent
+          loop: "{{ jellyfin_upgrade_plugins | default([]) }}"
+          loop_control:
+            label: "{{ item.installed | basename }}"
+
+        - name: The compose file with the declared release
+          ansible.builtin.template:
+            src: "{{ inventory_dir }}/../files/{{ inventory_hostname }}{{ jellyfin_upgrade_compose }}.j2"
+            dest: "{{ jellyfin_upgrade_compose }}"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Jellyfin started, to migrate its database without plugins
+          ansible.builtin.systemd_service:
+            name: "{{ jellyfin_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the migration and startup
+          ansible.builtin.uri:
+            url: "{{ jellyfin_upgrade_url }}/health"
+            return_content: true
+          register: jellyfin_upgrade_health
+          until: jellyfin_upgrade_health.content | default('') == 'Healthy'
+          retries: "{{ [(jellyfin_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: The declared release is the one serving
+          ansible.builtin.uri:
+            url: "{{ jellyfin_upgrade_url }}/System/Info/Public"
+          register: jellyfin_upgrade_info
+          failed_when: not ((jellyfin_upgrade_info.json | default({})).Version | default('')).startswith(jellyfin_major ~ '.')
+          when: not ansible_check_mode
+
+        - name: Jellyfin stopped, to add the plugins
+          ansible.builtin.systemd_service:
+            name: "{{ jellyfin_upgrade_unit }}"
+            state: stopped
+
+        # Named <name>_<version>, as Jellyfin's own installer names them.
+        - name: Directories for the plugins' builds
+          ansible.builtin.file:
+            path: "{{ jellyfin_upgrade_plugins_dir }}/{{ item.name }}_{{ item.build.version }}"
+            state: directory
+            owner: "{{ jellyfin_upgrade_owner.stat.uid }}"
+            group: "{{ jellyfin_upgrade_owner.stat.gid }}"
+            mode: "0755"
+          loop: "{{ jellyfin_upgrade_plugins | default([]) }}"
+          loop_control:
+            label: "{{ item.name }} {{ item.build.version }}"
+
+        - name: Each plugin's build for the declared release
+          ansible.builtin.unarchive:
+            src: "{{ jellyfin_upgrade_downloads }}/{{ item.guid }}_{{ item.build.version }}.zip"
+            dest: "{{ jellyfin_upgrade_plugins_dir }}/{{ item.name }}_{{ item.build.version }}"
+            remote_src: true
+            owner: "{{ jellyfin_upgrade_owner.stat.uid }}"
+            group: "{{ jellyfin_upgrade_owner.stat.gid }}"
+          loop: "{{ jellyfin_upgrade_plugins | default([]) }}"
+          loop_control:
+            label: "{{ item.name }} {{ item.build.version }}"
+          when: not ansible_check_mode
+
+        - name: Jellyfin started with its plugins
+          ansible.builtin.systemd_service:
+            name: "{{ jellyfin_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the startup
+          ansible.builtin.uri:
+            url: "{{ jellyfin_upgrade_url }}/health"
+            return_content: true
+          register: jellyfin_upgrade_health
+          until: jellyfin_upgrade_health.content | default('') == 'Healthy'
+          retries: "{{ [(jellyfin_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        # podman-compose recreates the container at each start, so its log is
+        # this start's.
+        - name: The container's log
+          ansible.builtin.command:
+            argv: [podman, logs, jellyfin]
+          register: jellyfin_upgrade_log
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Every plugin's build loaded
+          ansible.builtin.assert:
+            that: >-
+              (jellyfin_upgrade_log.stdout ~ jellyfin_upgrade_log.stderr)
+              is search('Loaded plugin: .+ ' ~ (item.build.version | regex_escape))
+            fail_msg: "{{ item.name }} {{ item.build.version }} did not load."
+            quiet: true
+          loop: "{{ jellyfin_upgrade_plugins | default([]) }}"
+          loop_control:
+            label: "{{ item.name }} {{ item.build.version }}"
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              Jellyfin runs {{ (jellyfin_upgrade_info.json | default({})).Version | default(jellyfin_upgrade_target) }}, from
+              {{ jellyfin_upgrade_running }}, with
+              {{ jellyfin_upgrade_plugins | default([]) | map(attribute='name') | zip(jellyfin_upgrade_plugins | default([])
+                 | map(attribute='build') | map(attribute='version')) | map('join', ' ') | join(', ') }}.
+              The copy to return to is in {{ jellyfin_upgrade_backup }}. Do what its release notes ask for
+              after an upgrade, such as 12.0's full library scan, from the dashboard.
+
+      rescue:
+        - name: Jellyfin stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: "{{ jellyfin_upgrade_unit }}"
+            state: stopped
+
+        - name: The config directory put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -a, --delete, "{{ jellyfin_upgrade_backup }}/config/", "{{ jellyfin_config_dir }}/"]
+          changed_when: true
+          when: jellyfin_upgrade_copied | default(false)
+
+        - name: The old compose file put back
+          ansible.builtin.copy:
+            src: "{{ jellyfin_upgrade_backup }}/docker-compose.yml"
+            dest: "{{ jellyfin_upgrade_compose }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: jellyfin_upgrade_copied | default(false)
+
+        - name: Jellyfin started on the old release
+          ansible.builtin.systemd_service:
+            name: "{{ jellyfin_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the old release
+          ansible.builtin.uri:
+            url: "{{ jellyfin_upgrade_url }}/health"
+            return_content: true
+          register: jellyfin_upgrade_rolled_back
+          until: jellyfin_upgrade_rolled_back.content | default('') == 'Healthy'
+          retries: 60
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to Jellyfin {{ jellyfin_major }} failed, and it runs {{ jellyfin_upgrade_running }}
+              again{{ ' from the copy' if jellyfin_upgrade_copied | default(false) else '' }}.
+              Revert jellyfin_major to {{ jellyfin_upgrade_running.split('.') | first }} before the next site.yml.
