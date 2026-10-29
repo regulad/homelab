@@ -36,7 +36,18 @@
 		<uefihttpboot></uefihttpboot>
 		<rootpath></rootpath>
 		<numberoptions></numberoptions>
-		<custom_kea_config>ew0KICAgICJhbGxvY2F0b3IiOiAicmFuZG9tIiwNCiAgICAib3B0aW9uLWRhdGEiOiBbDQogICAgICAgIHsNCiAgICAgICAgICAgICJuYW1lIjogImNsYXNzbGVzcy1zdGF0aWMtcm91dGUiLA0KICAgICAgICAgICAgImRhdGEiOiAiMTAwLjY0LjAuMC8xMCAtIDEwLjIzLjIuMTcxLCAxMC4xMzEuMC4wLzE2IC0gMTAuMjMuMi4xNzEsIDAuMC4wLjAvMCAtIDEwLjIzLjAuMjU0Ig0KICAgICAgICB9LA0KICAgICAgICB7DQogICAgICAgICAgICAibmFtZSI6ICJ2NC1wY3Atc2VydmVyIiwNCiAgICAgICAgICAgICJjc3YtZm9ybWF0IjogZmFsc2UsDQogICAgICAgICAgICAiZGF0YSI6ICIwNDBBMTcwMDAxIg0KICAgICAgICB9DQogICAgXQ0KfQ==</custom_kea_config>
+{# Kea's own options for the LAN, beyond pfSense's fields, kept base64-encoded
+   as pfSense stores them: routes to the tailnet and OCI through
+   tailscalerouter (10.23.2.171), with the default through arawi itself, and
+   the CR1000B's PCP server (a 4-byte list of 10.23.0.1). #}
+{% set lan_kea_config = {
+  "allocator": "random",
+  "option-data": [
+    {"name": "classless-static-route", "data": "100.64.0.0/10 - 10.23.2.171, 10.131.0.0/16 - 10.23.2.171, 0.0.0.0/0 - 10.23.0.254"},
+    {"name": "v4-pcp-server", "csv-format": false, "data": "040A170001"},
+  ],
+} %}
+		<custom_kea_config>{{ lan_kea_config | to_json | b64encode }}</custom_kea_config>
 		<staticmap>
 			<mac>00:18:dd:01:ca:34</mac>
 			<cid></cid>
@@ -396,7 +407,15 @@
 		<uefihttpboot></uefihttpboot>
 		<rootpath></rootpath>
 		<numberoptions></numberoptions>
-		<custom_kea_config>ew0KICAiYWxsb2NhdG9yIjogInJhbmRvbSIsDQogICJvcHRpb24tZGF0YSI6IFsNCiAgICB7ICJuYW1lIjogImRvbWFpbi1uYW1lIiwgIm5ldmVyLXNlbmQiOiB0cnVlIH0NCiAgXQ0KfQ==</custom_kea_config>
+{# The GUEST VLAN's own Kea options, kept base64-encoded as pfSense stores them:
+   no domain name, which it would otherwise take from arawi's own domain. #}
+{% set opt2_kea_config = {
+  "allocator": "random",
+  "option-data": [
+    {"name": "domain-name", "never-send": true},
+  ],
+} %}
+		<custom_kea_config>{{ opt2_kea_config | to_json | b64encode }}</custom_kea_config>
 		<enable></enable>
 	</opt2>
 </dhcpd>

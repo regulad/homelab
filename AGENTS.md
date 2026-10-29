@@ -131,6 +131,21 @@ plan shows an unintended destroy or replace.
 - **OpenTofu:** one root per provider; modules take explicit inputs; no secrets in `locals`.
 - **Ansible:** roles expose knobs in `defaults/` and avoid `vars/`; handlers for restarts; every role passes `ansible-lint`.
 - **pfSense:** the `pfsense` role converges `config.xml` through `pfsensible.core` modules wherever one works. Each part they cannot manage is a `pfsense_config_section` section, a template in `host_vars/<host>/config/` that replaces the elements it owns; paths something on the host rewrites are listed in its `ignore`. Every part of `config.xml` has one owner: when a module cannot model a field, the whole object type moves to a section rather than splitting ownership, and parts that pfSense or a package writes are left to them. Files outside `config.xml` come from `files/<host>/`. Each host pins its pfSense `<major>.<minor>` release in `pfsense_release`, because pfSense does not follow semantic versioning, and lists its packages in `pfsense_packages`; the role installs missing ones through pfSense's own installer and never removes any. Each host's gaps are tracked in `host_vars/<host>/TODO.md`. The operator's `config.xml` snapshot is authoritative over the live file: a fix the role cannot make is edited into the snapshot, pushed over SSH, and applied through pfSense's PHP.
+- **Encoded values:** where a system stores a value encoded, such as pfSense's base64 of a PEM certificate or of Kea's JSON, the repository keeps it readable and encodes it where it is rendered: `b64encode` in a template, or a module that encodes it itself. Diffs then show what changed. Convert an encoded value whenever the file holding it is edited; keep one encoded only where nothing can encode it at render time. Secrets stay in SOPS either way. For example, a pfSense section's Kea options, before:
+  ```xml
+  <custom_kea_config>ew0KICAiYWxsb2NhdG9yIjogInJhbmRvbSIsDQogICJvcHRpb24tZGF0YSI6IFsNCiAgICB7ICJuYW1lIjogImRvbWFpbi1uYW1lIiwgIm5ldmVyLXNlbmQiOiB0cnVlIH0NCiAgXQ0KfQ==</custom_kea_config>
+  ```
+  After:
+  ```jinja
+  {% set opt2_kea_config = {
+    "allocator": "random",
+    "option-data": [
+      {"name": "domain-name", "never-send": true},
+    ],
+  } %}
+  <custom_kea_config>{{ opt2_kea_config | to_json | b64encode }}</custom_kea_config>
+  ```
+  A certificate works the same way: its PEM in host_vars as a YAML literal block, and `<crt>{{ arawi_cert_crts[refid] | b64encode }}</crt>` in the section.
 - **Ansible secrets:** SOPS-encrypted `host_vars/<host>/secrets.sops.yml` or `group_vars/<group>.sops.yml`; secrets both stages need live once, in `ansible-common/group_vars/all.sops.yml`, which each stage's `group_vars/all.sops.yml` symlinks. They are loaded by the `community.sops.sops` vars plugin each stage enables in its `ansible.cfg`; never Ansible Vault or decrypted copies on disk. Plaintext vars reference secrets by name, and tasks that pass them set `no_log: true`.
 - **Generated secrets:** every random value generated for the homelab, such as a password, shared secret or key, records its provenance in a comment directly above its key in the SOPS file, which SOPS encrypts with it: the date, the generator and its parameters, and the resulting length and alphabet. For example, `# Generated 2026-10-27: 32 characters of [A-Za-z0-9], each from Python's secrets.choice.`
 - **Quadlets:** one file per unit, rendered by the `quadlet` role from `host_vars/<host>/services.yml`, with secret env files in SOPS; volumes named, not bind-mounted from ad hoc paths; shared data on the container's CephFS mount (`/mnt/cephfs`) is bind-mounted from there. Images preferably track a major-version tag (or a release channel such as vaultwarden's `testing`) with `AutoUpdate=registry`, so `podman-auto-update` brings in patch and minor releases and containers get patches the same way as the system they run on, through its automatic updater. `latest` is used only where upstream publishes no version or channel tag besides dated or per-commit builds, as for timemachine and tvheadend. Hosts not already on Podman keep their current runtime. Containers run read-only, the `quadlet` role's default, with a `tmpfs` for any path outside its volumes that the image writes; one whose image must write its own root sets `read_only: false` and says why.
