@@ -111,10 +111,8 @@ of their own.
 - **cloudflared**, ahead of its last routes, `hass-livingston`, `archive` and
   `qb-clearnet`, none of them needed, with the tunnel and those routes' DNS
   records.
-
-## Not yet decided
-
-- **nginxproxymanagerlocal**: its one live proxy host, `archive` (regulad's
-  rootless `dcef`), was reached through the tunnel; its `ci` host died with
-  the tunnel's `ci` route. Its ldap-auth guards `archive` alone and still
-  binds to the freeipa stand-in.
+- **nginxproxymanagerlocal**: NPMplus, its MariaDB and its ldap-auth. Every
+  proxy host was reached only through the tunnel; the one still wanted,
+  `archive` (regulad's rootless `dcef`), is now Caddy's on ingress, behind an
+  ldap-auth of ingress's own, bound to wako as `svc-ingress`. Its bind
+  account on the freeipa stand-in, `svc-nginxproxymanager`, is deleted.
