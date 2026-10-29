@@ -19,5 +19,12 @@ quadlet_services:
       - /etc/localtime:/etc/localtime:ro
     environment:
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-certificates.crt
+      # libuv runs at most half its pool's threads on DNS lookups, so Node's
+      # default of 4 leaves Kuma 2 lookups at once. A monitor whose name does
+      # not resolve holds one for 20 seconds, as glibc times out on each
+      # search domain whose resolvers don't answer, and port monitors, whose
+      # 5-second timeout counts the lookup, failed waiting behind two. 16
+      # threads leave 8.
+      UV_THREADPOOL_SIZE: "16"
     restart: always
     wanted_by: [multi-user.target, default.target]
