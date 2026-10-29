@@ -1194,3 +1194,7 @@ findings that would help a future session. Append new entries at the end.
 - The migration took about 20 s on this library, and the whole run, the image pull included, 93 s. The reflink copy of the config directory shares all but 53 MiB of its 6.07 GiB with the live one; it stays in `/mnt/ssd/jellyfin/upgrade-backup` until the next upgrade replaces it.
 - 12 disables legacy authorization on existing installs. Of the query parameters, only `ApiKey` is still accepted, not `api_key`, which bandcampsync's rescan URL uses. No two of the 7 usernames differed only by case, which 12's unique index would have refused.
 - 12.0 requires a full library scan afterwards, to restore alternative versions of media; it is run from the dashboard, as the play has no API key.
+
+## ingress: Caddy reaches Jellyfin over IPv4 only (2026-10-29)
+
+- Jellyfin does not count ingress's IPv6 address as on its LAN, so it rejected the proxy headers of the connections Caddy made over IPv6, which Go's dialer tries first for a name with both records. jf.regulad.xyz's upstream is Caddy's dynamic A source, `dynamic a aboriginal.regulad.internal 8096 { versions ipv4 }`, which keeps aboriginal's name and resolves only its A record. Caddy's documentation names no `tcp4/` prefix for static upstreams.
