@@ -1122,3 +1122,9 @@ findings that would help a future session. Append new entries at the end.
 
 - pfSense stores `custom_kea_config` as base64 of JSON, which its web UI had written with CRLF line endings, and certificates as base64 of PEM. The sections now hold readable JSON and PEM and encode them with `to_json | b64encode` and `b64encode`: Kea's JSON parses the same, and the two server certificates, already LF, encode to the same bytes, so their section is unchanged.
 - `pfsensible.core`'s `pfsense_ca` decodes a base64 certificate and re-encodes exactly the text it is given, so `internal-ca`, stored with CRLF, is rewritten once with LF when given as PEM in YAML; the other two CAs were LF already.
+
+## arawi: the LAN's DHCP hands out the directory's domain, its LDAP server and the timezone (2026-10-28)
+
+- Option 95 (LDAP) is defined only by expired drafts, as an LDAP URL. pfSense's `<ldap>` field reaches Kea as `ldap-server` through the interface's first pool, which is the scope itself. `ldaps://` is not in the LDAP URL RFC but is what Apple's DHCP-supplied LDAP configuration takes; macOS is option 95's one common client, and wako's closed anonymous read leaves an unauthenticated client only the root DSE.
+- Options 42 (NTP) and 69 (SMTP) carry IPv4 addresses: Kea types them so and pfSense filters its NTP field to them, so a name such as `pool.ntp.org` fits neither, and neither is set. wako serves no NTP.
+- Kea names options 100 and 101 `pcode` and `tcode`. The POSIX rule is the footer of tzdata's file for the zone, `EST5EDT,M3.2.0,M11.1.0` for America/New_York.

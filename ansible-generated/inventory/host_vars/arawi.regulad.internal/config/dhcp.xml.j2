@@ -12,8 +12,10 @@
 		<maxleasetime></maxleasetime>
 		<netmask></netmask>
 		<gateway></gateway>
-		<domain></domain>
-		<domainsearchlist></domainsearchlist>
+{# The directory's domain, its search list, and its LDAP server with the base DN
+   (option 95), for clients that find their directory through DHCP. #}
+		<domain>{{ freeipa_server.domain }}</domain>
+		<domainsearchlist>{{ freeipa_server.domain }}</domainsearchlist>
 		<ddnsdomain></ddnsdomain>
 		<ddnsdomainprimary></ddnsdomainprimary>
 		<ddnsdomainprimaryport></ddnsdomainprimaryport>
@@ -26,7 +28,7 @@
 		<mac_deny></mac_deny>
 		<ddnsclientupdates></ddnsclientupdates>
 		<tftp></tftp>
-		<ldap></ldap>
+		<ldap>ldaps://{{ freeipa_server.fqdn }}/{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}</ldap>
 		<nextserver></nextserver>
 		<filename></filename>
 		<filename32></filename32>
@@ -38,13 +40,17 @@
 		<numberoptions></numberoptions>
 {# Kea's own options for the LAN, beyond pfSense's fields, kept base64-encoded
    as pfSense stores them: routes to the tailnet and OCI through
-   tailscalerouter (10.23.2.171), with the default through arawi itself, and
-   the CR1000B's PCP server (a 4-byte list of 10.23.0.1). #}
+   tailscalerouter (10.23.2.171), with the default through arawi itself; the
+   CR1000B's PCP server (a 4-byte list of 10.23.0.1); and the timezone as a
+   POSIX rule (option 100, the footer of tzdata's file for it) and a tz
+   database name (option 101). #}
 {% set lan_kea_config = {
   "allocator": "random",
   "option-data": [
     {"name": "classless-static-route", "data": "100.64.0.0/10 - 10.23.2.171, 10.131.0.0/16 - 10.23.2.171, 0.0.0.0/0 - 10.23.0.254"},
     {"name": "v4-pcp-server", "csv-format": false, "data": "040A170001"},
+    {"name": "pcode", "data": "EST5EDT,M3.2.0,M11.1.0"},
+    {"name": "tcode", "data": pfsense_setup.timezone},
   ],
 } %}
 		<custom_kea_config>{{ lan_kea_config | to_json | b64encode }}</custom_kea_config>
