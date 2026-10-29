@@ -34,3 +34,9 @@ locals {
   # same name, for the roles that key on them.
   ansible_group_tags = [local.tags.amd64v3]
 }
+
+# Resource-free constants shared with the other roots, such as the tailnet's
+# address ranges.
+module "shared" {
+  source = "../shared"
+}

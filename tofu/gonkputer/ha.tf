@@ -11,6 +11,7 @@ locals {
     aameter         = { id = proxmox_haresource.aameter.resource_id, tags = proxmox_virtual_environment_container.aameter.tags }
     act             = { id = proxmox_haresource.act.resource_id, tags = proxmox_virtual_environment_container.act.tags }
     authentik       = { id = proxmox_haresource.authentik.resource_id, tags = proxmox_virtual_environment_container.authentik.tags }
+    clamd           = { id = proxmox_haresource.clamd.resource_id, tags = proxmox_virtual_environment_container.clamd.tags }
     cordpepperer    = { id = proxmox_haresource.cordpepperer.resource_id, tags = proxmox_virtual_environment_container.cordpepperer.tags }
     freeipa         = { id = proxmox_haresource.freeipa.resource_id, tags = proxmox_virtual_environment_container.freeipa.tags }
     git             = { id = proxmox_haresource.git.resource_id, tags = proxmox_virtual_environment_container.git.tags }

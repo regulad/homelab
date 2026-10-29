@@ -9,10 +9,12 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [ ] AIDE and auditd on every host, containers included: AIDE's file integrity
   checks and auditd's rules, each mailing regulad@regulad.xyz through the host's
   mail relay when something anomalous is detected
-- [ ] ClamAV (clamscan, with freshclam keeping its signatures current) on every
-  host, scanning in the background for anomalous files: implants and bad user
-  data alike. Expensive, but it would have caught the implant on dodo (then
-  pelican) before Parker did
+- [ ] ClamAV on every host with its own kernel, scanning for anomalous files:
+  implants and bad user data alike. Each host's clamonacc scans files on access
+  and streams them to one shared clamd, the `clamd` container, whose freshclam
+  keeps the signatures current. Unprivileged containers cannot run clamonacc;
+  how they are covered is still open. Expensive, but it would have caught the
+  implant on dodo (then pelican) before Parker did
 - [ ] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
   block superfluous traffic
 - [ ] Proxmox firewalls for the guests created before AGENTS.md required one of

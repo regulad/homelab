@@ -17,7 +17,7 @@ Fixes follow as separate, reviewed changes. `gonkputer` has one node, `prodingus
 | `backup.tf` | The weekly backup job |
 | `access.tf` | The LDAP realm `home.arpa` and its single ACL |
 | `snippets.tf`, `snippets/<storage>/` | Hookscripts and cloud-init vendor files, byte for byte |
-| `locals.tf` | Values shared across files: the guest tag names in `local.tags` |
+| `locals.tf` | Values shared across files: the guest tag names in `local.tags`, and `tofu/shared`'s constants, such as the tailnet's ranges, through `module.shared` |
 | `providers.tf`, `versions.tf`, `tofu.rc` | Provider auth, pinned versions, and the CLI configuration with the provider mirror |
 | `state.tf`, `variables.tf` | Enforced state encryption and the sensitive inputs |
 
@@ -74,7 +74,7 @@ tofu -chdir=tofu/gonkputer plan -input=false -detailed-exitcode
 `TF_CLI_CONFIG_FILE` to this root's `tofu.rc`. It decrypts `secrets.sops.json` into the ignored
 `secrets.auto.tfvars.json`. That file holds the state passphrase, the node's SSH address
 (the provider uploads snippets over SSH as root, through the operator's SSH agent), and the
-datacenter notes, which name internal hosts and networks.
+GUA /64s of the LAN and of OCI's pubsub subnet, which guest firewalls admit.
 
 The provider is a build pinned in `versions.tf` and served by the mirror in `tofu.rc`.
 `tofu providers lock` ignores the CLI configuration, so lock with

@@ -1,0 +1,24 @@
+---
+quadlet_services:
+  - name: clamav
+    description: ClamAV's clamd and freshclam
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Upstream's release channel, without bundled signatures, which the volume
+    # keeps. ClamAV's CDN refuses feature releases past their end of life, so a
+    # feature-release tag such as 1.5_base would stop updating once 1.5 reached
+    # it.
+    image: docker.io/clamav/clamav:stable_base
+    container_name: clamav
+    auto_update: registry
+    # clamd's port at the container's own addresses, both families.
+    network: host
+    volumes:
+      - clamav_db:/var/lib/clamav
+      - /etc/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+      - /etc/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
+    environment:
+      # freshclam's own default; the image's entrypoint passes once a day.
+      FRESHCLAM_CHECKS: "12"
+    restart: always
+    wanted_by: [multi-user.target, default.target]

@@ -11,3 +11,10 @@ variable "lan_ipv6_cidr" {
   sensitive   = true
   nullable    = false
 }
+
+variable "pubsub_ipv6_cidr" {
+  description = "The GUA /64 of OCI's pubsub subnet, tofu/oracle's ipv6_subnet_cidrs.wahlecloud, whose instances reach the LAN through the tailnet."
+  type        = string
+  sensitive   = true
+  nullable    = false
+}

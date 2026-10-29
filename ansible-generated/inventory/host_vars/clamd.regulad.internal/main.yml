@@ -1,0 +1,30 @@
+---
+# ClamAV, from upstream's image as a Quadlet: clamd, which the homelab's hosts
+# and OCI's stream files to at clamd.regulad.internal on clamd_port, and
+# freshclam, which keeps its signatures current. This configuration replaces the
+# one the image carries.
+host_files_directories:
+  - path: /etc/clamav
+    mode: "0755"
+host_files_list:
+  # Options left out keep clamd's defaults. The image starts clamd in the
+  # foreground, where it logs to stdout, so it writes no log file.
+  - path: /etc/clamav/clamd.conf
+    mode: "0644"
+    content: |
+      User clamav
+      # Every address, both families; lxc-clamd.tf admits the homelab, OCI's
+      # pubsub subnet and the tailnet.
+      TCPSocket {{ clamd_port }}
+      # The image's entrypoint reports clamd started once this socket exists,
+      # and freshclam asks clamd through it to load new signatures.
+      LocalSocket /tmp/clamd.sock
+    restarts: [clamav.service]
+  # Options left out keep freshclam's defaults. The image runs it as a daemon in
+  # the foreground, as the clamav user, logging to stdout.
+  - path: /etc/clamav/freshclam.conf
+    mode: "0644"
+    content: |
+      DatabaseMirror database.clamav.net
+      NotifyClamd /etc/clamav/clamd.conf
+    restarts: [clamav.service]
