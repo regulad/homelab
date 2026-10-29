@@ -1187,3 +1187,10 @@ findings that would help a future session. Append new entries at the end.
 - The LDAP plugin trusts only the CA at its `LdapRootCaPath`, `/usr/local/share/ca-certificates/ipa-ca.crt`, not the system store. `/root/ipa-ca.crt`, bound there, was the HOME.ARPA CA in another encoding than `ca_trust`'s `freeipa-home.arpa.crt` (the same SHA-256 fingerprint), which is bound in its place.
 - Podman labels containers that podman-compose creates under `podman-compose@<name>.service` with `PODMAN_SYSTEMD_UNIT` by itself, as on authentik, so `io.containers.autoupdate: registry` in the compose file is all podman-auto-update needs.
 - Docker's two `local` volumes were binds (`type: none`, `o: bind`), so `docker volume rm` removed only their records; the config on the SSD stayed. The switch took about three minutes.
+
+## aboriginal: Jellyfin 10.11.11 to 12.4.0, through maintenance.yml's jellyfin-upgrade (2026-10-29)
+
+- 12.0 supports upgrading directly from 10.11.x. Its notes ask for repository plugins to be removed before the migration and added back after it, as 12 targets .NET 10; DLNA 14.0 (targetAbi 12.1), LDAP Authentication 24.0 and TVHeadend 15.0 (12.0) were in the stable repository. A plugin's zip carries a `meta.json` naming it as the repository does, and Jellyfin's own installer names its directory `<name>_<version>`; Jellyfin's log names it by its assembly instead (`Loaded plugin: LDAP-Auth 24.0.0.0`).
+- The migration took about 20 s on this library, and the whole run, the image pull included, 93 s. The reflink copy of the config directory shares all but 53 MiB of its 6.07 GiB with the live one; it stays in `/mnt/ssd/jellyfin/upgrade-backup` until the next upgrade replaces it.
+- 12 disables legacy authorization on existing installs. Of the query parameters, only `ApiKey` is still accepted, not `api_key`, which bandcampsync's rescan URL uses. No two of the 7 usernames differed only by case, which 12's unique index would have refused.
+- 12.0 requires a full library scan afterwards, to restore alternative versions of media; it is run from the dashboard, as the play has no API key.
