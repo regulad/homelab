@@ -1,0 +1,23 @@
+# regulad's dcef, his own rootless container on aboriginal, for the members of
+# archiveusers. A browser's basic-auth login is checked by ldap-auth on
+# loopback (services.yml), as nginxproxymanagerlocal's was. Every header
+# ldap-auth reads is set here, so a client cannot set any of them.
+archive.regulad.xyz {
+	import hsts
+	import common
+
+	forward_auth 127.0.0.1:8888 {
+		uri /
+		header_up X-Ldap-URL "ldaps://wako.regulad.internal"
+		header_up X-Ldap-Starttls "false"
+		header_up X-Ldap-DisableReferrals "true"
+		header_up X-Ldap-BaseDN "cn=users,cn=accounts,dc=regulad,dc=internal"
+		header_up X-Ldap-BindDN "uid=svc-ingress,cn=users,cn=accounts,dc=regulad,dc=internal"
+		header_up X-Ldap-BindPass "{file./etc/caddy/ldap-bind-password}"
+		header_up X-Ldap-Template "(&(uid=%(username)s)(memberOf=cn=archiveusers,cn=groups,cn=accounts,dc=regulad,dc=internal))"
+		header_up X-Ldap-Realm "archive"
+		header_up X-CookieName "nginxauth"
+	}
+
+	reverse_proxy aboriginal.regulad.internal:21011
+}

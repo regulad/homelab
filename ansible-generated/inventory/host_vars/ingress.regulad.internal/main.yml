@@ -26,6 +26,13 @@ host_files_list:
     content: "{{ caddy_cloudflare_env }}\n"
     secret: true
     restarts: [caddy.service]
+  # svc-ingress's password, which archive.regulad.xyz's forward_auth passes to
+  # ldap-auth through a {file.*} placeholder, read per request: it never enters
+  # Caddy's configuration, and a change needs no restart. No final newline.
+  - path: /etc/caddy/ldap-bind-password
+    mode: "0600"
+    content: "{{ ingress_ldap_bind_password }}"
+    secret: true
   # Coraza rules the php2shell snippet includes; before the Caddyfile, whose
   # validation reads them.
   - path: /etc/caddy/coraza/php2shell.conf

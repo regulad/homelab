@@ -23,3 +23,24 @@ quadlet_services:
     env_file: true
     restart: always
     wanted_by: [multi-user.target, default.target]
+  # ldap-auth, which Caddy's forward_auth asks for archive.regulad.xyz: it
+  # checks the request's basic-auth login against wako, as the X-Ldap headers
+  # Caddy sets direct. On loopback only, for Caddy alone.
+  - name: ldap-auth
+    description: ldap-auth, the LDAP login check Caddy's forward_auth asks
+    after: [network-online.target]
+    wants: [network-online.target]
+    # A release, bumped by hand: LinuxServer tags only releases and latest.
+    # Auto-update still brings in its rebuilds of the same release.
+    image: lscr.io/linuxserver/ldap-auth:3.4.8
+    container_name: ldap-auth
+    auto_update: registry
+    # LinuxServer's s6 init keeps its state under the image's root.
+    read_only: false
+    # The check itself; its login page, on 9000, stays unpublished.
+    ports: ["127.0.0.1:8888:8888"]
+    volumes:
+      # The host's CA bundle, which ca_trust gives wako's CA, for its LDAPS.
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    restart: always
+    wanted_by: [multi-user.target, default.target]
