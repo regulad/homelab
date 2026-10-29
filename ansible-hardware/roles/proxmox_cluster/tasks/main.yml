@@ -1,5 +1,24 @@
 ---
 # Proxmox and Ceph cluster-wide settings that Phase 1 assigned to Ansible, because
-# bpg/proxmox cannot manage them. Adopt current values first with no changes;
-# check-only until Parker confirms a LAN/console path to every node (Phase 2).
-[]
+# bpg/proxmox cannot manage them, and the nodes' own settings. Adopt current
+# values first with no changes; check-only until Parker confirms a LAN/console
+# path to every node (Phase 2).
+
+# The LAN's DHCP sends a domain search list (option 119), which dhclient renders
+# with the root's trailing dot, so dhclient-script writes "search
+# regulad.internal." into resolv.conf. Proxmox copies the node's search domain
+# into each container's /etc/hosts at start, where the dotted name is one
+# Postfix refuses. dhclient-script sources its enter hooks at every lease event,
+# so the running dhclient picks this up at its next renewal, without a restart.
+- name: DHCP search domains without the root's dot
+  ansible.builtin.copy:
+    dest: /etc/dhcp/dhclient-enter-hooks.d/search-without-root-dot
+    content: |
+      # Managed by Ansible (proxmox_cluster): drop the root's trailing dot from
+      # each name in the DHCP domain search list before resolv.conf is written.
+      if [ -n "${new_domain_search-}" ]; then
+          new_domain_search=$(printf '%s\n' "$new_domain_search" | sed -e 's/\.$//' -e 's/\. / /g')
+      fi
+    owner: root
+    group: root
+    mode: "0644"
