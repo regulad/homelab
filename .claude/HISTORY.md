@@ -1128,3 +1128,7 @@ findings that would help a future session. Append new entries at the end.
 - Option 95 (LDAP) is defined only by expired drafts, as an LDAP URL. pfSense's `<ldap>` field reaches Kea as `ldap-server` through the interface's first pool, which is the scope itself. `ldaps://` is not in the LDAP URL RFC but is what Apple's DHCP-supplied LDAP configuration takes; macOS is option 95's one common client, and wako's closed anonymous read leaves an unauthenticated client only the root DSE.
 - Options 42 (NTP) and 69 (SMTP) carry IPv4 addresses: Kea types them so and pfSense filters its NTP field to them, so a name such as `pool.ntp.org` fits neither, and neither is set. wako serves no NTP.
 - Kea names options 100 and 101 `pcode` and `tcode`. The POSIX rule is the footer of tzdata's file for the zone, `EST5EDT,M3.2.0,M11.1.0` for America/New_York.
+
+## .gitignore: public keys committed, whatever their name (2026-10-29)
+
+- The `id_rsa*` pattern also matched aameter's `files/aameter.regulad.internal/etc/thylacine-tunnel/id_rsa.pub`, which `host_files` installs, so the key had never been committed: a fresh clone or worktree lacked it and could not converge aameter. `!*.pub`, after the key patterns, admits public keys; private keys are still ignored.

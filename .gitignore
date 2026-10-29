@@ -33,6 +33,8 @@ oci-export/
 keys.txt
 id_rsa*
 id_ed25519*
+# Public keys are plaintext (AGENTS.md rule 4), whatever their name.
+!*.pub
 .env
 .env.*
 *.env
