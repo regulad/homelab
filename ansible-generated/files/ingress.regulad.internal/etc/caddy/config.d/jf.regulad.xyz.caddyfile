@@ -4,6 +4,11 @@ jf.regulad.xyz {
 	import common
 	import cache
 
-	reverse_proxy aboriginal.regulad.internal:8096 {
+	# IPv4 only: Jellyfin does not count ingress's IPv6 address as on its LAN,
+	# so it rejects the proxy headers of connections from it.
+	reverse_proxy {
+		dynamic a aboriginal.regulad.internal 8096 {
+			versions ipv4
+		}
 	}
 }
