@@ -2,7 +2,7 @@
 
 # --- OpenTofu ---------------------------------------------------------------
 # Keep .terraform.lock.hcl (it is committed); ignore everything else tofu writes locally.
-.terraform/
+.terraform
 *.tfstate
 *.tfstate.*
 *.tfstate.backup
@@ -47,7 +47,7 @@ vault-password*
 *.decrypted.*
 
 # --- Ansible ----------------------------------------------------------------
-ansible-*/collections/
+ansible-*/collections
 *.retry
 
 # --- Python / tooling -------------------------------------------------------
