@@ -123,15 +123,16 @@ cloud-init.
       - [x] A pinned release, 3.97.3, upgraded by `maintenance.yml`'s `nexus-upgrade`, which keeps a copy to roll back to
       - [x] The OrientDB files left in `db/`, which Nexus warned about at each start, and the migration's `h2-migration` directory, removed
     - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
-      - [ ] qb-clearnet's I2P address, `172.0.0.1` today, set to `i2p.regulad.internal`
+      - [x] qBittorrent's I2P through `i2p.regulad.internal`, in place of qb-clearnet's `172.0.0.1`
       - [x] The old I2P's Docker volumes and the tunnel's dead `i2p` route, with its DNS record, removed from aboriginal
+    - [x] qb-clearnet: to the `qb` container (210), privileged for its downloads in regulad's CephFS home, the lab's one qBittorrent, a Quadlet with its settings seeded from qb-clearnet's and its web UI on the tailnet through Tailscale Serve; the compose project, its volumes and image removed from aboriginal
   - [x] Remove llama-rpc, vsftpd, the tor snap, and the NFS server with its exports
   - [x] Retire qb-tor with its tor sidecar: the compose project, its volumes and image, the tunnel's `qb-tor` route with its DNS record, and its downloads in `/mnt/cephfs/homes/regulad/downloads-tor`
   - [x] Remove the stopped compose projects (mollysocket, monero, timebomb, visualstudiocode) with their volumes, and the leftovers: wings, bees, MariaDB's data and user, libvirt's configuration; ollama was already gone
   - [x] Remove Jellyfin's rffmpeg remains (its mounts, `/etc/rffmpeg`, `/var/lib/rffmpeg`) and root's old tooling: `/root/b2`, `.b2_account_info`, `nullclient.sh`, `error.txt`, `vda-gpt-backup.bin`, `.ipa`, `nextcloud-ca`, `jellyfin-rffmpeg`
   - [x] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: declared in `vm-aboriginal.tf`, its changes ignored while the provider leaves a TPM at its defaults out of state
   - [ ] Describe its own services
-    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, qb-clearnet, ringmqtt
+    - [ ] The Docker compose projects under `/root/compose`, with secrets in SOPS and images pinned: bandcampsync, homeassistant, jellyfin, mosquitto, nextcloud, nginxproxymanagerlocal, ringmqtt
       - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
     - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`
     - [x] cloudflared and winbind uninstalled, with cloudflared's units, apt source and key, and winbind's hand-edited unit

@@ -27,6 +27,7 @@ locals {
     peppercord      = { id = proxmox_haresource.peppercord.resource_id, tags = proxmox_virtual_environment_container.peppercord.tags }
     pihole          = { id = proxmox_haresource.pihole.resource_id, tags = proxmox_virtual_environment_container.pihole.tags }
     pterodactyl     = { id = proxmox_haresource.pterodactyl.resource_id, tags = proxmox_virtual_environment_container.pterodactyl.tags }
+    qb              = { id = proxmox_haresource.qb.resource_id, tags = proxmox_virtual_environment_container.qb.tags }
     rsshub          = { id = proxmox_haresource.rsshub.resource_id, tags = proxmox_virtual_environment_container.rsshub.tags }
     softether       = { id = proxmox_haresource.softether.resource_id, tags = proxmox_virtual_environment_container.softether.tags }
     tailscalerouter = { id = proxmox_haresource.tailscalerouter.resource_id, tags = proxmox_virtual_environment_container.tailscalerouter.tags }

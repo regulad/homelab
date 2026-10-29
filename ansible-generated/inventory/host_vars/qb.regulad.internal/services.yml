@@ -1,0 +1,36 @@
+---
+# qBittorrent, the lab's one BitTorrent client, moved here from aboriginal's
+# qb-clearnet. Its settings in the config volume are state: qBittorrent
+# rewrites them, so they were seeded once from qb-clearnet's, with I2P through
+# i2p.regulad.internal's SAM. Its web UI listens on loopback at its default
+# port, 8080, for Tailscale Serve (main.yml), with host-header validation off in
+# those settings: Serve passes the browser's Host, port 8443 included, through,
+# and qBittorrent refuses a Host whose port is not its own.
+quadlet_services:
+  - name: qbittorrent
+    description: qBittorrent, the lab's BitTorrent client
+    after: [network-online.target]
+    wants: [network-online.target]
+    # A release, bumped by hand: LinuxServer tags only releases and latest.
+    # Auto-update still brings in its rebuilds of the same release.
+    image: lscr.io/linuxserver/qbittorrent:5.3.0
+    container_name: qbittorrent
+    auto_update: registry
+    # LinuxServer's init gives its abc user PUID and PGID in /etc/passwd and
+    # /etc/group, and s6 keeps its state under the image's root.
+    read_only: false
+    # The torrent port and UPnP at the container's own addresses.
+    network: host
+    environment:
+      # regulad, whose CephFS home the downloads are in.
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+      # Written into the settings on the image's first start; lxc-qb.tf
+      # admits it.
+      TORRENTING_PORT: "{{ qbittorrent_torrent_port }}"
+    volumes:
+      - qbittorrent_config:/config
+      - /mnt/cephfs/homes/regulad/downloads:/downloads
+    restart: always
+    wanted_by: [multi-user.target, default.target]

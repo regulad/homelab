@@ -38,6 +38,7 @@ compose:
   proxmox_vmid: variables.value.proxmox_vmid | default(None)
   eth0_mac_address: variables.value.eth0_mac_address | default(None)
   i2pd_port: variables.value.i2pd_port | default(None)
+  qbittorrent_torrent_port: variables.value.qbittorrent_torrent_port | default(None)
 # Each entry of an ansible_host's groups becomes a group of the same name.
 keyed_groups:
   - key: groups

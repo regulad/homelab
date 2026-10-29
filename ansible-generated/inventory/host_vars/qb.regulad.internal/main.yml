@@ -1,0 +1,9 @@
+---
+tailscale_enabled: true
+tailscale_join: true
+tailscale_tags: [server]
+# qBittorrent's web UI, on loopback at its default port, as HTTPS on the
+# tailnet.
+tailscale_serve:
+  - port: 8443
+    target: http://127.0.0.1:8080

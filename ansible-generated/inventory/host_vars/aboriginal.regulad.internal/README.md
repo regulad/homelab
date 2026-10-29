@@ -45,9 +45,12 @@ own.
     folder whose credential is dead. Its Docker cloud `tinker` and its one
     agent, a phone, were unreachable and are removed, with aboriginal's
     `jenkins` user, which only carried the tunnel to `tinker`.
-- **I2P**: the `i2p` container runs i2pd, whose SAM qb-clearnet is to use in
-  place of `172.0.0.1`, where nothing serves it. The old I2P's volumes and its
-  tunnel route are removed.
+- **I2P**: the `i2p` container runs i2pd, whose SAM qb uses. The old I2P's
+  volumes and its tunnel route are removed.
+- **qb-clearnet**: to the `qb` container, the lab's one qBittorrent, a Quadlet
+  saving into `/mnt/cephfs/homes/regulad/downloads`, renamed from
+  `downloads-clearnet`, with its settings seeded from qb-clearnet's and its web
+  UI on the tailnet through Tailscale Serve.
 - **docker-nexus**: to the `nexus` container, a read-only Quadlet of
   `sonatype/nexus3`, since moved from OrientDB to H2, behind Caddy on ingress,
   with its data on its own mount point. `cr.regulad.xyz` is a virtual host on Nexus's one port
@@ -97,5 +100,3 @@ own.
   rootless `dcef`), was reached through the tunnel; its `ci` host died with
   the tunnel's `ci` route. Its ldap-auth guards `archive` alone and still
   binds to the freeipa stand-in.
-- **qb-clearnet**: idle, with no torrents, and its web UI's tunnel route gone
-  with cloudflared.
