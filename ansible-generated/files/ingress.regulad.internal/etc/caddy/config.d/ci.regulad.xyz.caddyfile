@@ -1,0 +1,8 @@
+ci.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy jenkins.regulad.internal:8080 {
+	}
+}

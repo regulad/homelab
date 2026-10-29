@@ -1,0 +1,8 @@
+matrix.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy matrix.regulad.internal:80 {
+	}
+}

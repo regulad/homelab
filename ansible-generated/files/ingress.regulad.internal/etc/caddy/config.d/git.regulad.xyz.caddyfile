@@ -1,0 +1,8 @@
+git.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy git.regulad.internal:3000 {
+	}
+}

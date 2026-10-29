@@ -1,0 +1,9 @@
+openclaw.regulad.xyz {
+	import hsts
+	import mtls
+	import common	
+	import cache
+	
+	reverse_proxy openclaw.regulad.internal:18789 {
+	}
+}

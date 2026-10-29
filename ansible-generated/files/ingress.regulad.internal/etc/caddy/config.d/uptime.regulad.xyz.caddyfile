@@ -1,0 +1,7 @@
+uptime.regulad.xyz {
+	import common
+	import cache
+
+	reverse_proxy uptime.regulad.internal:3001 {
+	}
+}

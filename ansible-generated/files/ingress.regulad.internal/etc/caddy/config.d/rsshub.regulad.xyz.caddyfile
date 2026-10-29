@@ -1,0 +1,8 @@
+rsshub.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy rsshub.regulad.internal:1200 {
+	}
+}

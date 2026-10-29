@@ -1,0 +1,14 @@
+pterodactyl.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	@needs_cert {
+		not path /api/remote/*
+		expression {tls_client_subject} == ""
+	}
+#	respond @needs_cert "Client certificate required" 495	
+
+	reverse_proxy pterodactyl.regulad.internal:80 {
+	}
+}

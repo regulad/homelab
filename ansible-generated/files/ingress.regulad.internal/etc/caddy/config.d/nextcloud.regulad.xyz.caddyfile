@@ -1,0 +1,19 @@
+nextcloud.regulad.xyz {
+	import hsts
+	import common
+	import php2shell
+	import cache
+
+	@wellknown_dav path /.well-known/carddav /.well-known/caldav
+	redir @wellknown_dav /remote.php/dav/ 301
+
+	@wellknown_webfinger path /.well-known/webfinger
+	redir @wellknown_webfinger /index.php/.well-known/webfinger
+
+	handle /.well-known/* {
+		respond 404
+	}
+
+	reverse_proxy aboriginal.regulad.internal:12378 {
+	}
+}

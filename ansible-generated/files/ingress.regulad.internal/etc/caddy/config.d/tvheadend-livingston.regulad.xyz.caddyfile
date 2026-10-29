@@ -1,0 +1,8 @@
+tvheadend-livingston.regulad.xyz {
+	import hsts
+	import common
+	import cache
+	
+	reverse_proxy tvheadend.regulad.internal:9981 {
+	}
+}

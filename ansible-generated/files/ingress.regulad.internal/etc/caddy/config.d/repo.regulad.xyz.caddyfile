@@ -1,0 +1,8 @@
+repo.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy nexus.regulad.internal:8081 {
+	}
+}

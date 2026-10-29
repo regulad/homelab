@@ -1,0 +1,12 @@
+s3.regulad.xyz, *.s3.regulad.xyz {
+	import common
+	import cache
+
+	reverse_proxy prodingus.regulad.internal:7480 {
+		lb_policy round_robin
+		health_uri /
+		health_interval 10s
+		health_status 404
+		flush_interval -1
+	}
+}

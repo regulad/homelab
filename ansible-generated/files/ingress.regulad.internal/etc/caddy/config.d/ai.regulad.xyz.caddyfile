@@ -1,0 +1,8 @@
+ai.regulad.xyz {
+	import hsts
+	import common
+	import cache
+	
+	reverse_proxy openwebui.regulad.internal:8080 {
+	}
+}

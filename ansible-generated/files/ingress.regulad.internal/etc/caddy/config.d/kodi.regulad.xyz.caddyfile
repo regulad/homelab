@@ -1,0 +1,10 @@
+http://kodi.regulad.xyz, https://kodi.regulad.xyz {
+	# legacy
+	
+	import common
+	import cache
+	import hsts
+
+	root * /srv/kodi
+	file_server	
+}

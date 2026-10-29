@@ -1,0 +1,9 @@
+immich.regulad.xyz {
+	import hsts
+	import common
+	import cache
+	import mtls
+
+	reverse_proxy immich.regulad.internal:2283 {
+	}
+}

@@ -1,0 +1,29 @@
+http://ios.regulad.xyz, https://ios.regulad.xyz {
+	# legacy	
+
+	import common
+	import cache
+	import hsts
+
+	encode zstd gzip
+
+	@onDisk {
+		file {
+			root /srv/cydia
+		}
+	}
+
+	handle @onDisk {
+		root * /srv/cydia
+		file_server
+	}
+
+	handle {
+		rewrite * /repository/ios{uri}
+
+		reverse_proxy nexus.regulad.internal:8081 {
+			header_up Host repo.regulad.xyz
+		}
+	}
+
+}

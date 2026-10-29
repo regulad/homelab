@@ -1,0 +1,9 @@
+# Using verify_if_given breaks Jellyfin Media Player
+jf.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy aboriginal.regulad.internal:8096 {
+	}
+}

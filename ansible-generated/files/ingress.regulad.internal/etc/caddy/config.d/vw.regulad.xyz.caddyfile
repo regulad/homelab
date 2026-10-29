@@ -1,0 +1,8 @@
+vw.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy vaultwarden.regulad.internal:8000 {
+	}
+}

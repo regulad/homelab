@@ -1111,3 +1111,9 @@ findings that would help a future session. Append new entries at the end.
 - Tailscale Serve passes the browser's Host header through, `qb.tail11540.ts.net:8443`, and qBittorrent refuses a Host whose port is not its own ("Invalid Host header, port mismatch", answered 401), so host-header validation is off; the web UI listens on loopback alone. qb-clearnet's settings had also carried `ServerDomains=qb-clearnet.regulad.xyz`.
 - Without the rule admitting the CR1000B's SSDP answers, qBittorrent's UPnP mapped nothing after a restart; with it, 26975 was mapped within a second.
 - qBittorrent reaches i2p's SAM over its GUA, and i2pd showed one SAM session with no peer streams: the DistroWatch torrents carry about 80 trackers each, none on I2P, and mixed mode finds I2P peers only through I2P trackers.
+
+## ingress: Caddy's sites split into /etc/caddy/config.d, through host_files_trees (2026-10-28)
+
+- `host_files_trees` copies every file directly in a directory here to the host, removes any other file in the host's directory, and runs the tree's `check` after it changes and before the handlers; for Caddy, the check is `caddy validate` of the whole configuration. A site file alone cannot be validated, since it imports the main file's snippets.
+- The Caddyfile imports `/etc/caddy/config.d/*.caddyfile` by absolute path, so `host_files`' `validate`, which runs on a temporary copy elsewhere, reads the site files too. A glob matching nothing only warns ("No files matching import glob pattern"), so the first run validated the new Caddyfile before its site files existed.
+- `caddy adapt` of the old Caddyfile and of the split one differ only where nothing changes: route order between distinct exact hosts, as the imports come alphabetically; the `groupN` numbering of `handle` and `rewrite` groups; the order of subjects in the two TLS policies; and `file_server`'s automatic `hide` list, which names every Caddyfile a site was read from.

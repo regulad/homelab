@@ -1,0 +1,13 @@
+gonkputer.regulad.xyz {
+	import common
+	import cache
+	import mtls
+
+	reverse_proxy https://prodingus:8006 {
+		lb_policy round_robin
+		health_uri /
+		health_interval 10s
+		health_status 200
+		flush_interval -1
+	}
+}

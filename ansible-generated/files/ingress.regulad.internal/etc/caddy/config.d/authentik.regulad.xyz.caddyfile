@@ -1,0 +1,8 @@
+authentik.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy authentik.regulad.internal:9000 {
+	}
+}

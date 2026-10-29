@@ -60,5 +60,13 @@ host_files_list:
     restarts: [cydia-sync.timer]
 # xcaddy builds Caddy with Go; cydia-sync signs with gpg and draws the icon
 # with ImageMagick.
+# Each site's Caddyfile, which the Caddyfile imports, checked whole with
+# Caddy's own validation before Caddy reloads.
+host_files_trees:
+  - path: /etc/caddy/config.d
+    mode: "0644"
+    check: >-
+      sh -c 'set -a; . /etc/caddy/cloudflare.env; exec /usr/local/bin/caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile'
+    reloads: [caddy.service]
 host_files_packages: [xcaddy, golang-go, gnupg, imagemagick, bzip2, curl]
 host_files_units: [caddy.service, cydia-sync.timer]
