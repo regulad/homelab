@@ -134,7 +134,9 @@ cloud-init.
   - [ ] Describe its own services
     - [ ] Off Docker onto Podman, with secrets in SOPS and images pinned
       - [x] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
-      - [ ] homeassistant, jellyfin and nextcloud: podman-compose stacks of the compose projects under `/root/compose`
+      - [ ] podman-compose stacks in `/opt/<name>`, each under `podman-compose@<name>.service`, of the compose projects under `/root/compose`, each removed from there once moved
+        - [x] jellyfin, on its 10.x line
+        - [ ] homeassistant, with matter-server
         - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [ ] nginxproxymanagerlocal: not yet decided (README)
