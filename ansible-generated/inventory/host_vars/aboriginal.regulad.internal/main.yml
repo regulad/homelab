@@ -127,6 +127,7 @@ host_files_list:
     shared_src: etc/systemd/system/podman-compose@.service
     restarts: [podman-compose@jellyfin.service]
   - path: /opt/jellyfin/docker-compose.yml
+    template: true
     mode: "0644"
     restarts: [podman-compose@jellyfin.service]
   # Its containers bind these mounts, so the stack starts after them and
@@ -138,6 +139,14 @@ host_files_list:
       RequiresMountsFor=/mnt/media /mnt/ssd /mnt/cephfs/application/jellyfin_dvr
     restarts: [podman-compose@jellyfin.service]
 rgw_backup_buckets: [synapse-media, mastodon-media]
+
+# Jellyfin's major release, which its image tag follows. To move to the next,
+# bump it and run maintenance.yml's jellyfin-upgrade, not site.yml: site.yml
+# would restart onto it with no copy to return to, and with plugins built for
+# the old release.
+jellyfin_major: 10
+# Its config and data directory, on the SSD.
+jellyfin_config_dir: /mnt/ssd/jellyfin/config
 
 # ring-mqtt's config.json, which it reads and never writes; outside Home
 # Assistant's add-on it reads no MQTT or Ring settings from its environment.

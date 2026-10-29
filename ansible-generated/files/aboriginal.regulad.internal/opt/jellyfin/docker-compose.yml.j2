@@ -3,8 +3,8 @@
 # SSD, its recordings on CephFS, and its library the nas archive's overlay.
 services:
   jellyfin:
-    # The 10.x line it runs; upstream's 12 is a release of its own to upgrade to.
-    image: docker.io/jellyfin/jellyfin:10
+    # jellyfin_major, which maintenance.yml's jellyfin-upgrade moves.
+    image: docker.io/jellyfin/jellyfin:{{ jellyfin_major }}
     container_name: jellyfin
     labels:
       io.containers.autoupdate: registry
@@ -40,7 +40,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /mnt/ssd/jellyfin/config
+      device: {{ jellyfin_config_dir }}
   dvr:
     driver: local
     driver_opts:
