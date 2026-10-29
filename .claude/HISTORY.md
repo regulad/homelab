@@ -1180,3 +1180,10 @@ findings that would help a future session. Append new entries at the end.
 - prodingus's `/sbin/dhclient` is a wrapper that blocks `dhclient -6` and execs `/sbin/dhclient.orig`.
 - On prodingus, a reset that a container sends back for an admitted port where nothing listens never reaches the client, whether from the host or over the tailnet, so the probe times out like a drop. tcpdump shows the reset leaving the guest's firewall bridge; `PVEFW-FORWARD` drops `ctstate INVALID` first, probably on the reset's second pass through conntrack. Ping and a listener's SYN-ACK come back normally, so test a guest's firewall against a port that listens, or watch `veth<vmid>i0`.
 - Upstream's `stable_base` image (1.5.4) runs read-only with `clamd.conf` and `freshclam.conf` bind-mounted and logs to the journal, needing no tmpfs beyond Podman's. With December 2025's smaller signatures (main.cvd 63, 3.29 million signatures; daily 28168), the container had about 1.0 GiB in use once clamd had loaded them.
+
+## aboriginal: jellyfin a podman-compose stack (2026-10-29)
+
+- `image: jellyfin/jellyfin` was untagged, and upstream's `latest` is now 12, a release of its own after 10.11. Its `10`, `10.11` and `10.11.11` tags are one image, the 10.11.11 that ran, so `:10` follows the 10.x line.
+- The LDAP plugin trusts only the CA at its `LdapRootCaPath`, `/usr/local/share/ca-certificates/ipa-ca.crt`, not the system store. `/root/ipa-ca.crt`, bound there, was the HOME.ARPA CA in another encoding than `ca_trust`'s `freeipa-home.arpa.crt` (the same SHA-256 fingerprint), which is bound in its place.
+- Podman labels containers that podman-compose creates under `podman-compose@<name>.service` with `PODMAN_SYSTEMD_UNIT` by itself, as on authentik, so `io.containers.autoupdate: registry` in the compose file is all podman-auto-update needs.
+- Docker's two `local` volumes were binds (`type: none`, `o: bind`), so `docker volume rm` removed only their records; the config on the SSD stayed. The switch took about three minutes.
