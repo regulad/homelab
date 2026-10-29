@@ -1,0 +1,49 @@
+# Jellyfin, transcoding through VA-API on the passed-through RX 6800, on the
+# host's network. Run by podman-compose@jellyfin.service. Its config is on the
+# SSD, its recordings on CephFS, and its library the nas archive's overlay.
+services:
+  jellyfin:
+    # The 10.x line it runs; upstream's 12 is a release of its own to upgrade to.
+    image: docker.io/jellyfin/jellyfin:10
+    container_name: jellyfin
+    labels:
+      io.containers.autoupdate: registry
+    read_only: true
+    network_mode: host
+    # regulad, who owns its config, logs and recordings.
+    user: "1000:1000"
+    tmpfs:
+      - /run:mode=1777
+      - /cache
+      - /tmp
+    # video and render, which own /dev/dri's nodes.
+    group_add:
+      - "44"
+      - "109"
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      # The LDAP plugin's LdapRootCaPath: the HOME.ARPA CA, to which the
+      # freeipa stand-in's certificate chains.
+      - /usr/local/share/ca-certificates/freeipa-home.arpa.crt:/usr/local/share/ca-certificates/ipa-ca.crt:ro
+      - /var/log/jellyfin:/var/log/jellyfin
+      - config:/config
+      - dvr:/dvr
+      - /mnt/media:/data:ro
+    restart: always
+    environment:
+      TMPDIR: /tmp
+      JELLYFIN_PublishedServerUrl: https://jf.regulad.xyz
+volumes:
+  config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/ssd/jellyfin/config
+  dvr:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/cephfs/application/jellyfin_dvr

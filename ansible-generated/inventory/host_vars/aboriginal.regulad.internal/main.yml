@@ -29,7 +29,7 @@ kdump_sysctls_host:
 
 # Firmware for its passed-through hardware: no task needs it, but devices such
 # as the GPU initialize only with it. Then the mounts' FUSE filesystems.
-host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone]
+host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose]
 
 # The mounts under /mnt, beside /mnt/ssd and /mnt/cephfs from fstab: the
 # restic repository, its nas archive, the two overlays of that archive under
@@ -46,6 +46,10 @@ host_files_directories:
   - path: /etc/mosquitto
     mode: "0755"
   - path: /etc/ring-mqtt
+    mode: "0755"
+  - path: /opt/jellyfin
+    mode: "0755"
+  - path: /etc/systemd/system/podman-compose@jellyfin.service.d
     mode: "0755"
 host_files_list:
   - path: /usr/local/bin/restic-mount-helper
@@ -117,6 +121,22 @@ host_files_list:
     content: "{{ ring_mqtt_config | to_nice_json }}\n"
     secret: true
     restarts: [ring-mqtt.service]
+  # Compose stacks, each in /opt/<name> and run by podman-compose@<name>.service.
+  - path: /etc/systemd/system/podman-compose@.service
+    mode: "0644"
+    shared_src: etc/systemd/system/podman-compose@.service
+    restarts: [podman-compose@jellyfin.service]
+  - path: /opt/jellyfin/docker-compose.yml
+    mode: "0644"
+    restarts: [podman-compose@jellyfin.service]
+  # Its containers bind these mounts, so the stack starts after them and
+  # restarts with them, as docker.service does.
+  - path: /etc/systemd/system/podman-compose@jellyfin.service.d/mounts.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/mnt/media /mnt/ssd /mnt/cephfs/application/jellyfin_dvr
+    restarts: [podman-compose@jellyfin.service]
 rgw_backup_buckets: [synapse-media, mastodon-media]
 
 # ring-mqtt's config.json, which it reads and never writes; outside Home
@@ -138,6 +158,7 @@ host_files_units:
   - mnt-media.mount
   - mnt-nextcloud.mount
   - mnt-media_nextcloud.mount
+  - podman-compose@jellyfin.service
   - mnt-rgw.service
 
 # mnt-restic.service mounts the repository with /etc/restic-env, so it

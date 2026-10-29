@@ -4,8 +4,10 @@ VM 100 on gonkputer: a hardware install of Ubuntu imaged into a VM, and also a
 remote workstation, so nothing under `/home/regulad` is managed. Its services
 are a few native units and containers, which are moving off Docker onto
 Podman, as Parker decided, although AGENTS.md otherwise keeps a host on its
-runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`); the other
-compose projects under `/root/compose` are to become podman-compose stacks.
+runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`). The compose
+projects become podman-compose stacks in `/opt/<name>`, each run by
+`podman-compose@<name>.service`: jellyfin is one, and those still under
+`/root/compose` are to follow.
 What ties a service to this VM is the hardware passed through to it or the
 mounts of the restic `nas` archive. Services with neither move to containers
 of their own.
@@ -14,6 +16,9 @@ of their own.
 
 - **jellyfin and llama-server**: the passed-through RX 6800 (`renderD129`),
   Jellyfin for VA-API transcoding and llama-server through ROCm.
+  - Jellyfin stays on its 10.x line (`:10`); upstream's next release is 12.
+    Its LDAP plugin reads its CA from `LdapRootCaPath`, to which `ca_trust`'s
+    HOME.ARPA anchor is bound while it binds to the freeipa stand-in.
 - **nextcloud and Samba**: the `nas` archive's overlays,
   `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
