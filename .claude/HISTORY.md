@@ -1256,3 +1256,12 @@ findings that would help a future session. Append new entries at the end.
 - FreeIPA accepted svc-uptime's LDAP bind although its `krbPasswordExpiration`, carried over from HOME.ARPA, was 2026-08-16.
 - ldap-auth logs nothing per request. wako's access log, `/var/log/dirsrv/slapd-REGULAD-INTERNAL/access`, shows each check's bind, search filter and result.
 - Root reads wako's directory as the Directory Manager over LDAPI: `ldapsearch -Y EXTERNAL -H ldapi://%2Frun%2Fslapd-REGULAD-INTERNAL.socket`.
+
+## clamonacc: the on-access role, and livekit its first host (2026-10-29)
+
+- clamonacc refuses to watch clamd's `TemporaryDirectory`, `/tmp` unless set ("ClamOnAcc should not watch the directory clamd is using for temp files"), even with clamd remote. Its configuration names `/run/clamonacc`, which the unit's `RuntimeDirectory=` creates.
+- OCI's Oracle Linux 9 image carries `oracle-epel-release-el9` installed with `ol9_developer_EPEL` set to `enabled=0` (`rpm -V` flags the file as changed), though the package itself ships `enabled=1`; `community.general.dnf_config_manager` turns it on.
+- `/usr/sbin/clamonacc` is `bin_t` under the targeted policy, so under systemd it runs as `unconfined_service_t`: no SELinux boolean is needed, and no AVC denials followed.
+- With `--move`, clamonacc opens each file by its path for the quarantine move, so a file gone before it gets there logs "Can't open file … for safe quarantine action" and "Daemon failed to scan": Ansible's module payloads in `/tmp`, during every run.
+- On livekit, EICAR written to `/tmp` was found and moved to `/root/quarantine` within the second, and mailed at the next minute through `mail.regulad.xyz:465` (`status=sent`). The first file moved keeps its name.
+- A check run on a fresh host cannot start or restart units whose files it only pretends to write, nor install from a repository it only pretends to enable: the tasks and handlers that depend on those skip in check mode when the earlier task changed.
