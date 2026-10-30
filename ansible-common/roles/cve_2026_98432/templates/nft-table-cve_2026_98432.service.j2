@@ -1,6 +1,6 @@
-# Managed by Ansible (firewalld).
+# Managed by Ansible (cve_2026_98432).
 [Unit]
-Description=nftables table {{ firewalld_table_family }} {{ firewalld_table_name }}
+Description=nftables table ip cve_2026_98432
 Documentation=man:nft(8)
 # Loaded before the network comes up, as nftables.service is.
 Wants=network-pre.target
@@ -14,10 +14,10 @@ RemainAfterExit=yes
 StandardInput=null
 ProtectSystem=full
 ProtectHome=true
-ExecStart=/usr/sbin/nft -f /etc/nft-tables/{{ firewalld_table_name }}.nft
-ExecReload=/usr/sbin/nft -f /etc/nft-tables/{{ firewalld_table_name }}.nft
+ExecStart=/usr/sbin/nft -f /etc/nft-tables/cve_2026_98432.nft
+ExecReload=/usr/sbin/nft -f /etc/nft-tables/cve_2026_98432.nft
 # Stopping deletes the table; one already gone is not an error.
-ExecStop=-/usr/sbin/nft delete table {{ firewalld_table_family }} {{ firewalld_table_name }}
+ExecStop=-/usr/sbin/nft delete table ip cve_2026_98432
 
 [Install]
 WantedBy=sysinit.target

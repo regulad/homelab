@@ -1,7 +1,7 @@
 ---
 # The CVE-2026-98432 stopgap on hosts with their own kernel, hardware (Phase 2)
 # and generated (Phase 4): decide from the running kernel, then add or remove
-# the table through the firewalld role's tasks/table.yml.
+# the stopgap's own nftables table (tasks/table.yml).
 - name: Read the running kernel's release
   ansible.builtin.slurp:
     src: /proc/sys/kernel/osrelease
@@ -120,18 +120,5 @@
       is {{ 'vulnerable' if cve_2026_98432_vulnerable | bool else 'fixed' }}, by
       {{ (cve_2026_98432_package ~ ' ' ~ cve_2026_98432_entry.version) if cve_2026_98432_entry is not none else 'the upstream table' }}
 
-# Every IPv4 TCP packet carrying options is dropped before routing, so before
-# connection tracking, forwarding to containers, and firewalld's zones.
 - name: Stopgap table, while the kernel is vulnerable
-  ansible.builtin.include_role:
-    name: firewalld
-    tasks_from: table
-  vars:
-    firewalld_table_name: cve_2026_98432
-    firewalld_table_family: ip
-    firewalld_table_body: |
-      chain prerouting {
-        type filter hook prerouting priority raw; policy accept;
-        ip hdrlength != 5 meta l4proto tcp drop
-      }
-    firewalld_table_state: "{{ 'present' if cve_2026_98432_vulnerable | bool else 'absent' }}"
+  ansible.builtin.include_tasks: table.yml

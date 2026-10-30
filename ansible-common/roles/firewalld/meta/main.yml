@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: firewalld and the zones a host declares, through ansible.posix.firewalld, and nftables tables beside it for other roles
+  description: firewalld and the zones a host declares, through ansible.posix.firewalld
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []

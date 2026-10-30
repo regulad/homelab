@@ -1,0 +1,91 @@
+---
+# The stopgap's nftables table, an ip table of its own beside firewalld's,
+# added while cve_2026_98432_vulnerable and removed once it is not. Its own
+# unit loads it before the network comes up and deletes it when stopped; the
+# distribution's nftables.service is not used, since stopping it flushes every
+# table, firewalld's too. firewalld flushes only its own table, and a packet
+# any table drops stays dropped, so the table applies on every interface,
+# trusted ones included, with or without firewalld running.
+- name: Add the table
+  when: cve_2026_98432_vulnerable | bool
+  block:
+    - name: Install nftables
+      ansible.builtin.package:
+        name: nftables
+        state: present
+      register: cve_2026_98432_nft
+
+    - name: Tables directory
+      ansible.builtin.file:
+        path: /etc/nft-tables
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Table file
+      ansible.builtin.template:
+        src: cve_2026_98432.nft.j2
+        dest: /etc/nft-tables/cve_2026_98432.nft
+        owner: root
+        group: root
+        mode: "0644"
+        validate: /usr/sbin/nft -c -f %s
+      register: cve_2026_98432_table_file
+
+    - name: Table unit
+      ansible.builtin.template:
+        src: nft-table-cve_2026_98432.service.j2
+        dest: /etc/systemd/system/nft-table-cve_2026_98432.service
+        owner: root
+        group: root
+        mode: "0644"
+      register: cve_2026_98432_table_unit
+
+    # A check run cannot start a unit or nft that is not there yet.
+    - name: Table loaded, and at boot
+      ansible.builtin.systemd_service:
+        name: nft-table-cve_2026_98432.service
+        state: started
+        enabled: true
+        daemon_reload: "{{ cve_2026_98432_table_unit is changed }}"
+      register: cve_2026_98432_table_started
+      when: not (ansible_check_mode and (cve_2026_98432_nft is changed or cve_2026_98432_table_unit is changed))
+
+    # A unit already running loads the changed table in one transaction.
+    - name: Reload the changed table
+      ansible.builtin.systemd_service:
+        name: nft-table-cve_2026_98432.service
+        state: reloaded
+      when:
+        - cve_2026_98432_table_file is changed
+        - cve_2026_98432_table_started is not changed
+        - cve_2026_98432_table_started is not skipped
+
+- name: Remove the table
+  when: not (cve_2026_98432_vulnerable | bool)
+  block:
+    - name: Read the table's unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nft-table-cve_2026_98432.service
+      register: cve_2026_98432_table_unit_file
+
+    - name: Stop the table's unit, which deletes the table
+      ansible.builtin.systemd_service:
+        name: nft-table-cve_2026_98432.service
+        state: stopped
+        enabled: false
+      when: cve_2026_98432_table_unit_file.stat.exists
+
+    - name: Remove the table's files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/nft-table-cve_2026_98432.service
+        - /etc/nft-tables/cve_2026_98432.nft
+
+    - name: Reload systemd without the unit
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: cve_2026_98432_table_unit_file.stat.exists

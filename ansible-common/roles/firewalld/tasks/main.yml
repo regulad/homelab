@@ -5,7 +5,6 @@
 # the trusted zone. Runs on Linux hosts with their own kernel but Proxmox
 # nodes, hardware (Phase 2) and generated (Phase 4); a host that declares no
 # zones keeps firewalld's default zone as the package ships it.
-# tasks/table.yml is for other roles.
 - name: Firewalld
   block:
     - name: Read the running services

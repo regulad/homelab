@@ -1,0 +1,14 @@
+# Managed by Ansible (cve_2026_98432).
+# Declared, deleted and declared again, so that loading this file replaces the
+# table whole, in the one transaction nft makes of a file.
+table ip cve_2026_98432
+delete table ip cve_2026_98432
+table ip cve_2026_98432 {
+  # IPv4 TCP carrying options, the trigger for CVE-2026-98432, dropped before
+  # routing: before connection tracking, forwarding to containers, and
+  # firewalld's zones.
+  chain prerouting {
+    type filter hook prerouting priority raw; policy accept;
+    ip hdrlength != 5 meta l4proto tcp drop
+  }
+}
