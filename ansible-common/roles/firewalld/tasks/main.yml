@@ -1,12 +1,12 @@
 ---
-# Converge firewalld on a host that declares zones: firewalld installed and
-# running, with Docker and rootful Podman's containers stopped meanwhile when
-# it first starts, other firewall managers removed, and the zones set, with
-# the trusted interfaces in the trusted zone. Runs on Linux hosts with their
-# own kernel but Proxmox nodes, hardware (Phase 2) and generated (Phase 4); a
-# host that declares no zones is left alone. tasks/table.yml is for other roles.
-- name: Firewalld where the host declares zones
-  when: firewalld_zones | length > 0
+# Converge firewalld: installed and running, with Docker and rootful Podman's
+# containers stopped meanwhile when it first starts, other firewall managers
+# removed, and the zones the host declares set, with the trusted interfaces in
+# the trusted zone. Runs on Linux hosts with their own kernel but Proxmox
+# nodes, hardware (Phase 2) and generated (Phase 4); a host that declares no
+# zones keeps firewalld's default zone as the package ships it.
+# tasks/table.yml is for other roles.
+- name: Firewalld
   block:
     - name: Read the running services
       ansible.builtin.service_facts:

@@ -7,7 +7,9 @@
 # built in is created. The module adds what is declared and cannot remove
 # entries it is not told of. Policies and direct rules, which it cannot manage,
 # are whole files through host_files, reloading firewalld. A host that declares
-# no zones is left alone: the role neither installs nor starts firewalld there.
+# none still runs firewalld, with only its default zone (public, admitting SSH
+# and DHCPv6) and the trusted interfaces; Docker's and rootful Podman's
+# published ports pass on their own, and other services are declared as needed.
 firewalld_zones: {}
 
 # Interfaces added to the trusted zone of every host whose zones the role
