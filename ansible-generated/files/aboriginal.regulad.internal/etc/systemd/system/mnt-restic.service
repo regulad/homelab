@@ -11,6 +11,11 @@ EnvironmentFile=/etc/restic-env
 # The helper starts restic mount, waits until the FUSE filesystem is there,
 # then exits, so the units that need the mount start only once it is.
 ExecStart=/usr/local/bin/restic-mount-helper
+# No start timeout: restic retries until B2 answers, which at a cold boot of
+# the whole cluster waits on arawi's DHCP. With systemd's default 90 s, the
+# start failed, and so did every unit requiring the mounts, smbd included,
+# which nothing restarts.
+TimeoutStartSec=infinity
 # Lazy unmount; tolerates lingering processes still inside the mountpoint.
 ExecStop=/bin/fusermount -uz /mnt/restic
 # Only kill the tracked PID (restic), not the short-lived helper.

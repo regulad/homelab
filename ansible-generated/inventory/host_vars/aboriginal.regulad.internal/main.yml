@@ -56,6 +56,10 @@ host_files_directories:
     mode: "0755"
   - path: /etc/systemd/system/podman-compose@jellyfin.service.d
     mode: "0755"
+  - path: /etc/systemd/system/nmbd.service.d
+    mode: "0755"
+  - path: /etc/llama-server
+    mode: "0755"
 host_files_list:
   - path: /usr/local/bin/restic-mount-helper
     mode: "0755"
@@ -95,6 +99,54 @@ host_files_list:
     mode: "0644"
   - path: /etc/systemd/system/smbd.service.d/override.conf
     mode: "0644"
+  # Samba, a standalone server: the media share and the homes on CephFS. Its
+  # one passdb user, regulad, is Samba's own state.
+  - path: /etc/samba/smb.conf
+    mode: "0644"
+    validate: testparm -s %s
+    reloads: [smbd.service]
+  # nmbd timed out starting at the cluster's cold boot of 2026-10-29, when
+  # aboriginal's DHCPv4 lease came four minutes in, and nothing retried it.
+  # This replaces a hand-made drop-in that ordered it after winbind, now gone,
+  # in place of network-online.target.
+  - path: /etc/systemd/system/nmbd.service.d/override.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      StartLimitIntervalSec=0
+
+      [Service]
+      Restart=on-failure
+      RestartSec=30s
+    restarts: [nmbd.service]
+  # NUT: upsd alone, for Home Assistant's nut integration (README).
+  # nut-driver-enumerator.path restarts the drivers when ups.conf changes.
+  - path: /etc/nut/nut.conf
+    mode: "0640"
+    group: nut
+    restarts: [nut-server.service]
+  - path: /etc/nut/ups.conf
+    mode: "0640"
+    group: nut
+  - path: /etc/nut/upsd.conf
+    mode: "0640"
+    group: nut
+    restarts: [nut-server.service]
+  - path: /etc/nut/upsd.users
+    template: true
+    mode: "0640"
+    group: nut
+    secret: true
+    reloads: [nut-server.service]
+  # llama-server, from the llama.cpp built by hand in /opt/llama.cpp (README).
+  - path: /etc/systemd/system/llama-server.service
+    mode: "0644"
+    restarts: [llama-server.service]
+  - path: /etc/llama-server/api-key
+    mode: "0600"
+    content: "{{ llama_server_api_key }}\n"
+    secret: true
+    restarts: [llama-server.service]
   # mDNS in systemd-resolved, which lime browses; the netplan drop-in below
   # turns it on for eth0.
   - path: /etc/systemd/resolved.conf.d/mdns.conf
@@ -174,6 +226,15 @@ host_files_units:
   - mnt-media_nextcloud.mount
   - podman-compose@jellyfin.service
   - mnt-rgw.service
+  - smbd.service
+  - nmbd.service
+  - nut-server.service
+  - llama-server.service
+# upsmon, which nut.target would start at every boot to fail for want of a
+# MONITOR line: nothing is to act on a power cut for now (README).
+host_files_links:
+  - path: /etc/systemd/system/nut-monitor.service
+    target: /dev/null
 
 # mnt-restic.service mounts the repository with /etc/restic-env, so it
 # restarts when that or the password changes, and the mounts above it with it.

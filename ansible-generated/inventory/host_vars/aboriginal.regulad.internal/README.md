@@ -21,12 +21,26 @@ of their own.
     and its plugins rebuilt for the new release.
     Its LDAP plugin reads its CA from `LdapRootCaPath`, to which `ca_trust`'s
     HOME.ARPA anchor is bound while it binds to the freeipa stand-in.
+  - llama-server's unit and its API key, in SOPS, are host files. The
+    llama.cpp it runs is built by hand in `/opt/llama.cpp`: ggml-org/llama.cpp
+    at `458681e1d`, with HIP and Vulkan for gfx1030, and one local change to
+    `ggml/src/ggml-cuda/fattn-common.cuh`, which lets a launch go ahead with
+    one block where HIP's occupancy API reports none on RDNA2
+    (ggml-org/llama.cpp#23310). It listens on IPv4 only.
 - **nextcloud and Samba**: the `nas` archive's overlays,
   `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
+  - Samba's whole `smb.conf` is a host file; its one passdb user, regulad, is
+    Samba's own state. smbd requires the mounts, which wait for restic:
+    `mnt-restic.service` has no start timeout, so at a cold boot of the whole
+    cluster, when B2 is out of reach until arawi's DHCP answers, the units that
+    need the mounts wait for them instead of failing. nmbd, which timed out at
+    such a boot before aboriginal had its IPv4 lease, retries until it starts.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
-  disabled. The APC's section in `ups.conf` is commented out while it is under
-  maintenance, its passthrough removed with it.
+  masked, as `nut.target` would start it to fail. The APC's section in
+  `ups.conf` is commented out while it is under maintenance, its passthrough
+  removed with it. Its configuration is host files; NUT keeps hass's password
+  in plain text in `upsd.users`, so it is in SOPS.
 - **lime**, which unlocks overture's FileVault at its pre-boot SSH unlock:
   the `lime` role builds it on this host and runs it at boot. Its credential
   is sealed to the VM's vTPM (`tpmstate0` on `local-lvm`), which
