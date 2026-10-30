@@ -1229,3 +1229,8 @@ findings that would help a future session. Append new entries at the end.
 - From livekit, a query to arawi's ULA over IPv6 timed out while the same query over IPv4 answered; Unbound's access list allows `::/0` and would have refused rather than stayed silent.
 - arawi's login shell is csh, which rejects `2>&1`: run commands there as `ssh arawi sudo sh -s < script`, the admins group having passwordless sudo.
 - After `/reload-plugins` brought in alock 0.2.0, this session's `PATH` still put 0.1.0's shims first. 0.2.0's `ansible-playbook` shim, looking past its own directory for the real binary, ran 0.1.0's shim, which spun on the CPU for 35 minutes before `ansible-playbook` ever started. With 0.1.0's `bin` removed from `PATH`, the apply ran; a fresh session has only 0.2.0's.
+
+## arawi: OCI's instances reach arawi's ULA over IPv6 (2026-10-29)
+
+- livekit's ping and DNS query to arawi's ULA died in pf's "Default deny rule IPv6" (tracker 1000000103), inbound on vtnet2 (LAN2), while the same reached clamd's ULA. Both subnet routers keep OCI's sources, so its packets arrive from the VCN's GUAs, which only clamd's guest firewall admitted; arawi passed IPv4 from `10.131.80.0/24` but IPv6 only from LAN, LAN2 and the tailnet's subnet. The VCN's /64 is now the `vcn_subnet_ipv6` alias, with a rule to LAN2's address on LAN2 and on LAN, as the tailnet's has.
+- To find which rule dropped a packet: `/var/log/filter.log`'s fourth field is the rule's tracker, and `pfctl -sr | grep 'ridentifier <tracker>'` gives its description.
