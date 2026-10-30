@@ -27,6 +27,12 @@ of their own.
     `ggml/src/ggml-cuda/fattn-common.cuh`, which lets a launch go ahead with
     one block where HIP's occupancy API reports none on RDNA2
     (ggml-org/llama.cpp#23310). It listens on IPv4 only.
+  - The self-built server stays, by Parker's choice, over llama.cpp's own
+    `server-rocm` image. Upstream keeps the assert the change removes, and a
+    diagnosis in ggml-org/llama.cpp#27674 blames distribution builds of ROCm
+    7.1's `comgr`, such as the Ubuntu 7.1.1 this host links against, which
+    report too few registers on gfx10. The image, built on AMD's ROCm 7.2.1,
+    may not need the change, but it is rebuilt daily and not tested on GPUs.
 - **nextcloud and Samba**: the `nas` archive's overlays,
   `/mnt/media` and `/mnt/nextcloud`, with their upper layers on CephFS.
   - Samba's whole `smb.conf` is a host file; its one passdb user, regulad, is
