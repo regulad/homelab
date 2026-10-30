@@ -6,5 +6,16 @@
 # prints them), and forward and masquerade (true or false). A zone that is not
 # built in is created. The module adds what is declared and cannot remove
 # entries it is not told of. Policies and direct rules, which it cannot manage,
-# are whole files through host_files, reloading firewalld.
+# are whole files through host_files, reloading firewalld. A host that declares
+# no zones is left alone: the role neither installs nor starts firewalld there.
 firewalld_zones: {}
+
+# Interfaces added to the trusted zone of every host whose zones the role
+# manages. The tailnet's own ACLs, in regulad/tailscale-acls, filter what
+# reaches tailscale0.
+firewalld_trusted_interfaces: [tailscale0]
+
+# Other firewall managers, removed where the role manages firewalld, so that
+# each host's firewall has one owner. Whatever rules they held are described
+# in the host's zones first.
+firewalld_removed_packages: [ufw]

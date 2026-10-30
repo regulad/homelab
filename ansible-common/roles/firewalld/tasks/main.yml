@@ -1,59 +1,100 @@
 ---
-# Converge the firewalld zones the host declares. Runs on Linux hosts with their
-# own kernel but Proxmox nodes, hardware (Phase 2) and generated (Phase 4); with
-# nothing declared it changes nothing.
-- name: Zones
-  ansible.posix.firewalld:
-    zone: "{{ item }}"
-    state: present
-    permanent: true
-  loop: "{{ firewalld_zones.keys() | list }}"
-  notify: Reload firewalld
+# Converge firewalld on a host that declares zones: firewalld installed and
+# running, other firewall managers removed, and the zones set, with the trusted
+# interfaces in the trusted zone. Runs on Linux hosts with their own kernel but
+# Proxmox nodes, hardware (Phase 2) and generated (Phase 4); a host that
+# declares no zones is left alone.
+- name: Firewalld where the host declares zones
+  when: firewalld_zones | length > 0
+  block:
+    - name: Install firewalld
+      ansible.builtin.package:
+        name: firewalld
+        state: present
+      register: firewalld_installed
 
-# A new zone takes entries only once firewalld has loaded it.
-- name: Load new zones
-  ansible.builtin.meta: flush_handlers
+    - name: Remove other firewall managers
+      ansible.builtin.package:
+        name: "{{ firewalld_removed_packages }}"
+        state: absent
 
-- name: Zone targets
-  ansible.posix.firewalld:
-    zone: "{{ item.key }}"
-    target: "{{ item.value.target | default('default') }}"
-    state: present
-    permanent: true
-  loop: "{{ firewalld_zones | dict2items }}"
-  loop_control:
-    label: "{{ item.key }}"
-  notify: Reload firewalld
+    # A check run cannot reach the firewalld that an install still pending would add.
+    - name: Zones
+      when: not (ansible_check_mode and firewalld_installed is changed)
+      block:
+        - name: Firewalld running
+          ansible.builtin.systemd_service:
+            name: firewalld
+            state: started
+            enabled: true
 
-- name: Gather the zones' entries
-  ansible.builtin.set_fact:
-    firewalld_entries: >-
-      {%- set entries = [] -%}
-      {%- for zone, settings in firewalld_zones.items() -%}
-      {%- for kind in ['interfaces', 'sources', 'services', 'ports', 'rich_rules'] -%}
-      {%- for value in settings[kind] | default([]) -%}
-      {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': value}) -%}
-      {%- endfor -%}
-      {%- endfor -%}
-      {%- for kind in ['forward', 'masquerade'] if kind in settings -%}
-      {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': settings[kind]}) -%}
-      {%- endfor -%}
-      {%- endfor -%}
-      {{ entries }}
+        - name: Gather the zones, with the trusted interfaces
+          ansible.builtin.set_fact:
+            firewalld_managed_zones: >-
+              {%- set trusted = firewalld_zones.trusted | default({}) -%}
+              {{ firewalld_zones | combine({'trusted': trusted | combine({'interfaces':
+                   (trusted.interfaces | default([]) + firewalld_trusted_interfaces) | unique})}) }}
 
-- name: Zone entries
-  ansible.posix.firewalld:
-    zone: "{{ item.zone }}"
-    interface: "{{ item.value if item.kind == 'interfaces' else omit }}"
-    source: "{{ item.value if item.kind == 'sources' else omit }}"
-    service: "{{ item.value if item.kind == 'services' else omit }}"
-    port: "{{ item.value if item.kind == 'ports' else omit }}"
-    rich_rule: "{{ item.value if item.kind == 'rich_rules' else omit }}"
-    forward: "{{ true if item.kind == 'forward' else omit }}"
-    masquerade: "{{ true if item.kind == 'masquerade' else omit }}"
-    state: "{{ 'disabled' if item.value is false else 'enabled' }}"
-    permanent: true
-    immediate: true
-  loop: "{{ firewalld_entries }}"
-  loop_control:
-    label: "{{ item.zone }} {{ item.kind }} {{ item.value }}"
+        - name: Declared zones
+          ansible.posix.firewalld:
+            zone: "{{ item }}"
+            state: present
+            permanent: true
+          loop: "{{ firewalld_managed_zones.keys() | list }}"
+          register: firewalld_declared
+
+        # A new zone takes entries only once firewalld has loaded it. Not a
+        # handler: handlers cannot be flushed inside this conditional block.
+        - name: Load new zones  # noqa: no-handler
+          ansible.builtin.systemd_service:
+            name: firewalld
+            state: reloaded
+          when: firewalld_declared is changed
+
+        # A zone that declares no target keeps its built-in one: trusted's
+        # ACCEPT, drop's DROP, block's rejection, and default elsewhere.
+        - name: Zone targets
+          ansible.posix.firewalld:
+            zone: "{{ item.key }}"
+            target: >-
+              {{ item.value.target
+                 | default({'trusted': 'ACCEPT', 'drop': 'DROP', 'block': '%%REJECT%%'}.get(item.key, 'default')) }}
+            state: present
+            permanent: true
+          loop: "{{ firewalld_managed_zones | dict2items }}"
+          loop_control:
+            label: "{{ item.key }}"
+          notify: Reload firewalld
+
+        - name: Gather the zones' entries
+          ansible.builtin.set_fact:
+            firewalld_entries: >-
+              {%- set entries = [] -%}
+              {%- for zone, settings in firewalld_managed_zones.items() -%}
+              {%- for kind in ['interfaces', 'sources', 'services', 'ports', 'rich_rules'] -%}
+              {%- for value in settings[kind] | default([]) -%}
+              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': value}) -%}
+              {%- endfor -%}
+              {%- endfor -%}
+              {%- for kind in ['forward', 'masquerade'] if kind in settings -%}
+              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': settings[kind]}) -%}
+              {%- endfor -%}
+              {%- endfor -%}
+              {{ entries }}
+
+        - name: Zone entries
+          ansible.posix.firewalld:
+            zone: "{{ item.zone }}"
+            interface: "{{ item.value if item.kind == 'interfaces' else omit }}"
+            source: "{{ item.value if item.kind == 'sources' else omit }}"
+            service: "{{ item.value if item.kind == 'services' else omit }}"
+            port: "{{ item.value if item.kind == 'ports' else omit }}"
+            rich_rule: "{{ item.value if item.kind == 'rich_rules' else omit }}"
+            forward: "{{ true if item.kind == 'forward' else omit }}"
+            masquerade: "{{ true if item.kind == 'masquerade' else omit }}"
+            state: "{{ 'disabled' if item.value is false else 'enabled' }}"
+            permanent: true
+            immediate: true
+          loop: "{{ firewalld_entries }}"
+          loop_control:
+            label: "{{ item.zone }} {{ item.kind }} {{ item.value }}"
