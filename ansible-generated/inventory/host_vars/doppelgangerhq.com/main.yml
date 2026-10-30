@@ -10,3 +10,8 @@ kernel_params_sysctl_files:
 
 # A legacy host: no admin login beside its image's own.
 base_admin_user: ""
+
+# The website, which nginx serves natively, outside Docker.
+firewalld_zones:
+  public:
+    services: [http, https]
