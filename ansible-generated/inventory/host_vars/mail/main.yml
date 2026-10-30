@@ -1,0 +1,21 @@
+---
+# firewalld as the image and later hand edits left it. The default zone admits
+# SSH, DHCPv6, HTTP, on which nothing listens today, and webhookd; the image's
+# cockpit service is gone from it. Netavark adds the Podman networks to the
+# trusted zone itself.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client, http]
+    ports:
+      - 8108/tcp  # webhookd
+
+host_files_list:
+  # A hand-written policy accepting traffic from the default zone into any zone.
+  - path: /etc/firewalld/policies/allow-mail-out.xml
+    mode: "0644"
+    reloads: [firewalld]
+  # Oracle's passthroughs for the instance's own services, as the image ships
+  # them.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    reloads: [firewalld]
