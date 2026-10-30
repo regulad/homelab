@@ -58,3 +58,6 @@ host_files_list:
     mode: "0644"
     reloads: [firewalld]
 host_files_units: [dnsmasq]
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true

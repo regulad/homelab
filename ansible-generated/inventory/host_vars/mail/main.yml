@@ -19,3 +19,6 @@ host_files_list:
   - path: /etc/firewalld/direct.xml
     mode: "0644"
     reloads: [firewalld]
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true

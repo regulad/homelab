@@ -70,3 +70,6 @@ host_files_list:
     mode: "0644"
     reloads: [firewalld]
 host_files_units: [wg-quick@wg0, wg-quick@wg1]
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true
