@@ -1,0 +1,137 @@
+---
+# The CVE-2026-98432 stopgap on hosts with their own kernel, hardware (Phase 2)
+# and generated (Phase 4): decide from the running kernel, then add or remove
+# the table through the firewalld role's tasks/table.yml.
+- name: Read the running kernel's release
+  ansible.builtin.slurp:
+    src: /proc/sys/kernel/osrelease
+  register: cve_2026_98432_osrelease
+
+- name: Note the running kernel's release
+  ansible.builtin.set_fact:
+    cve_2026_98432_release: "{{ cve_2026_98432_osrelease.content | b64decode | trim }}"
+
+# A kernel no package owns, such as one built by hand, has no entry and is
+# judged by the upstream table.
+- name: Read the running kernel's package (dpkg)
+  ansible.builtin.command:
+    argv: [dpkg-query, --search, "/boot/vmlinuz-{{ cve_2026_98432_release }}"]
+  register: cve_2026_98432_owner
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: "'rhel' not in group_names"
+
+- name: Read the package's source and version (dpkg)
+  ansible.builtin.command:
+    argv:
+      - dpkg-query
+      - --show
+      - --showformat=${source:Package} ${Version}
+      - "{{ cve_2026_98432_owner.stdout.split(':')[0] }}"
+  register: cve_2026_98432_dpkg
+  changed_when: false
+  check_mode: false
+  when:
+    - "'rhel' not in group_names"
+    - cve_2026_98432_owner.rc == 0
+
+- name: Read the running kernel's package and version (rpm)
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --query
+      - --file
+      - --queryformat=%{NAME} %{VERSION}-%{RELEASE}
+      - /lib/modules/{{ cve_2026_98432_release }}/vmlinuz
+  register: cve_2026_98432_rpm
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: "'rhel' in group_names"
+
+# Debian's and Ubuntu's signed kernels come from linux-signed[-<flavour>] and
+# Debian's from linux-signed-<arch>; their trackers name the unsigned source.
+- name: Find the distribution's fixed version for the running kernel
+  ansible.builtin.set_fact:
+    cve_2026_98432_package: "{{ package }}"
+    cve_2026_98432_version: "{{ version }}"
+    cve_2026_98432_entry: >-
+      {{ cve_2026_98432_fixed_kernels | selectattr('package', 'eq', package)
+         | selectattr('version', 'match', '^' ~ (version | regex_search('^\d+\.\d+') | regex_escape) ~ '[.-]')
+         | first | default(none) if version else none }}
+  vars:
+    # rpm reports a file no package owns on stdout, so only a success counts.
+    queried: >-
+      {{ (cve_2026_98432_rpm.stdout if cve_2026_98432_rpm.rc == 0 else '') if 'rhel' in group_names
+         else cve_2026_98432_dpkg.stdout | default('') }}
+    package: >-
+      {{ (queried.split(' ')[0] if queried else '')
+         | regex_replace('-signed', '') | regex_replace('-(amd64|arm64|i386)$', '') }}
+    version: "{{ queried.split(' ')[1] if queried else '' }}"
+
+- name: Compare with the fixed version (dpkg)
+  ansible.builtin.command:
+    argv: [dpkg, --compare-versions, "{{ cve_2026_98432_version }}", lt, "{{ cve_2026_98432_entry.version }}"]
+  register: cve_2026_98432_dpkg_older
+  changed_when: false
+  failed_when: cve_2026_98432_dpkg_older.rc not in [0, 1]
+  check_mode: false
+  when:
+    - cve_2026_98432_entry is not none
+    - "'rhel' not in group_names"
+
+- name: Compare with the fixed version (rpm)
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --eval
+      - '%{lua: print(rpm.vercmp("{{ cve_2026_98432_version }}", "{{ cve_2026_98432_entry.version }}"))}'
+  register: cve_2026_98432_rpm_older
+  changed_when: false
+  check_mode: false
+  when:
+    - cve_2026_98432_entry is not none
+    - "'rhel' in group_names"
+
+# Without an entry, the upstream release in the kernel's own version decides:
+# affected from cve_2026_98432_introduced, unless a fixed stable release of its
+# series, or cve_2026_98432_fixed_from, is reached.
+- name: Decide whether the stopgap applies
+  ansible.builtin.set_fact:
+    cve_2026_98432_vulnerable: >-
+      {%- if cve_2026_98432_entry is not none -%}
+      {{ cve_2026_98432_dpkg_older.rc == 0 if 'rhel' not in group_names
+         else cve_2026_98432_rpm_older.stdout | trim == '-1' }}
+      {%- else -%}
+      {%- set upstream = cve_2026_98432_release | regex_search('^\d+(\.\d+)+') -%}
+      {%- set series = upstream | regex_search('^\d+\.\d+') -%}
+      {%- set fixed = cve_2026_98432_fixed_stable | select('match', '^' ~ series | regex_escape ~ '\.') | list -%}
+      {{ upstream is version(cve_2026_98432_introduced, '>=')
+         and upstream is version(cve_2026_98432_fixed_from, '<')
+         and not (fixed | length > 0 and upstream is version(fixed | first, '>=')) }}
+      {%- endif -%}
+
+- name: Report the decision
+  ansible.builtin.debug:
+    msg: >-
+      {{ cve_2026_98432_release }}
+      {{- (' (' ~ cve_2026_98432_package ~ ' ' ~ cve_2026_98432_version ~ ')') if cve_2026_98432_version else '' }}
+      is {{ 'vulnerable' if cve_2026_98432_vulnerable | bool else 'fixed' }}, by
+      {{ (cve_2026_98432_package ~ ' ' ~ cve_2026_98432_entry.version) if cve_2026_98432_entry is not none else 'the upstream table' }}
+
+# Every IPv4 TCP packet carrying options is dropped before routing, so before
+# connection tracking, forwarding to containers, and firewalld's zones.
+- name: Stopgap table, while the kernel is vulnerable
+  ansible.builtin.include_role:
+    name: firewalld
+    tasks_from: table
+  vars:
+    firewalld_table_name: cve_2026_98432
+    firewalld_table_family: ip
+    firewalld_table_body: |
+      chain prerouting {
+        type filter hook prerouting priority raw; policy accept;
+        ip hdrlength != 5 meta l4proto tcp drop
+      }
+    firewalld_table_state: "{{ 'present' if cve_2026_98432_vulnerable | bool else 'absent' }}"

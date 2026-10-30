@@ -21,6 +21,15 @@
   roles:
     - firewalld
 
+# CVE-2026-98432's stopgap on hosts with their own kernel, removed once each
+# runs a fixed kernel.
+- name: CVE-2026-98432 stopgap
+  hosts: debian:ubuntu:rhel:!proxmox_containers
+  gather_facts: false
+  become: true
+  roles:
+    - cve_2026_98432
+
 # Hosts by OS group; ca_trust_family comes from each group's group_vars.
 - name: Root certificates trusted and distrusted
   hosts: debian:ubuntu:rhel:freebsd

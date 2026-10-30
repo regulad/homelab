@@ -1,0 +1,46 @@
+---
+# CVE-2026-98432, a use-after-free in the kernel's IPv4 TCP handshake that a
+# SYN carrying IPv4 options triggers. While the running kernel lacks the fix,
+# an nftables table beside firewalld drops every IPv4 TCP packet that carries
+# options, on every interface; once the host runs a fixed kernel, the table is
+# removed. A host stays on the stopgap until it reboots into a fixed kernel.
+
+# The first fixed version of a distribution's kernel package, each its package
+# (the running kernel's source package without "-signed" on Debian and Ubuntu,
+# its binary package on Enterprise Linux) and that version, compared by dpkg or
+# rpm. An entry applies only to kernels of its own series (major.minor), so
+# Ubuntu's mainline builds, whose source is also linux, never match Ubuntu's
+# own. Only released fixes are listed: Ubuntu's are still in progress
+# (linux 6.8.0-149.149 and linux-lowlatency 6.8.0-149.149.1 on 24.04, linux
+# 7.0.0-43.43 on 26.04, per its tracker on 2026-10-29), so Ubuntu hosts keep the
+# stopgap until those ship and are added here.
+cve_2026_98432_fixed_kernels:
+  # Proxmox VE 9: 7.0.14-25 is the first built on Ubuntu-7.0.0-43.43i1, whose
+  # source carries the fix.
+  - package: proxmox-kernel-7.0
+    version: 7.0.14-25
+  # Oracle Linux 9's UEK 8: the fix is in its changelog as Orabug 40167669.
+  - package: kernel-uek-core
+    version: 6.12.0-207.111.5.4.el9uek
+  # Debian, per its security tracker: bookworm, trixie, and bookworm's 6.12.
+  - package: linux
+    version: 6.1.190-1
+  - package: linux
+    version: 6.12.113-1
+  - package: linux-6.12
+    version: 6.12.113-1~deb12u1
+
+# The kernel CVE team's table, for kernels no entry above covers: introduced in
+# 4.4, fixed in each listed stable release and its later releases of the same
+# series, and in every release from cve_2026_98432_fixed_from on. A series with
+# no listed release, such as 4.19, 6.8 or 7.0, stays affected.
+cve_2026_98432_introduced: "4.4"
+cve_2026_98432_fixed_stable:
+  - 5.10.272
+  - 5.15.223
+  - 6.1.190
+  - 6.6.159
+  - 6.12.113
+  - 6.18.56
+  - 7.2.10
+cve_2026_98432_fixed_from: "7.3"

@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: A stopgap for CVE-2026-98432, dropping IPv4 TCP with options while the running kernel lacks the fix
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []
