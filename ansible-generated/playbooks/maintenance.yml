@@ -1189,3 +1189,184 @@
       ansible.builtin.include_role:
         name: freeipa_server
         tasks_from: memberof_fixup
+
+# Build llama.cpp at the commit llama_cpp_commit declares, from llama_cpp_repo,
+# and move llama-server to it: bump the commit, then run this play with
+# --limit <host>. It checks the commit out in llama_cpp_dir and builds
+# llama-server into a directory of its own, build-<commit>, while the running
+# build keeps serving, and checks the new binary reports that commit. Then it
+# points build, from which llama-server.service runs, at the new build,
+# restarts llama-server and waits for it to report itself healthy; if it does
+# not, it points build back, restarts the previous build and fails: revert
+# llama_cpp_commit. A build finds its libraries through its own directory, or,
+# for the first build made by hand in build itself, through build, so the
+# previous build stays whole to return to; older ones are removed. It does
+# nothing where build already points at the declared commit's build.
+- name: Llama.cpp built at its declared commit
+  hosts: generated
+  gather_facts: false
+  become: true
+  tags: [llama-cpp-build]
+  vars:
+    llama_cpp_build: "{{ llama_cpp_dir }}/build-{{ llama_cpp_commit[:12] }}"
+    llama_cpp_link: "{{ llama_cpp_dir }}/build"
+    # llama-server.service's --port; /health needs no API key.
+    llama_cpp_health: http://127.0.0.1:9292/health
+    # Seconds the build may take, and llama-server to load its model.
+    llama_cpp_build_timeout: 7200
+    llama_cpp_start_timeout: 900
+  tasks:
+    - name: Only where llama.cpp is declared
+      ansible.builtin.meta: end_host
+      when: llama_cpp_commit is not defined
+
+    - name: What build is now
+      ansible.builtin.stat:
+        path: "{{ llama_cpp_link }}"
+      register: llama_cpp_link_stat
+
+    - name: Stop here where build already points at the declared commit's build
+      ansible.builtin.meta: end_host
+      when:
+        - llama_cpp_link_stat.stat.islnk | default(false)
+        - llama_cpp_link_stat.stat.lnk_target == llama_cpp_build
+
+    - name: Build packages
+      ansible.builtin.apt:
+        name: "{{ llama_cpp_build_packages }}"
+        state: present
+
+    - name: The commit checked out now
+      ansible.builtin.command:
+        argv: [git, -C, "{{ llama_cpp_dir }}", rev-parse, HEAD]
+      register: llama_cpp_old_head
+      changed_when: false
+      check_mode: false
+
+    # force discards local changes, such as the one the first build by hand
+    # carried, which the declared commit now holds.
+    - name: The declared commit checked out
+      ansible.builtin.git:
+        repo: "{{ llama_cpp_repo }}"
+        dest: "{{ llama_cpp_dir }}"
+        version: "{{ llama_cpp_commit }}"
+        force: true
+      # Upstream's whole diff between the commits says nothing useful here.
+      diff: false
+
+    - name: The HIP compiler's directory
+      ansible.builtin.command:
+        argv: [hipconfig, -l]
+      register: llama_cpp_hip_bin
+      changed_when: false
+      check_mode: false
+
+    - name: Configured in a directory of its own
+      ansible.builtin.command:
+        argv: >-
+          {{ ['cmake', '-S', llama_cpp_dir, '-B', llama_cpp_build, '-G', 'Ninja',
+              '-DCMAKE_HIP_COMPILER=' ~ llama_cpp_hip_bin.stdout ~ '/clang']
+             + llama_cpp_cmake_defines.items() | map('join', '=') | map('regex_replace', '^', '-D') | list }}
+        creates: "{{ llama_cpp_build }}/build.ninja"
+
+    - name: Llama-server built, while the running build serves
+      ansible.builtin.command:
+        argv: [cmake, --build, "{{ llama_cpp_build }}", --target, llama-server]
+        creates: "{{ llama_cpp_build }}/bin/llama-server"
+      async: "{{ llama_cpp_build_timeout }}"
+      poll: 30
+
+    - name: The new build reports the declared commit
+      ansible.builtin.command:
+        argv: ["{{ llama_cpp_build }}/bin/llama-server", --version]
+      register: llama_cpp_new
+      changed_when: false
+      failed_when: >-
+        llama_cpp_new.rc != 0
+        or (llama_cpp_new.stdout ~ llama_cpp_new.stderr) is not search('commit ' ~ llama_cpp_commit[:7])
+      when: not ansible_check_mode
+
+    - name: The build to return to
+      ansible.builtin.set_fact:
+        llama_cpp_previous: >-
+          {{ llama_cpp_link_stat.stat.lnk_target if llama_cpp_link_stat.stat.islnk | default(false)
+             else llama_cpp_dir ~ '/build-' ~ llama_cpp_old_head.stdout[:12] }}
+
+    # The running process keeps the files it has open.
+    - name: A build made in build itself moved to a directory of its own
+      ansible.builtin.command:
+        argv: [mv, "{{ llama_cpp_link }}", "{{ llama_cpp_previous }}"]
+        creates: "{{ llama_cpp_previous }}"
+      when:
+        - llama_cpp_link_stat.stat.exists
+        - not llama_cpp_link_stat.stat.islnk
+
+    - name: Switch, or switch back
+      block:
+        - name: Build pointed at the new build
+          ansible.builtin.file:
+            src: "{{ llama_cpp_build }}"
+            dest: "{{ llama_cpp_link }}"
+            state: link
+            force: true
+          # A check run does not move a build made in build itself aside.
+          when: not ansible_check_mode or llama_cpp_link_stat.stat.islnk | default(false)
+
+        - name: Llama-server restarted on it
+          ansible.builtin.systemd_service:
+            name: llama-server.service
+            state: restarted
+
+        - name: Wait for llama-server to load its model
+          ansible.builtin.uri:
+            url: "{{ llama_cpp_health }}"
+          register: llama_cpp_health_result
+          until: llama_cpp_health_result.status | default(0) == 200
+          retries: "{{ [(llama_cpp_start_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+      rescue:
+        - name: Build pointed back at the previous build
+          ansible.builtin.file:
+            src: "{{ llama_cpp_previous }}"
+            dest: "{{ llama_cpp_link }}"
+            state: link
+            force: true
+          # A check run does not move a build made in build itself aside.
+          when: not ansible_check_mode or llama_cpp_link_stat.stat.islnk | default(false)
+
+        - name: Llama-server restarted on the previous build
+          ansible.builtin.systemd_service:
+            name: llama-server.service
+            state: restarted
+
+        - name: Wait for the previous build
+          ansible.builtin.uri:
+            url: "{{ llama_cpp_health }}"
+          register: llama_cpp_health_back
+          until: llama_cpp_health_back.status | default(0) == 200
+          retries: "{{ [(llama_cpp_start_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              llama-server did not come up on {{ llama_cpp_build | basename }}, and runs
+              {{ llama_cpp_previous | basename }} again. Revert llama_cpp_commit before the next run.
+
+    - name: The builds kept
+      ansible.builtin.find:
+        paths: "{{ llama_cpp_dir }}"
+        patterns: ["build-*"]
+        file_type: directory
+      register: llama_cpp_builds
+
+    - name: Builds older than the previous one removed
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ llama_cpp_builds.files | rejectattr('path', 'in', [llama_cpp_build, llama_cpp_previous]) | list }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
