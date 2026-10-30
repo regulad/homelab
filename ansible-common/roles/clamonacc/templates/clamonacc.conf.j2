@@ -1,9 +1,16 @@
 # Managed by Ansible (clamonacc). clamonacc's settings, in clamd.conf's format.
+{% if clamonacc_clamd_local %}
+# The host's own clamd, through the packages' socket, configured apart in
+# /etc/clamav/clamd.conf.
+LocalSocket {{ clamonacc_clamd_socket }}
+{% else %}
 # No clamd runs on this host: clamonacc streams files to the shared one.
 TCPAddr {{ clamonacc_clamd_host }}
 TCPSocket {{ clamonacc_clamd_port }}
-# clamonacc will not watch clamd's TemporaryDirectory, /tmp unless set. No clamd
-# runs here, so it is clamonacc's own runtime directory, which its unit creates.
+{% endif %}
+# clamonacc will not watch the TemporaryDirectory its configuration names, /tmp
+# unless set, so it names clamonacc's own runtime directory, which its unit
+# creates.
 TemporaryDirectory /run/clamonacc
 {% for path in clamonacc_watched %}
 OnAccessIncludePath {{ path }}
@@ -11,6 +18,11 @@ OnAccessIncludePath {{ path }}
 {% for path in clamonacc_exclude_paths + ([clamonacc_quarantine] if clamonacc_quarantine else []) %}
 OnAccessExcludePath {{ path }}
 {% endfor %}
+{% if clamonacc_clamd_local %}
+# A local clamd's own user, whose temporary files in /tmp, written as it unpacks
+# what it scans, would otherwise be scanned in turn.
+OnAccessExcludeUname clamav
+{% endif %}
 {% for name in clamonacc_exclude_unames %}
 OnAccessExcludeUname {{ name }}
 {% endfor %}

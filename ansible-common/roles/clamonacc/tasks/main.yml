@@ -1,18 +1,18 @@
 ---
-# Converge clamonacc, against the shared clamd, on a host that turns it on. Runs
-# on hosts with their own kernel, hardware (Phase 2) and generated (Phase 4):
-# clamonacc's fanotify permission events need CAP_SYS_ADMIN in the initial user
-# namespace, which an unprivileged container lacks.
+# Converge clamonacc, against the shared clamd or the host's own, on a host that
+# turns it on. Runs on hosts with their own kernel, hardware (Phase 2) and
+# generated (Phase 4): clamonacc's fanotify permission events need CAP_SYS_ADMIN
+# in the initial user namespace, which an unprivileged container lacks.
 - name: ClamAV on-access scanning
   when: clamonacc_enabled
   block:
     # systemctl mask works on units not yet installed, and reloads systemd.
     # invoke-rc.d and debhelper's scripts skip a masked unit, so installing the
-    # packages starts neither.
+    # packages starts neither. Where clamd is local, they stay unmasked.
     - name: The packages' clamd and freshclam masked
       ansible.builtin.systemd_service:
         name: "{{ item }}"
-        masked: true
+        masked: "{{ not clamonacc_clamd_local }}"
       loop: "{{ clamonacc_masked_units }}"
 
     # The distribution and its release, which name the EPEL release package.
@@ -39,8 +39,38 @@
       ansible.builtin.package:
         name: "{{ clamonacc_packages }}"
         state: present
+      register: clamonacc_packages_installed
       # A check run cannot read what an install still pending would create.
       when: not (ansible_check_mode and (clamonacc_epel_release_installed is changed or clamonacc_epel_enabled is changed))
+
+    # A local clamd, which needs freshclam's first signatures: until they are
+    # there, its units' conditions keep it from starting, and the packages'
+    # postinst, which starts freshclam, starts nothing else.
+    - name: Local clamd
+      when: clamonacc_clamd_local and not (ansible_check_mode and clamonacc_packages_installed is changed)
+      block:
+        - name: Freshclam running
+          ansible.builtin.systemd_service:
+            name: clamav-freshclam.service
+            enabled: true
+            state: started
+
+        - name: Freshclam's first signatures
+          ansible.builtin.find:
+            paths: /var/lib/clamav
+            patterns: [main.cvd, main.cld, daily.cvd, daily.cld]
+          register: clamonacc_signatures
+          until: clamonacc_signatures.files | map(attribute='path') | map('basename') | map('regex_replace', '[.].*$', '') | unique | length == 2
+          retries: 30
+          delay: 10
+
+        # Through its socket, which systemd holds open while clamd loads the
+        # signatures, and which clamav-daemon.service enables with it.
+        - name: Clamd running
+          ansible.builtin.systemd_service:
+            name: clamav-daemon.service
+            enabled: true
+            state: started
 
     # The role's own units, as locally installed software's are.
     - name: Local unit directory
@@ -125,9 +155,10 @@
         mode: "0700"
       when: clamonacc_quarantine | length > 0
 
-    # The packages' unit needs a local clamd: it requires clamav-daemon.service
-    # and waits for its socket. systemd reads /usr/local/lib/systemd/system
-    # before /usr/lib/systemd/system, so this one, of the same name, replaces it.
+    # The packages' unit reads clamd's own configuration, and Debian's logs to a
+    # file, out of the mailer's reach; it also requires a local clamd, which
+    # most hosts lack. systemd reads /usr/local/lib/systemd/system before
+    # /usr/lib/systemd/system, so this one, of the same name, replaces it.
     - name: Clamonacc's unit
       ansible.builtin.template:
         src: clamav-clamonacc.service.j2

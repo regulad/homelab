@@ -1,7 +1,8 @@
 ---
 # ClamAV's on-access scanner, clamonacc, sending each file opened in the watched
-# directories to the homelab's shared clamd. Each minute, clamonacc-mail.timer
-# mails its new detections to root through the host's mail relay.
+# directories to the homelab's shared clamd, or on a host outside the homelab to
+# its own. Each minute, clamonacc-mail.timer mails its new detections to root
+# through the host's mail relay.
 
 # Off unless the host turns it on.
 clamonacc_enabled: false
@@ -31,9 +32,18 @@ clamonacc_exclude_unames: []
 # The shared clamd: the clamd container, tofu/gonkputer's lxc-clamd.tf, on its
 # clamd_port. clamonacc treats any clamd over TCP as remote and streams each
 # file's contents, unencrypted, so a host off the LAN reaches it through the
-# tailnet. An IPv6 address goes in brackets.
+# tailnet. An IPv6 address goes in brackets. Unused where clamd is local.
 clamonacc_clamd_host: clamd.regulad.internal
 clamonacc_clamd_port: 3310
+
+# Run the packages' own clamd and freshclam on the host instead, for a host
+# outside the homelab, whose files would otherwise cross the internet to the
+# shared clamd. clamd then holds its signatures in memory, about 1 GiB, and twice
+# that while it reloads them after an update. Debian and Ubuntu only.
+clamonacc_clamd_local: false
+# The packages' clamd socket. clamonacc passes it each file's descriptor, so
+# clamd, running as clamav, can scan files only root may open.
+clamonacc_clamd_socket: /run/clamav/clamd.ctl
 
 # Also scan files when they are created, moved in or closed after writing, not
 # only when they are opened.
@@ -68,7 +78,8 @@ clamonacc_epel_repo: >-
 clamonacc_packages: "{{ ['clamav', 'clamav-freshclam'] if 'rhel' in group_names else ['clamav-daemon'] }}"
 # The packages' own clamd and freshclam units, masked before the packages are
 # installed so that neither starts: clamd here would hold about 1 GiB of
-# signatures, and the shared container keeps the only copy.
+# signatures, and the shared container keeps the only copy. Where clamd is
+# local, they stay unmasked and run.
 clamonacc_masked_units: >-
   {{ ['clamav-freshclam.service', 'clamav-freshclam-once.service', 'clamav-freshclam-once.timer']
      if 'rhel' in group_names

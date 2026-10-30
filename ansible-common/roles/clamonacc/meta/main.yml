@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: ClamAV's on-access scanner, clamonacc, streaming the files opened in chosen directories to the shared clamd, with its detections mailed
+  description: ClamAV's on-access scanner, clamonacc, scanning files opened in chosen directories through a shared or local clamd, with its detections mailed
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []
