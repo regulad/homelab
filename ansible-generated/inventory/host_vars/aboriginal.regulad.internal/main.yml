@@ -205,6 +205,37 @@ jellyfin_major: 12
 # Its config and data directory, on the SSD.
 jellyfin_config_dir: /mnt/ssd/jellyfin/config
 
+# llama.cpp, which llama-server runs from llama_cpp_dir/build, built on this
+# host from regulad/llama.cpp's aboriginal branch: upstream with one change
+# for RDNA2 (README). To move to another commit, bump llama_cpp_commit and run
+# maintenance.yml's llama-cpp-build.
+llama_cpp_repo: https://github.com/regulad/llama.cpp.git
+llama_cpp_commit: c4bfbb6307b3d4888cff0c5b7fc474c23709aac0
+llama_cpp_dir: /opt/llama.cpp
+# HIP for the RX 6800 and Vulkan, as it was first built by hand; the HIP
+# compiler is the one hipconfig names, Ubuntu's own LLVM.
+llama_cpp_cmake_defines:
+  GGML_HIP: "ON"
+  GGML_VULKAN: "ON"
+  GPU_TARGETS: gfx1030
+  CMAKE_BUILD_TYPE: Release
+llama_cpp_build_packages:
+  - build-essential
+  - cmake
+  - ninja-build
+  - pkgconf
+  - hipcc
+  - libamdhip64-dev
+  - libhipblas-dev
+  - librocblas-dev
+  - libhsa-runtime-dev
+  - librocm-smi-dev
+  - libvulkan-dev
+  - glslc
+  - spirv-headers
+  - libssl-dev
+  - libcurl4-openssl-dev
+
 # ring-mqtt's config.json, which it reads and never writes; outside Home
 # Assistant's add-on it reads no MQTT or Ring settings from its environment.
 # mqtt_url holds ring's mosquitto login.

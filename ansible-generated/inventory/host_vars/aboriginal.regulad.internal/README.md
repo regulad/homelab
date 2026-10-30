@@ -22,11 +22,16 @@ of their own.
     Its LDAP plugin reads its CA from `LdapRootCaPath`, to which `ca_trust`'s
     HOME.ARPA anchor is bound while it binds to the freeipa stand-in.
   - llama-server's unit and its API key, in SOPS, are host files. The
-    llama.cpp it runs is built by hand in `/opt/llama.cpp`: ggml-org/llama.cpp
-    at `458681e1d`, with HIP and Vulkan for gfx1030, and one local change to
-    `ggml/src/ggml-cuda/fattn-common.cuh`, which lets a launch go ahead with
-    one block where HIP's occupancy API reports none on RDNA2
-    (ggml-org/llama.cpp#23310). It listens on IPv4 only.
+    llama.cpp it runs is built on this host, in `/opt/llama.cpp`, by
+    `maintenance.yml`'s `llama-cpp-build`, at the commit `llama_cpp_commit`
+    declares on regulad/llama.cpp's `aboriginal` branch: upstream with one
+    change to `ggml/src/ggml-cuda/fattn-common.cuh`, which lets a launch go
+    ahead with one block where HIP's occupancy API reports none on RDNA2
+    (ggml-org/llama.cpp#23310). Each build has a directory of its own, and
+    `build`, from which the unit runs, points at the current one. Until the
+    play's first run, the build made by hand at ggml-org's `458681e1d`, with
+    the same change uncommitted, serves from `build` itself. It listens on
+    IPv4 only.
   - The self-built server stays, by Parker's choice, over llama.cpp's own
     `server-rocm` image. Upstream keeps the assert the change removes, and a
     diagnosis in ggml-org/llama.cpp#27674 blames distribution builds of ROCm
