@@ -628,7 +628,8 @@
   gather_facts: false
   become: true
   tags: [jellyfin-upgrade]
-  vars:
+  # Shared with the cleanup play below.
+  vars: &jellyfin_upgrade_vars
     jellyfin_upgrade_image: docker.io/jellyfin/jellyfin:{{ jellyfin_major }}
     jellyfin_upgrade_unit: podman-compose@jellyfin.service
     jellyfin_upgrade_compose: /opt/jellyfin/docker-compose.yml
@@ -980,6 +981,70 @@
               The upgrade to Jellyfin {{ jellyfin_major }} failed, and it runs {{ jellyfin_upgrade_running }}
               again{{ ' from the copy' if jellyfin_upgrade_copied | default(false) else '' }}.
               Revert jellyfin_major to {{ jellyfin_upgrade_running.split('.') | first }} before the next site.yml.
+
+# Remove what jellyfin-upgrade leaves behind, once the new release has proven
+# itself: the copy of the config directory to roll back to, the plugins'
+# downloads, and the images of other major releases. It refuses while Jellyfin
+# does not run, healthy, on the major release jellyfin_major declares, as the
+# copy is then still the way back. Run it with --limit <host>, as the upgrade.
+- name: Jellyfin upgrade's leftovers removed
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [jellyfin-upgrade-cleanup]
+  vars: *jellyfin_upgrade_vars
+  tasks:
+    - name: Only where Jellyfin is declared
+      ansible.builtin.meta: end_host
+      when: jellyfin_major is not defined
+
+    - name: The running container
+      ansible.builtin.command:
+        argv: [podman, container, inspect, jellyfin]
+      register: jellyfin_cleanup_container
+      changed_when: false
+      check_mode: false
+
+    - name: The declared major release runs
+      ansible.builtin.assert:
+        that: >-
+          (jellyfin_cleanup_container.stdout | from_json)[0].Config.Labels['org.opencontainers.image.version'].split('.')
+          | first | int == jellyfin_major | int
+        fail_msg: Jellyfin does not run release {{ jellyfin_major }}, so its copy may still be needed.
+        quiet: true
+
+    - name: It reports itself healthy
+      ansible.builtin.uri:
+        url: "{{ jellyfin_upgrade_url }}/health"
+        return_content: true
+      register: jellyfin_cleanup_health
+      failed_when: jellyfin_cleanup_health.content | default('') != 'Healthy'
+      check_mode: false
+
+    - name: The copy and the plugins' downloads removed
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: ["{{ jellyfin_upgrade_backup }}", "{{ jellyfin_upgrade_downloads }}"]
+
+    - name: Jellyfin's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ jellyfin_upgrade_image.rsplit(':', 1) | first }}"]
+      register: jellyfin_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    # The declared image stays, by any of its names; podman refuses to remove
+    # an image a container uses.
+    - name: The images of other major releases removed
+      ansible.builtin.command:
+        argv: [podman, image, rm, "{{ item.Id }}"]
+      loop: >-
+        {{ jellyfin_cleanup_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', jellyfin_upgrade_image) | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
 
 # Give the NCSU tunnel its Duo passcodes. In NC State's Duo device management,
 # add a tablet with Duo Mobile, then pass the activation code its QR code holds,
