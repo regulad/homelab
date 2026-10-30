@@ -23,6 +23,13 @@ ncsu_tun_routes: [152.1.0.0/16, 152.7.0.0/16, 152.14.0.0/16]
 # at the path ncsu-tun.service loads it from: state of this host, which
 # maintenance.yml --tags ncsu-duo writes and nothing else keeps.
 ncsu_duo_totp_file: /var/lib/ncsu-tun/totp
+
+# Unbound for NC State's names, which dns.json5's split DNS covers, and the
+# reverse zones of ncsu_tun_routes, from NC State's resolvers through the
+# tunnel: vrd2, vrd1 and rdd42.ddi.ncsu.edu.
+ncsu_domains: [ncsu.edu, ncstate.net]
+ncsu_resolvers: [152.1.14.12, 152.1.14.14, 152.1.14.78]
+
 host_files_directories:
   - path: /etc/openconnect
     mode: "0755"
@@ -31,6 +38,10 @@ host_files_directories:
   - path: /etc/systemd/system/tpm-udev.path.d
     mode: "0755"
   - path: /etc/systemd/system/tpm-udev.service.d
+    mode: "0755"
+  - path: /etc/unbound/unbound.conf.d
+    mode: "0755"
+  - path: /etc/systemd/system/unbound.service.d
     mode: "0755"
 host_files_list:
   - path: /etc/openconnect/ncsu.pass
@@ -53,6 +64,20 @@ host_files_list:
     mode: "0644"
   - path: /etc/systemd/system/tpm-udev.service.d/no-container.conf
     mode: "0644"
-host_files_packages: [openconnect, pipx, bind9-dnsutils]
+  # Unbound's settings beside the package's own, which include these.
+  - path: /etc/unbound/unbound.conf.d/access-control.conf
+    mode: "0644"
+    restarts: [unbound.service]
+  - path: /etc/unbound/unbound.conf.d/ncsu.conf
+    template: true
+    mode: "0644"
+    restarts: [unbound.service]
+  - path: /etc/unbound/unbound.conf.d/rfc8767.conf
+    mode: "0644"
+    restarts: [unbound.service]
+  - path: /etc/systemd/system/unbound.service.d/tailscale.conf
+    mode: "0644"
+    restarts: [unbound.service]
+host_files_packages: [openconnect, pipx, bind9-dnsutils, unbound]
 host_files_pipx: [vpn-slice==0.16.1]
-host_files_units: [ncsu-tun.service, ncsu-keepalive.timer]
+host_files_units: [ncsu-tun.service, ncsu-keepalive.timer, unbound.service]

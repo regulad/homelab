@@ -1,0 +1,21 @@
+# NC State's names, and the reverse zones of the networks the tunnel routes,
+# forwarded through the tunnel to NC State's own resolvers; every other query
+# is refused. Their answers come from NC State's internal views, which its
+# DNSSEC signatures do not cover, so they go unvalidated.
+{% set zones = ncsu_domains + ncsu_tun_routes | map('reverse_zone') | list %}
+server:
+    hide-identity: yes
+    hide-version: yes
+    local-zone: "." refuse
+{% for zone in zones %}
+    local-zone: "{{ zone }}." transparent
+    domain-insecure: "{{ zone }}."
+{% endfor %}
+{% for zone in zones %}
+
+forward-zone:
+    name: "{{ zone }}."
+{% for resolver in ncsu_resolvers %}
+    forward-addr: {{ resolver }}
+{% endfor %}
+{% endfor %}
