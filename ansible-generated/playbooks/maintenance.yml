@@ -1111,3 +1111,16 @@
           until: ncsu_duo_keepalive is succeeded
           retries: 18
           delay: 10
+
+# Regenerate FreeIPA's memberOf attributes from its groups' members, where the
+# memberOf plugin missed entries, as after a migration.
+- name: FreeIPA memberOf fixup
+  hosts: freeipa_servers
+  gather_facts: false
+  become: true
+  tags: [memberof-fixup]
+  tasks:
+    - name: Regenerate memberOf
+      ansible.builtin.include_role:
+        name: freeipa_server
+        tasks_from: memberof_fixup

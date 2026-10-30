@@ -1,0 +1,17 @@
+---
+# Regenerate memberOf on every user, group and host under the suffix from the
+# groups' member lists, for entries the memberOf plugin missed: ipa-migrate
+# left svc-uptime, blobbie210 and mcbubba64 with none on 2026-10-27, so LDAP
+# filters on memberOf, such as archive.regulad.xyz's, never matched them. The
+# server keeps serving; the task is safe to rerun.
+- name: Regenerate memberOf under the suffix
+  ansible.builtin.command:
+    argv:
+      - dsconf
+      - "{{ freeipa_server_instance }}"
+      - plugin
+      - memberof
+      - fixup
+      - --wait
+      - "{{ freeipa_server_suffix }}"
+  changed_when: true
