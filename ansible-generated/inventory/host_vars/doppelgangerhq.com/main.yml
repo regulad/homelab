@@ -11,6 +11,22 @@ kernel_params_sysctl_files:
 # A legacy host: no admin login beside its image's own.
 base_admin_user: ""
 
+host_files_list:
+  # The Android containers' init writes an empty /proc/sys/kernel/modprobe ("so
+  # disable it by setting modprobe to the empty string"), and the setting is the
+  # whole kernel's, so no module loads on demand and nftables cannot load the
+  # expressions firewalld's rules use. systemd-modules-load loads them at boot
+  # without it. A zone that masquerades, logs or rate-limits needs nft_masq,
+  # nft_log or nft_limit here too.
+  - path: /etc/modules-load.d/firewalld.conf
+    mode: "0644"
+    content: |
+      nft_ct
+      nft_fib_inet
+      nft_reject_inet
+      nft_chain_nat
+    restarts: [systemd-modules-load.service]
+
 # The website, which nginx serves natively, outside Docker.
 firewalld_zones:
   public:
