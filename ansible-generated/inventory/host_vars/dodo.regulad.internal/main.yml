@@ -24,6 +24,18 @@ certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 # IPv6 on Docker's default bridge network.
 docker_ula_prefix: fdb9:b6f2:d6e1::/64
 
+# What the Pterodactyl panel's dodo node serves, as the panel defines it: Wings'
+# API and SFTP, which run outside Docker, and the node's allocations. Wings runs
+# game servers with host networking, so their ports are the host's own, outside
+# Docker's firewalld zone, on both protocols.
+firewalld_zones:
+  public:
+    ports:
+      - 8080/tcp  # Wings API
+      - 2022/tcp  # Wings SFTP
+      - 45500-45599/tcp  # The node's allocations
+      - 45500-45599/udp
+
 # Wings v1.13.4; the sha256 is its wings_linux_amd64 asset's. Bump both, then
 # run playbooks/maintenance.yml --tags wings.
 wings_version: 1.13.4
