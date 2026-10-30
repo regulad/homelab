@@ -84,3 +84,12 @@
   become: true
   roles:
     - kdump
+
+# ClamAV's on-access scanner, streaming to the shared clamd, on hosts with their
+# own kernel that turn it on.
+- name: On-access scanning
+  hosts: debian:ubuntu:rhel:!proxmox_containers
+  gather_facts: false
+  become: true
+  roles:
+    - clamonacc

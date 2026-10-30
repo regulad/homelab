@@ -1,0 +1,148 @@
+---
+# Converge clamonacc, against the shared clamd, on a host that turns it on. Runs
+# on hosts with their own kernel, hardware (Phase 2) and generated (Phase 4):
+# clamonacc's fanotify permission events need CAP_SYS_ADMIN in the initial user
+# namespace, which an unprivileged container lacks.
+- name: ClamAV on-access scanning
+  when: clamonacc_enabled
+  block:
+    # systemctl mask works on units not yet installed, and reloads systemd.
+    # invoke-rc.d and debhelper's scripts skip a masked unit, so installing the
+    # packages starts neither.
+    - name: The packages' clamd and freshclam masked
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        masked: true
+      loop: "{{ clamonacc_masked_units }}"
+
+    # The distribution and its release, which name the EPEL release package.
+    - name: Enterprise Linux's distribution
+      ansible.builtin.setup:
+        gather_subset: [min]
+      when: "'rhel' in group_names"
+
+    - name: EPEL's release package
+      ansible.builtin.package:
+        name: "{{ clamonacc_epel_release }}"
+        state: present
+      register: clamonacc_epel_release_installed
+      when: "'rhel' in group_names"
+
+    - name: EPEL enabled
+      community.general.dnf_config_manager:
+        name: ["{{ clamonacc_epel_repo }}"]
+        state: enabled
+      register: clamonacc_epel_enabled
+      when: "'rhel' in group_names"
+
+    - name: ClamAV's packages
+      ansible.builtin.package:
+        name: "{{ clamonacc_packages }}"
+        state: present
+      # A check run cannot read what an install still pending would create.
+      when: not (ansible_check_mode and (clamonacc_epel_release_installed is changed or clamonacc_epel_enabled is changed))
+
+    # The role's own units, as locally installed software's are.
+    - name: Local unit directory
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/system
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # Detections reach the journal alone; a timer mails the new ones each
+    # minute through mail_relay's Postfix, which the play before this one sets
+    # up. The script and its service take effect at their next run.
+    - name: Detections mailer
+      ansible.builtin.copy:
+        src: clamonacc-mail
+        dest: /usr/local/bin/clamonacc-mail
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Detections mailer's units
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: /usr/local/lib/systemd/system/{{ item }}
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - clamonacc-mail.service
+        - clamonacc-mail.timer
+      register: clamonacc_mail_units
+      notify: Restart the detections mailer's timer
+
+    - name: Detections mailer's timer running
+      ansible.builtin.systemd_service:
+        name: clamonacc-mail.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+      # A check run cannot read what an install still pending would create.
+      when: not (ansible_check_mode and clamonacc_mail_units is changed)
+
+    - name: Configuration directory
+      ansible.builtin.file:
+        path: "{{ clamonacc_config | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # A missing include path once spun clamonacc at full CPU
+    # (https://github.com/Cisco-Talos/clamav/issues/793), so only the
+    # directories that exist are watched.
+    - name: Watched directories that exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ clamonacc_include_paths + clamonacc_include_paths_host }}"
+      register: clamonacc_include_stat
+
+    - name: Directories to watch
+      ansible.builtin.set_fact:
+        clamonacc_watched: >-
+          {{ clamonacc_include_stat.results | selectattr('stat.isdir', 'defined')
+             | selectattr('stat.isdir') | map(attribute='item') | unique | list }}
+
+    - name: Clamonacc's configuration
+      ansible.builtin.template:
+        src: clamonacc.conf.j2
+        dest: "{{ clamonacc_config }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart clamonacc
+
+    - name: Quarantine
+      ansible.builtin.file:
+        path: "{{ clamonacc_quarantine }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      when: clamonacc_quarantine | length > 0
+
+    # The packages' unit needs a local clamd: it requires clamav-daemon.service
+    # and waits for its socket. systemd reads /usr/local/lib/systemd/system
+    # before /usr/lib/systemd/system, so this one, of the same name, replaces it.
+    - name: Clamonacc's unit
+      ansible.builtin.template:
+        src: clamav-clamonacc.service.j2
+        dest: /usr/local/lib/systemd/system/clamav-clamonacc.service
+        owner: root
+        group: root
+        mode: "0644"
+      register: clamonacc_unit
+      notify: Restart clamonacc
+
+    - name: Clamonacc running
+      ansible.builtin.systemd_service:
+        name: clamav-clamonacc.service
+        enabled: true
+        state: started
+        daemon_reload: true
+      # A check run cannot read what an install still pending would create.
+      when: not (ansible_check_mode and clamonacc_unit is changed)

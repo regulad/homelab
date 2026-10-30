@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Managed by Ansible (clamonacc). Mails clamonacc's new detections to root
+# through the host's mail relay, which delivers every recipient to the
+# homelab's mailbox:
+#
+#   clamonacc-mail
+#
+# clamonacc-mail.timer runs it every minute. Each run reads clamonacc's journal
+# after the cursor the last run left in the service's state directory, and
+# mails each detection, which clamonacc logs as "<path>: <signature> FOUND", as
+# "<path>: <signature>". The cursor moves on only once the relay has the mail,
+# so a failed run is retried and nothing is mailed twice. The first run only
+# sets the cursor at the journal's end.
+set -euo pipefail
+
+cursor=$STATE_DIRECTORY/cursor
+journal=(journalctl --unit=clamav-clamonacc.service --output=cat)
+host=$(hostname --fqdn)
+
+if [[ ! -s $cursor ]]; then
+    "${journal[@]}" --lines=0 --cursor-file="$cursor"
+    exit 0
+fi
+
+# Filtered here rather than with --grep, which exits 1 when nothing matches,
+# as it does on an error.
+cp "$cursor" "$cursor.next"
+found=$("${journal[@]}" --cursor-file="$cursor.next" | sed -n 's/ FOUND$//p')
+if [[ -n $found ]]; then
+    printf '%s\n' "$found" | mail -s "ClamAV on $host: infected files found" root
+fi
+mv "$cursor.next" "$cursor"

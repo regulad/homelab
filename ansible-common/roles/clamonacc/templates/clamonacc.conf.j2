@@ -1,0 +1,16 @@
+# Managed by Ansible (clamonacc). clamonacc's settings, in clamd.conf's format.
+# No clamd runs on this host: clamonacc streams files to the shared one.
+TCPAddr {{ clamonacc_clamd_host }}
+TCPSocket {{ clamonacc_clamd_port }}
+{% for path in clamonacc_watched %}
+OnAccessIncludePath {{ path }}
+{% endfor %}
+{% for path in clamonacc_exclude_paths + ([clamonacc_quarantine] if clamonacc_quarantine else []) %}
+OnAccessExcludePath {{ path }}
+{% endfor %}
+{% for name in clamonacc_exclude_unames %}
+OnAccessExcludeUname {{ name }}
+{% endfor %}
+OnAccessExtraScanning {{ 'yes' if clamonacc_extra_scanning else 'no' }}
+OnAccessPrevention {{ 'yes' if clamonacc_prevention else 'no' }}
+OnAccessMaxFileSize {{ clamonacc_max_file_size }}

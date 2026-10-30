@@ -1,0 +1,76 @@
+---
+# ClamAV's on-access scanner, clamonacc, sending each file opened in the watched
+# directories to the homelab's shared clamd. Each minute, clamonacc-mail.timer
+# mails its new detections to root through the host's mail relay.
+
+# Off unless the host turns it on.
+clamonacc_enabled: false
+
+# The directories watched on every host, each with every directory below it:
+# clamonacc follows new ones through inotify. They are where files from
+# elsewhere land, and are the same on Debian, Ubuntu and Enterprise Linux; the
+# package-managed trees, /usr, /etc, /boot and /var/lib, would stream every
+# binary run and library loaded to clamd. Only those that exist are watched.
+clamonacc_include_paths:
+  - /home
+  - /root
+  - /tmp
+  - /var/tmp
+  - /dev/shm
+  - /srv
+# Each host's additions, such as a service's upload directory. clamonacc refuses
+# /, and a btrfs subvolume below a watched directory stops its watches
+# (https://github.com/Cisco-Talos/clamav/issues/341), so list each subvolume on
+# its own.
+clamonacc_include_paths_host: []
+# Directories below the watched ones that are not scanned.
+clamonacc_exclude_paths: []
+# Users whose file accesses are not scanned, by name.
+clamonacc_exclude_unames: []
+
+# The shared clamd: the clamd container, tofu/gonkputer's lxc-clamd.tf, on its
+# clamd_port. clamonacc treats any clamd over TCP as remote and streams each
+# file's contents, unencrypted, so a host off the LAN reaches it through the
+# tailnet. An IPv6 address goes in brackets.
+clamonacc_clamd_host: clamd.regulad.internal
+clamonacc_clamd_port: 3310
+
+# Also scan files when they are created, moved in or closed after writing, not
+# only when they are opened.
+clamonacc_extra_scanning: true
+# Hold each open until clamd's verdict, and deny an infected file. Off, because
+# clamonacc scans one file at a time
+# (https://github.com/Cisco-Talos/clamav/issues/1698), so every open in a
+# watched directory would wait on clamd across the network.
+clamonacc_prevention: false
+# Files larger than this are not scanned; clamonacc's own default.
+clamonacc_max_file_size: 5M
+# Where clamonacc moves each infected file, as <name>.NNN, root's alone; empty
+# leaves infected files in place. Without prevention the process that opened a
+# file keeps it open, but nothing can open it again where it was. The directory
+# itself is never scanned, or a file moved into a watched tree would be found
+# and moved again.
+clamonacc_quarantine: /root/quarantine
+
+# EPEL, which carries ClamAV for Enterprise Linux: Oracle Linux's own build of it
+# comes with oracle-epel-release-el<major> as the ol<major>_developer_EPEL
+# repository, which OCI's images carry installed but switched off; AlmaLinux and
+# Rocky Linux ship epel-release, whose repository is epel.
+clamonacc_epel_release: >-
+  {{ ('oracle-epel-release-el' ~ ansible_facts.distribution_major_version)
+     if ansible_facts.distribution == 'OracleLinux' else 'epel-release' }}
+clamonacc_epel_repo: >-
+  {{ ('ol' ~ ansible_facts.distribution_major_version ~ '_developer_EPEL')
+     if ansible_facts.distribution == 'OracleLinux' else 'epel' }}
+# The packages that carry clamonacc. Debian and Ubuntu's clamav-daemon brings
+# clamd and freshclam; EPEL's clamav needs data(clamav), which clamav-freshclam
+# provides without shipping signatures.
+clamonacc_packages: "{{ ['clamav', 'clamav-freshclam'] if 'rhel' in group_names else ['clamav-daemon'] }}"
+# The packages' own clamd and freshclam units, masked before the packages are
+# installed so that neither starts: clamd here would hold about 1 GiB of
+# signatures, and the shared container keeps the only copy.
+clamonacc_masked_units: >-
+  {{ ['clamav-freshclam.service', 'clamav-freshclam-once.service', 'clamav-freshclam-once.timer']
+     if 'rhel' in group_names
+     else ['clamav-daemon.service', 'clamav-daemon.socket', 'clamav-freshclam.service'] }}
+clamonacc_config: /etc/clamav/clamonacc.conf

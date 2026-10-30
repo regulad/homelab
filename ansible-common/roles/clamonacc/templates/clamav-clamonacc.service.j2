@@ -1,0 +1,24 @@
+# Managed by Ansible (clamonacc). Shadows the packages' unit of the same name in
+# /usr/lib/systemd/system, which needs a local clamd.
+[Unit]
+Description=ClamAV on-access scanner, streaming to {{ clamonacc_clamd_host }}
+Documentation=man:clamonacc(8) man:clamd.conf(5) https://docs.clamav.net/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# In the foreground, clamonacc logs to stdout: detections as "<path>:
+# <signature> FOUND", and each move as "<path>: moved to '<destination>'".
+# --wait gives clamd 30 seconds to answer at start; after that, systemd
+# restarts it.
+ExecStart=/usr/sbin/clamonacc --foreground --wait --config-file={{ clamonacc_config }}{{ (' --move=' ~ clamonacc_quarantine) if clamonacc_quarantine else '' }}
+Restart=on-failure
+RestartSec=30
+# Large watched trees exhaust the default 1024 descriptors
+# (https://github.com/Cisco-Talos/clamav/issues/1704).
+LimitNOFILE=524288
+# As upstream's unit, which stops it with SIGKILL.
+KillSignal=SIGKILL
+
+[Install]
+WantedBy=multi-user.target

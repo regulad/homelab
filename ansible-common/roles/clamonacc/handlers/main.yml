@@ -1,0 +1,16 @@
+---
+- name: Restart the detections mailer's timer
+  ansible.builtin.systemd_service:
+    name: clamonacc-mail.timer
+    state: restarted
+    daemon_reload: true
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and clamonacc_mail_units is changed)
+
+- name: Restart clamonacc
+  ansible.builtin.systemd_service:
+    name: clamav-clamonacc.service
+    state: restarted
+    daemon_reload: true
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and clamonacc_unit is changed)

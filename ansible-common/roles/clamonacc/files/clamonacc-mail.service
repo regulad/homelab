@@ -1,0 +1,11 @@
+# Managed by Ansible (clamonacc). Mails clamonacc's new detections; started by
+# clamonacc-mail.timer.
+[Unit]
+Description=Mail clamonacc's new detections through the mail relay
+Documentation=man:clamonacc(8) man:journalctl(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clamonacc-mail
+# Holds the journal cursor, /var/lib/clamonacc-mail/cursor.
+StateDirectory=clamonacc-mail
