@@ -1249,3 +1249,10 @@ findings that would help a future session. Append new entries at the end.
 - Kuma's `port` monitors use tcp-ping, whose 5 s socket timeout counts the lookup, so timemachine's and softether's checks failed from 2026-10-28 while the HTTP monitors, at 48 s, outlasted the wait. Kuma reports any tcp-ping error as "Connection failed"; packet captures showed no connect at all.
 - `UV_THREADPOOL_SIZE=16` leaves 8. With two lookups held, Kuma's own tcp-ping check of timemachine timed out with 4 threads and answered in 2 ms with 16.
 - Kuma's database is its embedded MariaDB: `podman exec -i uptime-kuma mariadb -S /app/data/run/mariadb.sock kuma`. A heartbeat's `time` is when its check started, in UTC.
+
+## wako: memberOf regenerated after ipa-migrate (2026-10-29)
+
+- ipa-migrate's move from HOME.ARPA left svc-uptime, blobbie210 and mcbubba64 with no `memberOf` at all, though their groups listed them, so archive.regulad.xyz's ldap-auth filter on `memberOf=cn=archiveusers` found none of them and answered 401 without trying a password. `maintenance.yml --tags memberof-fixup` runs 389 Directory Server's memberOf fixup task over the suffix; on wako it took 2.5 s.
+- FreeIPA accepted svc-uptime's LDAP bind although its `krbPasswordExpiration`, carried over from HOME.ARPA, was 2026-08-16.
+- ldap-auth logs nothing per request. wako's access log, `/var/log/dirsrv/slapd-REGULAD-INTERNAL/access`, shows each check's bind, search filter and result.
+- Root reads wako's directory as the Directory Manager over LDAPI: `ldapsearch -Y EXTERNAL -H ldapi://%2Frun%2Fslapd-REGULAD-INTERNAL.socket`.
