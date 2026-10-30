@@ -1,0 +1,71 @@
+---
+# Before firewalld first runs on a host: Docker creates its firewalld zone and
+# forwarding policy, and Netavark adds each Podman network to the trusted zone,
+# when they start with firewalld running. So Docker and rootful Podman's
+# containers stop until firewalld runs, and containers_start.yml starts them
+# again. Rootless Podman's networking is in user space, untouched by firewalld.
+- name: Note the running services
+  ansible.builtin.set_fact:
+    firewalld_services_before: >-
+      {{ ansible_facts.services.values() | selectattr('state', 'eq', 'running')
+         | map(attribute='name') | list }}
+
+- name: Read the container runtimes
+  ansible.builtin.stat:
+    path: /usr/bin/{{ item }}
+  loop: [docker, podman]
+  register: firewalld_runtimes
+
+- name: Note the container runtimes
+  ansible.builtin.set_fact:
+    firewalld_docker: "{{ firewalld_runtimes.results[0].stat.exists and 'docker.service' in firewalld_services_before }}"
+    firewalld_podman: "{{ firewalld_runtimes.results[1].stat.exists }}"
+
+- name: Read the running Docker containers
+  ansible.builtin.command: docker ps --quiet --no-trunc
+  register: firewalld_docker_ps
+  changed_when: false
+  check_mode: false
+  when: firewalld_docker
+
+- name: Read the running Podman containers
+  ansible.builtin.command: podman ps --format json
+  register: firewalld_podman_ps
+  changed_when: false
+  check_mode: false
+  when: firewalld_podman
+
+# A container a systemd unit runs, such as a Quadlet's, stops through its
+# unit, which would otherwise start it again; the others stop by themselves.
+- name: Note the containers to start again
+  ansible.builtin.set_fact:
+    firewalld_docker_before: "{{ firewalld_docker_ps.stdout_lines | default([]) }}"
+    firewalld_podman_units: >-
+      {{ podman_containers | map(attribute='Labels') | map('default', {}, true)
+         | selectattr('PODMAN_SYSTEMD_UNIT', 'defined') | map(attribute='PODMAN_SYSTEMD_UNIT')
+         | unique | list }}
+    firewalld_podman_bare: >-
+      {{ podman_containers | rejectattr('Labels.PODMAN_SYSTEMD_UNIT', 'defined')
+         | map(attribute='Id') | list }}
+  vars:
+    podman_containers: "{{ firewalld_podman_ps.stdout | default('[]', true) | from_json }}"
+
+- name: Stop Podman's container units
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+  loop: "{{ firewalld_podman_units }}"
+
+- name: Stop Podman's other containers
+  ansible.builtin.command:
+    argv: "{{ ['podman', 'stop'] + firewalld_podman_bare }}"
+  changed_when: true
+  when: firewalld_podman_bare | length > 0
+
+# The socket first, or a client such as Wings would start Docker again.
+- name: Stop Docker
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+  loop: [docker.socket, docker.service]
+  when: firewalld_docker

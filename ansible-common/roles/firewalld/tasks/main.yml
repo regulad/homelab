@@ -1,33 +1,55 @@
 ---
 # Converge firewalld on a host that declares zones: firewalld installed and
-# running, other firewall managers removed, and the zones set, with the trusted
-# interfaces in the trusted zone. Runs on Linux hosts with their own kernel but
-# Proxmox nodes, hardware (Phase 2) and generated (Phase 4); a host that
-# declares no zones is left alone.
+# running, with Docker and rootful Podman's containers stopped meanwhile when
+# it first starts, other firewall managers removed, and the zones set, with
+# the trusted interfaces in the trusted zone. Runs on Linux hosts with their
+# own kernel but Proxmox nodes, hardware (Phase 2) and generated (Phase 4); a
+# host that declares no zones is left alone.
 - name: Firewalld where the host declares zones
   when: firewalld_zones | length > 0
   block:
-    - name: Install firewalld
-      ansible.builtin.package:
-        name: firewalld
-        state: present
-      register: firewalld_installed
+    - name: Read the running services
+      ansible.builtin.service_facts:
 
-    - name: Remove other firewall managers
-      ansible.builtin.package:
-        name: "{{ firewalld_removed_packages }}"
-        state: absent
+    - name: Note whether firewalld starts now
+      ansible.builtin.set_fact:
+        firewalld_starting: "{{ ansible_facts.services['firewalld.service'].state | default('') != 'running' }}"
 
-    # A check run cannot reach the firewalld that an install still pending would add.
-    - name: Zones
-      when: not (ansible_check_mode and firewalld_installed is changed)
+    # Containers stop while firewalld is first installed and started, and
+    # start again even if that fails.
+    - name: Firewalld installed and running
       block:
+        - name: Stop containers until firewalld runs
+          ansible.builtin.include_tasks: containers_stop.yml
+          when: firewalld_starting
+
+        - name: Install firewalld
+          ansible.builtin.package:
+            name: firewalld
+            state: present
+          register: firewalld_installed
+
+        - name: Remove other firewall managers
+          ansible.builtin.package:
+            name: "{{ firewalld_removed_packages }}"
+            state: absent
+
+        # A check run cannot start the firewalld that an install still pending would add.
         - name: Firewalld running
           ansible.builtin.systemd_service:
             name: firewalld
             state: started
             enabled: true
+          when: not (ansible_check_mode and firewalld_installed is changed)
+      always:
+        - name: Start containers again
+          ansible.builtin.include_tasks: containers_start.yml
+          when: firewalld_starting
 
+    # A check run cannot reach the firewalld that an install still pending would add.
+    - name: Zones
+      when: not (ansible_check_mode and firewalld_installed is changed)
+      block:
         - name: Gather the zones, with the trusted interfaces
           ansible.builtin.set_fact:
             firewalld_managed_zones: >-

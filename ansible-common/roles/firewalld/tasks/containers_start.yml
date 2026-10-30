@@ -1,0 +1,46 @@
+---
+# After firewalld first runs, or after a failed attempt: Docker, the services
+# that were running before containers_stop.yml (Podman's container units, and
+# units such as Wings that stopped along with Docker), and the containers that
+# ran without a unit, all started again. Each note defaults to nothing, in case
+# containers_stop.yml failed before making it.
+- name: Start Docker
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+  loop: [docker.socket, docker.service]
+  when: firewalld_docker | default(false)
+
+- name: Read the running services
+  ansible.builtin.service_facts:
+
+- name: Start the services that were running
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+  loop: >-
+    {{ firewalld_services_before | default([])
+       | difference(ansible_facts.services.values() | selectattr('state', 'eq', 'running')
+                    | map(attribute='name') | list) }}
+
+- name: Read the running Docker containers
+  ansible.builtin.command: docker ps --quiet --no-trunc
+  register: firewalld_docker_ps
+  changed_when: false
+  check_mode: false
+  when: firewalld_docker | default(false)
+
+- name: Start the Docker containers that were running
+  ansible.builtin.command:
+    argv: "{{ ['docker', 'start'] + firewalld_docker_stopped }}"
+  changed_when: true
+  vars:
+    firewalld_docker_stopped: >-
+      {{ firewalld_docker_before | default([]) | difference(firewalld_docker_ps.stdout_lines | default([])) }}
+  when: firewalld_docker_stopped | length > 0
+
+- name: Start Podman's other containers
+  ansible.builtin.command:
+    argv: "{{ ['podman', 'start'] + firewalld_podman_bare }}"
+  changed_when: true
+  when: firewalld_podman_bare | default([]) | length > 0
