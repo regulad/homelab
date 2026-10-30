@@ -1,0 +1,100 @@
+---
+# One nftables table beside firewalld, added or removed as the including role
+# sets firewalld_table_* (defaults/main.yml). A unit of its own loads the table
+# before the network comes up and deletes it when stopped; the distribution's
+# nftables.service is not used, since stopping it flushes every table,
+# firewalld's too. The file replaces the table whole in the one transaction nft
+# makes of it, so a reload never leaves the table half-applied. Needs no
+# firewalld: hosts that declare no zones can carry a table too.
+- name: Check the table's settings
+  ansible.builtin.assert:
+    that:
+      - firewalld_table_name is match('^[a-z][a-z0-9_]*$')
+      - firewalld_table_family in ['ip', 'ip6', 'inet', 'arp', 'bridge', 'netdev']
+      - firewalld_table_state in ['present', 'absent']
+      - firewalld_table_state == 'absent' or firewalld_table_body | length > 0
+    quiet: true
+
+- name: Add the table
+  when: firewalld_table_state == 'present'
+  block:
+    - name: Install nftables
+      ansible.builtin.package:
+        name: nftables
+        state: present
+      register: firewalld_table_nft
+
+    - name: Tables directory
+      ansible.builtin.file:
+        path: /etc/nft-tables
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Table file
+      ansible.builtin.template:
+        src: table.nft.j2
+        dest: /etc/nft-tables/{{ firewalld_table_name }}.nft
+        owner: root
+        group: root
+        mode: "0644"
+        validate: /usr/sbin/nft -c -f %s
+      register: firewalld_table_file
+
+    - name: Table unit
+      ansible.builtin.template:
+        src: table.service.j2
+        dest: /etc/systemd/system/nft-table-{{ firewalld_table_name }}.service
+        owner: root
+        group: root
+        mode: "0644"
+      register: firewalld_table_unit
+
+    # A check run cannot start a unit or nft that is not there yet.
+    - name: Table loaded, and at boot
+      ansible.builtin.systemd_service:
+        name: nft-table-{{ firewalld_table_name }}.service
+        state: started
+        enabled: true
+        daemon_reload: "{{ firewalld_table_unit is changed }}"
+      register: firewalld_table_started
+      when: not (ansible_check_mode and (firewalld_table_nft is changed or firewalld_table_unit is changed))
+
+    # A unit already running loads the changed table in one transaction.
+    - name: Reload the changed table
+      ansible.builtin.systemd_service:
+        name: nft-table-{{ firewalld_table_name }}.service
+        state: reloaded
+      when:
+        - firewalld_table_file is changed
+        - firewalld_table_started is not changed
+        - firewalld_table_started is not skipped
+
+- name: Remove the table
+  when: firewalld_table_state == 'absent'
+  block:
+    - name: Read the table's unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nft-table-{{ firewalld_table_name }}.service
+      register: firewalld_table_unit_file
+
+    - name: Stop the table's unit, which deletes the table
+      ansible.builtin.systemd_service:
+        name: nft-table-{{ firewalld_table_name }}.service
+        state: stopped
+        enabled: false
+      when: firewalld_table_unit_file.stat.exists
+
+    - name: Remove the table's files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/nft-table-{{ firewalld_table_name }}.service
+        - /etc/nft-tables/{{ firewalld_table_name }}.nft
+
+    - name: Reload systemd without the unit
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: firewalld_table_unit_file.stat.exists

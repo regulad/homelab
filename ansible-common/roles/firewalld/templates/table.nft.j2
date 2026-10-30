@@ -1,0 +1,8 @@
+# Managed by Ansible (firewalld).
+# Declared, deleted and declared again, so that loading this file replaces the
+# table whole, in the one transaction nft makes of a file.
+table {{ firewalld_table_family }} {{ firewalld_table_name }}
+delete table {{ firewalld_table_family }} {{ firewalld_table_name }}
+table {{ firewalld_table_family }} {{ firewalld_table_name }} {
+{{ firewalld_table_body | trim | indent(2, first=true) }}
+}

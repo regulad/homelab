@@ -19,3 +19,15 @@ firewalld_trusted_interfaces: [tailscale0]
 # each host's firewall has one owner. Whatever rules they held are described
 # in the host's zones first.
 firewalld_removed_packages: [ufw]
+
+# tasks/table.yml: one nftables table beside firewalld, for a match that
+# firewalld's zones, policies and rich rules cannot express. Another role
+# includes it with these set; the table is that role's to add and remove.
+# firewalld flushes only its own table, and a packet any table drops stays
+# dropped, so such a table applies on every interface, trusted ones included.
+# The table's name, its family (ip, ip6, inet, ...), its body (the chains and
+# sets inside "table <family> <name> { ... }"), and present or absent.
+firewalld_table_name: ""
+firewalld_table_family: inet
+firewalld_table_body: ""
+firewalld_table_state: present

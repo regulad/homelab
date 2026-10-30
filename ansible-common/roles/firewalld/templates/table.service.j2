@@ -1,0 +1,23 @@
+# Managed by Ansible (firewalld).
+[Unit]
+Description=nftables table {{ firewalld_table_family }} {{ firewalld_table_name }}
+Documentation=man:nft(8)
+# Loaded before the network comes up, as nftables.service is.
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardInput=null
+ProtectSystem=full
+ProtectHome=true
+ExecStart=/usr/sbin/nft -f /etc/nft-tables/{{ firewalld_table_name }}.nft
+ExecReload=/usr/sbin/nft -f /etc/nft-tables/{{ firewalld_table_name }}.nft
+# Stopping deletes the table; one already gone is not an error.
+ExecStop=-/usr/sbin/nft delete table {{ firewalld_table_family }} {{ firewalld_table_name }}
+
+[Install]
+WantedBy=sysinit.target
