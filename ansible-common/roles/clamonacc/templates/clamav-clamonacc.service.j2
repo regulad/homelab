@@ -14,6 +14,9 @@ After=network-online.target
 ExecStart=/usr/sbin/clamonacc --foreground --wait --config-file={{ clamonacc_config }}{{ (' --move=' ~ clamonacc_quarantine) if clamonacc_quarantine else '' }}
 Restart=on-failure
 RestartSec=30
+# /run/clamonacc, the TemporaryDirectory its configuration names in place of
+# /tmp, which clamonacc would otherwise refuse to watch.
+RuntimeDirectory=clamonacc
 # Large watched trees exhaust the default 1024 descriptors
 # (https://github.com/Cisco-Talos/clamav/issues/1704).
 LimitNOFILE=524288

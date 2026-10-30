@@ -2,6 +2,9 @@
 # No clamd runs on this host: clamonacc streams files to the shared one.
 TCPAddr {{ clamonacc_clamd_host }}
 TCPSocket {{ clamonacc_clamd_port }}
+# clamonacc will not watch clamd's TemporaryDirectory, /tmp unless set. No clamd
+# runs here, so it is clamonacc's own runtime directory, which its unit creates.
+TemporaryDirectory /run/clamonacc
 {% for path in clamonacc_watched %}
 OnAccessIncludePath {{ path }}
 {% endfor %}
