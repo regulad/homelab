@@ -14,15 +14,6 @@
   roles:
     - lxc_guest
 
-# firewalld's zones on the Enterprise Linux hosts; their policies and direct
-# rules are host files.
-- name: Firewall zones
-  hosts: rhel
-  gather_facts: false
-  become: true
-  roles:
-    - firewalld
-
 # Let's Encrypt certificates by Cloudflare DNS-01, ahead of the host files
 # whose renewal hooks act on them.
 - name: Certificates

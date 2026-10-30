@@ -1,6 +1,7 @@
 ---
-# Converge the firewalld zones the host declares. Runs on generated Enterprise
-# Linux hosts (Phase 4); with nothing declared it changes nothing.
+# Converge the firewalld zones the host declares. Runs on Linux hosts with their
+# own kernel but Proxmox nodes, hardware (Phase 2) and generated (Phase 4); with
+# nothing declared it changes nothing.
 - name: Zones
   ansible.posix.firewalld:
     zone: "{{ item }}"

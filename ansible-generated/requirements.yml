@@ -25,6 +25,7 @@ collections:
   # ldap_attrs, for the FreeIPA server's directory settings.
   - name: community.general
     version: 13.5.0
-  # firewalld zones and SELinux booleans on the Enterprise Linux hosts.
+  # firewalld zones, for the shared firewalld role, and SELinux booleans on the
+  # Enterprise Linux hosts.
   - name: ansible.posix
     version: 2.2.2

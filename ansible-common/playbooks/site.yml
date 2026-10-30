@@ -11,6 +11,16 @@
     - base
     - tailscale
 
+# firewalld on Linux hosts with their own kernel, where a host declares zones;
+# Proxmox nodes keep pve-firewall, and containers the Proxmox guest firewall.
+# Policies and direct rules are host files.
+- name: Host firewall
+  hosts: debian:ubuntu:rhel:!proxmox_containers:!proxmox_nodes
+  gather_facts: false
+  become: true
+  roles:
+    - firewalld
+
 # Hosts by OS group; ca_trust_family comes from each group's group_vars.
 - name: Root certificates trusted and distrusted
   hosts: debian:ubuntu:rhel:freebsd
