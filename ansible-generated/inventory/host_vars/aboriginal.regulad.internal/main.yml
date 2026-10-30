@@ -180,6 +180,19 @@ kernel_params_ip_forwarding: true
 # A hardware install, named after its inventory name.
 base_hostname_managed: true
 
+# Both LAN interfaces are trusted, so firewalld filters nothing here: Home
+# Assistant and the Matter server take traffic on ports chosen at run time (UPnP
+# event callbacks, SSDP replies, Matter subscription reports), which no zone can
+# list. The default zone holds only what the package ships. Docker keeps its
+# own zone and policy.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client]
+    remove:
+      services: [samba]  # Added by hand; both interfaces are trusted now
+  trusted:
+    interfaces: [eth0, wlan0]
+
 # Netplan is aboriginal's only network configuration; cloud-init's networking
 # is disabled. eth0 (networkd) carries the default route on its lower metric;
 # wlan0, the passed-through Intel AX200 (NetworkManager), stays up beside it.
