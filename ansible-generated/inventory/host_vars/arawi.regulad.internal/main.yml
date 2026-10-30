@@ -536,6 +536,11 @@ pfsense_aliases:
     address: fd7a:115c:a1e0:ab12::/64
     descr: Tailnet subnet
     detail: ''
+  - name: vcn_subnet_ipv6
+    type: network
+    address: '{{ arawi_ipv6_prefixes.oci_subnet }}::/64'
+    descr: VCN subnet
+    detail: ''
 pfsense_rules:
   - name: Allow home IPv6 to any
     action: pass
@@ -672,6 +677,15 @@ pfsense_rules:
     protocol: any
     source: tailnet_subnet_ipv6
     destination: IP:LAN2
+  # OCI's instances reach arawi's ULA, and its DNS there, over the tailnet from
+  # their own GUAs, as they reach its IPv4 address from 10.131.80.0/24.
+  - name: Allow VCN to LAN2 address
+    action: pass
+    interface: LAN2
+    ipprotocol: inet6
+    protocol: any
+    source: vcn_subnet_ipv6
+    destination: IP:LAN2
   - name: Allow ping to U5G_GRE address
     action: pass
     interface: U5G_GRE
@@ -686,6 +700,13 @@ pfsense_rules:
     ipprotocol: inet6
     protocol: any
     source: tailnet_subnet_ipv6
+    destination: IP:LAN2
+  - name: Allow VCN to LAN2 address
+    action: pass
+    interface: LAN
+    ipprotocol: inet6
+    protocol: any
+    source: vcn_subnet_ipv6
     destination: IP:LAN2
 pfsense_log_settings:
   filterdescriptions: 1
