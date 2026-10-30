@@ -1,9 +1,8 @@
 ---
-# After firewalld first runs, or after a failed attempt: Docker, the services
-# that were running before containers_stop.yml (Podman's container units, and
-# units such as Wings that stopped along with Docker), and the containers that
-# ran without a unit, all started again. Each note defaults to nothing, in case
-# containers_stop.yml failed before making it.
+# After firewalld first runs, or after a failed attempt: Docker, the running
+# units that require it, such as Wings, Podman's container units, and the
+# containers that ran without a unit, all started again. Each note defaults to
+# nothing, in case containers_stop.yml failed before making it.
 - name: Start Docker
   ansible.builtin.systemd_service:
     name: "{{ item }}"
@@ -11,17 +10,11 @@
   loop: [docker.socket, docker.service]
   when: firewalld_docker | default(false)
 
-- name: Read the running services
-  ansible.builtin.service_facts:
-
-- name: Start the services that were running
+- name: Start the units that stopped with Docker, and Podman's container units
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     state: started
-  loop: >-
-    {{ firewalld_services_before | default([])
-       | difference(ansible_facts.services.values() | selectattr('state', 'eq', 'running')
-                    | map(attribute='name') | list) }}
+  loop: "{{ firewalld_docker_dependents | default([]) + firewalld_podman_units | default([]) }}"
 
 - name: Read the running Docker containers
   ansible.builtin.command: docker ps --quiet --no-trunc

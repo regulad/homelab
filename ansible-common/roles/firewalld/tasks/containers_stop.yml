@@ -28,6 +28,15 @@
   check_mode: false
   when: firewalld_docker
 
+# Units that require Docker, such as Wings, stop with it and do not start
+# again with it. No module reads a unit's reverse dependencies.
+- name: Read the units that depend on Docker
+  ansible.builtin.command: systemctl list-dependencies --reverse --plain --no-legend docker.service  # noqa: command-instead-of-module
+  register: firewalld_docker_dependents_list
+  changed_when: false
+  check_mode: false
+  when: firewalld_docker
+
 - name: Read the running Podman containers
   ansible.builtin.command: podman ps --format json
   register: firewalld_podman_ps
@@ -40,6 +49,10 @@
 - name: Note the containers to start again
   ansible.builtin.set_fact:
     firewalld_docker_before: "{{ firewalld_docker_ps.stdout_lines | default([]) }}"
+    firewalld_docker_dependents: >-
+      {{ firewalld_docker_dependents_list.stdout_lines | default([]) | map('trim')
+         | select('match', '.*\.service$') | reject('eq', 'docker.service')
+         | select('in', firewalld_services_before) | list }}
     firewalld_podman_units: >-
       {{ podman_containers | map(attribute='Labels') | map('default', {}, true)
          | selectattr('PODMAN_SYSTEMD_UNIT', 'defined') | map(attribute='PODMAN_SYSTEMD_UNIT')
