@@ -1,4 +1,4 @@
-# ncsusplitt: container 125, its HA resource and its Ansible host.
+# ncsusplitt: container 125, its HA resource, its firewall and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "ncsusplitt" {
   node_name     = "prodingus"
@@ -74,6 +74,45 @@ resource "proxmox_haresource" "ncsusplitt" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Nothing else is admitted. tailscaled's UDP ports are random, and the tailnet's
+# traffic, its DNS queries included, arrives inside WireGuard as replies to
+# tailscaled's own probes, as through NAT. Ansible reaches the container through
+# pct, not SSH.
+resource "proxmox_virtual_environment_firewall_rules" "ncsusplitt" {
+  node_name    = proxmox_virtual_environment_container.ncsusplitt.node_name
+  container_id = proxmox_virtual_environment_container.ncsusplitt.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  # Unbound, which answers only NC State's names, to any client.
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "DNS"
+  }
+}
+
+resource "proxmox_virtual_environment_firewall_options" "ncsusplitt" {
+  node_name     = proxmox_virtual_environment_container.ncsusplitt.node_name
+  container_id  = proxmox_virtual_environment_container.ncsusplitt.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.ncsusplitt]
 }
 
 # Listed in the Ansible inventory while its HA resource is requested.
