@@ -1,6 +1,12 @@
 # Jellyfin, transcoding through VA-API on the passed-through RX 6800, on the
 # host's network. Run by podman-compose@jellyfin.service. Its config is on the
 # SSD, its recordings on CephFS, and its library the nas archive's overlay.
+# No pod: podman-compose's pods have no infra container, and podman-auto-update
+# fails on a container in one, the whole run with it, as authentik's stack
+# avoids the same way.
+x-podman:
+  in_pod: false
+
 services:
   jellyfin:
     # jellyfin_major, which maintenance.yml's jellyfin-upgrade moves.
