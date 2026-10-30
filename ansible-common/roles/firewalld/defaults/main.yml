@@ -5,7 +5,8 @@
 # ("<port or range>/<protocol>") and rich_rules (as firewall-cmd --list-all
 # prints them), and forward and masquerade (true or false). A zone that is not
 # built in is created. The module adds what is declared and cannot remove
-# entries it is not told of. Policies and direct rules, which it cannot manage,
+# entries it is not told of, so a zone's remove holds the same lists of entries
+# to take out, such as a service an image or a hand edit added. Policies and direct rules, which it cannot manage,
 # are whole files through host_files, reloading firewalld. A host that declares
 # none still runs firewalld, with only its default zone (public, admitting SSH
 # and DHCPv6) and the trusted interfaces; Docker's and rootful Podman's

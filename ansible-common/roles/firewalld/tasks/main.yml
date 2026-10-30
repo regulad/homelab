@@ -95,11 +95,15 @@
               {%- for zone, settings in firewalld_managed_zones.items() -%}
               {%- for kind in ['interfaces', 'sources', 'services', 'ports', 'rich_rules'] -%}
               {%- for value in settings[kind] | default([]) -%}
-              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': value}) -%}
+              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': value, 'state': 'enabled'}) -%}
+              {%- endfor -%}
+              {%- for value in (settings.remove | default({}))[kind] | default([]) -%}
+              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': value, 'state': 'disabled'}) -%}
               {%- endfor -%}
               {%- endfor -%}
               {%- for kind in ['forward', 'masquerade'] if kind in settings -%}
-              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': settings[kind]}) -%}
+              {%- set _ = entries.append({'zone': zone, 'kind': kind, 'value': settings[kind],
+                                          'state': 'enabled' if settings[kind] else 'disabled'}) -%}
               {%- endfor -%}
               {%- endfor -%}
               {{ entries }}
@@ -114,9 +118,9 @@
             rich_rule: "{{ item.value if item.kind == 'rich_rules' else omit }}"
             forward: "{{ true if item.kind == 'forward' else omit }}"
             masquerade: "{{ true if item.kind == 'masquerade' else omit }}"
-            state: "{{ 'disabled' if item.value is false else 'enabled' }}"
+            state: "{{ item.state }}"
             permanent: true
             immediate: true
           loop: "{{ firewalld_entries }}"
           loop_control:
-            label: "{{ item.zone }} {{ item.kind }} {{ item.value }}"
+            label: "{{ item.zone }} {{ item.kind }} {{ item.value }}{{ ' removed' if item.state == 'disabled' else '' }}"
