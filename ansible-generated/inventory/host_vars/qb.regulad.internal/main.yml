@@ -2,6 +2,11 @@
 tailscale_enabled: true
 tailscale_join: true
 tailscale_tags: [server]
+tailscale_settings:
+  # Off: the tailnet's split DNS sends NC State's domains to its own
+  # resolvers, which this host cannot reach, so every failed lookup waited
+  # on them. arawi resolves the tailnet's names in its stead.
+  accept_dns: false
 # qBittorrent's web UI, on loopback at its default port, as HTTPS on the
 # tailnet.
 tailscale_serve:
