@@ -15,7 +15,7 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   keeps the signatures current. Unprivileged containers cannot run clamonacc;
   how they are covered is still open. Expensive, but it would have caught the
   implant on dodo (then pelican) before Parker did
-- [ ] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
+- [x] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
   block superfluous traffic
 - [ ] Proxmox firewalls for the guests created before AGENTS.md required one of
   every new guest: firewall options and rules for each, as a new guest gets
