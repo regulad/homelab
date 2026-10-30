@@ -181,3 +181,7 @@ webhookd_hooks:
   cordpepperer: /usr/sbin/pct reboot 118 --timeout 120
   peppercord: /usr/sbin/pct reboot 126 --timeout 120
   ncsusplitt: /usr/sbin/pct reboot 125 --timeout 120
+
+# ClamAV's on-access scanner, over the baseline directories alone: the
+# hypervisor's own files, never its guests'.
+clamonacc_enabled: true
