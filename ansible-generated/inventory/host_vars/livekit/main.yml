@@ -88,3 +88,7 @@ host_files_venvs:
 host_files_links:
   - {path: /usr/bin/certbot, target: /opt/certbot/bin/certbot}
 host_files_units: [nginx, livekit, lk-jwt-service]
+
+# ClamAV's on-access scanner, the first host to run it, over the baseline
+# directories alone: LiveKit stores nothing its users send.
+clamonacc_enabled: true
