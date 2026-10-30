@@ -1,12 +1,24 @@
 ---
 tailscale_enabled: true
 tailscale_tags: [edge-ncstate--net]
+# NC State's edge router: the tunnel's routes, which the tailnet policy
+# auto-approves for this tag, with the tailnet's traffic SNATed to the tunnel's
+# address, the only one NC State routes back.
 tailscale_settings:
   accept_dns: false
   stateful_filtering: false
+  advertise_routes: "{{ ncsu_tun_routes }}"
+  snat_subnet_routes: true
+# Forwarding for those routes, IPv4 only, like the tunnel. IPv6 forwarding,
+# which kernel_params_ip_forwarding would add, stops systemd-networkd accepting
+# router advertisements on eth0.
+kernel_params_sysctl_files:
+  99-router:
+    net.ipv4.ip_forward: 1
 
-# The split tunnel to NCSU: openconnect, with vpn-slice routing only NCSU's
-# networks, and a keepalive query through it.
+# The split tunnel to NCSU: openconnect, with vpn-slice routing only these of
+# NCSU's networks, and a keepalive query through it. The VPN carries no IPv6.
+ncsu_tun_routes: [152.1.0.0/16, 152.7.0.0/16, 152.14.0.0/16]
 # The secret of the Duo Mobile device whose TOTP codes are its second password,
 # at the path ncsu-tun.service loads it from: state of this host, which
 # maintenance.yml --tags ncsu-duo writes and nothing else keeps.
@@ -29,6 +41,7 @@ host_files_list:
   # Not restarted on change: each start is an NCSU login, of the 3 the unit
   # allows in 10 minutes. The new unit applies from the tunnel's next start.
   - path: /etc/systemd/system/ncsu-tun.service
+    template: true
     mode: "0644"
   - path: /etc/systemd/system/ncsu-keepalive.service
     mode: "0644"
