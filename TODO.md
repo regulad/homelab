@@ -144,11 +144,11 @@ cloud-init.
     - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`
     - [x] cloudflared and winbind uninstalled, with cloudflared's units, apt source and key, and winbind's hand-edited unit
       - [x] The `aboriginal` tunnel and its routes' DNS records (`hass-livingston`, `archive`, `qb-clearnet`) deleted from Cloudflare
-    - [ ] Native services: llama-server, Samba, NUT, lime
+    - [x] Native services: llama-server, Samba, NUT, lime
       - [x] lime: the `lime` role, building `regulad/lime` at a pinned commit on the host, with overture's password sealed to the vTPM from SOPS; enabled at boot
       - [x] NUT: upsd alone, for Home Assistant; upsmon masked, as nothing is to act on a power cut for now, and the APC's section in `ups.conf` commented out while it is under maintenance; its configuration host files, hass's plain-text password in SOPS
       - [x] Samba: `smb.conf`, nmbd retrying until it starts, and the mounts smbd requires waiting for restic at a cold boot
-      - [ ] llama-server: its unit and API key are host files; its llama.cpp is built by `maintenance.yml`'s `llama-cpp-build` from regulad/llama.cpp's `aboriginal` branch, which is still to run for the first time
+      - [x] llama-server: its unit, which downloads its model where it is missing, and its API key are host files; its llama.cpp is built by `maintenance.yml`'s `llama-cpp-build` from regulad/llama.cpp's `aboriginal` branch
     - [x] logrotate: the obsolete `/etc/logrotate.d/cloud-init` removed, which repeated `cloud-init-base`'s `/var/log/cloud-init*.log` and failed every run
     - [x] firewalld: the `firewalld` role's, describing it as it was, with `eth0` trusted
   - [x] Remove the old `HOME.ARPA` client's remains: `freeipa-client`, the SSSD suite and the packages only they needed, their PAM profile and `nsswitch.conf` entries, `krb5.conf` with its debconf realm, `/etc/krb5.keytab`, `ldap.conf`'s additions, `/etc/ipa`, `/var/lib/sss` and `/var/log/sssd`; the `HOME.ARPA` CA stays trusted, from `ca_trust`

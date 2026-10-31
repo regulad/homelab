@@ -33,8 +33,11 @@ kdump_sysctls_host:
   vm.panic_on_oom: 0
 
 # Firmware for its passed-through hardware: no task needs it, but devices such
-# as the GPU initialize only with it. Then the mounts' FUSE filesystems.
-host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose]
+# as the GPU initialize only with it. Then the mounts' FUSE filesystems,
+# podman-compose for the compose stacks, and pipx for hf.
+host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose, pipx]
+# hf, with which llama-server's unit downloads its model where it is missing.
+host_files_pipx: [huggingface_hub==2.2.0]
 
 # The mounts under /mnt, beside /mnt/ssd and /mnt/cephfs from fstab: the
 # restic repository, its nas archive, the two overlays of that archive under
@@ -138,9 +141,11 @@ host_files_list:
     group: nut
     secret: true
     reloads: [nut-server.service]
-  # llama-server, from the llama.cpp built by hand in /opt/llama.cpp (README).
+  # llama-server, from the llama.cpp that maintenance.yml's llama-cpp-build
+  # builds in llama_cpp_dir (README).
   - path: /etc/systemd/system/llama-server.service
     mode: "0644"
+    template: true
     restarts: [llama-server.service]
   - path: /etc/llama-server/api-key
     mode: "0600"
@@ -235,6 +240,16 @@ llama_cpp_build_packages:
   - spirv-headers
   - libssl-dev
   - libcurl4-openssl-dev
+
+# llama-server's port, on IPv4 only (README), and the model it serves: its
+# GGUF and multimodal projector, from a Hugging Face repository, kept in a
+# directory of CephFS named for the alias it is served as.
+llama_server_port: 9292
+llama_server_model:
+  repo: unsloth/Qwen3.8-27B-GGUF
+  file: Qwen3.8-27B-UD-IQ2_S.gguf
+  mmproj: mmproj-F16.gguf
+  alias: qwen3.8-27b
 
 # ring-mqtt's config.json, which it reads and never writes; outside Home
 # Assistant's add-on it reads no MQTT or Ring settings from its environment.

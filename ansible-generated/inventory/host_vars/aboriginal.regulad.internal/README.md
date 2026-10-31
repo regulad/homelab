@@ -28,10 +28,13 @@ of their own.
     change to `ggml/src/ggml-cuda/fattn-common.cuh`, which lets a launch go
     ahead with one block where HIP's occupancy API reports none on RDNA2
     (ggml-org/llama.cpp#23310). Each build has a directory of its own, and
-    `build`, from which the unit runs, points at the current one. Until the
-    play's first run, the build made by hand at ggml-org's `458681e1d`, with
-    the same change uncommitted, serves from `build` itself. It listens on
-    IPv4 only.
+    `build`, from which the unit runs, points at the current one. It listens
+    on IPv4 only.
+  - Its model, `llama_server_model`, is on CephFS in
+    `/mnt/cephfs/application/llama-models`. Where either of its files is
+    missing, the unit downloads both from Hugging Face before it starts, with
+    the `hf` of a global pipx install; the repository is public, so it needs
+    no token.
   - The self-built server stays, by Parker's choice, over llama.cpp's own
     `server-rocm` image. Upstream keeps the assert the change removes, and a
     diagnosis in ggml-org/llama.cpp#27674 blames distribution builds of ROCm

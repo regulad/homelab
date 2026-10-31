@@ -1210,8 +1210,8 @@
   vars:
     llama_cpp_build: "{{ llama_cpp_dir }}/build-{{ llama_cpp_commit[:12] }}"
     llama_cpp_link: "{{ llama_cpp_dir }}/build"
-    # llama-server.service's --port; /health needs no API key.
-    llama_cpp_health: http://127.0.0.1:9292/health
+    # llama-server's /health, which needs no API key.
+    llama_cpp_health: http://127.0.0.1:{{ llama_server_port }}/health
     # Seconds the build may take, and llama-server to load its model.
     llama_cpp_build_timeout: 7200
     llama_cpp_start_timeout: 900
@@ -1356,10 +1356,12 @@
               llama-server did not come up on {{ llama_cpp_build | basename }}, and runs
               {{ llama_cpp_previous | basename }} again. Revert llama_cpp_commit before the next run.
 
+    # Only the play's own build directories, not the checkout's.
     - name: The builds kept
       ansible.builtin.find:
         paths: "{{ llama_cpp_dir }}"
-        patterns: ["build-*"]
+        patterns: ['^build-[0-9a-f]{12}$']
+        use_regex: true
         file_type: directory
       register: llama_cpp_builds
 

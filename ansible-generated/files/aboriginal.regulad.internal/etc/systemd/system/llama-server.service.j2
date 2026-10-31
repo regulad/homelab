@@ -1,0 +1,42 @@
+{% set model_dir = '/mnt/cephfs/application/llama-models/' ~ llama_server_model.alias %}
+[Unit]
+Description=llama.cpp server
+After=network-online.target remote-fs.target
+Wants=network-online.target
+Requires=remote-fs.target
+
+[Service]
+# Download the model's files from Hugging Face where either is missing; hf
+# writes each under .cache in the directory until it is whole. Without a
+# terminal its progress bars would fill the journal.
+Environment=HF_HUB_DISABLE_PROGRESS_BARS=1
+ExecStartPre=/bin/sh -c 'test -f {{ model_dir }}/{{ llama_server_model.file }} \
+    && test -f {{ model_dir }}/{{ llama_server_model.mmproj }} \
+    || exec /usr/local/bin/hf download {{ llama_server_model.repo }} \
+    {{ llama_server_model.file }} {{ llama_server_model.mmproj }} --local-dir {{ model_dir }}'
+TimeoutStartSec=infinity
+ExecStart={{ llama_cpp_dir }}/build/bin/llama-server \
+    --host 0.0.0.0 \
+    --port {{ llama_server_port }} \
+    -m {{ model_dir }}/{{ llama_server_model.file }} \
+    -np 1 \
+    -ub 256 \
+    --mmproj {{ model_dir }}/{{ llama_server_model.mmproj }} \
+    --alias {{ llama_server_model.alias }} \
+    --ctx-size 262144 \
+    -ngl all \
+    -fa on \
+    --cache-type-k q4_0 \
+    --cache-type-v q4_0 \
+    --image-min-tokens 1024 \
+    --top-k 20 \
+    --top-p 0.95 \
+    --min-p 0.0 \
+    --temp 1.0 \
+    --api-key-file /etc/llama-server/api-key \
+    --device ROCm0
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
