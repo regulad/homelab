@@ -1046,6 +1046,318 @@
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
 
+# Upgrade Home Assistant to the monthly release homeassistant_release declares
+# (YYYY.MM): bump it, then run this play rather than site.yml, with
+# --limit <host> so alock locks that host alone. A release's first start
+# migrates the config directory's storage and the recorder's database in ways
+# only a restore undoes, so with Home Assistant stopped it copies the config
+# directory (a reflink copy on the SSD's btrfs, sharing its blocks until they
+# change) and the compose file, then starts the new release. It counts the
+# release as up once its frontend answers, its .HA_VERSION names the pulled
+# image's version, which Home Assistant writes as it upgrades the directory,
+# and its log has not activated recovery mode, the mode a failed core
+# integration or configuration starts it in. It refuses a downgrade, and does
+# nothing where the declared release already runs. If anything fails after the
+# copy, it puts the copy and the old compose file back, starts the old release
+# again, then fails: revert homeassistant_release before the next site.yml.
+# What a release's notes ask for afterwards is left to the UI.
+- name: Home Assistant upgrade to its declared release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [homeassistant-upgrade]
+  # Shared with the cleanup play below.
+  vars: &homeassistant_upgrade_vars
+    homeassistant_upgrade_image: docker.io/homeassistant/home-assistant:{{ homeassistant_release }}
+    homeassistant_upgrade_unit: podman-compose@homeassistant.service
+    homeassistant_upgrade_compose: /opt/homeassistant/docker-compose.yml
+    homeassistant_upgrade_backup: "{{ homeassistant_config_dir }}-upgrade-backup"
+    homeassistant_upgrade_url: http://127.0.0.1:8123
+    # Seconds each start has to answer; its first start on aboriginal took
+    # about eight minutes, reinstalling its integrations' packages.
+    homeassistant_upgrade_timeout: 1800
+  tasks:
+    - name: Only where Home Assistant is declared
+      ansible.builtin.meta: end_host
+      when: homeassistant_release is not defined
+
+    # The image's tag is the release, which podman-auto-update then follows
+    # through its patches; a patch named here would stop it at that patch.
+    - name: The declared release is a monthly one
+      ansible.builtin.assert:
+        that: homeassistant_release is string and homeassistant_release is match('^[0-9]{4}[.][0-9]{1,2}$')
+        fail_msg: >-
+          homeassistant_release declares {{ homeassistant_release }}; declare a monthly release, YYYY.MM,
+          quoted, so podman-auto-update brings in its patches.
+        quiet: true
+
+    - name: Home Assistant's newest release
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/home-assistant/core/releases/latest
+      register: homeassistant_upgrade_newest
+      check_mode: false
+
+    - name: Report the newest release
+      ansible.builtin.debug:
+        msg: >-
+          Newest release: {{ homeassistant_upgrade_newest.json.tag_name }}.
+          homeassistant_release declares {{ homeassistant_release }}.
+
+    - name: The running container
+      ansible.builtin.command:
+        argv: [podman, container, inspect, homeassistant]
+      register: homeassistant_upgrade_container
+      changed_when: false
+      check_mode: false
+
+    - name: The running release
+      ansible.builtin.set_fact:
+        homeassistant_upgrade_running: >-
+          {{ (homeassistant_upgrade_container.stdout | from_json)[0].Config.Labels['org.opencontainers.image.version'] }}
+
+    - name: No downgrade, which a migrated database cannot take
+      ansible.builtin.assert:
+        that: homeassistant_release is version(homeassistant_upgrade_running.split('.')[:2] | join('.'), '>=')
+        fail_msg: homeassistant_release declares {{ homeassistant_release }}, older than the running {{ homeassistant_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared release already runs
+      ansible.builtin.meta: end_host
+      when: homeassistant_release == homeassistant_upgrade_running.split('.')[:2] | join('.')
+
+    - name: The declared release, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ homeassistant_upgrade_image }}"]
+      changed_when: true
+
+    - name: The pulled image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ homeassistant_upgrade_image }}"]
+      register: homeassistant_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The version to upgrade to
+      ansible.builtin.set_fact:
+        homeassistant_upgrade_target: >-
+          {{ (homeassistant_upgrade_pulled.stdout | from_json)[0].Labels['org.opencontainers.image.version']
+             if homeassistant_upgrade_pulled.rc == 0 else homeassistant_release ~ '.0' }}
+
+    - name: The pulled image is the declared release
+      ansible.builtin.assert:
+        that: homeassistant_upgrade_target.startswith(homeassistant_release ~ '.')
+        fail_msg: "{{ homeassistant_upgrade_image }} is release {{ homeassistant_upgrade_target }}."
+        quiet: true
+
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ homeassistant_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: Home Assistant stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: "{{ homeassistant_upgrade_unit }}"
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ homeassistant_upgrade_backup }}/config"
+            state: absent
+
+        - name: Copy of the config directory
+          ansible.builtin.command:
+            argv: [cp, -a, --reflink=always, "{{ homeassistant_config_dir }}", "{{ homeassistant_upgrade_backup }}/config"]
+          changed_when: true
+
+        - name: Copy of the compose file
+          ansible.builtin.copy:
+            src: "{{ homeassistant_upgrade_compose }}"
+            dest: "{{ homeassistant_upgrade_backup }}/docker-compose.yml"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            homeassistant_upgrade_copied: true
+
+        - name: The compose file with the declared release
+          ansible.builtin.template:
+            src: "{{ inventory_dir }}/../files/{{ inventory_hostname }}{{ homeassistant_upgrade_compose }}.j2"
+            dest: "{{ homeassistant_upgrade_compose }}"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Home Assistant started on the declared release, to migrate
+          ansible.builtin.systemd_service:
+            name: "{{ homeassistant_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the migration and startup
+          ansible.builtin.uri:
+            url: "{{ homeassistant_upgrade_url }}/manifest.json"
+          register: homeassistant_upgrade_health
+          until: homeassistant_upgrade_health.status | default(0) == 200
+          retries: "{{ [(homeassistant_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: The version the config directory was upgraded to
+          ansible.builtin.slurp:
+            src: "{{ homeassistant_config_dir }}/.HA_VERSION"
+          register: homeassistant_upgrade_version
+          when: not ansible_check_mode
+
+        - name: The declared release is the one that started
+          ansible.builtin.assert:
+            that: homeassistant_upgrade_version.content | b64decode | trim == homeassistant_upgrade_target
+            fail_msg: >-
+              The config directory names {{ homeassistant_upgrade_version.content | b64decode | trim }},
+              not {{ homeassistant_upgrade_target }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        # podman-compose recreates the container at each start, so its log is
+        # this start's.
+        - name: The container's log
+          ansible.builtin.command:
+            argv: [podman, logs, homeassistant]
+          register: homeassistant_upgrade_log
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Not in recovery mode
+          ansible.builtin.assert:
+            that: >-
+              not ((homeassistant_upgrade_log.stdout ~ homeassistant_upgrade_log.stderr)
+              is search('(?i)activating recovery mode'))
+            fail_msg: Home Assistant {{ homeassistant_upgrade_target }} started in recovery mode.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              Home Assistant runs {{ homeassistant_upgrade_target }}, from {{ homeassistant_upgrade_running }}.
+              The copy to return to is in {{ homeassistant_upgrade_backup }}. Do what its release notes ask
+              for after an upgrade from the UI, and check its repairs.
+
+      rescue:
+        - name: Home Assistant stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: "{{ homeassistant_upgrade_unit }}"
+            state: stopped
+
+        - name: The config directory put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -a, --delete, "{{ homeassistant_upgrade_backup }}/config/", "{{ homeassistant_config_dir }}/"]
+          changed_when: true
+          when: homeassistant_upgrade_copied | default(false)
+
+        - name: The old compose file put back
+          ansible.builtin.copy:
+            src: "{{ homeassistant_upgrade_backup }}/docker-compose.yml"
+            dest: "{{ homeassistant_upgrade_compose }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: homeassistant_upgrade_copied | default(false)
+
+        - name: Home Assistant started on the old release
+          ansible.builtin.systemd_service:
+            name: "{{ homeassistant_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the old release
+          ansible.builtin.uri:
+            url: "{{ homeassistant_upgrade_url }}/manifest.json"
+          register: homeassistant_upgrade_rolled_back
+          until: homeassistant_upgrade_rolled_back.status | default(0) == 200
+          retries: "{{ [(homeassistant_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to Home Assistant {{ homeassistant_release }} failed, and it runs
+              {{ homeassistant_upgrade_running }} again{{ ' from the copy' if homeassistant_upgrade_copied | default(false) else '' }}.
+              Revert homeassistant_release to {{ homeassistant_upgrade_running.split('.')[:2] | join('.') }}
+              before the next site.yml.
+
+# Remove what homeassistant-upgrade leaves behind, once the new release has
+# proven itself: the copy of the config directory to roll back to, and the
+# images of other releases. It refuses while Home Assistant does not run, and
+# answer, on the release homeassistant_release declares, as the copy is then
+# still the way back. Run it with --limit <host>, as the upgrade.
+- name: Home Assistant upgrade's leftovers removed
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [homeassistant-upgrade-cleanup]
+  vars: *homeassistant_upgrade_vars
+  tasks:
+    - name: Only where Home Assistant is declared
+      ansible.builtin.meta: end_host
+      when: homeassistant_release is not defined
+
+    - name: The running container
+      ansible.builtin.command:
+        argv: [podman, container, inspect, homeassistant]
+      register: homeassistant_cleanup_container
+      changed_when: false
+      check_mode: false
+
+    - name: The declared release runs
+      ansible.builtin.assert:
+        that: homeassistant_cleanup_running.startswith(homeassistant_release ~ '.')
+        fail_msg: Home Assistant does not run release {{ homeassistant_release }}, so its copy may still be needed.
+        quiet: true
+      vars:
+        homeassistant_cleanup_running: >-
+          {{ (homeassistant_cleanup_container.stdout | from_json)[0].Config.Labels['org.opencontainers.image.version'] }}
+
+    - name: It answers
+      ansible.builtin.uri:
+        url: "{{ homeassistant_upgrade_url }}/manifest.json"
+      check_mode: false
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ homeassistant_upgrade_backup }}"
+        state: absent
+
+    - name: Home Assistant's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ homeassistant_upgrade_image.rsplit(':', 1) | first }}"]
+      register: homeassistant_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    # The declared image stays, by any of its names; podman refuses to remove
+    # an image a container uses.
+    - name: The images of other releases removed
+      ansible.builtin.command:
+        argv: [podman, image, rm, "{{ item.Id }}"]
+      loop: >-
+        {{ homeassistant_cleanup_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', homeassistant_upgrade_image) | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Give the NCSU tunnel its Duo passcodes. In NC State's Duo device management,
 # add a tablet with Duo Mobile, then pass the activation code its QR code holds,
 # <code>-<base64 of Duo's API host>, as -e ncsu_duo_activation=... after
