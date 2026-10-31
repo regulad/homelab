@@ -138,7 +138,7 @@ cloud-init.
         - [x] homeassistant, with matter-server, on release 2026.10, its monthly releases moved by `maintenance.yml`'s `homeassistant-upgrade`
           - [x] matter-server: matterjs-server, upstream's successor to the archived python-matter-server, whose fabric it migrated at its first start
         - [x] nextcloud, with MariaDB and Redis: the stock image with the host's `/etc/ssl/certs`, in place of the local `nextcloud-ca` build; its data moved to `/srv/nextcloud`, its background jobs to a timer, its LDAP to wako; notify_push disabled
-          - [ ] `nextcloud_release` from 32.0.3 to 32, whose patches podman-auto-update then brings in
+          - [x] `nextcloud_release` from 32.0.3 to 32, whose patches podman-auto-update then brings in
           - [ ] A `maintenance.yml` play moving Nextcloud a major release at a time, as `jellyfin-upgrade` does, then up to 35
           - [ ] Docker's stopped project, `/root/compose/nextcloud`, its containers and volumes, and the `nextcloud-ca` image removed
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile

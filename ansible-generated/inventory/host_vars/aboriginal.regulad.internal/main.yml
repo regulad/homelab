@@ -302,11 +302,11 @@ homeassistant_release: "2026.10"
 # Its config directory, its own state, on the SSD.
 homeassistant_config_dir: /mnt/ssd/homeassistant
 
-# Nextcloud's release, which its image tag follows (<release>-apache), quoted:
-# a major, whose patches podman-auto-update brings in, the image's entrypoint
-# running occ upgrade at a new patch's first start. 32.0.3, the release Docker
-# ran, for the move from it; 32 afterwards.
-nextcloud_release: "32.0.3"
+# Nextcloud's major release, which its image tag follows (<release>-apache),
+# quoted. Never a patch: podman-auto-update brings in the major's patches
+# through the tag, the image's entrypoint running occ upgrade at a new
+# patch's first start.
+nextcloud_release: "32"
 # Its data directory, Nextcloud's own state.
 nextcloud_data_dir: /srv/nextcloud
 
