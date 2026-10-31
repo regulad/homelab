@@ -1062,14 +1062,15 @@
 # migrates the config directory's storage and the recorder's database in ways
 # only a restore undoes, so with Home Assistant stopped it copies the config
 # directory (a reflink copy on the SSD's btrfs where it can be, sharing its
-# blocks until they change) and the compose file, then starts the new release. It counts the
-# release as up once its frontend answers, its .HA_VERSION names the pulled
-# image's version, which Home Assistant writes as it upgrades the directory,
-# and its log has not activated recovery mode, the mode a failed core
-# integration or configuration starts it in. It refuses a downgrade, and does
-# nothing where the declared release already runs. If anything fails after the
-# copy, it puts the copy and the old compose file back, starts the old release
-# again, then fails: revert homeassistant_release before the next site.yml.
+# blocks until they change) and the compose file, then starts the new
+# release. It counts the release as up once its frontend answers, its
+# .HA_VERSION names the pulled image's version, which Home Assistant writes as
+# it upgrades the directory, and its log has not activated recovery mode, the
+# mode a failed core integration or configuration starts it in. It refuses a
+# downgrade, and does nothing where the declared release already runs. If
+# anything fails after the copy, it puts the copy and the old compose file
+# back, starts the old release again, then fails: revert homeassistant_release
+# before the next site.yml.
 # What a release's notes ask for afterwards is left to the UI.
 - name: Home Assistant upgrade to its declared release
   hosts: podman_hosts
