@@ -1351,3 +1351,8 @@ findings that would help a future session. Append new entries at the end.
 
 - clamonacc logs `ClamInotif: extra scanning on inotify events enabled` once it has walked every watched tree at start, after any `could not watch path` (`inotif.c`, the same in 1.4.4, 1.4.6 and 1.5.4). The unit's `ExecStartPost`, `/usr/local/libexec/clamonacc-watched`, waits up to 120 s for that line and fails the start if a tree was lost; with extra scanning off nothing marks the walk's end, so the unit runs no check. A start returns only after the walk, so the temporary directory of whatever started it, Ansible's included, stays put meanwhile: no restart from the role has lost a tree since.
 - On systemd 255, a failed `ExecStartPost` makes `systemctl restart` return 1, and `Restart=on-failure` starts the unit again after `RestartSec`; checked in a lima VM with a stand-in service. A role run whose restart the check fails therefore fails on that host while systemd retries.
+
+## aboriginal: llama-server and upsd on IPv6; Tailscale Serve declared (2026-10-31)
+
+- llama-server's `--host` takes comma-separated addresses. With more than one TCP address, it sets `IPV6_V6ONLY` on `::`, so `0.0.0.0,::` gives each family a socket of its own; a lone `::` would follow cpp-httplib's default, a dual-stack socket that answers IPv4 as mapped addresses.
+- upsd reads `LISTEN` only at startup, so a change needs `nut-server`'s restart, not `upsd -c reload`. Since NUT 2.8.1, `LISTEN *` binds `0.0.0.0` and `::` apart. upsc takes an IPv6 host in brackets, `upsc cyberpower@'[::1]'`; a bare `::1` fails with "no port specified after ':' separator".
