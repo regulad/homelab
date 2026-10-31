@@ -6,8 +6,7 @@ are a few native units and containers, which are moving off Docker onto
 Podman, as Parker decided, although AGENTS.md otherwise keeps a host on its
 runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`). The compose
 projects become podman-compose stacks in `/opt/<name>`, each run by
-`podman-compose@<name>.service`: jellyfin and homeassistant are, and
-nextcloud, still under `/root/compose`, is to follow.
+`podman-compose@<name>.service`: jellyfin, homeassistant and nextcloud.
 What ties a service to this VM is the hardware passed through to it or the
 mounts of the restic `nas` archive. Services with neither move to containers
 of their own.
@@ -49,6 +48,16 @@ of their own.
     cluster, when B2 is out of reach until arawi's DHCP answers, the units that
     need the mounts wait for them instead of failing. nmbd, which timed out at
     such a boot before aboriginal had its IPv4 lease, retries until it starts.
+  - Nextcloud, its MariaDB and its Redis are a podman-compose stack on a
+    network of their own, published on IPv4 alone for ingress's Caddy, the
+    family its `trusted_proxies` name. Its image is the stock one, with the
+    host's `/etc/ssl/certs` bound in for its LDAPS to wako; its code is the
+    `nextcloud_html` volume, which the image's entrypoint upgrades, and its
+    data `/srv/nextcloud`, its own state, as are its config and database
+    volumes and its LDAP settings. It follows `nextcloud_release`; its
+    background jobs run from `nextcloud-cron.timer`. Pretty URLs are off:
+    its `.htaccess` lacks `occ maintenance:update:htaccess`'s section, so its
+    links go through `index.php`.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
   masked, as `nut.target` would start it to fail. The APC's section in
