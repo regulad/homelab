@@ -419,3 +419,6 @@ lime_macs:
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKLO8lBBQnXIv5q1jUvzZuFylziJ8ucltk+vKmySrsMW
       # yamllint disable-line rule:line-length
       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCjRuDCNvMTBXVfpu6ArjGu+3w8sAwZpGsbOdw7DxIuS7NdR3Wt+2MJe8VAQE5oj2uTcDyNLvmZDa0jgFxNkP4WtDNZp988mfRz3B53VByJ01YY1786VqZwX0fBPSqLz7RgzfG+crE8mOwjNdkTHZcEW2bOT7dmNA2cBXySAPGJcgpgIqBx3JamTRqrQCGS57UezZBCjAKNstCXjXVQx3JlqvBeP1QFmlL090zgb8YWRryQH2fsXsbTBcRBBF+HT0HNTnoc6y31c9gB+un+Fd4UiPMjYMB+y+KxS5+TyQcIC5OT7sGy3RuMPTq85DflOogKYRqx47hpoI82AXe6ui1wAvoJmBzAxazAMAy4QwON8O03EIkli4Tx8mQ51IpAujUv9O2Pan23qsIPJTgfbIxMvXhQsDZJkjaZ6VKc13adShbx0o8Nv/BP9BIt8Q/5UPceRobH4Q4VY2UcVmuDfwxV7/g7UvOagvBBXuyyHG7Tp4TwcFPeCis/S8SRcdf7HBU=
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true
