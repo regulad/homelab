@@ -141,10 +141,9 @@ cloud-init.
           - [x] `nextcloud_release` from 32.0.3 to 32, whose patches podman-auto-update then brings in
           - [ ] A `maintenance.yml` play moving Nextcloud a major release at a time, as `jellyfin-upgrade` does, then up to 35
           - [x] Docker's stopped project, `/root/compose/nextcloud`, its containers and volumes, and the `nextcloud-ca` image removed
-      - [ ] The rest of Podman's storage rewritten no-COW, as the podman role now makes new volumes and layers: `ring-mqtt_data`, `homeassistant_matter_data`, mosquitto's two empty anonymous volumes, and the image layers, by pulling each image again
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [x] nginxproxymanagerlocal retired; `archive` moved to Caddy on ingress, behind an LDAP login check bound as `svc-ingress`
-      - [ ] Docker removed once nothing runs on it, with `docker.service.d`'s override; nothing runs on it, and root's prune cron jobs are gone
+      - [x] Docker removed once nothing runs on it, with root's prune cron jobs, `docker.service.d`'s override, and its firewalld zone and policy
     - [x] Remove the orphaned volumes: api-docker's, aternos's, cordpepperer's, `dcef_cache`, immich's, invidious's, `mariadb_mariadb`, minio's, nextcloud's `data` and `db-logs`, peppercord's, pepperfriend's, `portainer_data`, and qb-clearnet's old `tor-*`
     - [x] cloudflared and winbind uninstalled, with cloudflared's units, apt source and key, and winbind's hand-edited unit
       - [x] The `aboriginal` tunnel and its routes' DNS records (`hass-livingston`, `archive`, `qb-clearnet`) deleted from Cloudflare

@@ -2,9 +2,8 @@
 
 VM 100 on gonkputer: a hardware install of Ubuntu imaged into a VM, and also a
 remote workstation, so nothing under `/home/regulad` is managed. Its services
-are a few native units and containers, which are moving off Docker onto
-Podman, as Parker decided, although AGENTS.md otherwise keeps a host on its
-runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`). The compose
+are a few native units and containers, moved off Docker onto Podman, as
+Parker decided, although AGENTS.md otherwise keeps a host on its runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`). The compose
 projects become podman-compose stacks in `/opt/<name>`, each run by
 `podman-compose@<name>.service`: jellyfin, homeassistant and nextcloud.
 What ties a service to this VM is the hardware passed through to it or the
@@ -171,8 +170,11 @@ of their own.
   `qb-clearnet`.
 - **Docker's nextcloud project**: `/root/compose/nextcloud`, its containers,
   volumes and network, the `nextcloud-ca` image, root's cron line for its
-  background jobs, and root's hourly Docker prune jobs. Docker itself is
-  still installed, with nothing in it.
+  background jobs, and root's hourly Docker prune jobs.
+- **Docker**: its packages (`docker.io`, `docker-buildx`,
+  `docker-compose-v2`, `containerd`), state, configuration, `docker.service`
+  override, bridge, and firewalld zone and policy. `runc` stays, as Podman
+  runs on it.
 - **nginxproxymanagerlocal**: NPMplus, its MariaDB and its ldap-auth. Every
   proxy host was reached only through the tunnel; the one still wanted,
   `archive` (regulad's rootless `dcef`), is now Caddy's on ingress, behind an

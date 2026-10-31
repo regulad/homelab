@@ -47,11 +47,10 @@ host_files_pipx: [huggingface-hub==2.2.0]
 # The mounts under /mnt, beside /mnt/ssd and /mnt/cephfs from fstab: the
 # restic repository, its nas archive, the two overlays of that archive under
 # CephFS, /mnt/media remapped for Nextcloud, and the Ceph RGW through rclone.
-# Mount units are not restarted on change: Docker, and so every container,
-# restarts with them; a change applies at the next mount.
+# Mount units are not restarted on change: the stacks and services that
+# require them, and so their containers, restart with them; a change applies
+# at the next mount.
 host_files_directories:
-  - path: /etc/systemd/system/docker.service.d
-    mode: "0755"
   - path: /etc/systemd/system/smbd.service.d
     mode: "0755"
   - path: /etc/systemd/resolved.conf.d
@@ -111,8 +110,6 @@ host_files_list:
       upstreams = {{ rgw_backup_buckets | zip(rgw_backup_buckets | map('regex_replace', '^', 'rgw:')) | map('join', '=') | join(' ') }}
     secret: true
     restarts: [mnt-rgw.service]
-  - path: /etc/systemd/system/docker.service.d/override.conf
-    mode: "0644"
   - path: /etc/systemd/system/smbd.service.d/override.conf
     mode: "0644"
   # Samba, a standalone server: the media share and the homes on CephFS. Its
@@ -209,7 +206,7 @@ host_files_list:
     mode: "0644"
     restarts: [podman-compose@jellyfin.service]
   # Its containers bind these mounts, so the stack starts after them and
-  # restarts with them, as docker.service does.
+  # restarts with them.
   - path: /etc/systemd/system/podman-compose@jellyfin.service.d/mounts.conf
     mode: "0644"
     content: |
@@ -404,8 +401,7 @@ base_hostname_managed: true
 # Both LAN interfaces are trusted, so firewalld filters nothing here: Home
 # Assistant and the Matter server take traffic on ports chosen at run time (UPnP
 # event callbacks, SSDP replies, Matter subscription reports), which no zone can
-# list. The default zone holds only what the package ships. Docker keeps its
-# own zone and policy.
+# list. The default zone holds only what the package ships.
 firewalld_zones:
   public:
     services: [ssh, dhcpv6-client]
