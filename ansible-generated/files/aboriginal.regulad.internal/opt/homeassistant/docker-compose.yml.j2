@@ -29,6 +29,10 @@ services:
       # ZHA's Zigbee stick.
       - /dev/ttyUSB0:/dev/ttyUSB0
     restart: always
+    # The image's s6 gives Home Assistant up to 4 minutes to stop
+    # (S6_SERVICES_GRACETIME); Podman's default would kill it after 10 s,
+    # before it has finished shutting down and closed its database.
+    stop_grace_period: 4m
   matter-server:
     # python-matter-server's last release under this name, which upstream has
     # archived for matterjs-server.

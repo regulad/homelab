@@ -71,7 +71,9 @@ of their own.
     its own state. Its image follows `homeassistant_release`, a monthly
     `YYYY.MM` release, which only `maintenance.yml`'s `homeassistant-upgrade`
     moves, with a copy to roll back to. It writes its own root, installing
-    its integrations' Python packages into the image as it loads them.
+    its integrations' Python packages into the image as it loads them, so a
+    new container installs them again at its first start. A stop gives it
+    the 4 minutes its image's s6 allows, where Podman's default is 10 s.
   - matter-server is python-matter-server 8.1.0, the last image published
     under `home-assistant-libs`, and uses no Bluetooth. Upstream archived it
     for matterjs-server, which migrates its fabric at its first start, with

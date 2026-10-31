@@ -219,6 +219,14 @@ host_files_list:
       [Unit]
       RequiresMountsFor={{ homeassistant_config_dir }}
     restarts: [podman-compose@homeassistant.service]
+  # Longer than the 4 minutes podman-compose down gives Home Assistant to stop
+  # (its stop_grace_period), so systemd does not cut it short.
+  - path: /etc/systemd/system/podman-compose@homeassistant.service.d/stop.conf
+    mode: "0644"
+    content: |
+      [Service]
+      TimeoutStopSec=5min
+    restarts: [podman-compose@homeassistant.service]
 rgw_backup_buckets: [synapse-media, mastodon-media]
 
 # Jellyfin's major release, which its image tag follows. To move to the next,
@@ -230,7 +238,8 @@ jellyfin_major: 12
 jellyfin_config_dir: /mnt/ssd/jellyfin/config
 
 # Home Assistant's monthly release, YYYY.MM, which its image tag follows, quoted
-# so that 2026.10 stays itself. To move to another, bump it and run
+# so that 2026.10 stays itself. Never a patch: podman-auto-update brings in the
+# release's patches through the tag. To move to another, bump it and run
 # maintenance.yml's homeassistant-upgrade, not site.yml: site.yml would restart
 # onto it, migrating its database, with no copy to return to.
 homeassistant_release: "2026.6"
