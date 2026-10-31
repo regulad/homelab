@@ -26,6 +26,15 @@ After=network-online.target
 # scans files only root can read.
 {% endif %}
 ExecStart=/usr/sbin/clamonacc --foreground --wait{{ ' --fdpass' if clamonacc_clamd_local else '' }} --config-file={{ clamonacc_config }}{{ (' --move=' ~ clamonacc_quarantine) if clamonacc_quarantine else '' }}
+{% if clamonacc_extra_scanning %}
+# Waits until clamonacc has walked every watched tree, and fails the start if it
+# lost one (https://github.com/Cisco-Talos/clamav/issues/186), so that Restart=
+# starts it again. A start returns only once the walk is over, so the files of
+# whatever started it, such as Ansible's temporary directory, stay put
+# meanwhile. --wait's 30 seconds for clamd come first.
+ExecStartPost=/usr/local/libexec/clamonacc-watched 120
+TimeoutStartSec=180
+{% endif %}
 Restart=on-failure
 RestartSec=30
 # /run/clamonacc, the TemporaryDirectory its configuration names in place of

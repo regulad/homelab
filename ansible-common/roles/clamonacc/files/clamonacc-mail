@@ -16,7 +16,8 @@
 # A directory that vanishes while clamonacc walks a watched tree at start makes
 # it log "could not watch path '<tree>', ..." and run on without watching that
 # tree, until it restarts (https://github.com/Cisco-Talos/clamav/issues/186).
-# Those lines are mailed apart, as they are.
+# The unit's start check then fails the start, and systemd starts it again 30
+# seconds later. Those lines are mailed apart, as they are.
 set -euo pipefail
 
 cursor=$STATE_DIRECTORY/cursor
@@ -39,7 +40,7 @@ if [[ -n $found ]]; then
 fi
 if [[ -n $unwatched ]]; then
     printf '%s\n\n%s\n' "$unwatched" \
-        'clamonacc watches none of these until it restarts: systemctl restart clamav-clamonacc.service' \
+        'clamonacc failed its start over this, and systemd starts it again 30 seconds later; systemctl status clamav-clamonacc.service shows how that went.' \
         | mail -s "ClamAV on $host: directories not watched" root
 fi
 mv "$cursor.next" "$cursor"

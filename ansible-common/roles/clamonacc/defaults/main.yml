@@ -46,7 +46,9 @@ clamonacc_clamd_local: false
 clamonacc_clamd_socket: /run/clamav/clamd.ctl
 
 # Also scan files when they are created, moved in or closed after writing, not
-# only when they are opened.
+# only when they are opened. clamonacc logs its being on once it has walked the
+# watched trees at start, which the unit's start check waits for; with it off,
+# the unit cannot tell when a tree was lost, and runs no check.
 clamonacc_extra_scanning: true
 # Hold each open until clamd's verdict, and deny an infected file. Off, because
 # clamonacc scans one file at a time

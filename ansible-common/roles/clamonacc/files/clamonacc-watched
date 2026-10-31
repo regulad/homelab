@@ -1,0 +1,37 @@
+#!/bin/sh
+# Managed by Ansible (clamonacc). clamav-clamonacc.service's ExecStartPost:
+#
+#   clamonacc-watched [seconds]
+#
+# clamonacc gives up on a watched tree if a directory in it vanishes while it
+# walks the tree at start, logging "could not watch path '<tree>', ...", and
+# runs on without that tree (https://github.com/Cisco-Talos/clamav/issues/186).
+# This waits until the walk is over, which clamonacc marks by logging "extra
+# scanning on inotify events enabled", and fails the start if a tree was lost,
+# so that Restart= starts clamonacc again. It also fails if clamonacc exits
+# before then, and gives up waiting, without failing, after the given seconds
+# (120 unless given). systemd provides INVOCATION_ID and MAINPID.
+set -u
+limit=${1:-120}
+deadline=$(($(date +%s) + limit))
+while :; do
+    log=$(journalctl _SYSTEMD_INVOCATION_ID="$INVOCATION_ID" --output=cat --no-pager)
+    case $log in
+    *"could not watch path"*)
+        echo "clamonacc lost a watched tree while starting; failing its start, so that it starts again" >&2
+        exit 1
+        ;;
+    *"extra scanning on inotify events enabled"*)
+        exit 0
+        ;;
+    esac
+    if ! kill -0 "$MAINPID" 2>/dev/null; then
+        echo "clamonacc exited while starting" >&2
+        exit 1
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+        echo "clamonacc had not finished walking its watched trees after $limit s; not waiting longer" >&2
+        exit 0
+    fi
+    sleep 1
+done
