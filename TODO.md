@@ -19,7 +19,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] The new CA in `ca_trust` as `freeipa-regulad.internal`, beside the old server's, renamed `freeipa-home.arpa`, while the stand-in presents the old server's certificate. FreeIPA's own tooling deletes anchors named `ipa-ca`, as `ipa-server-install` did on wako, so `ca_trust_retired` removes the old name
   - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with the old server's own certificate. No Kerberos; its RADIUS proxy is retired, as softether, the last RADIUS client, uses wako directly
   - [x] The hardware stage's `mail_relay` manages its null- accounts on wako, through prodingus, as the generated stage does through wako itself
-  - [ ] Very low priority, each done only when other work on that consumer is already under way: consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Nextcloud and Jellyfin on aboriginal; Synapse; Open WebUI
+  - [ ] Very low priority, each done only when other work on that consumer is already under way: consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Jellyfin on aboriginal; Synapse; Open WebUI
   - [x] A new FreeRADIUS on wako, against its directory, replacing the one set up by hand on the FreeIPA VM with three clients; softether is its one client
   - [x] Backups: the weekly vzdump, which covers wako; no `ipa-backup`
   - [x] Anonymous LDAP read closed: anonymous clients get only the root DSE
@@ -137,7 +137,10 @@ cloud-init.
         - [x] jellyfin, on release 12, its major releases moved by `maintenance.yml`'s `jellyfin-upgrade`
         - [x] homeassistant, with matter-server, on release 2026.10, its monthly releases moved by `maintenance.yml`'s `homeassistant-upgrade`
           - [x] matter-server: matterjs-server, upstream's successor to the archived python-matter-server, whose fabric it migrated at its first start
-        - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
+        - [x] nextcloud, with MariaDB and Redis: the stock image with the host's `/etc/ssl/certs`, in place of the local `nextcloud-ca` build; its data moved to `/srv/nextcloud`, its background jobs to a timer, its LDAP to wako; notify_push disabled
+          - [ ] `nextcloud_release` from 32.0.3 to 32, whose patches podman-auto-update then brings in
+          - [ ] A `maintenance.yml` play moving Nextcloud a major release at a time, as `jellyfin-upgrade` does, then up to 35
+          - [ ] Docker's stopped project, `/root/compose/nextcloud`, its containers and volumes, and the `nextcloud-ca` image removed
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [x] nginxproxymanagerlocal retired; `archive` moved to Caddy on ingress, behind an LDAP login check bound as `svc-ingress`
       - [ ] Docker removed once nothing runs on it, with root's prune cron jobs and `docker.service.d`'s override
