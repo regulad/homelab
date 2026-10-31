@@ -5,7 +5,7 @@ declarative: OpenTofu for machines, Ansible and Podman Quadlets for what runs on
 them. Parker supervises and approves.
 
 - **Plan and status:** [`.claude/PLAN.md`](.claude/PLAN.md) has the goals, phases, and each phase's current status.
-- **History:** [`.claude/HISTORY.md`](.claude/HISTORY.md) records what was done, each entry a title and the technical findings likely to help a later session. Append new history there and nowhere else.
+- **History:** [`.claude/history/`](.claude/history/) records what was done, one file per entry, each a title and the technical findings likely to help a later session. Add new history there, as a new entry, and nowhere else.
 - **Directory detail:** each `README.md`, starting with [`tofu/oracle/README.md`](tofu/oracle/README.md).
 - **Platform:** Unix-like systems only: Linux (WSL counts) or macOS, with a POSIX shell. Native Windows is not supported; write scripts and documented commands for `sh`/`bash`, never PowerShell or batch.
 - **Managed elsewhere:** the tailnet's ACL policy and DNS live in [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles). Never add or change either from this repository.
@@ -42,7 +42,7 @@ model is Parker's decision.
 homelab/
 ├── AGENTS.md, README.md
 ├── .alock.json                  # alock's OpenTofu roots, each with the inventory of the hosts it creates
-├── .claude/                     # PLAN.md, HISTORY.md, settings.json (pins the alock plugin), worktrees/ (gitignored)
+├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy, Ansible lint hooks
 ├── .sops.yaml, .gitignore
 ├── docs/
@@ -142,7 +142,7 @@ plan shows an unintended destroy or replace.
 
 ## Conventions
 
-- **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened by appending to `.claude/HISTORY.md`: a title saying what was done, and only the findings a later session could use, not approvals, apply counts or routine confirmations.
+- **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened as a new entry in `.claude/history/`, a file named `<date>.<slug>.md` as its README describes: a title saying what was done, and only the findings a later session could use, not approvals, apply counts or routine confirmations.
 - **Guest names:** lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
 - **Tags:** every guest is marked as managed by OpenTofu: `managed-by=opentofu` on OCI instances, and the tag `terraform` on Proxmox guests, whose tags cannot contain `=`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
 - **OS groups:** every host Ansible manages is in exactly one OS group, `debian`, `ubuntu`, `rhel` (Oracle Linux, Rocky and Alma), `freebsd` (pfSense) or `macos`, which roles such as `ca_trust` key their behaviour on through `group_vars/<os>.yml`. Generated hosts get it from OpenTofu: an `os` freeform tag on OCI instances, and the group in each Proxmox guest's `ansible_host`. Hardware hosts list it in `hardware.yml`.
