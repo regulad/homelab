@@ -11,6 +11,11 @@ tailscale_settings:
   # resolvers, which this host cannot reach, so every failed lookup waited
   # on them. arawi resolves the tailnet's names in its stead.
   accept_dns: false
+# regulad's own Syncthing GUI, on loopback at its default port, as HTTPS on
+# the tailnet.
+tailscale_serve:
+  - port: 8384
+    target: http://localhost:8384
 
 # The ubuntu group's settings, but never rebooting itself: VM 100's
 # passed-through GPU does not survive the VM restarting on its own.
