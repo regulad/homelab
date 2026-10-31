@@ -42,6 +42,11 @@ services:
       io.containers.autoupdate: registry
     read_only: true
     network_mode: host
+    # Its ping, which the API's ping_node runs, carries the file capability
+    # cap_net_raw, so it cannot run where Podman withholds that, as it does
+    # by default.
+    cap_add:
+      - NET_RAW
     tmpfs:
       - /tmp
     volumes:

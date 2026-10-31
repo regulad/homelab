@@ -75,9 +75,10 @@ of their own.
     new container installs them again at its first start. A stop gives it
     the 4 minutes its image's s6 allows, where Podman's default is 10 s.
   - matter-server is matterjs-server, which migrated python-matter-server's
-    fabric at its first start, from the stack's `matter_data` volume, and
-    keeps the Python server's node file current, so that server could run on
-    the volume again. It uses no Bluetooth, and listens on loopback only.
+    fabric at its first start, in the stack's `matter_data` volume;
+    `maintenance.yml`'s `matter-server-migration-cleanup` removes what the
+    Python server leaves there. It uses no Bluetooth, listens on loopback
+    only, and has `NET_RAW`, which its ping needs.
   - mosquitto and ring-mqtt share the host's network, as Home Assistant does,
     which reaches mosquitto on localhost. Their configuration is host files,
     and ring-mqtt's Ring refresh token is state in its volume. Podman's
