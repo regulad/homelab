@@ -14,6 +14,11 @@ nextcloud.regulad.xyz {
 		respond 404
 	}
 
-	reverse_proxy aboriginal.regulad.internal:12378 {
+	# IPv4 only: Nextcloud is published on IPv4 alone and trusts its proxies by
+	# their IPv4 addresses, since ingress's GUA rotates.
+	reverse_proxy {
+		dynamic a aboriginal.regulad.internal 12378 {
+			versions ipv4
+		}
 	}
 }
