@@ -135,7 +135,8 @@ cloud-init.
       - [x] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
       - [ ] podman-compose stacks in `/opt/<name>`, each under `podman-compose@<name>.service`, of the compose projects under `/root/compose`, each removed from there once moved
         - [x] jellyfin, on release 12, its major releases moved by `maintenance.yml`'s `jellyfin-upgrade`
-        - [ ] homeassistant, with matter-server
+        - [x] homeassistant, with matter-server, on release 2026.6, its monthly releases moved by `maintenance.yml`'s `homeassistant-upgrade`
+          - [ ] matter-server from the archived python-matter-server to matterjs-server, which migrates its fabric at its first start
         - [ ] nextcloud: the stock image with the host's CA bundle, in place of the local `nextcloud-ca` build, whose context is removed
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [x] nginxproxymanagerlocal retired; `archive` moved to Caddy on ingress, behind an LDAP login check bound as `svc-ingress`
