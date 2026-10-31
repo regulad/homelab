@@ -112,7 +112,7 @@ cloud-init.
 - [ ] `aboriginal` (100): also a remote workstation, so nothing under `/home/regulad` is managed. What stays and what moves is in its [README](ansible-generated/inventory/host_vars/aboriginal.regulad.internal/README.md)
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
-  - [ ] Move to containers of their own
+  - [x] Move to containers of their own
     - [x] rsshub: to the `rsshub` container (206), a Quadlet without browserless or Redis, behind Caddy on ingress in place of the tunnel; the compose project, its images and its clone removed
     - [x] jenkins: to the `jenkins` container (207), a Quadlet behind Caddy on ingress, with `jenkins_home` on its own RBD mount point; its compose project, image, build context, data and host user removed from aboriginal
       - [x] Its LDAP realm on wako, bound as `svc-jenkins`, admitting only the `jenkinsusers` group
