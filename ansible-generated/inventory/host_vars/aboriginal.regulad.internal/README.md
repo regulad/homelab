@@ -74,6 +74,10 @@ of their own.
     its integrations' Python packages into the image as it loads them, so a
     new container installs them again at its first start. A stop gives it
     the 4 minutes its image's s6 allows, where Podman's default is 10 s.
+  - It is `hass-livingston.regulad.xyz` through ingress's Caddy. Its HTTP
+    settings, in `.storage/http` since 2026.10 rather than
+    `configuration.yaml`, trust `X-Forwarded-For` from ingress's addresses
+    alone.
   - matter-server is matterjs-server, which migrated python-matter-server's
     fabric at its first start, in the stack's `matter_data` volume;
     `maintenance.yml`'s `matter-server-migration-cleanup` removes what the
@@ -150,9 +154,9 @@ of their own.
   holding no key, the mail null-client script, an old backup run's output, a
   GPT backup of the original, larger disk, the IPA client's directory, and
   the `nextcloud-ca` build context.
-- **cloudflared**, ahead of its last routes, `hass-livingston`, `archive` and
-  `qb-clearnet`, none of them needed, with the tunnel and those routes' DNS
-  records.
+- **cloudflared**, with the tunnel and its last routes' DNS records:
+  `hass-livingston`, since back on ingress's Caddy, `archive` and
+  `qb-clearnet`.
 - **nginxproxymanagerlocal**: NPMplus, its MariaDB and its ldap-auth. Every
   proxy host was reached only through the tunnel; the one still wanted,
   `archive` (regulad's rootless `dcef`), is now Caddy's on ingress, behind an
