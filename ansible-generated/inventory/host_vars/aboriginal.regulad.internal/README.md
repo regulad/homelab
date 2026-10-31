@@ -54,7 +54,8 @@ of their own.
     host's `/etc/ssl/certs` bound in for its LDAPS to wako; its code is the
     `nextcloud_html` volume, which the image's entrypoint upgrades, and its
     data `/srv/nextcloud`, its own state, as are its config and database
-    volumes and its LDAP settings. It follows `nextcloud_release`; its
+    volumes and its LDAP settings. All of them are no-COW, the volumes as
+    Podman's storage now is. It follows `nextcloud_release`; its
     background jobs run from `nextcloud-cron.timer`. Pretty URLs are off:
     its `.htaccess` lacks `occ maintenance:update:htaccess`'s section, so its
     links go through `index.php`.
@@ -168,6 +169,10 @@ of their own.
 - **cloudflared**, with the tunnel and its last routes' DNS records:
   `hass-livingston`, since back on ingress's Caddy, `archive` and
   `qb-clearnet`.
+- **Docker's nextcloud project**: `/root/compose/nextcloud`, its containers,
+  volumes and network, the `nextcloud-ca` image, root's cron line for its
+  background jobs, and root's hourly Docker prune jobs. Docker itself is
+  still installed, with nothing in it.
 - **nginxproxymanagerlocal**: NPMplus, its MariaDB and its ldap-auth. Every
   proxy host was reached only through the tunnel; the one still wanted,
   `archive` (regulad's rootless `dcef`), is now Caddy's on ingress, behind an
