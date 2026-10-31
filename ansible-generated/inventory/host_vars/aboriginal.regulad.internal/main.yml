@@ -453,10 +453,13 @@ netplan_config:
         use-dns: false
       accept-ra: true
       # NetworkManager would take router advertisements' DNS, the upstream
-      # router's, without ignore-auto-dns.
+      # router's, without ignore-auto-dns. firewalld takes the zone of an
+      # interface NetworkManager manages from its connection whenever it
+      # reloads, ahead of the zone files, so the connection names trusted.
       networkmanager:
         passthrough:
           ipv6.ignore-auto-dns: "true"
+          connection.zone: trusted
       nameservers:
         addresses:
           - "{{ lan_arawi.ipv6 }}"
