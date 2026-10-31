@@ -1,0 +1,10 @@
+# Home Assistant on aboriginal, which trusts the X-Forwarded-For of ingress's
+# addresses alone (trusted_proxies in its configuration.yaml).
+hass-livingston.regulad.xyz {
+	import hsts
+	import common
+	import cache
+
+	reverse_proxy aboriginal.regulad.internal:8123 {
+	}
+}
