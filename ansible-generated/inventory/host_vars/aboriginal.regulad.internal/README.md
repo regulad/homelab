@@ -83,10 +83,9 @@ of their own.
   in place of NPMplus and the tunnel, with `jenkins_home` on its own mount
   point. The stock image reads the container's Java keystore, which
   `ca_trust_java` keeps, in place of the `jenkins-ca` build.
-  - It builds nothing: no executors, and no job but a GitHub organization
-    folder whose credential is dead. Its Docker cloud `tinker` and its one
-    agent, a phone, were unreachable and are removed, with aboriginal's
-    `jenkins` user, which only carried the tunnel to `tinker`.
+  - It has no executors. Its Docker cloud `tinker` and its one agent, a
+    phone, were unreachable and are removed, with aboriginal's `jenkins`
+    user, which only carried the tunnel to `tinker`.
 - **I2P**: the `i2p` container runs i2pd, whose SAM qb uses. The old I2P's
   volumes and its tunnel route are removed.
 - **qb-clearnet**: to the `qb` container, the lab's one qBittorrent, a Quadlet
