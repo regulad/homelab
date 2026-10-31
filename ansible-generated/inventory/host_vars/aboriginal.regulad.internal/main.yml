@@ -241,7 +241,7 @@ llama_cpp_build_packages:
   - libssl-dev
   - libcurl4-openssl-dev
 
-# llama-server's port, on IPv4 only (README), and the model it serves: its
+# llama-server's port, on IPv4 and IPv6, and the model it serves: its
 # GGUF and multimodal projector, from a Hugging Face repository, kept in a
 # directory of CephFS named for the alias it is served as.
 llama_server_port: 9292

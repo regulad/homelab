@@ -15,8 +15,9 @@ ExecStartPre=/bin/sh -c 'test -f {{ model_dir }}/{{ llama_server_model.file }} \
     || exec /usr/local/bin/hf download {{ llama_server_model.repo }} \
     {{ llama_server_model.file }} {{ llama_server_model.mmproj }} --local-dir {{ model_dir }}'
 TimeoutStartSec=infinity
+# With more than one address, :: binds IPv6 only, beside 0.0.0.0's IPv4.
 ExecStart={{ llama_cpp_dir }}/build/bin/llama-server \
-    --host 0.0.0.0 \
+    --host 0.0.0.0,:: \
     --port {{ llama_server_port }} \
     -m {{ model_dir }}/{{ llama_server_model.file }} \
     -np 1 \

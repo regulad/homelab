@@ -29,7 +29,7 @@ of their own.
     ahead with one block where HIP's occupancy API reports none on RDNA2
     (ggml-org/llama.cpp#23310). Each build has a directory of its own, and
     `build`, from which the unit runs, points at the current one. It listens
-    on IPv4 only.
+    on IPv4 and IPv6, a socket for each.
   - Its model, `llama_server_model`, is on CephFS in
     `/mnt/cephfs/application/llama-models`. Where either of its files is
     missing, the unit downloads both from Hugging Face before it starts, with
