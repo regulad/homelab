@@ -1,10 +1,16 @@
 # Home Assistant on aboriginal, which trusts the X-Forwarded-For of ingress's
-# addresses alone (trusted_proxies in its HTTP settings, .storage/http).
+# reserved IPv4 address alone (trusted_proxies in its HTTP settings,
+# .storage/http).
 hass-livingston.regulad.xyz {
 	import hsts
 	import common
 	import cache
 
-	reverse_proxy aboriginal.regulad.internal:8123 {
+	# IPv4 only: ingress's GUA rotates with the delegated prefix, so Home
+	# Assistant cannot list it among its trusted proxies.
+	reverse_proxy {
+		dynamic a aboriginal.regulad.internal 8123 {
+			versions ipv4
+		}
 	}
 }

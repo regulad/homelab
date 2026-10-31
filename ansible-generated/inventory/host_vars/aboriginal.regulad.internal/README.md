@@ -74,10 +74,10 @@ of their own.
     its integrations' Python packages into the image as it loads them, so a
     new container installs them again at its first start. A stop gives it
     the 4 minutes its image's s6 allows, where Podman's default is 10 s.
-  - It is `hass-livingston.regulad.xyz` through ingress's Caddy. Its HTTP
-    settings, in `.storage/http` since 2026.10 rather than
-    `configuration.yaml`, trust `X-Forwarded-For` from ingress's addresses
-    alone.
+  - It is `hass-livingston.regulad.xyz` through ingress's Caddy, over IPv4
+    alone, as Jellyfin is: its HTTP settings, in `.storage/http` since
+    2026.10 rather than `configuration.yaml`, trust `X-Forwarded-For`
+    from ingress's reserved IPv4 address only, as ingress's GUA rotates.
   - matter-server is matterjs-server, which migrated python-matter-server's
     fabric at its first start, in the stack's `matter_data` volume;
     `maintenance.yml`'s `matter-server-migration-cleanup` removes what the
