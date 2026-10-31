@@ -6,8 +6,8 @@ are a few native units and containers, which are moving off Docker onto
 Podman, as Parker decided, although AGENTS.md otherwise keeps a host on its
 runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`). The compose
 projects become podman-compose stacks in `/opt/<name>`, each run by
-`podman-compose@<name>.service`: jellyfin is one, and those still under
-`/root/compose` are to follow.
+`podman-compose@<name>.service`: jellyfin and homeassistant are, and
+nextcloud, still under `/root/compose`, is to follow.
 What ties a service to this VM is the hardware passed through to it or the
 mounts of the restic `nas` archive. Services with neither move to containers
 of their own.
@@ -66,6 +66,16 @@ of their own.
   Home Assistant OS VM with the USB devices passed through, but Home Assistant
   needs the host's Bluetooth stack: its Bluetooth integrations reach BlueZ
   over `/run/dbus`. ZHA holds the Zigbee stick on `/dev/ttyUSB0`.
+  - Home Assistant and matter-server are a podman-compose stack, privileged,
+    on the host's network. Home Assistant's config directory, on the SSD, is
+    its own state. Its image follows `homeassistant_release`, a monthly
+    `YYYY.MM` release, which only `maintenance.yml`'s `homeassistant-upgrade`
+    moves, with a copy to roll back to. It writes its own root, installing
+    its integrations' Python packages into the image as it loads them.
+  - matter-server is python-matter-server 8.1.0, the last image published
+    under `home-assistant-libs`, and uses no Bluetooth. Upstream archived it
+    for matterjs-server, which migrates its fabric at its first start, with
+    no way back. Its fabric is in the stack's `matter_data` volume.
   - mosquitto and ring-mqtt share the host's network, as Home Assistant does,
     which reaches mosquitto on localhost. Their configuration is host files,
     and ring-mqtt's Ring refresh token is state in its volume. Podman's
@@ -131,6 +141,8 @@ of their own.
   client configuration, and state. The HOME.ARPA CA stays trusted, from
   `ca_trust`.
 - **winbind**: a standalone Samba does not use it.
+- **monitor_docker**: a custom component of Home Assistant's, reading Docker's
+  socket for two containers that no longer existed.
 - **Old tooling in root's home**: a B2 pruning script with an account file
   holding no key, the mail null-client script, an old backup run's output, a
   GPT backup of the original, larger disk, the IPA client's directory, and

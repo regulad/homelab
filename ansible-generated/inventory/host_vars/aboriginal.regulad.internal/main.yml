@@ -64,6 +64,10 @@ host_files_directories:
     mode: "0755"
   - path: /etc/systemd/system/podman-compose@jellyfin.service.d
     mode: "0755"
+  - path: /opt/homeassistant
+    mode: "0755"
+  - path: /etc/systemd/system/podman-compose@homeassistant.service.d
+    mode: "0755"
   - path: /etc/systemd/system/nmbd.service.d
     mode: "0755"
   - path: /etc/llama-server
@@ -192,7 +196,7 @@ host_files_list:
   - path: /etc/systemd/system/podman-compose@.service
     mode: "0644"
     shared_src: etc/systemd/system/podman-compose@.service
-    restarts: [podman-compose@jellyfin.service]
+    restarts: [podman-compose@jellyfin.service, podman-compose@homeassistant.service]
   - path: /opt/jellyfin/docker-compose.yml
     template: true
     mode: "0644"
@@ -205,6 +209,16 @@ host_files_list:
       [Unit]
       RequiresMountsFor=/mnt/media /mnt/ssd /mnt/cephfs/application/jellyfin_dvr
     restarts: [podman-compose@jellyfin.service]
+  - path: /opt/homeassistant/docker-compose.yml
+    template: true
+    mode: "0644"
+    restarts: [podman-compose@homeassistant.service]
+  - path: /etc/systemd/system/podman-compose@homeassistant.service.d/mounts.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor={{ homeassistant_config_dir }}
+    restarts: [podman-compose@homeassistant.service]
 rgw_backup_buckets: [synapse-media, mastodon-media]
 
 # Jellyfin's major release, which its image tag follows. To move to the next,
@@ -214,6 +228,14 @@ rgw_backup_buckets: [synapse-media, mastodon-media]
 jellyfin_major: 12
 # Its config and data directory, on the SSD.
 jellyfin_config_dir: /mnt/ssd/jellyfin/config
+
+# Home Assistant's monthly release, YYYY.MM, which its image tag follows, quoted
+# so that 2026.10 stays itself. To move to another, bump it and run
+# maintenance.yml's homeassistant-upgrade, not site.yml: site.yml would restart
+# onto it, migrating its database, with no copy to return to.
+homeassistant_release: "2026.6"
+# Its config directory, its own state, on the SSD.
+homeassistant_config_dir: /mnt/ssd/homeassistant
 
 # llama.cpp, which llama-server runs from llama_cpp_dir/build, built on this
 # host from regulad/llama.cpp's aboriginal branch: upstream with one change
@@ -276,6 +298,7 @@ host_files_units:
   - mnt-nextcloud.mount
   - mnt-media_nextcloud.mount
   - podman-compose@jellyfin.service
+  - podman-compose@homeassistant.service
   - mnt-rgw.service
   - smbd.service
   - nmbd.service

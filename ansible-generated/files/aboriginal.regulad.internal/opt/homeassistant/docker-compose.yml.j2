@@ -1,0 +1,55 @@
+# Home Assistant and its Matter server, on the host's network. Run by
+# podman-compose@homeassistant.service. Home Assistant's config, its own state,
+# is on the SSD; the Matter server's fabric is in a volume.
+# No pod: podman-compose's pods have no infra container, and podman-auto-update
+# fails on a container in one, the whole run with it.
+x-podman:
+  in_pod: false
+
+services:
+  homeassistant:
+    # homeassistant_release, which maintenance.yml's homeassistant-upgrade moves.
+    image: docker.io/homeassistant/home-assistant:{{ homeassistant_release }}
+    container_name: homeassistant
+    labels:
+      io.containers.autoupdate: registry
+    # It installs its integrations' Python packages into the image's own
+    # environment as it loads them, so it writes its root.
+    read_only: false
+    network_mode: host
+    # Bluetooth's raw sockets and the USB devices behind its integrations.
+    privileged: true
+    volumes:
+      - config:/config
+      - /etc/localtime:/etc/localtime:ro
+      # Bluetooth: USB adapters plugged in after the start, and BlueZ.
+      - /dev/bus/usb:/dev/bus/usb
+      - /run/dbus:/run/dbus:ro
+    devices:
+      # ZHA's Zigbee stick.
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    restart: always
+  matter-server:
+    # python-matter-server's last release under this name, which upstream has
+    # archived for matterjs-server.
+    image: ghcr.io/home-assistant-libs/python-matter-server:8
+    container_name: matter-server
+    labels:
+      io.containers.autoupdate: registry
+    read_only: true
+    network_mode: host
+    tmpfs:
+      - /tmp
+    volumes:
+      - matter_data:/data
+    restart: always
+    environment:
+      TZ: America/New_York
+volumes:
+  config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ homeassistant_config_dir }}
+  matter_data:
