@@ -1358,6 +1358,130 @@
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
 
+# Remove what the move from python-matter-server to matterjs-server leaves
+# behind, once matterjs-server has migrated the fabric: the copy of the Python
+# server's volume, made by hand before matterjs-server first started on it, the
+# Python server's own files in the volume, and its images. matterjs-server reads
+# chip.json only to migrate it, and keeps the Python server's node file current
+# while chip.json is there, so it is stopped while they go and started again
+# without them; the Python server then has no way back to the fabric. It refuses
+# while matterjs-server does not run, and answer, on the volume. Run it with
+# --limit <host>.
+- name: Matter server migration's leftovers removed
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [matter-server-migration-cleanup]
+  vars:
+    matter_server_cleanup_container: matter-server
+    matter_server_cleanup_image: ghcr.io/matter-js/matterjs-server
+    matter_server_cleanup_backup: /var/backups/matter-server-python
+    matter_server_cleanup_url: http://[::1]:5580
+    # The Python server's images: under its old name, which ran here, and the
+    # one its final releases moved to.
+    matter_server_cleanup_python_images:
+      - ghcr.io/home-assistant-libs/python-matter-server
+      - ghcr.io/matter-js/python-matter-server
+    # The Python server's files: its fabric (chip.json), the CHIP SDK's own
+    # settings, its node files, named for their fabric's compressed ID, with
+    # their backups, and the PAA certificates it was given, which matter.js
+    # fetches itself.
+    matter_server_cleanup_python_files: '^(chip\.json|chip_[a-z]+\.ini(-.+)?|[0-9]+\.json(\.backup)?|credentials)$'
+  tasks:
+    - name: Only where Home Assistant's stack is declared
+      ansible.builtin.meta: end_host
+      when: homeassistant_release is not defined
+
+    - name: The running container
+      ansible.builtin.command:
+        argv: [podman, container, inspect, "{{ matter_server_cleanup_container }}"]
+      register: matter_server_cleanup_inspect
+      changed_when: false
+      check_mode: false
+
+    - name: The container in use
+      ansible.builtin.set_fact:
+        matter_server_cleanup_info: "{{ (matter_server_cleanup_inspect.stdout | from_json)[0] }}"
+
+    - name: The container runs matterjs-server
+      ansible.builtin.assert:
+        that:
+          - matter_server_cleanup_info.State.Running
+          - matter_server_cleanup_info.ImageName.startswith(matter_server_cleanup_image ~ ':')
+        fail_msg: >-
+          {{ matter_server_cleanup_container }} does not run matterjs-server, so the Python server's files
+          may still be needed.
+        quiet: true
+
+    - name: It answers
+      ansible.builtin.uri:
+        url: "{{ matter_server_cleanup_url }}/health"
+      check_mode: false
+
+    - name: The Python server's files in the volume
+      ansible.builtin.find:
+        paths: >-
+          {{ matter_server_cleanup_info.Mounts | selectattr('Destination', 'eq', '/data')
+             | map(attribute='Source') | first }}
+        patterns: ["{{ matter_server_cleanup_python_files }}"]
+        use_regex: true
+        file_type: any
+      register: matter_server_cleanup_found
+
+    - name: The Python server's files removed, with the server stopped
+      when: matter_server_cleanup_found.files | length > 0
+      block:
+        - name: Stop the server
+          ansible.builtin.command:
+            argv: [podman, stop, "{{ matter_server_cleanup_container }}"]
+          changed_when: true
+
+        - name: Remove the files
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ matter_server_cleanup_found.files }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+
+      always:
+        - name: Start the server
+          ansible.builtin.command:
+            argv: [podman, start, "{{ matter_server_cleanup_container }}"]
+          changed_when: true
+
+        - name: Wait for it to answer
+          ansible.builtin.uri:
+            url: "{{ matter_server_cleanup_url }}/health"
+          register: matter_server_cleanup_health
+          until: matter_server_cleanup_health.status | default(0) == 200
+          retries: 30
+          delay: 2
+          when: not ansible_check_mode
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ matter_server_cleanup_backup }}"
+        state: absent
+
+    - name: The Python server's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ item }}"]
+      loop: "{{ matter_server_cleanup_python_images }}"
+      register: matter_server_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    - name: The Python server's images removed
+      ansible.builtin.command:
+        argv: [podman, image, rm, "{{ item.Id }}"]
+      loop: >-
+        {{ matter_server_cleanup_images.results | map(attribute='stdout') | map('from_json') | flatten
+           | unique(attribute='Id') | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Give the NCSU tunnel its Duo passcodes. In NC State's Duo device management,
 # add a tablet with Duo Mobile, then pass the activation code its QR code holds,
 # <code>-<base64 of Duo's API host>, as -e ncsu_duo_activation=... after
