@@ -612,15 +612,15 @@
 # host alone. A major release migrates the database in a way only a full
 # restore undoes, and needs its plugins rebuilt for it, so, as Jellyfin's
 # release notes direct, with Jellyfin stopped it copies the config directory (a
-# reflink copy on the SSD's btrfs, sharing its blocks until they change) and
-# the compose file, and removes the repository plugins. It then starts the new
-# release once, migrating the database without them; adds back each plugin's
-# newest build for that release, from the stable plugin repository, verified by
-# its checksum; and starts it again, checking each loads. It refuses to begin
-# while a plugin has no such build, refuses a downgrade, and does nothing where
-# the declared major release already runs. If anything fails after the copy,
-# it puts the copy and the old compose file back, starts the old release again,
-# then fails: revert jellyfin_major before the next site.yml. What a release's
+# reflink copy on the SSD's btrfs where it can be, sharing its blocks until they
+# change) and the compose file, and removes the repository plugins. It then
+# starts the new release once, migrating the database without them; adds back
+# each plugin's newest build for that release, from the stable plugin
+# repository, verified by its checksum; and starts it again, checking each
+# loads. It refuses to begin while a plugin has no such build, refuses a
+# downgrade, and does nothing where the declared major release already runs.
+# If anything fails after the copy, it puts the copy and the old compose file
+# back, starts the old release again, then fails: revert jellyfin_major before the next site.yml. What a release's
 # notes ask for afterwards, such as 12.0's full library scan, is left to the
 # dashboard.
 - name: Jellyfin upgrade to its declared major release
@@ -785,6 +785,15 @@
       # A check run creates no directory to download into.
       when: not ansible_check_mode
 
+    - name: The config directory's attributes
+      ansible.builtin.stat:
+        path: "{{ jellyfin_config_dir }}"
+      register: jellyfin_upgrade_config
+
+    # The config directory is no-COW (chattr +C), sparing its writes COW's
+    # amplification, and btrfs clones a file only into one of the same kind.
+    # The copy's directory takes its attribute, which everything cp creates
+    # in it inherits; a file from before the attribute is copied in full.
     - name: Directory for the copy
       ansible.builtin.file:
         path: "{{ jellyfin_upgrade_backup }}"
@@ -792,6 +801,7 @@
         owner: root
         group: root
         mode: "0700"
+        attributes: "{{ '+C' if 'C' in jellyfin_upgrade_config.stat.attr_flags else '-C' }}"
 
     - name: Upgrade, or roll back
       block:
@@ -807,7 +817,7 @@
 
         - name: Copy of the config directory
           ansible.builtin.command:
-            argv: [cp, -a, --reflink=always, "{{ jellyfin_config_dir }}", "{{ jellyfin_upgrade_backup }}/config"]
+            argv: [cp, -a, --reflink=auto, "{{ jellyfin_config_dir }}", "{{ jellyfin_upgrade_backup }}/config"]
           changed_when: true
 
         - name: Copy of the compose file
@@ -1051,8 +1061,8 @@
 # --limit <host> so alock locks that host alone. A release's first start
 # migrates the config directory's storage and the recorder's database in ways
 # only a restore undoes, so with Home Assistant stopped it copies the config
-# directory (a reflink copy on the SSD's btrfs, sharing its blocks until they
-# change) and the compose file, then starts the new release. It counts the
+# directory (a reflink copy on the SSD's btrfs where it can be, sharing its
+# blocks until they change) and the compose file, then starts the new release. It counts the
 # release as up once its frontend answers, its .HA_VERSION names the pulled
 # image's version, which Home Assistant writes as it upgrades the directory,
 # and its log has not activated recovery mode, the mode a failed core
@@ -1151,6 +1161,15 @@
         fail_msg: "{{ homeassistant_upgrade_image }} is release {{ homeassistant_upgrade_target }}."
         quiet: true
 
+    - name: The config directory's attributes
+      ansible.builtin.stat:
+        path: "{{ homeassistant_config_dir }}"
+      register: homeassistant_upgrade_config
+
+    # The config directory is no-COW (chattr +C), sparing its writes COW's
+    # amplification, and btrfs clones a file only into one of the same kind.
+    # The copy's directory takes its attribute, which everything cp creates
+    # in it inherits; a file from before the attribute is copied in full.
     - name: Directory for the copy
       ansible.builtin.file:
         path: "{{ homeassistant_upgrade_backup }}"
@@ -1158,6 +1177,7 @@
         owner: root
         group: root
         mode: "0700"
+        attributes: "{{ '+C' if 'C' in homeassistant_upgrade_config.stat.attr_flags else '-C' }}"
 
     - name: Upgrade, or roll back
       block:
@@ -1173,7 +1193,7 @@
 
         - name: Copy of the config directory
           ansible.builtin.command:
-            argv: [cp, -a, --reflink=always, "{{ homeassistant_config_dir }}", "{{ homeassistant_upgrade_backup }}/config"]
+            argv: [cp, -a, --reflink=auto, "{{ homeassistant_config_dir }}", "{{ homeassistant_upgrade_backup }}/config"]
           changed_when: true
 
         - name: Copy of the compose file
