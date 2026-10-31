@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
-# Managed by Ansible (clamonacc). Mails clamonacc's new detections to root
-# through the host's mail relay, which delivers every recipient to the
-# homelab's mailbox:
+# Managed by Ansible (clamonacc). Mails clamonacc's new detections, and the
+# directories it failed to watch, to root through the host's mail relay, which
+# delivers every recipient to the homelab's mailbox:
 #
 #   clamonacc-mail
 #
 # clamonacc-mail.timer runs it every minute. Each run reads clamonacc's journal
 # after the cursor the last run left in the service's state directory, and
 # mails each detection, which clamonacc logs as "<path>: <signature> FOUND", as
-# "<path>: <signature>". The cursor moves on only once the relay has the mail,
-# so a failed run is retried and nothing is mailed twice. The first run only
-# sets the cursor at the journal's end.
+# "<path>: <signature>". The cursor moves on only once the relay has every
+# mail, so a failed run is retried whole: nothing is lost, though a mail that
+# went out before the failure goes out again. The first run only sets the
+# cursor at the journal's end.
+#
+# A directory that vanishes while clamonacc walks a watched tree at start makes
+# it log "could not watch path '<tree>', ..." and run on without watching that
+# tree, until it restarts (https://github.com/Cisco-Talos/clamav/issues/186).
+# Those lines are mailed apart, as they are.
 set -euo pipefail
 
 cursor=$STATE_DIRECTORY/cursor
@@ -25,8 +31,15 @@ fi
 # Filtered here rather than with --grep, which exits 1 when nothing matches,
 # as it does on an error.
 cp "$cursor" "$cursor.next"
-found=$("${journal[@]}" --cursor-file="$cursor.next" | sed -n 's/ FOUND$//p')
+log=$("${journal[@]}" --cursor-file="$cursor.next")
+found=$(sed -n 's/ FOUND$//p' <<<"$log")
+unwatched=$(grep -F 'could not watch path' <<<"$log" || true)
 if [[ -n $found ]]; then
     printf '%s\n' "$found" | mail -s "ClamAV on $host: infected files found" root
+fi
+if [[ -n $unwatched ]]; then
+    printf '%s\n\n%s\n' "$unwatched" \
+        'clamonacc watches none of these until it restarts: systemctl restart clamav-clamonacc.service' \
+        | mail -s "ClamAV on $host: directories not watched" root
 fi
 mv "$cursor.next" "$cursor"

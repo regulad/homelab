@@ -1,7 +1,7 @@
-# Managed by Ansible (clamonacc). Mails clamonacc's new detections; started by
-# clamonacc-mail.timer.
+# Managed by Ansible (clamonacc). Mails clamonacc's new detections and the
+# directories it failed to watch; started by clamonacc-mail.timer.
 [Unit]
-Description=Mail clamonacc's new detections through the mail relay
+Description=Mail clamonacc's new detections and unwatched directories through the mail relay
 Documentation=man:clamonacc(8) man:journalctl(1)
 
 [Service]

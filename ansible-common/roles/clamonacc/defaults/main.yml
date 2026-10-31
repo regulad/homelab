@@ -1,8 +1,8 @@
 ---
 # ClamAV's on-access scanner, clamonacc, sending each file opened in the watched
 # directories to the homelab's shared clamd, or on a host outside the homelab to
-# its own. Each minute, clamonacc-mail.timer mails its new detections to root
-# through the host's mail relay.
+# its own. Each minute, clamonacc-mail.timer mails its new detections, and any
+# directory it failed to watch, to root through the host's mail relay.
 
 # Off unless the host turns it on.
 clamonacc_enabled: false
