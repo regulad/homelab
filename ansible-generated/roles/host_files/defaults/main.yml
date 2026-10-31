@@ -23,7 +23,10 @@ host_files_links: []
 # (sha256:<hex>), a mode, and optionally restarts or reloads as for files. A new
 # checksum fetches the file again.
 host_files_downloads: []
-# pipx applications, as pinned specifiers such as vpn-slice==0.16.1.
+# pipx applications, as pinned specifiers such as vpn-slice==0.16.1, each
+# under its normalized name, as pipx lists it (huggingface-hub, not
+# huggingface_hub): the module looks for the name as written, and finds
+# any other spelling missing on every run.
 host_files_pipx: []
 # Release archives fetched over HTTPS and kept in /var/cache/host_files, each
 # with its url, its checksum (sha256:<hex>), the files extracted from it into

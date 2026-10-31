@@ -37,7 +37,7 @@ kdump_sysctls_host:
 # podman-compose for the compose stacks, and pipx for hf.
 host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose, pipx]
 # hf, with which llama-server's unit downloads its model where it is missing.
-host_files_pipx: [huggingface_hub==2.2.0]
+host_files_pipx: [huggingface-hub==2.2.0]
 
 # The mounts under /mnt, beside /mnt/ssd and /mnt/cephfs from fstab: the
 # restic repository, its nas archive, the two overlays of that archive under
