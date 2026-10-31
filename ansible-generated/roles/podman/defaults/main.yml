@@ -1,3 +1,11 @@
 ---
 # Packages that make up Podman on this host.
 podman_packages: [podman]
+
+# Podman's storage for root (graphroot in storage.conf), which the role makes
+# no-COW on btrfs.
+podman_storage_root: /var/lib/containers/storage
+# The directories under it, besides itself, whose attribute everything Podman
+# then creates in them inherits: its volumes and its overlay layers, the
+# containers' writable layers among them.
+podman_nocow_subdirs: [volumes, overlay]

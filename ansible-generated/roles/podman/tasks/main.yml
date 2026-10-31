@@ -5,3 +5,52 @@
   ansible.builtin.package:
     name: "{{ podman_packages }}"
     state: present
+
+# btrfs's copy-on-write amplifies every write made in place, costing databases
+# and the like their write latency, so Podman's storage on btrfs is no-COW
+# (chattr +C). A file or directory takes the attribute from its directory as it
+# is created, so the storage's root has it before Podman first writes there, and
+# its volumes and layers directories where Podman already had. What they held
+# before keeps COW until it is copied anew.
+- name: Podman's storage root
+  ansible.builtin.stat:
+    path: "{{ podman_storage_root }}"
+  register: podman_storage
+
+- name: Podman's storage root, created as Podman would
+  ansible.builtin.file:
+    path: "{{ podman_storage_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: not podman_storage.stat.exists
+
+- name: The filesystem Podman's storage is on
+  ansible.builtin.command:
+    argv: [stat, --file-system, --format=%T, "{{ podman_storage_root }}"]
+  register: podman_storage_fs
+  changed_when: false
+  check_mode: false
+  when: podman_storage.stat.exists or not ansible_check_mode
+
+- name: Podman's storage directories' attributes
+  ansible.builtin.command:
+    argv: [lsattr, -d, "{{ item }}"]
+  loop: "{{ [podman_storage_root] + podman_nocow_subdirs | map('regex_replace', '^', podman_storage_root ~ '/') | list }}"
+  register: podman_storage_attrs
+  changed_when: false
+  # A directory Podman has yet to create inherits the root's attribute.
+  failed_when: false
+  check_mode: false
+  when: podman_storage_fs.stdout | default('') == 'btrfs'
+
+- name: Podman's storage no-COW
+  ansible.builtin.command:
+    argv: [chattr, +C, "{{ item.item }}"]
+  loop: >-
+    {{ podman_storage_attrs.results | default([]) | selectattr('rc', 'defined') | selectattr('rc', 'eq', 0)
+       | rejectattr('stdout', 'search', '^\S*C') | list }}
+  loop_control:
+    label: "{{ item.item }}"
+  changed_when: true
