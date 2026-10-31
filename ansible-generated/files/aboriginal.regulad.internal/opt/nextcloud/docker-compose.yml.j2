@@ -1,0 +1,103 @@
+# Nextcloud with its MariaDB and Redis, on a network of their own, published on
+# 12378 for ingress's Caddy. Run by podman-compose@nextcloud.service. Its data
+# is in nextcloud_data_dir, and its external storage the nas archive's overlays.
+# No pod: podman-compose's pods have no infra container, and podman-auto-update
+# fails on a container in one, the whole run with it.
+x-podman:
+  in_pod: false
+
+services:
+  nextcloud:
+    # nextcloud_release.
+    image: docker.io/library/nextcloud:{{ nextcloud_release }}-apache
+    container_name: nextcloud
+    hostname: nextcloud
+    labels:
+      io.containers.autoupdate: registry
+    read_only: true
+    cpu_shares: 2048
+    # IPv4 alone: ingress's Caddy reaches it over IPv4, as its trusted_proxies
+    # are, since ingress's GUA rotates.
+    ports:
+      - "0.0.0.0:12378:80"
+    tmpfs:
+      - /tmp
+      - /var/run
+    volumes:
+      # Its code, which the image's entrypoint copies in from the image and
+      # upgrades: a volume of its own, kept from one container to the next.
+      - html:/var/www/html
+      - apps:/var/www/html/custom_apps
+      - config:/var/www/html/config
+      - data:/var/www/html/data
+      - /mnt/nextcloud:/mnt/nas/nextcloud
+      - /mnt/media_nextcloud:/mnt/media
+      # The host's trust store, which the ca_trust role maintains, for LDAPS
+      # to wako and anything else PHP reaches over TLS.
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    restart: unless-stopped
+    # MYSQL_PASSWORD, which, with the rest, the entrypoint reads only to install
+    # Nextcloud into an empty volume; config.php holds what it uses.
+    env_file: nextcloud.env
+    environment:
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_HOST: db
+      PHP_MEMORY_LIMIT: 1024M
+      PHP_UPLOAD_LIMIT: 32768M
+      APACHE_BODY_LIMIT: "34359738368"
+    depends_on:
+      - db
+      - cache
+  cache:
+    image: docker.io/library/redis:7-alpine
+    hostname: redis
+    labels:
+      io.containers.autoupdate: registry
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - cache:/data
+    restart: always
+    # config.php names it redis, its hostname, which Docker's DNS answered for.
+    networks:
+      default:
+        aliases:
+          - redis
+  db:
+    image: docker.io/library/mariadb:10-jammy
+    hostname: db
+    labels:
+      io.containers.autoupdate: registry
+    read_only: true
+    command:
+      - --max_connections=500
+    tmpfs:
+      - /tmp
+      - /run/mysqld
+      - /var/log/mysql
+    volumes:
+      - db:/var/lib/mysql
+    restart: unless-stopped
+    # MYSQL_ROOT_PASSWORD and MYSQL_PASSWORD, which the image reads only to set
+    # up an empty volume.
+    env_file: db.env
+    environment:
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+volumes:
+  html:
+  apps:
+  config:
+  db:
+  cache:
+  data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: {{ nextcloud_data_dir }}
+networks:
+  default:
+    enable_ipv6: true

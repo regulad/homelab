@@ -68,6 +68,10 @@ host_files_directories:
     mode: "0755"
   - path: /etc/systemd/system/podman-compose@homeassistant.service.d
     mode: "0755"
+  - path: /opt/nextcloud
+    mode: "0755"
+  - path: /etc/systemd/system/podman-compose@nextcloud.service.d
+    mode: "0755"
   - path: /etc/systemd/system/nmbd.service.d
     mode: "0755"
   - path: /etc/llama-server
@@ -196,7 +200,10 @@ host_files_list:
   - path: /etc/systemd/system/podman-compose@.service
     mode: "0644"
     shared_src: etc/systemd/system/podman-compose@.service
-    restarts: [podman-compose@jellyfin.service, podman-compose@homeassistant.service]
+    restarts:
+      - podman-compose@jellyfin.service
+      - podman-compose@homeassistant.service
+      - podman-compose@nextcloud.service
   - path: /opt/jellyfin/docker-compose.yml
     template: true
     mode: "0644"
@@ -227,6 +234,55 @@ host_files_list:
       [Service]
       TimeoutStopSec=5min
     restarts: [podman-compose@homeassistant.service]
+  - path: /opt/nextcloud/docker-compose.yml
+    template: true
+    mode: "0644"
+    restarts: [podman-compose@nextcloud.service]
+  # Its MariaDB passwords, which the images read only to set up empty volumes.
+  - path: /opt/nextcloud/nextcloud.env
+    mode: "0600"
+    content: |
+      MYSQL_PASSWORD={{ nextcloud_mysql_password }}
+    secret: true
+    restarts: [podman-compose@nextcloud.service]
+  - path: /opt/nextcloud/db.env
+    mode: "0600"
+    content: |
+      MYSQL_ROOT_PASSWORD={{ nextcloud_mysql_root_password }}
+      MYSQL_PASSWORD={{ nextcloud_mysql_password }}
+    secret: true
+    restarts: [podman-compose@nextcloud.service]
+  - path: /etc/systemd/system/podman-compose@nextcloud.service.d/mounts.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/mnt/nextcloud /mnt/media_nextcloud {{ nextcloud_data_dir }}
+    restarts: [podman-compose@nextcloud.service]
+  # Nextcloud's background jobs, which it runs in cron mode, every 5 minutes
+  # as its documentation advises; skipped while the stack is down.
+  - path: /etc/systemd/system/nextcloud-cron.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Nextcloud's background jobs
+      Requisite=podman-compose@nextcloud.service
+      After=podman-compose@nextcloud.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/podman exec --user www-data nextcloud php -f /var/www/html/cron.php
+  - path: /etc/systemd/system/nextcloud-cron.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Nextcloud's background jobs, every 5 minutes
+
+      [Timer]
+      OnCalendar=*:0/5
+
+      [Install]
+      WantedBy=timers.target
+    restarts: [nextcloud-cron.timer]
 rgw_backup_buckets: [synapse-media, mastodon-media]
 
 # Jellyfin's major release, which its image tag follows. To move to the next,
@@ -245,6 +301,14 @@ jellyfin_config_dir: /mnt/ssd/jellyfin/config
 homeassistant_release: "2026.10"
 # Its config directory, its own state, on the SSD.
 homeassistant_config_dir: /mnt/ssd/homeassistant
+
+# Nextcloud's release, which its image tag follows (<release>-apache), quoted:
+# a major, whose patches podman-auto-update brings in, the image's entrypoint
+# running occ upgrade at a new patch's first start. 32.0.3, the release Docker
+# ran, for the move from it; 32 afterwards.
+nextcloud_release: "32.0.3"
+# Its data directory, Nextcloud's own state.
+nextcloud_data_dir: /srv/nextcloud
 
 # llama.cpp, which llama-server runs from llama_cpp_dir/build, built on this
 # host from regulad/llama.cpp's aboriginal branch: upstream with one change
@@ -308,6 +372,8 @@ host_files_units:
   - mnt-media_nextcloud.mount
   - podman-compose@jellyfin.service
   - podman-compose@homeassistant.service
+  - podman-compose@nextcloud.service
+  - nextcloud-cron.timer
   - mnt-rgw.service
   - smbd.service
   - nmbd.service
