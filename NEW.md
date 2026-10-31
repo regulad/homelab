@@ -9,12 +9,28 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [ ] AIDE and auditd on every host, containers included: AIDE's file integrity
   checks and auditd's rules, each mailing regulad@regulad.xyz through the host's
   mail relay when something anomalous is detected
-- [ ] ClamAV on every host with its own kernel, scanning for anomalous files:
-  implants and bad user data alike. Each host's clamonacc scans files on access
-  and streams them to one shared clamd, the `clamd` container, whose freshclam
-  keeps the signatures current. Unprivileged containers cannot run clamonacc;
-  how they are covered is still open. Expensive, but it would have caught the
-  implant on dodo (then pelican) before Parker did
+- [x] ClamAV on-access on the hardware hosts and every other Linux host with
+  its own kernel, scanning for anomalous files: implants and bad user data
+  alike. Each host's clamonacc scans files as they are opened and written, and
+  streams them to one shared clamd, the `clamd` container, whose freshclam keeps
+  the signatures current; doppelgangerhq.com, outside the homelab, runs a clamd
+  of its own. Runs on prodingus, aboriginal, dodo and the OCI instances.
+  Expensive, but it would have caught the implant on dodo (then pelican) before
+  Parker did
+- [ ] ClamAV on-access in the privileged containers (immich, ncsusplitt,
+  procontainer, qb, timemachine, tsexit, tvheadend), streaming to the shared
+  clamd. Their root holds `CAP_SYS_ADMIN` in the initial user namespace, which
+  clamonacc's fanotify marks need; whether Proxmox's container confinement still
+  refuses them is untested. Unprivileged containers cannot run clamonacc at all
+- [ ] Scheduled ClamAV scans on every host, containers included: a systemd timer
+  running `clamdscan --stream` against the shared clamd, mailing detections
+  through the host's mail relay. On-access scanning is best-effort: it misses
+  files written while clamonacc is not running, events it drops when it falls
+  behind, and files nothing opens again, and the unprivileged containers have
+  none. A scheduled scan catches what is already on disk
+- [ ] ClamAV in qBittorrent on qb: its "Run external program on torrent
+  finished" scans each completed download through the shared clamd, and
+  quarantines and mails a detection before anything else opens the files
 - [x] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
   block superfluous traffic
 - [ ] Proxmox firewalls for the guests created before AGENTS.md required one of
