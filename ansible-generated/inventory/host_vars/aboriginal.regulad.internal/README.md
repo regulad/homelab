@@ -77,7 +77,9 @@ of their own.
   - It is `hass-livingston.regulad.xyz` through ingress's Caddy, over IPv4
     alone, as Jellyfin is: its HTTP settings, in `.storage/http` since
     2026.10 rather than `configuration.yaml`, trust `X-Forwarded-For`
-    from ingress's reserved IPv4 address only, as ingress's GUA rotates.
+    from ingress's reserved IPv4 address only, as ingress's GUA rotates,
+    and ban a client after 5 failed logins, which any request to its API
+    without a valid token counts as.
   - matter-server is matterjs-server, which migrated python-matter-server's
     fabric at its first start, in the stack's `matter_data` volume;
     `maintenance.yml`'s `matter-server-migration-cleanup` removes what the
