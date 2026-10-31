@@ -246,11 +246,24 @@
   loop_control:
     label: "{{ item.key }}"
 
+# The units the restart handler restarts: those whose files changed.
+- name: Host units to restart
+  ansible.builtin.set_fact:
+    host_files_restarts: >-
+      {{ (host_files_written.results | default([]) + host_files_templated.results | default([])
+          + host_files_linked.results | default([]) + host_files_downloaded.results | default([])
+          + host_files_extracted.results | default([]) + host_files_tree_written.results | default([])
+          + host_files_tree_removed.results | default([])) | selectattr('changed')
+         | map(attribute='item') | map(attribute='restarts', default=[]) | flatten | unique | list }}
+
+# A unit the handler restarts is only enabled here, so that a new one starts
+# once, from the handler, rather than starting and being restarted moments
+# later, mid-start.
 - name: Host units running
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     enabled: true
-    state: started
+    state: "{{ omit if item in host_files_restarts else 'started' }}"
     daemon_reload: "{{ host_files_written is changed or host_files_templated is changed }}"
   loop: "{{ host_files_units }}"
   register: host_files_units_started

@@ -1,16 +1,12 @@
 ---
-# Reload units, then restart the ones whose files changed.
+# Reload units, then restart the ones whose files changed, starting those not
+# yet running.
 - name: Restart changed host units
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     state: restarted
     daemon_reload: true
-  loop: >-
-    {{ (host_files_written.results | default([]) + host_files_templated.results | default([])
-        + host_files_linked.results | default([]) + host_files_downloaded.results | default([])
-        + host_files_extracted.results | default([]) + host_files_tree_written.results | default([])
-        + host_files_tree_removed.results | default([])) | selectattr('changed')
-       | map(attribute='item') | map(attribute='restarts', default=[]) | flatten | unique | list }}
+  loop: "{{ host_files_restarts | default([]) }}"
   register: host_files_units_restarted
   # A unit another role creates later in the run, such as a Quadlet, does not
   # exist yet on its first run; it starts with the new files.
