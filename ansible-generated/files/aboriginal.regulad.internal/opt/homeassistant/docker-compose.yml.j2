@@ -34,9 +34,9 @@ services:
     # before it has finished shutting down and closed its database.
     stop_grace_period: 4m
   matter-server:
-    # python-matter-server's last release under this name, which upstream has
-    # archived for matterjs-server.
-    image: ghcr.io/home-assistant-libs/python-matter-server:8
+    # matterjs-server, upstream's successor to the archived python-matter-server,
+    # whose fabric it migrated at its first start.
+    image: ghcr.io/matter-js/matterjs-server:1
     container_name: matter-server
     labels:
       io.containers.autoupdate: registry
@@ -45,10 +45,17 @@ services:
     tmpfs:
       - /tmp
     volumes:
-      - matter_data:/data
+      # U: the image runs as 1000:1000, and the Python server, whose files
+      # these were, ran as root.
+      - matter_data:/data:U
     restart: always
     environment:
       TZ: America/New_York
+      # Its API takes no login and controls every device, and Home Assistant,
+      # its one client, connects over loopback.
+      LISTEN_ADDRESS: "::1,127.0.0.1"
+      # eth0 and wlan0 are on the same LAN; eth0 carries the default routes.
+      PRIMARY_INTERFACE: eth0
 volumes:
   config:
     driver: local
