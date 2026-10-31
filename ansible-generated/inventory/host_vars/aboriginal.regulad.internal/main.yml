@@ -391,6 +391,12 @@ restic_env_units: [mnt-restic.service]
 
 # IPv4 and IPv6 forwarding, as it had by hand.
 kernel_params_ip_forwarding: true
+# clamonacc watches every directory under its include paths, and Nextcloud's
+# data in /srv/nextcloud alone holds over 467,000, past the 249,909 the kernel
+# allowed here by default. A watch in use costs about 1 KB of kernel memory.
+kernel_params_sysctl_files:
+  99-inotify:
+    fs.inotify.max_user_watches: 1048576
 
 # A hardware install, named after its inventory name.
 base_hostname_managed: true
