@@ -29,6 +29,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 ## Hardware hosts (`ansible-hardware/`)
 
 - [ ] `prodingus`: the Proxmox VE node of `gonkputer`
+  - [ ] A replacement for its host GPU, the Radeon Pro W5500, dead since 2026-11-01; then `virtio-gl` back on aboriginal and dodo, and the AX200 and RX6800 mappings' IOMMU groups back up by one (their FIXMEs in `tofu/gonkputer`)
 - [ ] `turk`: Ubuntu 24.04 with VMware Workstation
 - [ ] `overture`: macOS
   - [ ] lime's side, by lime's README: the hidden FileVault unlock account, and the sshd drop-in `50-lime-unlock.conf` that leaves it nowhere once the Mac is booted

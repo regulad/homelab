@@ -70,8 +70,10 @@ resource "proxmox_virtual_environment_vm" "dodo" {
     datastore_id = "local-lvm"
   }
 
+  # FIXME: software-rendered virtio, as the host GPU that virtio-gl rendered on,
+  # prodingus's Radeon Pro W5500, died on 2026-11-01. Revisit when it is replaced.
   vga {
-    type = "virtio-gl"
+    type = "virtio"
   }
 
   watchdog {

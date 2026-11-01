@@ -140,8 +140,10 @@ EOT
   # provider reads only usb0 to usb3, so a usb block for it would plan a change
   # on every run. Pending https://github.com/bpg/terraform-provider-proxmox/issues/3009.
 
+  # FIXME: software-rendered virtio, as the host GPU that virtio-gl rendered on,
+  # prodingus's Radeon Pro W5500, died on 2026-11-01. Revisit when it is replaced.
   vga {
-    type = "virtio-gl"
+    type = "virtio"
   }
 
   virtiofs {
