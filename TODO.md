@@ -140,7 +140,7 @@ cloud-init.
         - [x] nextcloud, with MariaDB and Redis: the stock image with the host's `/etc/ssl/certs`, in place of the local `nextcloud-ca` build; its data moved to `/srv/nextcloud`, its background jobs to a timer, its LDAP to wako; notify_push disabled
           - [x] `nextcloud_release` from 32.0.3 to 32, whose patches podman-auto-update then brings in
           - [x] A `maintenance.yml` play moving Nextcloud a major release at a time, as `jellyfin-upgrade` does: `nextcloud-upgrade` and `nextcloud-upgrade-cleanup`
-          - [ ] Nextcloud up the ladder to 35, a major per run: 33, 34, 35
+          - [x] Nextcloud up the ladder to 35, a major per run: 33, 34, 35
           - [x] Docker's stopped project, `/root/compose/nextcloud`, its containers and volumes, and the `nextcloud-ca` image removed
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [x] nginxproxymanagerlocal retired; `archive` moved to Caddy on ingress, behind an LDAP login check bound as `svc-ingress`
