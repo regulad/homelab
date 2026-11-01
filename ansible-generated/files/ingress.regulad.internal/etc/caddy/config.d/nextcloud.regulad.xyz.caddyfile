@@ -1,7 +1,6 @@
 nextcloud.regulad.xyz {
 	import hsts
 	import common
-	import php2shell
 	import cache
 
 	@wellknown_dav path /.well-known/carddav /.well-known/caldav
