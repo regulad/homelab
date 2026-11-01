@@ -20,5 +20,8 @@ host_files_list:
     mode: "0644"
     reloads: [firewalld]
 
-# ClamAV's on-access scanner, over the baseline directories alone.
+# ClamAV's on-access scanner, over the baseline directories alone, and its
+# weekly scan, both but for docker-mailserver's data: its own ClamAV scans each
+# message as Postfix accepts it, and its state holds that ClamAV's signatures.
 clamav_onaccess_enabled: true
+clamav_exclude_paths: [/root/mailserver/docker-data/dms]
