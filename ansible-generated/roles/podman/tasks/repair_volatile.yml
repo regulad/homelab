@@ -1,0 +1,58 @@
+---
+# Podman's volatile stores list its --rm containers, which every Quadlet runs,
+# and their writable layers. Podman never syncs them to disk, so a host stopped
+# mid-write can come back with them zeroed or cut short, and every podman
+# command then fails ("configure storage: loading …"), Quadlets included. Each
+# store that no longer parses is moved aside, which Podman reads as an empty
+# store: what it listed did not outlive the stop anyway. Then the host's
+# Quadlets that failed are started again. Run by maintenance.yml's
+# podman-volatile play.
+- name: Volatile stores that no longer parse
+  ansible.builtin.command:
+    argv: "{{ ['python3', '-c', podman_volatile_check] + podman_volatile_stores | map('regex_replace', '^', podman_storage_root ~ '/') | list }}"
+  vars:
+    podman_volatile_check: |
+      import json, os, sys
+      for path in sys.argv[1:]:
+          if os.path.exists(path):
+              try:
+                  with open(path) as store:
+                      json.load(store)
+              except ValueError:
+                  print(path)
+  register: podman_volatile_unreadable
+  changed_when: false
+  check_mode: false
+
+- name: Repair them
+  when: podman_volatile_unreadable.stdout_lines | length > 0
+  block:
+    - name: Move each aside, which Podman reads as empty
+      ansible.builtin.command:
+        argv: [mv, --, "{{ item }}", "{{ item }}.unreadable-{{ now(fmt='%Y%m%dT%H%M%S') }}"]
+      loop: "{{ podman_volatile_unreadable.stdout_lines }}"
+      changed_when: true
+
+    - name: The host's Quadlets that failed
+      ansible.builtin.command:
+        argv: "{{ podman_volatile_list_failed + podman_volatile_units }}"
+      vars:
+        podman_volatile_list_failed: [systemctl, list-units, --state=failed, --type=service, --plain, --no-legend]
+        podman_volatile_units: "{{ quadlet_services | map(attribute='name') | map('regex_replace', '$', '.service') | list }}"
+      register: podman_volatile_failed
+      changed_when: false
+      check_mode: false
+      when: quadlet_services | default([]) | length > 0
+
+    # Their start limit would refuse a start soon after their last failure.
+    - name: Clear their failed state
+      ansible.builtin.command:
+        argv: [systemctl, reset-failed, "{{ item.split() | first }}"]
+      loop: "{{ podman_volatile_failed.stdout_lines | default([]) }}"
+      changed_when: true
+
+    - name: Start them again
+      ansible.builtin.systemd_service:
+        name: "{{ item.split() | first }}"
+        state: started
+      loop: "{{ podman_volatile_failed.stdout_lines | default([]) }}"

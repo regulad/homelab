@@ -9,3 +9,9 @@ podman_storage_root: /var/lib/containers/storage
 # then creates in them inherits: its volumes and its overlay layers, the
 # containers' writable layers among them.
 podman_nocow_subdirs: [volumes, overlay]
+# Its volatile stores under podman_storage_root, which it never syncs to disk:
+# its --rm containers and their writable layers. maintenance.yml's
+# podman-volatile play moves aside any that no longer parse.
+podman_volatile_stores:
+  - overlay-containers/volatile-containers.json
+  - overlay-layers/volatile-layers.json

@@ -45,6 +45,20 @@
         name: swap
         tasks_from: resize
 
+# After a host was stopped uncleanly: move aside Podman's volatile stores that
+# came back unreadable, which otherwise keep every Quadlet from starting, and
+# start the Quadlets that failed. Hosts whose stores are whole are left alone.
+- name: Podman's volatile stores
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [podman-volatile]
+  tasks:
+    - name: Repair the unreadable ones
+      ansible.builtin.include_role:
+        name: podman
+        tasks_from: repair_volatile
+
 # Compact each of Nexus's blob stores, reclaiming the space of soft-deleted
 # blobs, such as Docker's abandoned upload chunks, which Nexus keeps until a
 # compaction. Nexus 3.70's REST API runs and polls tasks but cannot create

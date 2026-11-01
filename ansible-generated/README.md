@@ -19,7 +19,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 |---|---|---|
 | `base` (shared) | Packages, admin user, time sync, and sshd hardening only where it is already policy | `generated` |
 | `tailscale` (shared) | Tailscale client; joins only when `tailscale_join` is set | `generated` |
-| `podman` | Installs Podman | `podman_hosts` |
+| `podman` | Installs Podman; `playbooks/maintenance.yml --tags podman-volatile` moves aside its volatile stores when an unclean stop left them unreadable, and starts the Quadlets that failed | `podman_hosts` |
 | `firewalld` (shared) | firewalld and the zones a host declares, with `tailscale0` trusted | own-kernel Linux hosts |
 | `host_files` | Native files, templates, links, release downloads and archives, system users, packages (APT, or dnf on Enterprise Linux), pinned pipx applications and virtual environments, SELinux booleans, and systemd units from `host_vars` and `files/<host>/`; secret content from SOPS; files shared by several hosts from `files/shared/`; optional validation before a file is replaced, and reload instead of restart | generated hosts except `arawi` |
 | `certbot` | Let's Encrypt certificates through certbot's Cloudflare DNS-01 plugin: issues each listed certificate certbot lacks, keeps its challenge settings, and leaves renewal to `certbot.timer` | `certbot` |
