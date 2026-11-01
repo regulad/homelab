@@ -77,11 +77,13 @@ resource "ansible_host" "<name_with_underscores>" {
   count = proxmox_haresource.<name_with_underscores>.state == "started" ? 1 : 0
 
   name = "${proxmox_virtual_environment_container.<name_with_underscores>.initialization[0].hostname}.${local.guest_domain}"
-  # Its OS group, groups such as podman_hosts for the roles it gets, and its
-  # tags that Ansible keys on.
+  # Its OS group, groups such as podman_hosts for the roles it gets, its tags
+  # that Ansible keys on, and whether it is privileged, which roles such as
+  # clamonacc need.
   groups = sort(setunion(
     ["gonkputer", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.<name_with_underscores>.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.<name_with_underscores>.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.

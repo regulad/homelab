@@ -82,6 +82,7 @@ resource "ansible_host" "matrix" {
   groups = sort(setunion(
     ["gonkputer", "matrix", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.matrix.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.matrix.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.

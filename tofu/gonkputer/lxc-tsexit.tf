@@ -81,6 +81,7 @@ resource "ansible_host" "tsexit" {
   groups = sort(setunion(
     ["gonkputer", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.tsexit.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.tsexit.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.

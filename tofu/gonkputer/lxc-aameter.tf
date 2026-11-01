@@ -84,6 +84,7 @@ resource "ansible_host" "aameter" {
   groups = sort(setunion(
     ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.aameter.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.aameter.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.

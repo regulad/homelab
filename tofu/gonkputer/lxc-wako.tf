@@ -168,6 +168,7 @@ resource "ansible_host" "wako" {
   groups = sort(setunion(
     ["freeipa_servers", "freeradius_servers", "gonkputer", "proxmox_containers", "rhel"],
     setintersection(proxmox_virtual_environment_container.wako.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.wako.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the

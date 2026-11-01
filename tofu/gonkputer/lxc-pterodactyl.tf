@@ -78,6 +78,7 @@ resource "ansible_host" "pterodactyl" {
   groups = sort(setunion(
     ["gonkputer", "php_fpm", "proxmox_containers", "pterodactyl", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.pterodactyl.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.pterodactyl.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.

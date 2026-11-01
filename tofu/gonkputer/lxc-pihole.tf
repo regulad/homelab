@@ -79,6 +79,7 @@ resource "ansible_host" "pihole" {
   groups = sort(setunion(
     ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.pihole.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.pihole.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.

@@ -122,6 +122,7 @@ resource "ansible_host" "freeipa" {
   groups = sort(setunion(
     ["gonkputer", "ldap_proxies", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.freeipa.tags, local.ansible_group_tags),
+    [proxmox_virtual_environment_container.freeipa.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
   # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
