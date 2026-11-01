@@ -105,9 +105,11 @@
     - kdump
 
 # ClamAV's on-access scanner, streaming to the shared clamd, on hosts with their
-# own kernel that turn it on.
+# own kernel and privileged containers that turn it on. An unprivileged
+# container cannot run it: its root lacks CAP_SYS_ADMIN in the initial user
+# namespace, which clamonacc's fanotify group needs.
 - name: On-access scanning
-  hosts: debian:ubuntu:rhel:!proxmox_containers
+  hosts: debian:ubuntu:rhel:!unprivileged_containers
   gather_facts: false
   become: true
   roles:

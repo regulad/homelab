@@ -12,3 +12,6 @@ tailscale_settings:
 tailscale_serve:
   - port: 8443
     target: http://127.0.0.1:8080
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true

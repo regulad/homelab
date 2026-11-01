@@ -9,3 +9,6 @@ tailscale_settings:
 
 # Forwarding for the exit node.
 kernel_params_ip_forwarding: true
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true

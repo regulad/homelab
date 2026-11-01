@@ -4,7 +4,7 @@
 # its own. Each minute, clamonacc-mail.timer mails its new detections, and any
 # directory it failed to watch, to root through the host's mail relay.
 
-# Off unless the host turns it on.
+# Off unless the host turns it on. An unprivileged container cannot run it.
 clamonacc_enabled: false
 
 # The directories watched on every host, each with every directory below it:

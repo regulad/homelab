@@ -1,8 +1,9 @@
 ---
 # Converge clamonacc, against the shared clamd or the host's own, on a host that
 # turns it on. Runs on hosts with their own kernel, hardware (Phase 2) and
-# generated (Phase 4): clamonacc's fanotify permission events need CAP_SYS_ADMIN
-# in the initial user namespace, which an unprivileged container lacks.
+# generated (Phase 4), and on privileged containers: clamonacc's fanotify group
+# needs CAP_SYS_ADMIN in the initial user namespace, which a privileged
+# container's root holds and an unprivileged one's lacks.
 - name: ClamAV on-access scanning
   when: clamonacc_enabled
   block:

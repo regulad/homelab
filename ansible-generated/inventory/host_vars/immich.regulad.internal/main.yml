@@ -19,3 +19,6 @@ host_files_list:
     restarts: [podman-compose@immich.service]
 host_files_packages: [podman-compose]
 host_files_units: [podman-compose@immich.service, podman-auto-update.timer]
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true

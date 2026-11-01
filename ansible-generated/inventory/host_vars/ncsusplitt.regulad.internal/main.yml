@@ -81,3 +81,6 @@ host_files_list:
 host_files_packages: [openconnect, pipx, bind9-dnsutils, unbound]
 host_files_pipx: [vpn-slice==0.16.1]
 host_files_units: [ncsu-tun.service, ncsu-keepalive.timer, unbound.service]
+
+# ClamAV's on-access scanner, over the baseline directories alone.
+clamonacc_enabled: true
