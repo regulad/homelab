@@ -17,11 +17,13 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   of its own. Runs on prodingus, aboriginal, dodo and the OCI instances.
   Expensive, but it would have caught the implant on dodo (then pelican) before
   Parker did
-- [ ] ClamAV on-access in the privileged containers (immich, ncsusplitt,
+- [x] ClamAV on-access in the privileged containers (immich, ncsusplitt,
   procontainer, qb, timemachine, tsexit, tvheadend), streaming to the shared
-  clamd. Their root holds `CAP_SYS_ADMIN` in the initial user namespace, which
-  clamonacc's fanotify marks need; whether Proxmox's container confinement still
-  refuses them is untested. Unprivileged containers cannot run clamonacc at all
+  clamd over the same directories as the hosts with their own kernel. Their
+  root holds `CAP_SYS_ADMIN` in the initial user namespace, which clamonacc's
+  fanotify group needs. Unprivileged containers cannot run clamonacc at all; the
+  inventory's `unprivileged_containers` group, from each container's
+  `unprivileged`, keeps the play off them
 - [ ] Scheduled ClamAV scans on every host, containers included: a systemd timer
   running `clamdscan --stream` against the shared clamd, mailing detections
   through the host's mail relay. On-access scanning is best-effort: it misses
