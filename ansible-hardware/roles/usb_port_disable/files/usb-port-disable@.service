@@ -1,0 +1,15 @@
+# Managed by Ansible (usb_port_disable). Binds USB controller %i afresh and
+# disables the ports in /etc/usb-port-disable/%i.conf. Started only by the
+# udev rule 90-usb-port-disable.rules, when the controller appears bound to
+# xhci_hcd; it stays active, so the bind event of its own rebind starts nothing.
+[Unit]
+Description=Disable USB ports of controller %i whose devices would kill it
+Documentation=https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-usb
+# Before Proxmox starts the guests that pass the controller's devices through.
+Before=pve-guests.service pve-ha-lrm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/usb-port-disable/%i.conf
+ExecStart=/usr/local/sbin/usb-port-disable %i $PORTS

@@ -1,0 +1,60 @@
+---
+# usb-port-disable: its script, its template service, each controller's ports,
+# and the udev rule that starts the service when the controller appears. Runs
+# on hardware hosts (Phase 2). Nothing is started now: on a running host the
+# service would rebind controllers whose devices guests may be using, so the
+# rule takes effect at the next boot's coldplug.
+- name: Local unit directory
+  ansible.builtin.file:
+    path: /usr/local/lib/systemd/system
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Port disabler
+  ansible.builtin.copy:
+    src: usb-port-disable
+    dest: /usr/local/sbin/usb-port-disable
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Port disabler's service
+  ansible.builtin.copy:
+    src: usb-port-disable@.service
+    dest: /usr/local/lib/systemd/system/usb-port-disable@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Ports directory
+  ansible.builtin.file:
+    path: /etc/usb-port-disable
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Each controller's ports
+  ansible.builtin.copy:
+    dest: "/etc/usb-port-disable/{{ item.controller }}.conf"
+    content: |
+      # Managed by Ansible (usb_port_disable): ports of {{ item.controller }}'s USB 2.0 root hub.
+      PORTS="{{ item.ports | join(' ') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ usb_port_disable_controllers }}"
+  loop_control:
+    label: "{{ item.controller }}"
+
+- name: Rule that starts the service
+  ansible.builtin.template:
+    src: 90-usb-port-disable.rules.j2
+    dest: /etc/udev/rules.d/90-usb-port-disable.rules
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload udev rules

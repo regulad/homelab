@@ -25,6 +25,14 @@
   roles:
     - webhookd
 
+# USB ports whose devices would kill their controller, disabled at boot.
+- name: USB ports disabled at boot
+  hosts: usb_port_disable
+  gather_facts: false
+  become: true
+  roles:
+    - usb_port_disable
+
 # Each Arista switch's whole running configuration, from files/<switch>/.
 - name: Arista switches
   hosts: eos

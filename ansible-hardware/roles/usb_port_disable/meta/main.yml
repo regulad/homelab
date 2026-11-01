@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Disables USB ports whose devices would kill their controller, from a udev rule, before Proxmox starts its guests
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

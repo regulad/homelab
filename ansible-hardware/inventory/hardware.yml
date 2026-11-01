@@ -28,6 +28,10 @@ hardware:
     webhookd:
       hosts:
         prodingus:
+    # usb-port-disable, for USB ports whose devices would kill their controller.
+    usb_port_disable:
+      hosts:
+        prodingus:
 
 # Network switches: configured over SSH by Ansible's network modules, which run
 # on the control node, through each platform's CLI. Kept outside the hardware

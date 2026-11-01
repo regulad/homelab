@@ -1,0 +1,7 @@
+# Managed by Ansible (usb_port_disable). When a listed USB controller appears
+# bound to xhci_hcd, at boot's coldplug or on a later bind, systemd starts
+# usb-port-disable@<controller>.service, which binds it afresh and disables
+# its listed ports.
+{% for controller in usb_port_disable_controllers %}
+ACTION=="add|bind", SUBSYSTEM=="pci", KERNEL=="{{ controller.controller }}", DRIVER=="xhci_hcd", TAG+="systemd", ENV{SYSTEMD_WANTS}+="usb-port-disable@{{ controller.controller }}.service"
+{% endfor %}

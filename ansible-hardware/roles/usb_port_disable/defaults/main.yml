@@ -1,0 +1,12 @@
+---
+# usb-port-disable: when a listed USB controller appears bound to xhci_hcd, a
+# udev rule starts a service that binds it afresh and at once disables the
+# listed ports of its USB 2.0 root hub, before Proxmox starts its guests: for
+# ports whose devices never enumerate, and whose retries kill the controller
+# with every other device on it.
+
+# Controllers by PCI address, each with the ports to disable, numbered as on
+# its USB 2.0 root hub (usb<bus>-port<port>):
+#   - controller: "0000:0a:00.1"
+#     ports: [5, 6]
+usb_port_disable_controllers: []

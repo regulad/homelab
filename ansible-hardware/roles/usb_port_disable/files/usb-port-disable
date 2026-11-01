@@ -1,0 +1,46 @@
+#!/bin/sh
+# Managed by Ansible (usb_port_disable). Binds a USB controller to xhci_hcd
+# afresh and at once disables some ports of its USB 2.0 root hub, before the
+# hub driver's retries on a device that never enumerates there can kill the
+# controller ("xHCI host controller not responding, assume dead"):
+#
+#   usb-port-disable <PCI address> <port>...
+#
+# usb-port-disable@<controller>.service runs it, started by a udev rule when the
+# controller appears bound to xhci_hcd, before Proxmox starts the guests that
+# pass its other devices through. A controller that died at boot comes back
+# with the rebind; the disabled ports stay off until the next boot.
+set -eu
+
+controller=$1
+shift
+driver=/sys/bus/pci/drivers/xhci_hcd
+
+if [ -e "$driver/$controller" ]; then
+    printf '%s' "$controller" >"$driver/unbind"
+fi
+printf '%s' "$controller" >"$driver/bind"
+
+# Of the controller's two root hubs, the USB 2.0 one runs at 480 Mb/s.
+hub=
+for bus in "/sys/bus/pci/devices/$controller"/usb*; do
+    if [ "$(cat "$bus/speed")" = 480 ]; then
+        hub=${bus##*/usb}
+    fi
+done
+if [ -z "$hub" ]; then
+    echo "usb-port-disable: $controller has no USB 2.0 root hub" >&2
+    exit 1
+fi
+
+for port in "$@"; do
+    disable=/sys/bus/usb/devices/$hub-0:1.0/usb$hub-port$port/disable
+    # The hub driver creates its ports as it binds; wait up to two seconds.
+    tries=0
+    while [ ! -w "$disable" ] && [ "$tries" -lt 100 ]; do
+        sleep 0.02
+        tries=$((tries + 1))
+    done
+    echo 1 >"$disable"
+    echo "Disabled port $port of bus $hub ($controller)."
+done
