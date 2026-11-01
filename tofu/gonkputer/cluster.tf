@@ -6,8 +6,11 @@ resource "proxmox_cluster_options" "cluster" {
   crs_ha_rebalance_on_start = true
   # The datacenter's Markdown notes, byte for byte as Proxmox stores them, so
   # cluster-notes.md is exempt from the whitespace hooks.
-  description        = file("${path.module}/cluster-notes.md")
-  ha_shutdown_policy = "migrate"
+  description = file("${path.module}/cluster-notes.md")
+  # Conditional, not migrate, while prodingus is the cluster's only node:
+  # migrate holds a shutdown until HA services move to another node, and with
+  # none it waits for systemd to force the poweroff after 30 minutes.
+  ha_shutdown_policy = "conditional"
   keyboard           = "en-us"
   mac_prefix         = "BC:24:11"
   migration_type     = "secure"
