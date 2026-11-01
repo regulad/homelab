@@ -52,9 +52,12 @@ resource "proxmox_virtual_environment_container" "clamd" {
   }
 
   # ClamAV's guidance for its image: about 1.2 GiB for the signatures, twice
-  # that while a reload holds the old engine beside the new one, so 4 GiB.
+  # that while a reload holds the old engine beside the new one. clamd also
+  # spools each stream into the image's /tmp, a tmpfs counted here: up to
+  # StreamMaxLength (2047M) for one of qb's torrent files, and what it unpacks
+  # up to MaxScanSize (4000M). So 10 GiB.
   memory {
-    dedicated = 4096
+    dedicated = 10240
     swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 

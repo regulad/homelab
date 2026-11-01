@@ -3,6 +3,14 @@
 # and OCI's stream files to at clamd.regulad.internal on clamd_port, and
 # freshclam, which keeps its signatures current. This configuration replaces the
 # one the image carries.
+
+# The largest file clamd scans whole, in MiB, as a stream or otherwise: whole
+# files from qb's torrents (qb-clamav, which reads it from here), up to
+# libclamav's own limit of INT_MAX - 2 bytes. And how long one scan may take,
+# in milliseconds: 10 minutes for such a file and what it unpacks.
+clamd_max_file_mib: 2047
+clamd_max_scan_time_ms: 600000
+
 host_files_directories:
   - path: /etc/clamav
     mode: "0755"
@@ -19,6 +27,14 @@ host_files_list:
       # The image's entrypoint reports clamd started once this socket exists,
       # and freshclam asks clamd through it to load new signatures.
       LocalSocket /tmp/clamd.sock
+      # clamd spools each stream into /tmp, the image's tmpfs, which
+      # lxc-clamd.tf's memory allows for. AlertExceedsMax stays off, so data
+      # past a limit passes unscanned: clamonacc would otherwise quarantine
+      # every small archive that unpacks past them.
+      StreamMaxLength {{ clamd_max_file_mib }}M
+      MaxFileSize {{ clamd_max_file_mib }}M
+      MaxScanSize 4000M
+      MaxScanTime {{ clamd_max_scan_time_ms }}
     restarts: [clamav.service]
   # Options left out keep freshclam's defaults. The image runs it as a daemon in
   # the foreground, as the clamav user, logging to stdout.
