@@ -1,3 +1,0 @@
----
-# ClamAV's on-access scanner, over the baseline directories alone.
-clamav_onaccess_enabled: true
