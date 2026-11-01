@@ -302,7 +302,9 @@ homeassistant_config_dir: /mnt/ssd/homeassistant
 # Nextcloud's major release, which its image tag follows (<release>-apache),
 # quoted. Never a patch: podman-auto-update brings in the major's patches
 # through the tag, the image's entrypoint running occ upgrade at a new
-# patch's first start.
+# patch's first start. To move to the next major, bump it by one and run
+# maintenance.yml's nextcloud-upgrade, not site.yml: site.yml would restart
+# onto it, upgrading its database, with no copy to return to.
 nextcloud_release: "32"
 # Its data directory, Nextcloud's own state.
 nextcloud_data_dir: /srv/nextcloud

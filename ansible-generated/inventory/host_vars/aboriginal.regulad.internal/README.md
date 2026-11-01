@@ -54,7 +54,10 @@ of their own.
     `nextcloud_html` volume, which the image's entrypoint upgrades, and its
     data `/srv/nextcloud`, its own state, as are its config and database
     volumes and its LDAP settings. All of them are no-COW, the volumes as
-    Podman's storage now is. It follows `nextcloud_release`; its
+    Podman's storage now is. It follows `nextcloud_release`, a major, which
+    only `maintenance.yml`'s `nextcloud-upgrade` moves, one major at a time,
+    with a copy to roll back to, and only once every enabled app has a
+    release for the next; its
     background jobs run from `nextcloud-cron.timer`. Pretty URLs are off:
     its `.htaccess` lacks `occ maintenance:update:htaccess`'s section, so its
     links go through `index.php`.
