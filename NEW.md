@@ -30,9 +30,14 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   files written while clamonacc is not running, events it drops when it falls
   behind, and files nothing opens again, and the unprivileged containers have
   none. A scheduled scan catches what is already on disk
-- [ ] ClamAV in qBittorrent on qb: its "Run external program on torrent
-  finished" scans each completed download through the shared clamd, and
-  quarantines and mails a detection before anything else opens the files
+- [x] ClamAV in qBittorrent on qb: qb-clamav, its hooks for torrents added and
+  finished, stages each new torrent in the `unscanned` category, scans it
+  through the shared clamd once finished, and releases a clean one to
+  `/downloads` or stops, quarantines and mails an infected one; the qbittorrent
+  role declares the hooks and the settings they depend on. A file over clamd's
+  2047 MiB is scanned in its first 2047 MiB, its torrent tagged
+  `clamav-partial`. Incomplete and staged torrents stay visible over
+  aboriginal's Samba share of regulad's home
 - [x] Ratchet down the firewalls, Proxmox's and firewall-cmd's inside hosts, to
   block superfluous traffic
 - [ ] Proxmox firewalls for the guests created before AGENTS.md required one of
