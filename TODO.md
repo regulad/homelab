@@ -30,6 +30,8 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 
 - [ ] `prodingus`: the Proxmox VE node of `gonkputer`
   - [ ] A replacement for its host GPU, the Radeon Pro W5500, dead since 2026-11-01; then `virtio-gl` back on aboriginal and dodo, and the AX200 and RX6800 mappings' IOMMU groups back up by one (their FIXMEs in `tofu/gonkputer`)
+  - [ ] A replacement for aboriginal's ASUS BT400 (BCM20702A0), dead since the same minute; then its `usb` block back in `vm-aboriginal.tf`
+  - [ ] USB ports 1-5 and 1-6 on the `0a:00.1` controller: phantom low-speed devices there since 2026-11-01 kill the controller at boot, and TubesZB (1-1) with it, until the ports are disabled through sysfs
 - [ ] `turk`: Ubuntu 24.04 with VMware Workstation
 - [ ] `overture`: macOS
   - [ ] lime's side, by lime's README: the hidden FileVault unlock account, and the sshd drop-in `50-lime-unlock.conf` that leaves it nowhere once the Mac is booted

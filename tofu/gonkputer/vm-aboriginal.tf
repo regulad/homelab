@@ -125,9 +125,12 @@ EOT
     mapping = proxmox_hardware_mapping_usb.tubeszb.name
   }
 
-  usb {
-    mapping = proxmox_hardware_mapping_usb.bcm20702a0.name
-  }
+  # FIXME: the ASUS BT400 (BCM20702A0) stopped enumerating on 2026-11-01, a
+  # minute after the W5500 died, and Proxmox starts no VM whose USB mapping
+  # matches no device. Revisit when it is replaced: restore this block.
+  # usb {
+  #   mapping = proxmox_hardware_mapping_usb.bcm20702a0.name
+  # }
 
   # The APC UPS is under maintenance; restore this block when it is back. Its
   # [apc] section in aboriginal's /etc/nut/ups.conf is commented out with it,
