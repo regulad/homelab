@@ -146,7 +146,7 @@ resource "ansible_host" "qb" {
 
   name = "${proxmox_virtual_environment_container.qb.initialization[0].hostname}.${local.guest_domain}"
   groups = sort(setunion(
-    ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
+    ["gonkputer", "podman_hosts", "proxmox_containers", "qbittorrent", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.qb.tags, local.ansible_group_tags),
     [proxmox_virtual_environment_container.qb.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
