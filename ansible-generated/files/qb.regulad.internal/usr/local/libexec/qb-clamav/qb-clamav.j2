@@ -131,7 +131,9 @@ def scan(path):
 
 def added(tid):
     t = torrent(tid)
-    if t["auto_tmm"] and not t["category"]:
+    if t["category"] == CATEGORY:
+        log(f"added {tid} {t['name']!r}: already in {CATEGORY}")
+    elif t["auto_tmm"] and not t["category"]:
         call("torrents/setCategory", {"hashes": tid, "category": CATEGORY}, post=True)
         log(f"added {tid} {t['name']!r}: category {CATEGORY}")
     else:
@@ -184,9 +186,11 @@ def finished(tid):
         else:
             if partial:
                 call("torrents/addTags", {"hashes": tid, "tags": "clamav-partial"}, post=True)
+            # Automatic management moves a torrent out of the category; the
+            # others are moved by hand.
             if t["category"] == CATEGORY:
                 call("torrents/setCategory", {"hashes": tid, "category": ""}, post=True)
-            elif os.path.normpath(t["save_path"]) == STAGING:
+            if not t["auto_tmm"] and os.path.normpath(t["save_path"]) == STAGING:
                 save_path = call("app/preferences")["save_path"]
                 call("torrents/setLocation", {"hashes": tid, "location": save_path}, post=True)
             log(f"finished {tid}: clean, released" + (f"; {len(partial)} scanned in part" if partial else ""))
