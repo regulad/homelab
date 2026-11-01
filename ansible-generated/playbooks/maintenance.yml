@@ -1656,12 +1656,16 @@
           when: not ansible_check_mode
 
         # The entrypoint lists, under this line, each app occ upgrade disabled.
+        # regex_search with a group raises where nothing matches, so it runs
+        # only where the line is.
         - name: The apps the upgrade disabled
           ansible.builtin.set_fact:
             nextcloud_upgrade_disabled: >-
-              {{ ((nextcloud_upgrade_log.stdout ~ nextcloud_upgrade_log.stderr)
-                  | regex_search('(?s)The following apps have been disabled:(.*?)(=>|$)', '\\1') or [''])
-                 | first | trim }}
+              {{ (nextcloud_upgrade_output | regex_search('(?s)The following apps have been disabled:(.*?)(=>|$)', '\1')
+                  | first | trim)
+                 if nextcloud_upgrade_output is search('The following apps have been disabled:') else '' }}
+          vars:
+            nextcloud_upgrade_output: "{{ nextcloud_upgrade_log.stdout ~ nextcloud_upgrade_log.stderr }}"
           when: not ansible_check_mode
 
         - name: No app disabled by the upgrade
