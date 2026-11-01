@@ -182,3 +182,7 @@ host_files_units:
   - mautrix-slack.service
   - mautrix-telegram.service
   - mautrix-whatsapp.service
+
+# ClamAV's weekly scan also reads the container's data disk, its RBD mount
+# point (tofu/gonkputer's lxc-matrix.tf).
+clamav_scan_paths_host: [/mnt/synapse]

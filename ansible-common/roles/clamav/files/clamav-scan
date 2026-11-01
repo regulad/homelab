@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+# Managed by Ansible (clamav). ClamAV's weekly scan of the host's files, through
+# the clamd its configuration names:
+#
+#   clamav-scan /etc/clamav/clamav-scan.conf
+#
+# clamav-scan.timer runs it once a week, at a time of the week of the host's
+# own. Each ScanPath is walked with everything below it on its own filesystem,
+# bind mounts of that filesystem included; another filesystem mounted below it,
+# such as a tmpfs, a container's overlay, or a FUSE, virtiofs or CephFS mount,
+# is left to a ScanPath of its own. An ExcludePath is skipped with everything
+# below it. Symbolic links are never followed, and only regular files are
+# scanned, each directory and file once however many paths lead to it, opened
+# so as not to touch its access time where the kernel allows.
+#
+# Over TCP, each file is streamed to clamd (INSTREAM), at most StreamMaxLength,
+# clamd's own, past which clamd would refuse the stream unscanned: a larger file
+# is scanned in that first part alone. Through clamd's local socket, the file's
+# descriptor is passed instead (FILDES), and clamd reads it whole, within its
+# own limits.
+#
+# An infected file is moved into the Quarantine, where clamonacc moves its
+# finds, as <name>, or <name>.NNN beside an earlier one. Once the run ends, its
+# finds, and apart the files it could not scan, are mailed to root through the
+# host's mail relay, which delivers every recipient to the homelab's mailbox; a
+# run that fails is mailed too. Each find, file not scanned and filesystem left
+# out goes to the journal, with a summary at the end.
+import errno
+import os
+import re
+import socket
+import stat
+import struct
+import subprocess
+import sys
+import time
+import traceback
+
+SETTINGS = {"TCPAddr", "TCPSocket", "LocalSocket", "StreamMaxLength", "ReplyTimeout", "Quarantine"}
+LISTS = {"ScanPath", "ExcludePath"}
+OPEN = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC
+CHUNK = 1 << 20
+# Lines a mail lists before it refers to the journal for the rest.
+MAIL_LINES = 200
+
+
+def log(message):
+    print(message, flush=True)
+
+
+def settings(path):
+    """The configuration: each setting once, ScanPath and ExcludePath repeated."""
+    conf = {key: [] for key in LISTS}
+    with open(path) as f:
+        for number, line in enumerate(f, 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            key, _, value = line.partition(" ")
+            value = value.strip()
+            if key in LISTS and value:
+                conf[key].append(value)
+            elif key in SETTINGS and value and key not in conf:
+                conf[key] = value
+            else:
+                raise SystemExit(f"{path}:{number}: not a setting, or one repeated: {line}")
+    if ("LocalSocket" in conf) == ("TCPAddr" in conf):
+        raise SystemExit(f"{path}: needs either LocalSocket or TCPAddr")
+    return conf
+
+
+def mounts():
+    """Each mount point's filesystem, as mountinfo's major:minor; the last mount
+    at a point, which hides those before it, wins."""
+    devices = {}
+    with open("/proc/self/mountinfo", "rb") as f:
+        for line in f:
+            fields = line.split(b" ")
+            point = re.sub(rb"\\([0-7]{3})", lambda m: bytes([int(m.group(1), 8)]), fields[4])
+            devices[os.fsdecode(point)] = fields[2].decode()
+    return devices
+
+
+def mail(subject, lines):
+    body = "\n".join(lines[:MAIL_LINES]) + "\n"
+    if len(lines) > MAIL_LINES:
+        body += f"\nAnd {len(lines) - MAIL_LINES} more, which journalctl --unit=clamav-scan.service lists.\n"
+    subprocess.run(
+        ["mail", "-s", f"ClamAV on {socket.getfqdn()}: {subject}", "root"],
+        input=body,
+        text=True,
+        check=True,
+    )
+
+
+class Unreachable(Exception):
+    pass
+
+
+class Clamd:
+    def __init__(self, conf):
+        self.socket = conf.get("LocalSocket")
+        self.address = (conf.get("TCPAddr"), int(conf.get("TCPSocket", "3310")))
+        self.stream_max = int(conf.get("StreamMaxLength", "0"))
+        self.timeout = int(conf.get("ReplyTimeout", "900"))
+        if not self.socket and self.stream_max <= 0:
+            raise SystemExit("StreamMaxLength is needed over TCP")
+
+    def connect(self):
+        """A connection to clamd, retried for ten minutes, as long as clamd
+        takes to restart and load its signatures."""
+        for attempt in range(60):
+            try:
+                if self.socket:
+                    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    try:
+                        sock.settimeout(60)
+                        sock.connect(self.socket)
+                    except OSError:
+                        sock.close()
+                        raise
+                else:
+                    sock = socket.create_connection(self.address, timeout=60)
+                sock.settimeout(self.timeout)
+                return sock
+            except OSError as e:
+                error = e
+                time.sleep(10)
+        raise Unreachable(f"clamd at {self.socket or '%s:%d' % self.address} unreachable for ten minutes: {error}")
+
+    def scan(self, fd):
+        """clamd's verdict on an open file, and whether only its first part went."""
+        partial = False
+        with self.connect() as sock:
+            if self.socket:
+                sock.sendall(b"zFILDES\0")
+                socket.send_fds(sock, [b"\0"], [fd])
+            else:
+                sock.sendall(b"zINSTREAM\0")
+                offset = 0
+                while offset < self.stream_max:
+                    chunk = os.pread(fd, min(CHUNK, self.stream_max - offset), offset)
+                    if not chunk:
+                        break
+                    sock.sendall(struct.pack("!I", len(chunk)))
+                    sock.sendall(chunk)
+                    offset += len(chunk)
+                partial = offset >= self.stream_max and bool(os.pread(fd, 1, offset))
+                sock.sendall(struct.pack("!I", 0))
+            reply = b""
+            while not reply.endswith(b"\0"):
+                data = sock.recv(4096)
+                if not data:
+                    raise ConnectionError("clamd closed the connection without a verdict")
+                reply += data
+        verdict = reply.rstrip(b"\0").decode(errors="replace")
+        return re.sub(r"^(?:stream|fd\[\d+\]): ", "", verdict), partial
+
+
+class Scan:
+    def __init__(self, conf):
+        self.clamd = Clamd(conf)
+        self.roots = []
+        for path in conf["ScanPath"]:
+            path = os.path.realpath(path)
+            if os.path.isdir(path) and path not in self.roots:
+                self.roots.append(path)
+        self.excluded = {os.path.realpath(path) for path in conf["ExcludePath"]}
+        self.quarantine_fd = None
+        if conf.get("Quarantine"):
+            self.quarantine_path = os.path.realpath(conf["Quarantine"])
+            self.excluded.add(self.quarantine_path)
+            self.quarantine_fd = os.open(self.quarantine_path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        self.devices = mounts()
+        self.seen = set()
+        # Each infected file with other names, by its identity: where it went,
+        # and how it was when scanned.
+        self.infected = {}
+        self.found = []
+        self.unscanned = []
+        self.files = self.size = self.partial = 0
+
+    def run(self):
+        for root in self.roots:
+            self.walk(root)
+
+    def walk(self, root):
+        point = root
+        while point not in self.devices:
+            point = os.path.dirname(point)
+        device = self.devices[point]
+        log(f"scanning {root}")
+        for dirpath, dirnames, filenames, dirfd in os.fwalk(root, onerror=self.error):
+            # A directory already scanned, through another ScanPath or a bind
+            # mount, is not scanned again.
+            st = os.fstat(dirfd)
+            if (st.st_dev, st.st_ino) in self.seen:
+                dirnames[:] = []
+                continue
+            self.seen.add((st.st_dev, st.st_ino))
+            kept = []
+            for name in dirnames:
+                path = os.path.join(dirpath, name)
+                if path in self.excluded:
+                    continue
+                if self.devices.get(path, device) != device:
+                    log(f"{path}: another filesystem, not scanned with {root}")
+                    continue
+                kept.append(name)
+            dirnames[:] = kept
+            for name in filenames:
+                path = os.path.join(dirpath, name)
+                if path not in self.excluded and self.devices.get(path, device) == device:
+                    self.file(dirfd, name, path)
+
+    def error(self, e):
+        self.unscanned.append(f"{e.filename}: {e.strerror}")
+        log(f"{e.filename}: {e.strerror}, not scanned")
+
+    def file(self, dirfd, name, path):
+        try:
+            st = os.stat(name, dir_fd=dirfd, follow_symlinks=False)
+        except FileNotFoundError:
+            return
+        except OSError as e:
+            e.filename = path
+            return self.error(e)
+        if not stat.S_ISREG(st.st_mode):
+            return
+        # Another name of an infected file, whose link count falls as its
+        # other names are removed. Copied out of its filesystem, with its last
+        # name gone, the file's inode number may have gone to a new file since.
+        if (st.st_dev, st.st_ino) in self.infected:
+            outcome, scanned = self.infected[(st.st_dev, st.st_ino)]
+            if (st.st_size, st.st_mtime_ns) == (scanned.st_size, scanned.st_mtime_ns):
+                return self.unlink(dirfd, name, path, outcome)
+            del self.infected[(st.st_dev, st.st_ino)]
+        if st.st_nlink > 1:
+            if (st.st_dev, st.st_ino) in self.seen:
+                return
+            self.seen.add((st.st_dev, st.st_ino))
+        try:
+            try:
+                fd = os.open(name, OPEN | os.O_NOATIME, dir_fd=dirfd)
+            except PermissionError:
+                # O_NOATIME needs the file's owner or CAP_FOWNER over it, which
+                # root in a container lacks for unmapped owners.
+                fd = os.open(name, OPEN, dir_fd=dirfd)
+        except FileNotFoundError:
+            return
+        except OSError as e:
+            e.filename = path
+            return self.error(e)
+        try:
+            # Replaced since it was listed: the next run scans its successor.
+            if not os.path.samestat(os.fstat(fd), st):
+                return
+            os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_SEQUENTIAL)
+            verdict, partial = self.verdict(fd)
+            self.files += 1
+            self.size += st.st_size
+            self.partial += partial
+            if verdict.endswith(" FOUND"):
+                outcome = self.move(dirfd, name, fd, st)
+                line = f"{path}: {verdict.removesuffix(' FOUND')}, {outcome}"
+                if st.st_nlink > 1:
+                    self.infected[(st.st_dev, st.st_ino)] = outcome, st
+                    others = st.st_nlink - 1
+                    line += f"; it has {others} other name{'s' if others > 1 else ''}, each removed where the scan finds it"
+                self.found.append(line)
+                log(line)
+            elif verdict != "OK":
+                self.unscanned.append(f"{path}: {verdict}")
+                log(f"{path}: {verdict}, not scanned")
+        finally:
+            # Out of the page cache, which a week's scan would otherwise fill.
+            os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+            os.close(fd)
+
+    def unlink(self, dirfd, name, path, outcome):
+        """Removes another name of an infected file already dealt with."""
+        try:
+            os.unlink(name, dir_fd=dirfd)
+            line = f"{path}: another name of the infected file {outcome}, removed"
+        except OSError as e:
+            line = f"{path}: another name of the infected file {outcome}, not removed: {e.strerror}"
+        self.found.append(line)
+        log(line)
+
+    def verdict(self, fd):
+        """clamd's verdict, tried three times in case clamd restarts meanwhile."""
+        for attempt in (1, 2, 3):
+            try:
+                return self.clamd.scan(fd)
+            except OSError as e:
+                if attempt == 3:
+                    return f"no verdict from clamd: {e} ERROR", False
+                time.sleep(30)
+
+    def move(self, dirfd, name, fd, st):
+        """Moves an infected file into the quarantine; what became of it."""
+        if self.quarantine_fd is None:
+            return "left in place"
+        qfd = self.quarantine_fd
+        for n in range(1000):
+            dest = name if n == 0 else f"{name}.{n:03d}"
+            destination = os.path.join(self.quarantine_path, dest)
+            try:
+                os.link(name, dest, src_dir_fd=dirfd, dst_dir_fd=qfd, follow_symlinks=False)
+            except FileExistsError:
+                continue
+            except OSError as e:
+                if e.errno not in (errno.EXDEV, errno.EPERM):
+                    return f"not moved: {e.strerror}"
+                # On another filesystem than the quarantine, or another mount
+                # of it, or a file root may not link, as an unprivileged
+                # container's root may not one an unmapped user owns: copied
+                # from the descriptor scanned.
+                try:
+                    out = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600, dir_fd=qfd)
+                except FileExistsError:
+                    continue
+                except OSError as e:
+                    return f"not moved: {e.strerror}"
+                try:
+                    offset = 0
+                    while True:
+                        sent = os.sendfile(out, fd, offset, 1 << 24)
+                        if not sent:
+                            break
+                        offset += sent
+                    os.fsync(out)
+                except OSError as e:
+                    os.unlink(dest, dir_fd=qfd)
+                    return f"not moved: {e.strerror}"
+                finally:
+                    os.close(out)
+            else:
+                if not os.path.samestat(os.stat(dest, dir_fd=qfd, follow_symlinks=False), st):
+                    os.unlink(dest, dir_fd=qfd)
+                    return "not moved: replaced since its scan"
+            # The original goes once the quarantine holds it, if its name still
+            # is the file scanned.
+            try:
+                if not os.path.samestat(os.stat(name, dir_fd=dirfd, follow_symlinks=False), st):
+                    return f"copied to {destination}; the original was replaced since its scan, and stays"
+                os.unlink(name, dir_fd=dirfd)
+            except OSError as e:
+                return f"copied to {destination}; the original stays: {e.strerror}"
+            return f"moved to {destination}"
+        return "not moved: the quarantine holds 1000 files of its name"
+
+    def summary(self, elapsed):
+        log(
+            f"scanned {self.files} files, {self.size / (1 << 30):.1f} GiB, in {elapsed / 3600:.1f} h: "
+            f"{len(self.found)} infected, {len(self.unscanned)} not scanned, "
+            f"{self.partial} scanned in their first StreamMaxLength alone"
+        )
+
+
+def main():
+    if len(sys.argv) != 2:
+        raise SystemExit(f"usage: {sys.argv[0]} CONFIG")
+    start = time.monotonic()
+    scan = Scan(settings(sys.argv[1]))
+    failure = None
+    try:
+        scan.run()
+    except Exception:
+        failure = traceback.format_exc()
+        log(failure)
+    scan.summary(time.monotonic() - start)
+    if scan.found:
+        mail("infected files found by the weekly scan", scan.found)
+    if scan.unscanned:
+        mail("files the weekly scan could not scan", scan.unscanned)
+    if failure:
+        mail("the weekly scan failed", [failure.rstrip(), "", "Its finds and files not scanned until then were mailed apart."])
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

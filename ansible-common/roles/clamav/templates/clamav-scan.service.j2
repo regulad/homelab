@@ -1,0 +1,23 @@
+# Managed by Ansible (clamav). The weekly scan of the host's files; started by
+# clamav-scan.timer, or by hand with systemctl start.
+[Unit]
+{% if clamav_clamd_local %}
+Description=Weekly ClamAV scan of the host's files, through the local clamd
+{% else %}
+Description=Weekly ClamAV scan of the host's files, streamed to {{ clamav_clamd_host }}
+{% endif %}
+Documentation=man:clamd(8)
+{% if clamav_clamd_local %}
+Wants=clamav-daemon.service
+After=clamav-daemon.service
+{% else %}
+Wants=network-online.target
+After=network-online.target
+{% endif %}
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clamav-scan {{ clamav_scan_config }}
+# Behind everything else the host runs, for the CPU and, under BFQ, the disks.
+Nice=19
+IOSchedulingClass=idle

@@ -1,4 +1,12 @@
 ---
+- name: Restart the weekly scan's timer
+  ansible.builtin.systemd_service:
+    name: clamav-scan.timer
+    state: restarted
+    daemon_reload: true
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and clamav_scan_timer is changed)
+
 - name: Restart the detections mailer's timer
   ansible.builtin.systemd_service:
     name: clamonacc-mail.timer

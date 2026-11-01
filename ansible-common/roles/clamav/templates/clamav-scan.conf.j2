@@ -1,0 +1,26 @@
+# Managed by Ansible (clamav). The weekly scan's settings, read by
+# /usr/local/bin/clamav-scan: each ScanPath, with what lies below it on its own
+# filesystem, but for each ExcludePath.
+{% if clamav_clamd_local %}
+# The host's own clamd, through the packages' socket; clamav-scan passes it each
+# file's descriptor.
+LocalSocket {{ clamav_clamd_socket }}
+{% else %}
+# The shared clamd, and its StreamMaxLength, in bytes, past which it refuses a
+# stream.
+TCPAddr {{ clamav_clamd_host }}
+TCPSocket {{ clamav_clamd_port }}
+StreamMaxLength {{ clamav_clamd_stream_max_mib | int * 1048576 }}
+{% endif %}
+# Seconds to wait for each verdict: the shared clamd's MaxScanTime, and five
+# minutes to send the file.
+ReplyTimeout {{ clamav_clamd_scan_time_ms | int // 1000 + 300 }}
+{% if clamav_quarantine %}
+Quarantine {{ clamav_quarantine }}
+{% endif %}
+{% for path in (clamav_paths + clamav_paths_host + clamav_scan_paths + clamav_scan_paths_host) | unique %}
+ScanPath {{ path }}
+{% endfor %}
+{% for path in clamav_exclude_paths %}
+ExcludePath {{ path }}
+{% endfor %}

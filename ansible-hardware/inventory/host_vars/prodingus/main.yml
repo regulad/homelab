@@ -185,3 +185,14 @@ webhookd_hooks:
 # ClamAV's on-access scanner, over the baseline directories alone: the
 # hypervisor's own files, never its guests'.
 clamav_onaccess_enabled: true
+# The weekly scan also reads the CephFS, which the guests that mount it leave
+# to prodingus: it is no ScanPath of theirs, and another filesystem below
+# theirs. Not its vzdump archives, which hold the guests' root filesystems, nor
+# qb's quarantine, where qb-clamav keeps the torrents it found infected:
+# /downloads/.quarantine in qb, which mounts the CephFS's homes/regulad/downloads
+# (tofu/gonkputer's lxc-qb.tf).
+clamav_scan_paths_host:
+  - "{{ restic_jobs.cephfs.path }}"
+clamav_exclude_paths:
+  - "{{ restic_jobs.cephfs.path }}/dump"
+  - "{{ restic_jobs.cephfs.path }}/homes/regulad/downloads/.quarantine"

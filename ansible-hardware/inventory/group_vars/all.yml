@@ -8,3 +8,9 @@ auto_updates_mail_from: "{{ mail_relay_account }}@regulad.xyz"
 # FreeIPA's API calls run on prodingus, which is on the LAN with wako; turk is
 # reached over the tailnet.
 mail_relay_freeipa_delegate: prodingus
+# The shared clamd's StreamMaxLength, in MiB, and MaxScanTime, in milliseconds:
+# clamd_max_file_mib and clamd_max_scan_time_ms in ansible-generated's
+# host_vars for clamd, which this stage cannot read. The clamav role's weekly
+# scan needs both.
+clamav_clamd_stream_max_mib: 2047
+clamav_clamd_scan_time_ms: 600000

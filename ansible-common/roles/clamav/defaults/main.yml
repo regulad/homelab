@@ -1,13 +1,16 @@
 ---
 # ClamAV for the host's files, through the homelab's shared clamd, or on a host
-# outside the homelab through its own, from entry points each imported by a
-# play of its own on the hosts it suits: tasks_from onaccess, the on-access
-# scanner, clamonacc, on the hosts that turn it on and can run it. They share
-# these settings. clamonacc moves what it finds into the quarantine, and
-# clamonacc-mail.timer mails it each minute to root through the host's mail
-# relay, with any directory clamonacc failed to watch.
+# outside the homelab through its own, from two entry points, each imported by
+# a play of its own on the hosts it suits: tasks_from scan, a weekly scan of the
+# host's directories, clamav-scan, on every Linux host; and tasks_from
+# onaccess, the on-access scanner, clamonacc, on the hosts that turn it on and
+# can run it. They share these settings. Both move what they find into the
+# quarantine, and mail it to root through the host's mail relay: clamav-scan
+# once its run ends, and for clamonacc, clamonacc-mail.timer each minute, with
+# any directory it failed to watch.
 
-# The directories scanned on access, each with every directory below it. They are where files from elsewhere land, and are the same on Debian,
+# The directories scanned on access and weekly, each with every directory below
+# it. They are where files from elsewhere land, and are the same on Debian,
 # Ubuntu and Enterprise Linux; on access, the package-managed trees, /usr, /etc,
 # /boot and /var/lib, would stream every binary run and library loaded to
 # clamd. Only those that exist are scanned.
@@ -23,10 +26,11 @@ clamav_paths:
 # (https://github.com/Cisco-Talos/clamav/issues/341), so list each subvolume on
 # its own.
 clamav_paths_host: []
-# Directories and files below them that are not scanned.
+# Directories and files below them that are scanned neither on access nor
+# weekly.
 clamav_exclude_paths: []
 
-# Where infected files are moved, as <name>, or <name>.NNN beside an
+# Where both move each infected file, as <name>, or <name>.NNN beside an
 # earlier one, root's alone; empty leaves infected files in place. The
 # directory itself is never scanned, or a file moved into it would be found and
 # moved again.
@@ -38,14 +42,36 @@ clamav_quarantine: /root/quarantine
 # the tailnet. An IPv6 address goes in brackets. Unused where clamd is local.
 clamav_clamd_host: clamd.regulad.internal
 clamav_clamd_port: 3310
+# The shared clamd's StreamMaxLength, in MiB, and its MaxScanTime, in
+# milliseconds, from its host_vars. clamav-scan streams at most that much of
+# each file, as clamd refuses a longer stream unscanned, and waits for each
+# verdict five minutes past that time. The hardware stage cannot read the
+# clamd's host_vars, so it sets both in its group_vars/all.yml.
+clamav_clamd_stream_max_mib: "{{ hostvars[clamav_clamd_host].clamd_max_file_mib }}"
+clamav_clamd_scan_time_ms: "{{ hostvars[clamav_clamd_host].clamd_max_scan_time_ms }}"
+
 # Run the packages' own clamd and freshclam on the host instead, for a host
 # outside the homelab, whose files would otherwise cross the internet to the
 # shared clamd. clamd then holds its signatures in memory, about 1 GiB, and twice
 # that while it reloads them after an update. Debian and Ubuntu only.
 clamav_clamd_local: false
-# The packages' clamd socket. clamonacc passes it each file's descriptor, so
-# clamd, running as clamav, can scan files only root may open.
+# The packages' clamd socket. Both pass it each file's descriptor, so clamd,
+# running as clamav, can scan files only root may open, whole.
 clamav_clamd_socket: /run/clamav/clamd.ctl
+
+# The weekly scan, on every Linux host unless the host turns it off. It scans
+# clamav_paths and clamav_paths_host, and these: /var, which holds what the
+# host's services keep and receive, is left to it. Each listed directory is
+# scanned with what lies below it on its own filesystem; another filesystem
+# mounted below one, such as a tmpfs or a container's overlay, only where it is
+# listed itself.
+clamav_scan_enabled: true
+clamav_scan_paths:
+  - /var
+# Each host's additions, scanned weekly alone, such as a data disk or the
+# CephFS.
+clamav_scan_paths_host: []
+clamav_scan_config: /etc/clamav/clamav-scan.conf
 
 # clamonacc: off unless the host turns it on. An unprivileged container cannot
 # run it: its root lacks CAP_SYS_ADMIN in the initial user namespace, which
@@ -77,8 +103,9 @@ clamav_epel_release: >-
 clamav_epel_repo: >-
   {{ ('ol' ~ ansible_facts.distribution_major_version ~ '_developer_EPEL')
      if ansible_facts.distribution == 'OracleLinux' else 'epel' }}
-# The packages that carry clamonacc and clamd, installed where clamonacc runs
-# or clamd is local. Debian and Ubuntu's clamav-daemon brings clamd and freshclam; EPEL's clamav needs
+# The packages that carry clamonacc and clamd, which clamav-scan needs neither
+# of; they are installed where clamonacc runs or clamd is local. Debian and
+# Ubuntu's clamav-daemon brings clamd and freshclam; EPEL's clamav needs
 # data(clamav), which clamav-freshclam provides without shipping signatures.
 clamav_packages: "{{ ['clamav', 'clamav-freshclam'] if 'rhel' in group_names else ['clamav-daemon'] }}"
 # The packages' own clamd and freshclam units, masked before the packages are

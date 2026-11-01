@@ -7,3 +7,7 @@ host_files_directories:
 # Java's copy of the system trust store, /etc/ssl/certs/java/cacerts, which the
 # Jenkins container reads for its LDAP server's certificate.
 ca_trust_java: true
+
+# ClamAV's weekly scan also reads the container's data disk, its RBD mount
+# point (tofu/gonkputer's lxc-jenkins.tf).
+clamav_scan_paths_host: [/mnt/jenkins]

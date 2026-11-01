@@ -117,3 +117,15 @@
       ansible.builtin.import_role:
         name: clamav
         tasks_from: onaccess
+
+# ClamAV's weekly scan of each host's directories, through the shared clamd, on
+# every Linux host, unprivileged containers included.
+- name: Weekly scan
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tasks:
+    - name: ClamAV's weekly scan
+      ansible.builtin.import_role:
+        name: clamav
+        tasks_from: scan

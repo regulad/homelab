@@ -1,0 +1,55 @@
+---
+# Converge the weekly scan, clamav-scan, against the shared clamd or the host's
+# own, on every Linux host that does not turn it off: hardware (Phase 2) and
+# generated (Phase 4), containers included, unprivileged ones too, as it needs
+# no privilege beyond root's over the host's own files.
+- name: Shared directories
+  ansible.builtin.import_tasks: common.yml
+  when: clamav_scan_enabled
+
+- name: ClamAV's weekly scan
+  when: clamav_scan_enabled
+  block:
+    # It takes effect at its next run.
+    - name: Weekly scan
+      ansible.builtin.copy:
+        src: clamav-scan
+        dest: /usr/local/bin/clamav-scan
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Weekly scan's configuration
+      ansible.builtin.template:
+        src: clamav-scan.conf.j2
+        dest: "{{ clamav_scan_config }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Weekly scan's service
+      ansible.builtin.template:
+        src: clamav-scan.service.j2
+        dest: /usr/local/lib/systemd/system/clamav-scan.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Weekly scan's timer
+      ansible.builtin.copy:
+        src: clamav-scan.timer
+        dest: /usr/local/lib/systemd/system/clamav-scan.timer
+        owner: root
+        group: root
+        mode: "0644"
+      register: clamav_scan_timer
+      notify: Restart the weekly scan's timer
+
+    - name: Weekly scan's timer running
+      ansible.builtin.systemd_service:
+        name: clamav-scan.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+      # A check run cannot read what an install still pending would create.
+      when: not (ansible_check_mode and clamav_scan_timer is changed)

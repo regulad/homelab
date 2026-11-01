@@ -6,7 +6,8 @@
 # fanotify group needs CAP_SYS_ADMIN in the initial user namespace, which a
 # privileged container's root holds and an unprivileged one's lacks.
 
-# The packages, which clamonacc and a local clamd need.
+# The packages, which clamonacc and a local clamd need, and the weekly scan
+# does not.
 - name: ClamAV's packages
   when: clamav_onaccess_enabled or clamav_clamd_local
   block:

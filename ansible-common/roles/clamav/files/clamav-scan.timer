@@ -1,0 +1,17 @@
+# Managed by Ansible (clamav).
+[Unit]
+Description=Weekly ClamAV scan of the host's files, at a time of the week of its own
+Documentation=man:systemd.timer(5)
+
+[Timer]
+# Once a week, at a delay of up to a week from Monday's midnight that systemd
+# derives from the host's machine ID and keeps, so that the hosts' scans spread
+# across the week rather than meeting at the shared clamd.
+OnCalendar=weekly
+RandomizedDelaySec=1w
+FixedRandomDelay=true
+# A scan missed while the host was down runs once it is up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
