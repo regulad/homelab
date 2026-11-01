@@ -35,7 +35,7 @@
     restic_job_words: >-
       {{ [item.value.tag | default(''), item.value.path | default(''), item.value.image | default(''),
           item.value.filename | default(''), item.value.mount_service | default('')]
-         + item.value.paths | default([]) + item.value.options | default([])
+         + item.value.paths | default([]) + item.value.options | default([]) + item.value.mounts | default([])
          + item.value.policies | default([]) | map(attribute='tag', default='') | list
          + restic_job_keeps | map(attribute='key') | list
          + restic_job_keeps | map(attribute='value') | map('string') | list }}

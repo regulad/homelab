@@ -51,7 +51,9 @@ restic_env_units: []
 #   rgw: path, the rclone mount of the Ceph RGW that mount_service makes; tag.
 #   forget: policies, each a tag ("" for untagged snapshots) and keep, restic's
 #     --keep-<period> options by period, then a prune. A snapshot with a tag no
-#     policy names is never forgotten.
+#     policy names is never forgotten. mounts, the units of the host's restic
+#     mounts, which keep the index they read at their start: stopped for the
+#     run with every unit that needs them, and started again after it.
 restic_jobs: {}
 # How long a restic command waits for another's repository lock: longer than
 # a prune takes.
