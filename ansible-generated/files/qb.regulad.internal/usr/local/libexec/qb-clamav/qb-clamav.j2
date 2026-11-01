@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+# Managed by Ansible (host_files), from host_vars/qb.regulad.internal's
+# qb_clamav_* and the shared clamd's host_vars. qBittorrent's hooks on qb, which
+# scan each finished torrent through the shared clamd before it reaches the
+# default save path; the qbittorrent role sets them:
+#
+#   on torrent added:    {{ qb_clamav_dir }}/qb-clamav added %K
+#   on torrent finished: {{ qb_clamav_dir }}/qb-clamav finished %K
+#
+# added puts a new torrent in the CATEGORY category, whose save path is
+# STAGING, so that qBittorrent moves it there rather than into the default save
+# path when it finishes; a torrent with automatic management off, or with a
+# category of its own, gets STAGING as its save path instead.
+#
+# finished streams each downloaded file to clamd, one torrent at a time:
+# - clean: released to the default save path, by clearing the category or, for
+#   the others, by setting the path;
+# - found: stopped, moved to QUARANTINE/<id>, tagged clamav-infected, mailed;
+# - a scan that fails: left where it is, tagged clamav-error, mailed.
+# clamd scans at most STREAM_MAX of a file, libclamav's own limit, so a larger
+# file is scanned in its first STREAM_MAX bytes and its torrent tagged
+# clamav-partial. Past clamd's MaxScanSize and MaxScanTime, data passes
+# unscanned without a sign, as AlertExceedsMax is off.
+#
+# qBittorrent starts it detached, as its abc user, and discards its output, so
+# it logs to LOG. It reaches the Web API at the address, port and API key in
+# qBittorrent.conf, and mails root through qb's Postfix on loopback, which
+# relays it to the homelab's mailbox.
+import configparser
+import email.message
+import fcntl
+import json
+import os
+import smtplib
+import socket
+import struct
+import sys
+import time
+import traceback
+import urllib.parse
+import urllib.request
+
+CLAMD = ("{{ qb_clamav_clamd }}", {{ hostvars[qb_clamav_clamd].clamd_port }})
+# clamd's StreamMaxLength and MaxFileSize.
+STREAM_MAX = {{ hostvars[qb_clamav_clamd].clamd_max_file_mib }} * 1024 * 1024
+# clamd's MaxScanTime, plus five minutes to stream the file.
+CLAMD_TIMEOUT = {{ hostvars[qb_clamav_clamd].clamd_max_scan_time_ms // 1000 + 300 }}
+CONF = "/config/qBittorrent/qBittorrent.conf"
+CATEGORY = "{{ qb_clamav_category }}"
+STAGING = "{{ qb_clamav_staging }}"
+QUARANTINE = "{{ qb_clamav_quarantine }}"
+STATE = "/config/clamav"
+LOG = os.path.join(STATE, "qb-clamav.log")
+LOCK = os.path.join(STATE, "scan.lock")
+
+
+def log(message):
+    with open(LOG, "a") as f:
+        f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} [{os.getpid()}] {message}\n")
+
+
+def webui():
+    """The Web API's base and key, from qBittorrent's own settings."""
+    conf = configparser.ConfigParser(interpolation=None, strict=False)
+    conf.optionxform = str
+    conf.read(CONF)
+    address = conf.get("WebUI", "Address", fallback="*").strip()
+    if address in ("*", "0.0.0.0", "::", ""):
+        address = "127.0.0.1"
+    port = conf.get("WebUI", "Port", fallback="8080").strip()
+    key = conf.get("WebUI", "APIKey", fallback="").strip()
+    if not key:
+        raise RuntimeError(f"no WebUI APIKey in {CONF}")
+    host = f"[{address}]" if ":" in address else address
+    return f"http://{host}:{port}/api/v2/", key
+
+
+def call(path, params=None, post=False):
+    api, key = webui()
+    query = urllib.parse.urlencode(params or {})
+    url = api + path + ("" if post or not query else "?" + query)
+    request = urllib.request.Request(
+        url,
+        data=query.encode() if post else None,
+        headers={"Authorization": f"Bearer {key}"},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        body = response.read()
+    return json.loads(body) if body[:1] in (b"{", b"[") else body
+
+
+def torrent(tid):
+    found = call("torrents/info", {"hashes": tid})
+    if not found:
+        raise RuntimeError(f"no torrent {tid}")
+    return found[0]
+
+
+def mail(subject, body):
+    message = email.message.EmailMessage()
+    message["From"] = "root"
+    message["To"] = "root"
+    message["Subject"] = f"ClamAV on {socket.getfqdn()}: {subject}"
+    message.set_content(body)
+    with smtplib.SMTP("127.0.0.1", 25, timeout=60) as smtp:
+        smtp.send_message(message)
+
+
+def scan(path):
+    """Streams a file to clamd: its verdict, and whether only a prefix went."""
+    with open(path, "rb") as f, socket.create_connection(CLAMD, timeout=60) as sock:
+        sock.settimeout(CLAMD_TIMEOUT)
+        sock.sendall(b"zINSTREAM\0")
+        left = STREAM_MAX
+        while left:
+            chunk = f.read(min(left, 1 << 20))
+            if not chunk:
+                break
+            sock.sendall(struct.pack("!I", len(chunk)) + chunk)
+            left -= len(chunk)
+        partial = not left and bool(f.read(1))
+        sock.sendall(struct.pack("!I", 0))
+        reply = b""
+        while not reply.endswith(b"\0"):
+            data = sock.recv(4096)
+            if not data:
+                break
+            reply += data
+    return reply.rstrip(b"\0").decode(errors="replace").removeprefix("stream: "), partial
+
+
+def added(tid):
+    t = torrent(tid)
+    if t["auto_tmm"] and not t["category"]:
+        call("torrents/setCategory", {"hashes": tid, "category": CATEGORY}, post=True)
+        log(f"added {tid} {t['name']!r}: category {CATEGORY}")
+    else:
+        call("torrents/setLocation", {"hashes": tid, "location": STAGING}, post=True)
+        log(f"added {tid} {t['name']!r}: save path {STAGING}")
+
+
+def finished(tid):
+    with open(LOCK, "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        t = torrent(tid)
+        files = [f for f in call("torrents/files", {"hash": tid}) if f["priority"] > 0]
+        log(f"finished {tid} {t['name']!r}: scanning {len(files)} files in {t['save_path']}")
+        infected, errors, partial = [], [], []
+        for f in files:
+            path = os.path.join(t["save_path"], f["name"])
+            try:
+                verdict, prefix = scan(path)
+            except OSError as e:
+                verdict, prefix = f"{e} ERROR", False
+            if prefix:
+                partial.append(path)
+            if verdict.endswith(" FOUND"):
+                infected.append(f"{path}: {verdict.removesuffix(' FOUND')}")
+            elif verdict != "OK":
+                errors.append(f"{path}: {verdict}")
+        for line in infected + errors:
+            log(f"  {line}")
+
+        if infected:
+            destination = os.path.join(QUARANTINE, tid)
+            call("torrents/stop", {"hashes": tid}, post=True)
+            call("torrents/setLocation", {"hashes": tid, "location": destination}, post=True)
+            call("torrents/addTags", {"hashes": tid, "tags": "clamav-infected"}, post=True)
+            log(f"finished {tid}: infected, stopped and moved to {destination}")
+            mail(
+                f"infected torrent {t['name']}",
+                "\n".join(infected)
+                + f"\n\nqBittorrent's torrent {tid} is stopped and moving to {destination}.\n"
+                + ("\nNot scanned:\n" + "\n".join(errors) + "\n" if errors else ""),
+            )
+        elif errors:
+            call("torrents/addTags", {"hashes": tid, "tags": "clamav-error"}, post=True)
+            log(f"finished {tid}: not every file scanned; left in {t['save_path']}")
+            mail(
+                f"torrent not scanned: {t['name']}",
+                "\n".join(errors)
+                + f"\n\nqBittorrent's torrent {tid} stays in {t['save_path']}, unreleased.\n",
+            )
+        else:
+            if partial:
+                call("torrents/addTags", {"hashes": tid, "tags": "clamav-partial"}, post=True)
+            if t["category"] == CATEGORY:
+                call("torrents/setCategory", {"hashes": tid, "category": ""}, post=True)
+            elif os.path.normpath(t["save_path"]) == STAGING:
+                save_path = call("app/preferences")["save_path"]
+                call("torrents/setLocation", {"hashes": tid, "location": save_path}, post=True)
+            log(f"finished {tid}: clean, released" + (f"; {len(partial)} scanned in part" if partial else ""))
+
+
+def main():
+    os.makedirs(STATE, exist_ok=True)
+    event, tid = sys.argv[1], sys.argv[2]
+    try:
+        {"added": added, "finished": finished}[event](tid)
+    except Exception:
+        log(f"{event} {tid} failed:\n{traceback.format_exc()}")
+        try:
+            mail(f"torrent hook failed ({event} {tid})", traceback.format_exc())
+        except Exception:
+            log(f"mail failed:\n{traceback.format_exc()}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

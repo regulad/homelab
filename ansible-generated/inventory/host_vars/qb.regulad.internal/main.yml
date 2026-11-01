@@ -9,9 +9,60 @@ tailscale_settings:
   accept_dns: false
 # qBittorrent's web UI, on loopback at its default port, as HTTPS on the
 # tailnet.
+qbittorrent_webui_address: 127.0.0.1
+qbittorrent_webui_port: 8080
 tailscale_serve:
   - port: 8443
-    target: http://127.0.0.1:8080
+    target: http://{{ qbittorrent_webui_address }}:{{ qbittorrent_webui_port }}
 
 # ClamAV's on-access scanner, over the baseline directories alone.
 clamonacc_enabled: true
+
+# qb-clamav, qBittorrent's hooks for torrents added and finished, which scan
+# each finished torrent through the shared clamd before it reaches the default
+# save path: a new torrent goes into the staging category, whose save path
+# qBittorrent moves it to when it finishes; a clean one is released to the
+# default save path, and an infected one stopped, moved to quarantine and
+# mailed. The script is a host file, mounted read-only into qBittorrent's
+# container (services.yml) from its directory, so a new version needs no
+# restart.
+qb_clamav_dir: /usr/local/libexec/qb-clamav
+qb_clamav_category: unscanned
+qb_clamav_staging: /downloads/.unscanned
+qb_clamav_quarantine: /downloads/.quarantine
+# The shared clamd, by its inventory name, whose host_vars give its port and
+# limits.
+qb_clamav_clamd: clamd.regulad.internal
+host_files_directories:
+  - path: "{{ qb_clamav_dir }}"
+    mode: "0755"
+host_files_list:
+  - path: "{{ qb_clamav_dir }}/qb-clamav"
+    mode: "0755"
+    template: true
+
+# qBittorrent's settings that Ansible declares, through its Web API with the
+# API key in secrets.sops.yml; the rest are state, seeded from qb-clearnet's.
+qbittorrent_preferences:
+  # The Web UI on loopback alone, behind Tailscale Serve, which connects from
+  # loopback and passes the browser's Host through, its port 8443 included.
+  web_ui_address: "{{ qbittorrent_webui_address }}"
+  web_ui_port: "{{ qbittorrent_webui_port }}"
+  web_ui_host_header_validation_enabled: false
+  web_ui_reverse_proxy_enabled: true
+  web_ui_reverse_proxies_list: 127.0.0.1
+  # Downloads in regulad's CephFS home (services.yml), incomplete ones apart.
+  save_path: /downloads
+  temp_path_enabled: true
+  temp_path: /downloads/incomplete
+  # Automatic management for new torrents, which moves a torrent whenever its
+  # category changes: how qb-clamav stages and releases them.
+  auto_tmm_enabled: true
+  torrent_changed_tmm_enabled: true
+  autorun_on_torrent_added_enabled: true
+  autorun_on_torrent_added_program: "{{ qb_clamav_dir }}/qb-clamav added %K"
+  autorun_enabled: true
+  autorun_program: "{{ qb_clamav_dir }}/qb-clamav finished %K"
+qbittorrent_categories:
+  - name: "{{ qb_clamav_category }}"
+    save_path: "{{ qb_clamav_staging }}"

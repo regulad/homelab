@@ -2,10 +2,11 @@
 # qBittorrent, the lab's one BitTorrent client, moved here from aboriginal's
 # qb-clearnet. Its settings in the config volume are state: qBittorrent
 # rewrites them, so they were seeded once from qb-clearnet's, with I2P through
-# i2p.regulad.internal's SAM. Its web UI listens on loopback at its default
-# port, 8080, for Tailscale Serve (main.yml), with host-header validation off in
-# those settings: Serve passes the browser's Host, port 8443 included, through,
-# and qBittorrent refuses a Host whose port is not its own.
+# i2p.regulad.internal's SAM, and the qbittorrent role sets those main.yml
+# declares through its Web API. Its web UI listens on loopback for Tailscale
+# Serve (main.yml), with host-header validation off: Serve passes the browser's
+# Host, port 8443 included, through, and qBittorrent refuses a Host whose port
+# is not its own.
 quadlet_services:
   - name: qbittorrent
     description: qBittorrent, the lab's BitTorrent client
@@ -32,5 +33,7 @@ quadlet_services:
     volumes:
       - qbittorrent_config:/config
       - /mnt/cephfs/homes/regulad/downloads:/downloads
+      # qb-clamav's directory (main.yml), whose script its hooks run.
+      - "{{ qb_clamav_dir }}:{{ qb_clamav_dir }}:ro"
     restart: always
     wanted_by: [multi-user.target, default.target]
