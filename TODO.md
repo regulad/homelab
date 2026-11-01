@@ -95,7 +95,6 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `openwebui` (115)
 - [x] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)
-- [ ] `procontainer` (106): low priority; currently dormant (stopped, not started at boot), so not in the inventory
 - [x] `pterodactyl` (120)
 - [x] `tailscalerouter` (122)
 - [x] `timemachine` (104)

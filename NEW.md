@@ -17,8 +17,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   of its own. Runs on prodingus, aboriginal, dodo and the OCI instances.
   Expensive, but it would have caught the implant on dodo (then pelican) before
   Parker did
-- [x] ClamAV on-access in the privileged containers (immich, ncsusplitt,
-  procontainer, qb, timemachine, tsexit, tvheadend), streaming to the shared
+- [x] ClamAV on-access in the privileged containers (immich, ncsusplitt, qb,
+  timemachine, tsexit, tvheadend), streaming to the shared
   clamd over the same directories as the hosts with their own kernel. Their
   root holds `CAP_SYS_ADMIN` in the initial user namespace, which clamonacc's
   fanotify group needs. Unprivileged containers cannot run clamonacc at all; the
