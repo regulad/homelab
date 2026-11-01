@@ -499,6 +499,9 @@ restic_jobs:
   # The repository's only forget, for every host's snapshots.
   forget:
     on_calendar: "Thu *-*-* 12:30"
+    # The nas archive's mount, which the prune would leave on a stale index,
+    # stopped for the run with the mounts, stacks and smbd built on it.
+    mounts: [mnt-restic.service]
     policies:
       # Each host's own backups, untagged: as the guests' weekly vzdump job to
       # CephFS keeps its (tofu/gonkputer/backup.tf's prune_backups).
