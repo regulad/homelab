@@ -109,7 +109,7 @@ First installed on hardware and later imaged into VMs, so each carries a
 hardware install rather than a cloud image. Ansible configures them, not
 cloud-init.
 
-- [ ] `aboriginal` (100): also a remote workstation, so nothing under `/home/regulad` is managed. What stays and what moves is in its [README](ansible-generated/inventory/host_vars/aboriginal.regulad.internal/README.md)
+- [x] `aboriginal` (100): also a remote workstation, so nothing under `/home/regulad` is managed. What stays and what moves is in its [README](ansible-generated/inventory/host_vars/aboriginal.regulad.internal/README.md)
   - [x] Add its `ansible_host` to `tofu/gonkputer`
   - [x] Baseline from the shared roles: mail relay, automatic updates, CA trust
   - [x] Move to containers of their own
@@ -130,10 +130,10 @@ cloud-init.
   - [x] Remove the stopped compose projects (mollysocket, monero, timebomb, visualstudiocode) with their volumes, and the leftovers: wings, bees, MariaDB's data and user, libvirt's configuration; ollama was already gone
   - [x] Remove Jellyfin's rffmpeg remains (its mounts, `/etc/rffmpeg`, `/var/lib/rffmpeg`) and root's old tooling: `/root/b2`, `.b2_account_info`, `nullclient.sh`, `error.txt`, `vda-gpt-backup.bin`, `.ipa`, `nextcloud-ca`, `jellyfin-rffmpeg`
   - [x] Its vTPM (`tpmstate0` on `local-lvm`), which lime's credential is sealed to: declared in `vm-aboriginal.tf`, its changes ignored while the provider leaves a TPM at its defaults out of state
-  - [ ] Describe its own services
-    - [ ] Off Docker onto Podman, with secrets in SOPS and images pinned
+  - [x] Describe its own services
+    - [x] Off Docker onto Podman, with secrets in SOPS and images pinned
       - [x] mosquitto and ring-mqtt: Quadlets on the host's network, with Podman's auto-update in place of ring-mqtt's own watchtower
-      - [ ] podman-compose stacks in `/opt/<name>`, each under `podman-compose@<name>.service`, of the compose projects under `/root/compose`, each removed from there once moved
+      - [x] podman-compose stacks in `/opt/<name>`, each under `podman-compose@<name>.service`, of the compose projects under `/root/compose`, each removed from there once moved
         - [x] jellyfin, on release 12, its major releases moved by `maintenance.yml`'s `jellyfin-upgrade`
         - [x] homeassistant, with matter-server, on release 2026.10, its monthly releases moved by `maintenance.yml`'s `homeassistant-upgrade`
           - [x] matter-server: matterjs-server, upstream's successor to the archived python-matter-server, whose fabric it migrated at its first start
