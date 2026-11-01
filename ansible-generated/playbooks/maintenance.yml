@@ -1379,6 +1379,417 @@
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
 
+# Upgrade Nextcloud to the major release nextcloud_release declares: bump it by
+# one, then run this play rather than site.yml, with --limit <host> so alock
+# locks that host alone. Nextcloud moves a single major at a time, from the
+# newest patch of the one it runs (its manual's rule, which the image's
+# entrypoint enforces), so the play refuses any other target, and a running
+# release behind its major's newest patch. It refuses as well while an enabled
+# app from the App Store has no stable release for the target major, which
+# occ upgrade would disable; the app is to be disabled first. Then, with
+# Nextcloud stopped, it copies its database, config, code and apps volumes (a
+# reflink copy where btrfs allows, sharing their blocks until they change; the
+# user data and Redis's cache stay out of it) and the compose file, and starts
+# the new major, whose image's entrypoint runs occ upgrade. It counts the
+# upgrade done once Nextcloud reports the new major, out of maintenance and
+# needing no further database upgrade, with no app disabled on the way; then
+# it adds the indices, columns and primary keys the release expects. If
+# anything fails after the copy, it puts the copy and the old compose file
+# back, starts the old release again, then fails: revert nextcloud_release
+# before the next site.yml. It does nothing where the declared major runs.
+- name: Nextcloud upgrade to its declared major release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [nextcloud-upgrade]
+  # Shared with the cleanup play below.
+  vars: &nextcloud_upgrade_vars
+    nextcloud_upgrade_image: docker.io/library/nextcloud:{{ nextcloud_release }}-apache
+    nextcloud_upgrade_unit: podman-compose@nextcloud.service
+    nextcloud_upgrade_compose: /opt/nextcloud/docker-compose.yml
+    nextcloud_upgrade_backup: /var/backups/nextcloud-upgrade
+    # The volumes copied, by their names in the compose file.
+    nextcloud_upgrade_volumes: [db, config, html, apps]
+    # Published on IPv4 alone, as the compose file says.
+    nextcloud_upgrade_url: http://127.0.0.1:12378
+    # The App Store's apps with a release for the target major.
+    nextcloud_upgrade_store: https://apps.nextcloud.com/api/v1/platform/{{ nextcloud_release }}.0.0/apps.json
+    # Seconds each start has to answer, its upgrade included.
+    nextcloud_upgrade_timeout: 1800
+  tasks:
+    - name: Only where Nextcloud is declared
+      ansible.builtin.meta: end_host
+      when: nextcloud_release is not defined
+
+    # The image's tag is the major, which podman-auto-update then follows
+    # through its patches; a patch named here would stop it at that patch.
+    - name: The declared release is a major one
+      ansible.builtin.assert:
+        that: nextcloud_release is string and nextcloud_release is match('^[0-9]+$')
+        fail_msg: >-
+          nextcloud_release declares {{ nextcloud_release }}; declare a major release, quoted, so
+          podman-auto-update brings in its patches.
+        quiet: true
+
+    - name: The running release
+      ansible.builtin.uri:
+        url: "{{ nextcloud_upgrade_url }}/status.php"
+      register: nextcloud_upgrade_status
+      check_mode: false
+
+    - name: Its major and the declared one
+      ansible.builtin.set_fact:
+        nextcloud_upgrade_running: "{{ nextcloud_upgrade_status.json.versionstring }}"
+        nextcloud_upgrade_running_major: "{{ nextcloud_upgrade_status.json.versionstring.split('.') | first | int }}"
+        nextcloud_upgrade_major: "{{ nextcloud_release | int }}"
+
+    - name: No downgrade, which a migrated database cannot take
+      ansible.builtin.assert:
+        that: nextcloud_upgrade_major | int >= nextcloud_upgrade_running_major | int
+        fail_msg: nextcloud_release declares {{ nextcloud_release }}, older than the running {{ nextcloud_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared major already runs
+      ansible.builtin.meta: end_host
+      when: nextcloud_upgrade_major | int == nextcloud_upgrade_running_major | int
+
+    - name: One major at a time
+      ansible.builtin.assert:
+        that: nextcloud_upgrade_major | int == nextcloud_upgrade_running_major | int + 1
+        fail_msg: >-
+          Nextcloud runs {{ nextcloud_upgrade_running }} and moves one major release at a time:
+          set nextcloud_release to {{ nextcloud_upgrade_running_major | int + 1 }}, run this play and its
+          cleanup, then go on to the next.
+        quiet: true
+
+    # Its manual has a major left only from that major's newest patch.
+    - name: The running major's newest patch, pulled
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "docker.io/library/nextcloud:{{ nextcloud_upgrade_running_major }}-apache"]
+      changed_when: true
+
+    - name: The running major's newest image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "docker.io/library/nextcloud:{{ nextcloud_upgrade_running_major }}-apache"]
+      register: nextcloud_upgrade_latest_patch
+      changed_when: false
+      check_mode: false
+
+    - name: The running release is its major's newest patch
+      ansible.builtin.assert:
+        that: nextcloud_upgrade_newest_patch == nextcloud_upgrade_running
+        fail_msg: >-
+          Nextcloud runs {{ nextcloud_upgrade_running }}, and {{ nextcloud_upgrade_running_major }}'s newest
+          patch is {{ nextcloud_upgrade_newest_patch }}. Let podman-auto-update bring that in first.
+        quiet: true
+      vars:
+        nextcloud_upgrade_newest_patch: >-
+          {{ (nextcloud_upgrade_latest_patch.stdout | from_json)[0].Config.Env
+             | select('match', '^NEXTCLOUD_VERSION=') | first | regex_replace('^NEXTCLOUD_VERSION=', '') }}
+
+    - name: The enabled apps
+      ansible.builtin.command:
+        argv: [podman, exec, --user, www-data, nextcloud, php, occ, app:list, --shipped=false, --output=json]
+      register: nextcloud_upgrade_apps
+      changed_when: false
+      check_mode: false
+
+    # occ upgrade disables an app with no release for the new major, and
+    # installs only stable releases. The App Store's listing runs to some
+    # 16 MB, far more than Ansible handles quickly as a variable, so the host
+    # reads it and prints only the enabled apps it has no stable release of.
+    - name: The enabled apps the target major has no stable release of
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -I
+          - -c
+          - |
+            import json, sys, urllib.request
+            with urllib.request.urlopen(sys.argv[1], timeout=120) as response:
+                store = json.load(response)
+            stable = {app["id"] for app in store for release in app.get("releases", [])
+                      if not release.get("isNightly") and "-" not in release["version"]}
+            print(json.dumps(sorted(set(json.loads(sys.argv[2])) - stable)))
+          - "{{ nextcloud_upgrade_store }}"
+          - "{{ (nextcloud_upgrade_apps.stdout | from_json).enabled.keys() | list | to_json }}"
+      register: nextcloud_upgrade_store_check
+      changed_when: false
+      check_mode: false
+
+    - name: Their names
+      ansible.builtin.set_fact:
+        nextcloud_upgrade_unsupported: "{{ nextcloud_upgrade_store_check.stdout | from_json }}"
+
+    - name: Every enabled app has a release for the target major
+      ansible.builtin.assert:
+        that: nextcloud_upgrade_unsupported | length == 0
+        fail_msg: >-
+          Nextcloud {{ nextcloud_release }} has no stable release of {{ nextcloud_upgrade_unsupported | join(', ') }},
+          which occ upgrade would disable. Disable {{ 'it' if nextcloud_upgrade_unsupported | length == 1 else 'them' }}
+          first ({% for app in nextcloud_upgrade_unsupported %}occ app:disable {{ app }}{{ '; ' if not loop.last }}{% endfor %}),
+          then run this play again.
+        quiet: true
+
+    - name: The declared major, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ nextcloud_upgrade_image }}"]
+      changed_when: true
+
+    - name: The pulled image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ nextcloud_upgrade_image }}"]
+      register: nextcloud_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The version to upgrade to
+      ansible.builtin.set_fact:
+        nextcloud_upgrade_target: >-
+          {{ (nextcloud_upgrade_pulled.stdout | from_json)[0].Config.Env
+             | select('match', '^NEXTCLOUD_VERSION=') | first | regex_replace('^NEXTCLOUD_VERSION=', '')
+             if nextcloud_upgrade_pulled.rc == 0 else nextcloud_release ~ '.0.0' }}
+
+    - name: The pulled image is the declared major
+      ansible.builtin.assert:
+        that: nextcloud_upgrade_target.startswith(nextcloud_release ~ '.')
+        fail_msg: "{{ nextcloud_upgrade_image }} is release {{ nextcloud_upgrade_target }}."
+        quiet: true
+
+    - name: The volumes' mountpoints
+      ansible.builtin.command:
+        argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "nextcloud_{{ item }}"]
+      loop: "{{ nextcloud_upgrade_volumes }}"
+      register: nextcloud_upgrade_mountpoints
+      changed_when: false
+      check_mode: false
+
+    - name: The volumes' attributes
+      ansible.builtin.stat:
+        path: "{{ nextcloud_upgrade_mountpoints.results[0].stdout }}"
+      register: nextcloud_upgrade_volume
+
+    # The volumes are no-COW (chattr +C), as Podman's storage is on btrfs, and
+    # btrfs clones a file only into one of the same kind. The copy's directory
+    # takes their attribute, which everything cp creates in it inherits.
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ nextcloud_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+        attributes: "{{ '+C' if 'C' in nextcloud_upgrade_volume.stat.attr_flags else '-C' }}"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: Nextcloud stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: "{{ nextcloud_upgrade_unit }}"
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ nextcloud_upgrade_backup }}/{{ item }}"
+            state: absent
+          loop: "{{ nextcloud_upgrade_volumes }}"
+
+        - name: Copy of the volumes
+          ansible.builtin.command:
+            argv: [cp, -a, --reflink=auto, "{{ item.stdout }}", "{{ nextcloud_upgrade_backup }}/{{ item.item }}"]
+          loop: "{{ nextcloud_upgrade_mountpoints.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+          changed_when: true
+
+        - name: Copy of the compose file
+          ansible.builtin.copy:
+            src: "{{ nextcloud_upgrade_compose }}"
+            dest: "{{ nextcloud_upgrade_backup }}/docker-compose.yml"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            nextcloud_upgrade_copied: true
+
+        - name: The compose file with the declared major
+          ansible.builtin.template:
+            src: "{{ inventory_dir }}/../files/{{ inventory_hostname }}{{ nextcloud_upgrade_compose }}.j2"
+            dest: "{{ nextcloud_upgrade_compose }}"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Nextcloud started on the declared major, to upgrade
+          ansible.builtin.systemd_service:
+            name: "{{ nextcloud_upgrade_unit }}"
+            state: started
+
+        # Apache starts only once the entrypoint's occ upgrade has finished.
+        - name: Wait for the upgrade and startup
+          ansible.builtin.uri:
+            url: "{{ nextcloud_upgrade_url }}/status.php"
+          register: nextcloud_upgrade_health
+          until: >-
+            nextcloud_upgrade_health.json is defined
+            and nextcloud_upgrade_health.json.versionstring | default('') == nextcloud_upgrade_target
+            and not nextcloud_upgrade_health.json.maintenance
+            and not nextcloud_upgrade_health.json.needsDbUpgrade
+          retries: "{{ [(nextcloud_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        # podman-compose recreates the container at each start, so its log is
+        # this start's.
+        - name: The container's log
+          ansible.builtin.command:
+            argv: [podman, logs, nextcloud]
+          register: nextcloud_upgrade_log
+          changed_when: false
+          when: not ansible_check_mode
+
+        # The entrypoint lists, under this line, each app occ upgrade disabled.
+        - name: The apps the upgrade disabled
+          ansible.builtin.set_fact:
+            nextcloud_upgrade_disabled: >-
+              {{ ((nextcloud_upgrade_log.stdout ~ nextcloud_upgrade_log.stderr)
+                  | regex_search('(?s)The following apps have been disabled:(.*?)(=>|$)', '\\1') or [''])
+                 | first | trim }}
+          when: not ansible_check_mode
+
+        - name: No app disabled by the upgrade
+          ansible.builtin.assert:
+            that: nextcloud_upgrade_disabled | length == 0
+            fail_msg: >-
+              occ upgrade disabled apps on the way to {{ nextcloud_upgrade_target }}: {{ nextcloud_upgrade_disabled }}.
+              Disable them before the next attempt.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: The database's missing indices, columns and primary keys added
+          ansible.builtin.command:
+            argv: [podman, exec, --user, www-data, nextcloud, php, occ, "db:add-missing-{{ item }}"]
+          loop: [indices, columns, primary-keys]
+          register: nextcloud_upgrade_db
+          changed_when: nextcloud_upgrade_db.stdout is search('(?i)adding|updated successfully')
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              Nextcloud runs {{ nextcloud_upgrade_target }}, from {{ nextcloud_upgrade_running }}. The copy to
+              return to is in {{ nextcloud_upgrade_backup }}. Check its administration overview, then run
+              nextcloud-upgrade-cleanup before the next major.
+
+      rescue:
+        - name: Nextcloud stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: "{{ nextcloud_upgrade_unit }}"
+            state: stopped
+
+        - name: The volumes put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -a, --delete, "{{ nextcloud_upgrade_backup }}/{{ item.item }}/", "{{ item.stdout }}/"]
+          loop: "{{ nextcloud_upgrade_mountpoints.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+          changed_when: true
+          when: nextcloud_upgrade_copied | default(false)
+
+        - name: The old compose file put back
+          ansible.builtin.copy:
+            src: "{{ nextcloud_upgrade_backup }}/docker-compose.yml"
+            dest: "{{ nextcloud_upgrade_compose }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: nextcloud_upgrade_copied | default(false)
+
+        - name: Nextcloud started on the old release
+          ansible.builtin.systemd_service:
+            name: "{{ nextcloud_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the old release
+          ansible.builtin.uri:
+            url: "{{ nextcloud_upgrade_url }}/status.php"
+          register: nextcloud_upgrade_rolled_back
+          until: (nextcloud_upgrade_rolled_back.json | default({})).versionstring | default('') == nextcloud_upgrade_running
+          retries: "{{ [(nextcloud_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to Nextcloud {{ nextcloud_release }} failed, and it runs {{ nextcloud_upgrade_running }}
+              again{{ ' from the copy' if nextcloud_upgrade_copied | default(false) else '' }}.
+              Revert nextcloud_release to {{ nextcloud_upgrade_running_major }} before the next site.yml.
+
+# Remove what nextcloud-upgrade leaves behind, once the new major has proven
+# itself: the copy of its volumes to roll back to, and the images of other
+# releases. It refuses while Nextcloud does not run, and answer, on the major
+# nextcloud_release declares, as the copy is then still the way back. Run it
+# with --limit <host>, as the upgrade.
+- name: Nextcloud upgrade's leftovers removed
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [nextcloud-upgrade-cleanup]
+  vars: *nextcloud_upgrade_vars
+  tasks:
+    - name: Only where Nextcloud is declared
+      ansible.builtin.meta: end_host
+      when: nextcloud_release is not defined
+
+    - name: The running release
+      ansible.builtin.uri:
+        url: "{{ nextcloud_upgrade_url }}/status.php"
+      register: nextcloud_cleanup_status
+      check_mode: false
+
+    - name: The declared major runs, out of maintenance
+      ansible.builtin.assert:
+        that:
+          - nextcloud_cleanup_status.json.versionstring.split('.') | first == nextcloud_release
+          - not nextcloud_cleanup_status.json.maintenance
+          - not nextcloud_cleanup_status.json.needsDbUpgrade
+        fail_msg: >-
+          Nextcloud runs {{ nextcloud_cleanup_status.json.versionstring }}, not major {{ nextcloud_release }}
+          out of maintenance, so its copy may still be needed.
+        quiet: true
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ nextcloud_upgrade_backup }}"
+        state: absent
+
+    - name: Nextcloud's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ nextcloud_upgrade_image.rsplit(':', 1) | first }}"]
+      register: nextcloud_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    # The declared image stays, by any of its names; podman refuses to remove
+    # an image a container uses.
+    - name: The images of other releases removed
+      ansible.builtin.command:
+        argv: [podman, image, rm, "{{ item.Id }}"]
+      loop: >-
+        {{ nextcloud_cleanup_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', nextcloud_upgrade_image) | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Remove what the move from python-matter-server to matterjs-server leaves
 # behind, once matterjs-server has migrated the fabric: the copy of the Python
 # server's volume, made by hand before matterjs-server first started on it, the
