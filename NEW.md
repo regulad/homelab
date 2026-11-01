@@ -30,6 +30,13 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   files written while clamonacc is not running, events it drops when it falls
   behind, and files nothing opens again, and the unprivileged containers have
   none. A scheduled scan catches what is already on disk
+  - [ ] Once the scans are done, the backups scheduled the same way: each
+    `restic_jobs` timer at a delay of the host's own (`RandomizedDelaySec=`
+    with `FixedRandomDelay=`) in place of the fixed times in host_vars, and the
+    guest descriptions that announce those times removed: "MAINTENENCE TASKS
+    AT 5:35" on aboriginal and "MAINTENANCE TASKS AT 5:15" on dodo, in
+    tofu/gonkputer. Once AIDE is in place, finding mutations sooner than a
+    backup could, the daily backups run weekly
 - [x] ClamAV in qBittorrent on qb: qb-clamav, its hooks for torrents added and
   finished, stages each new torrent in the `unscanned` category, scans it
   through the shared clamd once finished, and releases a clean one to
