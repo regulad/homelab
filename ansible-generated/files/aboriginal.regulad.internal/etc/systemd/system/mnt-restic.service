@@ -18,7 +18,10 @@ ExecStart=/usr/local/bin/restic-mount-helper
 TimeoutStartSec=infinity
 # Lazy unmount; tolerates lingering processes still inside the mountpoint.
 ExecStop=/bin/fusermount -uz /mnt/restic
-# Only kill the tracked PID (restic), not the short-lived helper.
-KillMode=process
+# Every process in the unit's cgroup: a restic from an earlier attempt to start,
+# which the helper had given up on, went on serving the mount after the PID
+# file named another, and a stop killing only that one left it running. The
+# helper itself has exited once the start is done.
+KillMode=control-group
 Restart=on-failure
 RestartSec=5
