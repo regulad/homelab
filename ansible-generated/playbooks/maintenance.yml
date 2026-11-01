@@ -1416,6 +1416,10 @@
     nextcloud_upgrade_store: https://apps.nextcloud.com/api/v1/platform/{{ nextcloud_release }}.0.0/apps.json
     # Seconds each start has to answer, its upgrade included.
     nextcloud_upgrade_timeout: 1800
+    # Seconds Nextcloud gives the App Store's listing, which occ upgrade fetches
+    # to update the apps it would otherwise disable: some 16 MB, which took two
+    # to three minutes to arrive on aboriginal, past its default of 120.
+    nextcloud_upgrade_appstore_timeout: 600
   tasks:
     - name: Only where Nextcloud is declared
       ansible.builtin.meta: end_host
@@ -1530,6 +1534,31 @@
           first ({% for app in nextcloud_upgrade_unsupported %}occ app:disable {{ app }}{{ '; ' if not loop.last }}{% endfor %}),
           then run this play again.
         quiet: true
+
+    - name: Nextcloud's App Store timeout
+      ansible.builtin.command:
+        argv: [podman, exec, --user, www-data, nextcloud, php, occ, config:app:get, settings, appstore-timeout]
+      register: nextcloud_upgrade_appstore
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Nextcloud's App Store timeout, long enough for its listing
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - --user
+          - www-data
+          - nextcloud
+          - php
+          - occ
+          - config:app:set
+          - settings
+          - appstore-timeout
+          - --value={{ nextcloud_upgrade_appstore_timeout }}
+      changed_when: true
+      when: nextcloud_upgrade_appstore.stdout | trim != nextcloud_upgrade_appstore_timeout | string
 
     - name: The declared major, pulled while the old one still serves
       ansible.builtin.command:
@@ -1646,35 +1675,29 @@
           delay: 10
           when: not ansible_check_mode
 
-        # podman-compose recreates the container at each start, so its log is
-        # this start's.
-        - name: The container's log
+        # The entrypoint's own list of the apps occ upgrade disabled is not
+        # always printed (it was not when the upgrade to 35 disabled bookmarks),
+        # so the enabled apps are compared with those before.
+        - name: The apps enabled after the upgrade
           ansible.builtin.command:
-            argv: [podman, logs, nextcloud]
-          register: nextcloud_upgrade_log
+            argv: [podman, exec, --user, www-data, nextcloud, php, occ, app:list, --shipped=false, --output=json]
+          register: nextcloud_upgrade_apps_after
           changed_when: false
-          when: not ansible_check_mode
-
-        # The entrypoint lists, under this line, each app occ upgrade disabled.
-        # regex_search with a group raises where nothing matches, so it runs
-        # only where the line is.
-        - name: The apps the upgrade disabled
-          ansible.builtin.set_fact:
-            nextcloud_upgrade_disabled: >-
-              {{ (nextcloud_upgrade_output | regex_search('(?s)The following apps have been disabled:(.*?)(=>|$)', '\1')
-                  | first | trim)
-                 if nextcloud_upgrade_output is search('The following apps have been disabled:') else '' }}
-          vars:
-            nextcloud_upgrade_output: "{{ nextcloud_upgrade_log.stdout ~ nextcloud_upgrade_log.stderr }}"
           when: not ansible_check_mode
 
         - name: No app disabled by the upgrade
           ansible.builtin.assert:
             that: nextcloud_upgrade_disabled | length == 0
             fail_msg: >-
-              occ upgrade disabled apps on the way to {{ nextcloud_upgrade_target }}: {{ nextcloud_upgrade_disabled }}.
-              Disable them before the next attempt.
+              occ upgrade disabled {{ nextcloud_upgrade_disabled | join(', ') }} on the way to
+              {{ nextcloud_upgrade_target }}. Where {{ nextcloud_release }} has no release of an app, disable it
+              before the next attempt; where it has, occ upgrade could not fetch the App Store's listing within
+              appstore-timeout.
             quiet: true
+          vars:
+            nextcloud_upgrade_disabled: >-
+              {{ (nextcloud_upgrade_apps.stdout | from_json).enabled.keys() | list
+                 | difference((nextcloud_upgrade_apps_after.stdout | from_json).enabled.keys() | list) | sort }}
           when: not ansible_check_mode
 
         - name: The database's missing indices, columns and primary keys added
