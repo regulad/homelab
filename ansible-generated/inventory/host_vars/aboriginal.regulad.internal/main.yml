@@ -305,7 +305,7 @@ homeassistant_config_dir: /mnt/ssd/homeassistant
 # patch's first start. To move to the next major, bump it by one and run
 # maintenance.yml's nextcloud-upgrade, not site.yml: site.yml would restart
 # onto it, upgrading its database, with no copy to return to.
-nextcloud_release: "34"
+nextcloud_release: "35"
 # Its data directory, Nextcloud's own state.
 nextcloud_data_dir: /srv/nextcloud
 
