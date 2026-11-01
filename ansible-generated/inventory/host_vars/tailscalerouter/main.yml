@@ -60,4 +60,4 @@ host_files_list:
 host_files_units: [dnsmasq]
 
 # ClamAV's on-access scanner, over the baseline directories alone.
-clamonacc_enabled: true
+clamav_onaccess_enabled: true

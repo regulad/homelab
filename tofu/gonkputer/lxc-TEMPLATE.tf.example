@@ -79,7 +79,7 @@ resource "ansible_host" "<name_with_underscores>" {
   name = "${proxmox_virtual_environment_container.<name_with_underscores>.initialization[0].hostname}.${local.guest_domain}"
   # Its OS group, groups such as podman_hosts for the roles it gets, its tags
   # that Ansible keys on, and whether it is privileged, which roles such as
-  # clamonacc need.
+  # clamav's on-access scanning need.
   groups = sort(setunion(
     ["gonkputer", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.<name_with_underscores>.tags, local.ansible_group_tags),

@@ -112,5 +112,8 @@
   hosts: debian:ubuntu:rhel:!unprivileged_containers
   gather_facts: false
   become: true
-  roles:
-    - clamonacc
+  tasks:
+    - name: ClamAV's on-access scanner
+      ansible.builtin.import_role:
+        name: clamav
+        tasks_from: onaccess

@@ -16,7 +16,7 @@ tailscale_serve:
     target: http://{{ qbittorrent_webui_address }}:{{ qbittorrent_webui_port }}
 
 # ClamAV's on-access scanner, over the baseline directories alone.
-clamonacc_enabled: true
+clamav_onaccess_enabled: true
 
 # qb-clamav, qBittorrent's hooks for torrents added and finished, which scan
 # each finished torrent through the shared clamd before it reaches the default

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Managed by Ansible (clamonacc). clamav-clamonacc.service's ExecStartPost:
+# Managed by Ansible (clamav). clamav-clamonacc.service's ExecStartPost:
 #
 #   clamonacc-watched [seconds]
 #

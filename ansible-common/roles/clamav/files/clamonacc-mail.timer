@@ -1,4 +1,4 @@
-# Managed by Ansible (clamonacc).
+# Managed by Ansible (clamav).
 [Unit]
 Description=Mail clamonacc's new detections every minute
 Documentation=man:clamonacc(8)

@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: ClamAV through a shared or local clamd, quarantining and mailing finds - clamonacc where a host turns it on
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

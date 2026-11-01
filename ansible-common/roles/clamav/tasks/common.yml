@@ -1,0 +1,28 @@
+---
+# What every entry point needs: the role's own unit directory, as locally
+# installed software's are, the configuration directory, and the quarantine
+# infected files are moved into.
+- name: Local unit directory
+  ansible.builtin.file:
+    path: /usr/local/lib/systemd/system
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configuration directory
+  ansible.builtin.file:
+    path: "{{ clamav_onaccess_config | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Quarantine
+  ansible.builtin.file:
+    path: "{{ clamav_quarantine }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: clamav_quarantine | length > 0

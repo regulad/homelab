@@ -1,0 +1,91 @@
+---
+# ClamAV for the host's files, through the homelab's shared clamd, or on a host
+# outside the homelab through its own, from entry points each imported by a
+# play of its own on the hosts it suits: tasks_from onaccess, the on-access
+# scanner, clamonacc, on the hosts that turn it on and can run it. They share
+# these settings. clamonacc moves what it finds into the quarantine, and
+# clamonacc-mail.timer mails it each minute to root through the host's mail
+# relay, with any directory clamonacc failed to watch.
+
+# The directories scanned on access, each with every directory below it. They are where files from elsewhere land, and are the same on Debian,
+# Ubuntu and Enterprise Linux; on access, the package-managed trees, /usr, /etc,
+# /boot and /var/lib, would stream every binary run and library loaded to
+# clamd. Only those that exist are scanned.
+clamav_paths:
+  - /home
+  - /root
+  - /tmp
+  - /var/tmp
+  - /dev/shm
+  - /srv
+# Each host's additions, such as a service's upload directory. clamonacc refuses
+# /, and a btrfs subvolume below a watched directory stops its watches
+# (https://github.com/Cisco-Talos/clamav/issues/341), so list each subvolume on
+# its own.
+clamav_paths_host: []
+# Directories and files below them that are not scanned.
+clamav_exclude_paths: []
+
+# Where infected files are moved, as <name>, or <name>.NNN beside an
+# earlier one, root's alone; empty leaves infected files in place. The
+# directory itself is never scanned, or a file moved into it would be found and
+# moved again.
+clamav_quarantine: /root/quarantine
+
+# The shared clamd: the clamd container, tofu/gonkputer's lxc-clamd.tf, on its
+# clamd_port. Its clients stream each file's contents to it, unencrypted, as
+# they would to any clamd over TCP, so a host off the LAN reaches it through
+# the tailnet. An IPv6 address goes in brackets. Unused where clamd is local.
+clamav_clamd_host: clamd.regulad.internal
+clamav_clamd_port: 3310
+# Run the packages' own clamd and freshclam on the host instead, for a host
+# outside the homelab, whose files would otherwise cross the internet to the
+# shared clamd. clamd then holds its signatures in memory, about 1 GiB, and twice
+# that while it reloads them after an update. Debian and Ubuntu only.
+clamav_clamd_local: false
+# The packages' clamd socket. clamonacc passes it each file's descriptor, so
+# clamd, running as clamav, can scan files only root may open.
+clamav_clamd_socket: /run/clamav/clamd.ctl
+
+# clamonacc: off unless the host turns it on. An unprivileged container cannot
+# run it: its root lacks CAP_SYS_ADMIN in the initial user namespace, which
+# clamonacc's fanotify group needs.
+clamav_onaccess_enabled: false
+# Users whose file accesses are not scanned, by name.
+clamav_onaccess_exclude_unames: []
+# Also scan files when they are created, moved in or closed after writing, not
+# only when they are opened. clamonacc logs its being on once it has walked the
+# watched trees at start, which the unit's start check waits for; with it off,
+# the unit cannot tell when a tree was lost, and runs no check.
+clamav_onaccess_extra_scanning: true
+# Hold each open until clamd's verdict, and deny an infected file. Off, because
+# clamonacc scans one file at a time
+# (https://github.com/Cisco-Talos/clamav/issues/1698), so every open in a
+# watched directory would wait on clamd across the network.
+clamav_onaccess_prevention: false
+# Files larger than this are not scanned on access; clamonacc's own default.
+clamav_onaccess_max_file_size: 5M
+clamav_onaccess_config: /etc/clamav/clamonacc.conf
+
+# EPEL, which carries ClamAV for Enterprise Linux: Oracle Linux's own build of it
+# comes with oracle-epel-release-el<major> as the ol<major>_developer_EPEL
+# repository, which OCI's images carry installed but switched off; AlmaLinux and
+# Rocky Linux ship epel-release, whose repository is epel.
+clamav_epel_release: >-
+  {{ ('oracle-epel-release-el' ~ ansible_facts.distribution_major_version)
+     if ansible_facts.distribution == 'OracleLinux' else 'epel-release' }}
+clamav_epel_repo: >-
+  {{ ('ol' ~ ansible_facts.distribution_major_version ~ '_developer_EPEL')
+     if ansible_facts.distribution == 'OracleLinux' else 'epel' }}
+# The packages that carry clamonacc and clamd, installed where clamonacc runs
+# or clamd is local. Debian and Ubuntu's clamav-daemon brings clamd and freshclam; EPEL's clamav needs
+# data(clamav), which clamav-freshclam provides without shipping signatures.
+clamav_packages: "{{ ['clamav', 'clamav-freshclam'] if 'rhel' in group_names else ['clamav-daemon'] }}"
+# The packages' own clamd and freshclam units, masked before the packages are
+# installed so that neither starts: clamd here would hold about 1 GiB of
+# signatures, and the shared container keeps the only copy. Where clamd is
+# local, they stay unmasked and run.
+clamav_masked_units: >-
+  {{ ['clamav-freshclam.service', 'clamav-freshclam-once.service', 'clamav-freshclam-once.timer']
+     if 'rhel' in group_names
+     else ['clamav-daemon.service', 'clamav-daemon.socket', 'clamav-freshclam.service'] }}

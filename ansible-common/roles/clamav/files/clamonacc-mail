@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Managed by Ansible (clamonacc). Mails clamonacc's new detections, and the
+# Managed by Ansible (clamav). Mails clamonacc's new detections, and the
 # directories it failed to watch, to root through the host's mail relay, which
 # delivers every recipient to the homelab's mailbox:
 #

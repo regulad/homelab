@@ -91,4 +91,4 @@ host_files_units: [nginx, livekit, lk-jwt-service]
 
 # ClamAV's on-access scanner, the first host to run it, over the baseline
 # directories alone: LiveKit stores nothing its users send.
-clamonacc_enabled: true
+clamav_onaccess_enabled: true

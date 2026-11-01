@@ -184,4 +184,4 @@ webhookd_hooks:
 
 # ClamAV's on-access scanner, over the baseline directories alone: the
 # hypervisor's own files, never its guests'.
-clamonacc_enabled: true
+clamav_onaccess_enabled: true

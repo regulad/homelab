@@ -34,5 +34,5 @@ firewalld_zones:
 
 # ClamAV's on-access scanner, over the baseline directories alone, through a
 # clamd of its own: the host is outside the homelab, so its files stay on it.
-clamonacc_enabled: true
-clamonacc_clamd_local: true
+clamav_onaccess_enabled: true
+clamav_clamd_local: true

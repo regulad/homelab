@@ -83,4 +83,4 @@ host_files_pipx: [vpn-slice==0.16.1]
 host_files_units: [ncsu-tun.service, ncsu-keepalive.timer, unbound.service]
 
 # ClamAV's on-access scanner, over the baseline directories alone.
-clamonacc_enabled: true
+clamav_onaccess_enabled: true

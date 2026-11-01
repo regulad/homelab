@@ -106,4 +106,4 @@ restic_retired_scripts:
   - /root/backup.sh
 
 # ClamAV's on-access scanner, over the baseline directories alone.
-clamonacc_enabled: true
+clamav_onaccess_enabled: true
