@@ -1,0 +1,15 @@
+---
+# qBittorrent's Web UI, where the role reaches its Web API: on loopback, at
+# qBittorrent's default port.
+qbittorrent_webui_address: 127.0.0.1
+qbittorrent_webui_port: 8080
+# The Web API key qBittorrent created (Options, Web UI, API key), from the
+# host's secrets.sops.yml: the Web API can only rotate or delete it, not take
+# one given.
+qbittorrent_api_key: ""
+# Preferences by their Web API names, each as GET /api/v2/app/preferences
+# reports it, such as paths without a trailing slash. Undeclared ones stay
+# qBittorrent's own state.
+qbittorrent_preferences: {}
+# Categories, each a name and its save_path. Undeclared ones are left alone.
+qbittorrent_categories: []

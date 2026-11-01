@@ -141,3 +141,10 @@
   become: true
   roles:
     - quadlet
+
+# qBittorrent's declared settings, through its Web API, once its Quadlet runs.
+- name: BitTorrent clients
+  hosts: qbittorrent
+  gather_facts: false
+  roles:
+    - qbittorrent
