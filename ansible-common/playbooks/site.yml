@@ -8,8 +8,10 @@
 - name: Host baseline
   hosts: debian:ubuntu:rhel:macos
   roles:
-    - base
-    - tailscale
+    - role: base
+      tags: [base]
+    - role: tailscale
+      tags: [tailscale]
 
 # firewalld on every Linux host with its own kernel; Proxmox nodes keep
 # pve-firewall, and containers the Proxmox guest firewall.
@@ -18,6 +20,7 @@
   hosts: debian:ubuntu:rhel:!proxmox_containers:!proxmox_nodes
   gather_facts: false
   become: true
+  tags: [firewalld]
   roles:
     - firewalld
 
@@ -27,6 +30,7 @@
   hosts: debian:ubuntu:rhel:!proxmox_containers
   gather_facts: false
   become: true
+  tags: [cve_2026_98432]
   roles:
     - cve_2026_98432
 
@@ -35,6 +39,7 @@
   hosts: debian:ubuntu:rhel:freebsd
   gather_facts: false
   become: true
+  tags: [ca_trust]
   roles:
     - ca_trust
 
@@ -44,6 +49,7 @@
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true
+  tags: [mail_relay]
   roles:
     - mail_relay
 
@@ -52,6 +58,7 @@
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true
+  tags: [auto_updates]
   roles:
     - auto_updates
 
@@ -60,6 +67,7 @@
   hosts: ubuntu
   gather_facts: false
   become: true
+  tags: [apt_amd64v3]
   roles:
     - apt_amd64v3
 
@@ -68,6 +76,7 @@
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true
+  tags: [kernel_params]
   roles:
     - kernel_params
 
@@ -76,6 +85,7 @@
   hosts: debian:ubuntu:!proxmox_containers
   gather_facts: false
   become: true
+  tags: [swap]
   roles:
     - swap
 
@@ -85,6 +95,7 @@
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true
+  tags: [restic]
   roles:
     - restic
 
@@ -93,6 +104,7 @@
   hosts: ubuntu
   gather_facts: false
   become: true
+  tags: [netplan]
   roles:
     - netplan
 
@@ -101,6 +113,7 @@
   hosts: kdump
   gather_facts: false
   become: true
+  tags: [kdump]
   roles:
     - kdump
 
@@ -112,6 +125,7 @@
   hosts: debian:ubuntu:rhel:!unprivileged_containers
   gather_facts: false
   become: true
+  tags: [clamav, clamav_onaccess]
   tasks:
     - name: ClamAV's on-access scanner
       ansible.builtin.import_role:
@@ -124,6 +138,7 @@
   hosts: debian:ubuntu:rhel
   gather_facts: false
   become: true
+  tags: [clamav, clamav_scan]
   tasks:
     - name: ClamAV's weekly scan
       ansible.builtin.import_role:
