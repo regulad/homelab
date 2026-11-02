@@ -9,8 +9,6 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [ ] AIDE and auditd on every host, containers included: AIDE's file integrity
   checks and auditd's rules, each mailing regulad@regulad.xyz through the host's
   mail relay when something anomalous is detected
-  - [ ] Once AIDE is in place, finding mutations sooner than a backup could,
-    the daily backups run weekly
 - [x] ClamAV on-access on the hardware hosts and every other Linux host with
   its own kernel, scanning for anomalous files: implants and bad user data
   alike. Each host's clamonacc scans files as they are opened and written, and
@@ -41,7 +39,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
     `period`, daily or weekly, and its timer runs it at a delay of the host's
     own within that period (`RandomizedDelaySec=` with `FixedRandomDelay=`),
     in place of the fixed times in host_vars; the guest descriptions that
-    announced those times are gone from tofu/gonkputer
+    announced those times are gone from tofu/gonkputer. Every job runs
+    weekly, the host backups no longer daily
 - [x] ClamAV in qBittorrent on qb: qb-clamav, its hooks for torrents added and
   finished, stages each new torrent in the `unscanned` category, scans it
   through the shared clamd once finished, and releases a clean one to
