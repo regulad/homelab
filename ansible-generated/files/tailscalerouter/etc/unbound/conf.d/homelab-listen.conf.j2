@@ -1,0 +1,18 @@
+# Managed by Ansible (host_files). The VCN's resolver: the addresses Unbound
+# answers on, this instance's own from OpenTofu state, and who may ask.
+server:
+    interface: 127.0.0.1
+    interface: ::1
+    interface: {{ private_ip }}
+    interface: {{ ipv6_address }}
+    #
+    # The VCN, by the routes this instance advertises to the tailnet; the
+    # homelab, whose resolver on arawi forwards the VCN's names here; and the
+    # tailnet. Localhost is allowed by default.
+{% for route in tailscale_settings.advertise_routes %}
+    access-control: {{ route }} allow
+{% endfor %}
+    access-control: 10.23.0.0/16 allow
+    access-control: {{ (lan_arawi.ipv6 ~ '/64') | ip_network }} allow
+    access-control: 100.64.0.0/10 allow
+    access-control: fd7a:115c:a1e0::/48 allow

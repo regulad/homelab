@@ -750,7 +750,8 @@ pfsense_files:
     src: root/.ssh/known_hosts
   # Unbound's split-horizon RPZ: the master copy, and the copy Unbound reads in
   # its chroot on the /var RAM disk. Both come from one file here, and the copy
-  # must exist before the dns_resolver section restarts Unbound.
+  # must exist before the dns_resolver section restarts Unbound. The VCN's
+  # resolver on tailscalerouter reads the same file, through files/shared.
   - path: /usr/local/etc/unbound/split-horizon.rpz
     mode: "0644"
     src: usr/local/etc/unbound/split-horizon.rpz

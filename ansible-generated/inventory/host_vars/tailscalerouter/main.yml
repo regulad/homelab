@@ -35,15 +35,30 @@ firewalld_zones:
     ports: [39127/udp]
     forward: true
 
-host_files_packages: [dnsmasq]
+host_files_packages: [unbound]
 host_files_list:
   # The VCN's resolver, which the subnet's DHCP options give every instance:
-  # dnsmasq on the instance's addresses, its GUA from OpenTofu state.
-  - path: /etc/dnsmasq.conf
+  # Unbound, from drop-ins beside the package's own unbound.conf, which reads
+  # /etc/unbound/conf.d/*.conf. It listens on the instance's addresses, its GUA
+  # from OpenTofu state; forwards each internal zone to its servers and the
+  # rest to OCI's resolver; and answers regulad.xyz names with arawi's
+  # split-horizon RPZ, shared from arawi's files.
+  - path: /etc/unbound/conf.d/homelab-listen.conf
     template: true
-    group: dnsmasq
+    secret: true
     mode: "0644"
-    restarts: [dnsmasq]
+    restarts: [unbound]
+  - path: /etc/unbound/conf.d/homelab-forward.conf
+    template: true
+    mode: "0644"
+    restarts: [unbound]
+  - path: /etc/unbound/conf.d/homelab-split-horizon.conf
+    mode: "0644"
+    restarts: [unbound]
+  - path: /etc/unbound/split-horizon.rpz
+    shared_src: unbound/split-horizon.rpz
+    mode: "0644"
+    restarts: [unbound]
   - path: /etc/default/tailscaled
     mode: "0444"
     restarts: [tailscaled]
@@ -57,7 +72,7 @@ host_files_list:
   - path: /etc/firewalld/policies/allow-peering-fwd.xml
     mode: "0644"
     reloads: [firewalld]
-host_files_units: [dnsmasq]
+host_files_units: [unbound]
 
 # ClamAV's on-access scanner, over the baseline directories alone.
 clamav_onaccess_enabled: true

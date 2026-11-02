@@ -1,0 +1,69 @@
+# Managed by Ansible (host_files). Each internal zone goes to the servers that
+# hold it, and every other name to OCI's resolver, which also answers the VCN's
+# own names.
+server:
+    # Reverse lookups in private address space go to their forwarders below,
+    # not to Unbound's built-in empty zones, and are not validated: those zones
+    # are unsigned.
+    unblock-lan-zones: yes
+    insecure-lan-zones: yes
+    #
+    # Unsigned zones answered by internal servers, beneath signed parents.
+    domain-insecure: "oraclevcn.com."
+    domain-insecure: "regulad.internal."
+    domain-insecure: "regulad-verizon-livingston.internal."
+    domain-insecure: "tail11540.ts.net."
+
+# The VCN's names and their reverse zone, from OCI's resolver.
+forward-zone:
+    name: "oraclevcn.com."
+    forward-addr: 169.254.169.254
+
+forward-zone:
+    name: "80.131.10.in-addr.arpa."
+    forward-addr: 169.254.169.254
+
+# The homelab's names, from arawi, over the tailnet's subnet routes. IPv4
+# alone: queries to arawi's ULA go out over the tailnet but get no answer back.
+forward-zone:
+    name: "regulad.internal."
+    forward-addr: {{ lan_arawi.ipv4 }}
+
+forward-zone:
+    name: "23.10.in-addr.arpa."
+    forward-addr: {{ lan_arawi.ipv4 }}
+
+# The Verizon router's names and the reverse records it answers, straight from
+# it, as arawi forwards them too; it has no routable IPv6 address.
+forward-zone:
+    name: "regulad-verizon-livingston.internal."
+    forward-addr: {{ lan_upstream_router.ipv4 }}
+
+forward-zone:
+    name: "1.0.23.10.in-addr.arpa."
+    forward-addr: {{ lan_upstream_router.ipv4 }}
+
+forward-zone:
+    name: "32.2.23.10.in-addr.arpa."
+    forward-addr: {{ lan_upstream_router.ipv4 }}
+
+# The tailnet's names and reverse zones, from MagicDNS.
+forward-zone:
+    name: "tail11540.ts.net."
+    forward-addr: fd7a:115c:a1e0::53
+    forward-addr: 100.100.100.100
+
+forward-zone:
+    name: "100.in-addr.arpa."
+    forward-addr: fd7a:115c:a1e0::53
+    forward-addr: 100.100.100.100
+
+forward-zone:
+    name: "0.e.1.a.c.5.1.1.a.7.d.f.ip6.arpa."
+    forward-addr: fd7a:115c:a1e0::53
+    forward-addr: 100.100.100.100
+
+# Everything else.
+forward-zone:
+    name: "."
+    forward-addr: 169.254.169.254
