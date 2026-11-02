@@ -1,6 +1,7 @@
 # shellcheck shell=sh
 # Decrypt OCI input values into the gitignored secrets.auto.tfvars.json file, and
-# export the state backend's credentials and endpoint into the calling shell.
+# export the OCI API key and the state backend's credentials and endpoint into
+# the calling shell.
 # It also puts ansible-generated/bin on PATH, where the inventory plugin finds
 # bin/tofu-oracle.
 #
@@ -27,7 +28,7 @@ _homelab_sops() {
 _homelab_oracle_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext backend name value
+    local root dir destination plaintext provider backend name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/oracle"
     destination="$dir/secrets.auto.tfvars.json"
@@ -50,14 +51,35 @@ _homelab_oracle_prepare() {
     else
         (umask 077 && printf '%s\n' "$plaintext" >"$destination") || return 1
     fi
-    # The s3 backend reads these from the environment, so they never reach
-    # .terraform/ or saved plans. Check every name before exporting any.
+    # Provider credentials: only the expected names, each present. Values are
+    # never printed.
+    provider=$(_homelab_sops decrypt "$dir/provider.sops.env") || return 1
+    name=$(printf '%s\n' "$provider" | grep -v -E '^[[:space:]]*(#|$)' |
+        grep -v -E '^(OCI_USER_OCID|OCI_FINGERPRINT|OCI_PRIVATE_KEY)=' | head -n 1 | cut -d= -f1)
+    if [ -n "$name" ]; then
+        echo "prepare.sh: unexpected key in provider.sops.env: $name" >&2
+        return 1
+    fi
+    for name in OCI_USER_OCID OCI_FINGERPRINT OCI_PRIVATE_KEY; do
+        if ! printf '%s\n' "$provider" | grep -q "^$name=."; then
+            echo "prepare.sh: provider.sops.env is missing $name." >&2
+            return 1
+        fi
+    done
+    # The provider and the s3 backend read these from the environment, so they
+    # never reach .terraform/ or saved plans. Check every name before exporting any.
     backend=$(_homelab_sops decrypt "$root/tofu/shared/backend.sops.env") || return 1
     for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3; do
         if ! printf '%s\n' "$backend" | grep -q "^$name=."; then
             echo "prepare.sh: backend.sops.env is missing $name." >&2
             return 1
         fi
+    done
+    # The private key stays one line, its newlines written \n; the provider
+    # restores them.
+    for name in OCI_USER_OCID OCI_FINGERPRINT OCI_PRIVATE_KEY; do
+        value=$(printf '%s\n' "$provider" | sed -n "s/^$name=//p" | head -n 1)
+        export "$name=$value"
     done
     for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3; do
         value=$(printf '%s\n' "$backend" | sed -n "s/^$name=//p" | head -n 1)
@@ -69,7 +91,7 @@ _homelab_oracle_prepare() {
         *":$root/ansible-generated/bin:"*) ;;
         *) export PATH="$root/ansible-generated/bin:$PATH" ;;
     esac
-    echo 'Decrypted OCI inputs and backend credentials are ready. Resource definitions remain in the .tf files.'
+    echo 'Decrypted OCI inputs, the OCI API key and backend credentials are ready. Resource definitions remain in the .tf files.'
 }
 
 _homelab_oracle_prepare

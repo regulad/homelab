@@ -92,6 +92,14 @@ the tenancy's namespace. Sourcing `prepare.sh` exports all three into the curren
 shell, so none of them reaches `.terraform/` or a saved plan. The key is created
 outside OpenTofu, so it never lives in the state it unlocks.
 
+`provider.sops.env` holds what the OCI provider reads from the environment: an
+API signing key on Parker's user (`OCI_PRIVATE_KEY`, its newlines written `\n`),
+its fingerprint (`OCI_FINGERPRINT`) and his user OCID (`OCI_USER_OCID`).
+Sourcing `prepare.sh` exports them too, so the key also stays out of
+`.terraform/` and saved plans. A session token lasts at most 24 hours; the key
+lasts until it is deleted from his user in the OCI console, which revokes it.
+To replace it, generate a new key, upload its public half, and update the file.
+
 Values that are not ours, or not secret, stay out of SOPS:
 
 - Verified Oracle platform-image IDs are plaintext in `locals.tf`'s
@@ -113,8 +121,6 @@ From the repository root, in bash or zsh on Linux or macOS:
 
 ```bash
 . tofu/oracle/prepare.sh
-export OCI_CLI_AUTH=security_token
-oci session validate --profile DEFAULT
 tofu -chdir=tofu/oracle init -input=false -lockfile=readonly
 tofu -chdir=tofu/oracle fmt -check -recursive
 tofu -chdir=tofu/oracle validate
