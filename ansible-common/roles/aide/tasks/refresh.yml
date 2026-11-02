@@ -16,8 +16,8 @@
     aide_written: >-
       {{ (lookup('ansible.builtin.file',
                  lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname,
-                 errors='ignore') or '')
-         | split('\n') | select | unique | list }}
+                 errors='ignore') or '').splitlines()
+         | select | unique | list }}
   when: aide_baseline.stat.exists
 
 - name: AIDE's baseline for them
