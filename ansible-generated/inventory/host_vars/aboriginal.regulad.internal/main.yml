@@ -489,7 +489,7 @@ swap_files:
 # rclone mount.
 restic_jobs:
   snapshot:
-    period: daily
+    period: weekly
     paths: [/, /boot, /boot/efi, /mnt/ssd]
   rgw:
     period: weekly
