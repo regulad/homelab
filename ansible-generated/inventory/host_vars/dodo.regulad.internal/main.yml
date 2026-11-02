@@ -100,7 +100,7 @@ swap_files:
 # aboriginal's forget is the only one.
 restic_jobs:
   snapshot:
-    period: daily
+    period: weekly
     paths: [/, /boot/efi]
 restic_retired_scripts:
   - /root/backup.sh
