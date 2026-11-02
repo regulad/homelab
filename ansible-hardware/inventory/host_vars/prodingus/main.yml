@@ -80,15 +80,15 @@ swap_files:
 # aboriginal's forget is the only one.
 restic_jobs:
   simple:
-    on_calendar: "*-*-* 05:25"
+    period: daily
     paths: [/, /boot/efi]
     options: [--one-file-system, --exclude=/var/cache]
   cephfs:
-    on_calendar: "Wed *-*-* 04:30"
+    period: weekly
     path: /mnt/pve/cephfs
     tag: cephfs
   rbd:
-    on_calendar: "Fri *-*-* 07:34"
+    period: weekly
     image: rbd_cmr/vm-111-disk-0
     filename: urbackup.img
     tag: urbackup

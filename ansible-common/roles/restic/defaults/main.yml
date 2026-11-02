@@ -37,8 +37,9 @@ restic_env_extra: {}
 restic_env_units: []
 
 # The host's backup and retention jobs, each restic-<job>.service, from its
-# own template, started by restic-<job>.timer. Every job sets on_calendar, the
-# timer's OnCalendar=. The jobs, and what each sets besides:
+# own template, started by restic-<job>.timer. Every job sets period, daily or
+# weekly: its timer starts it once a period, at a delay into the period that is
+# the host's own and the same every time. The jobs, and what each sets besides:
 #   simple: paths, backed up as they are; options, further restic backup
 #     options.
 #   snapshot: paths, mount points with / among them, each btrfs one read from

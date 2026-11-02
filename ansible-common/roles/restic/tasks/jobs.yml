@@ -4,7 +4,12 @@
 # jobs no longer declared and of the crontab scripts the jobs replace.
 - name: Gather the jobs' settings
   ansible.builtin.set_fact:
-    # What each job sets besides on_calendar.
+    # The periods a job runs once in, its timer's OnCalendar=, each with its
+    # length, the timer's RandomizedDelaySec=.
+    restic_job_periods:
+      daily: 1d
+      weekly: 1w
+    # What each job sets besides period.
     restic_job_fields:
       simple: [paths]
       snapshot: [paths]
@@ -19,7 +24,7 @@
   ansible.builtin.assert:
     that:
       - item.key in restic_job_fields
-      - item.value.on_calendar is defined
+      - item.value.period | default('') in restic_job_periods
       - restic_job_fields[item.key] | default([]) | reject('in', item.value) | list | length == 0
       - item.value.policies | default([]) | rejectattr('tag', 'defined') | list | length == 0
       - item.value.policies | default([]) | rejectattr('keep', 'defined') | list | length == 0
@@ -27,7 +32,8 @@
       - restic_job_words | reject('match', '^[A-Za-z0-9_@=:,./+-]*$') | list | length == 0
     fail_msg: >-
       restic job {{ item.key }}: jobs are {{ restic_job_fields.keys() | join(', ') }}, and each
-      sets on_calendar and {{ restic_job_fields[item.key] | default([]) | join(', ') }}; every path,
+      sets period ({{ restic_job_periods.keys() | join(' or ') }}) and
+      {{ restic_job_fields[item.key] | default([]) | join(', ') }}; every path,
       option and tag must be free of spaces, quotes, % and $.
     quiet: true
   vars:

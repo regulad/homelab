@@ -3,7 +3,13 @@
 Description=Start restic-{{ item.key }}.service on schedule
 
 [Timer]
-OnCalendar={{ item.value.on_calendar }}
+# Once {{ item.value.period }}, at a delay of up to {{ restic_job_periods[item.value.period] }} from the period's start that
+# systemd derives from the host's machine ID and this timer's name and keeps,
+# so that the hosts' jobs, and each host's, spread across the period rather
+# than meeting at the repository.
+OnCalendar={{ item.value.period }}
+RandomizedDelaySec={{ restic_job_periods[item.value.period] }}
+FixedRandomDelay=true
 # A run missed while the host was down starts once it is up.
 Persistent=true
 

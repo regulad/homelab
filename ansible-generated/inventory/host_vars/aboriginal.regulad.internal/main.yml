@@ -489,16 +489,16 @@ swap_files:
 # rclone mount.
 restic_jobs:
   snapshot:
-    on_calendar: "*-*-* 05:35"
+    period: daily
     paths: [/, /boot, /boot/efi, /mnt/ssd]
   rgw:
-    on_calendar: "Sat *-*-* 04:30"
+    period: weekly
     path: /mnt/rgw
     mount_service: mnt-rgw.service
     tag: rgw
   # The repository's only forget, for every host's snapshots.
   forget:
-    on_calendar: "Thu *-*-* 12:30"
+    period: weekly
     # The nas archive's mount, which the prune would leave on a stale index,
     # stopped for the run with the mounts, stacks and smbd built on it.
     mounts: [mnt-restic.service]
