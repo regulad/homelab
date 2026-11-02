@@ -23,14 +23,16 @@ forward-zone:
     name: "80.131.10.in-addr.arpa."
     forward-addr: 169.254.169.254
 
-# The homelab's names, from arawi, over the tailnet's subnet routes. IPv4
-# alone: queries to arawi's ULA go out over the tailnet but get no answer back.
+# The homelab's names, from arawi, over the tailnet's subnet routes; arawi
+# admits this instance's tailnet addresses to its own.
 forward-zone:
     name: "regulad.internal."
+    forward-addr: {{ lan_arawi.ipv6 }}
     forward-addr: {{ lan_arawi.ipv4 }}
 
 forward-zone:
     name: "23.10.in-addr.arpa."
+    forward-addr: {{ lan_arawi.ipv6 }}
     forward-addr: {{ lan_arawi.ipv4 }}
 
 # The Verizon router's names and the reverse records it answers, straight from
