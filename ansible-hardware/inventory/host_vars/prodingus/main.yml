@@ -80,7 +80,7 @@ swap_files:
 # aboriginal's forget is the only one.
 restic_jobs:
   simple:
-    period: daily
+    period: weekly
     paths: [/, /boot/efi]
     options: [--one-file-system, --exclude=/var/cache]
   cephfs:
