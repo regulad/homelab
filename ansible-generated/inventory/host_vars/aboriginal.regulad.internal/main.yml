@@ -538,3 +538,11 @@ lime_macs:
 # Assistant and Jellyfin stacks keep their data.
 clamav_onaccess_enabled: true
 clamav_scan_paths_host: [/mnt/ssd]
+
+# Not checked by AIDE: Nextcloud's user data, regulad's home and Homebrew's,
+# over 70 GB on the root filesystem that change as they are used. ClamAV's
+# on-access scanner watches /home.
+aide_exclude_paths_host:
+  - "{{ nextcloud_data_dir }}"
+  - /home/regulad
+  - /home/linuxbrew
