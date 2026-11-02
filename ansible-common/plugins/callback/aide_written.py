@@ -21,7 +21,7 @@ description:
     the run and named by the AIDE_WRITTEN_DIR environment variable, which the
     run's workers inherit. The directory is removed when the run ends.
   - Results delegated to another host, and results hidden by no_log, are not
-    recorded: neither says, or may say, which of the host's files changed.
+    recorded, as neither says, or may say, which of the host's files changed.
 requirements:
   - enabled in callbacks_enabled
 """
