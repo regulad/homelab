@@ -69,7 +69,8 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [ ] Bounces after acceptance: Postfix accepts the LDAP `mail` addresses that Dovecot's `uid` lookup rejects
   - [ ] DKIM signing for `nefumllc.com`, and the malformed MTA-STS record
   - [ ] webhookd: unpinned, its TLS key world-readable
-- [x] `tailscalerouter`: subnet router, peer relay and the VCN's dnsmasq resolver
+- [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
+  - [ ] IPv6 from the VCN into the homelab: tailscalerouter's queries to arawi's ULA go out over the tailnet, by the `regulad-internal` subnet router's `fd83:b84c:aa57:1::/64` route, and get no answer, while IPv4 to arawi answers. Until it does, the VCN's resolver forwards to arawi over IPv4, and VCN clients reach `ingress` and `dodo` over IPv6 only after a timeout
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
 
 ## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
