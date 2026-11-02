@@ -1,6 +1,6 @@
 {{ {
   "config": aide_settings_dir ~ "/aide.conf",
-  "mounts": aide_mounts,
+  "exclusions": aide_exclusions,
   "filesystems": aide_filesystems,
   "excluded": (aide_exclude_paths + aide_exclude_paths_packages + aide_exclude_paths_host) | unique,
   "database": aide_database,

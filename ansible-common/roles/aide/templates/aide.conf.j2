@@ -1,10 +1,9 @@
 # Managed by Ansible (aide). AIDE's configuration for aide-report: the package's
-# own rules, after the exclusions of the filesystems and paths it does not
-# watch. Each exclusion is a rule at its own path, so AIDE's deepest match
-# picks it over the package's wider rules, and it comes first, so it wins over
-# a package rule at the same path.
-@@include {{ aide_mounts }}
-{% for path in (aide_exclude_paths + aide_exclude_paths_packages + aide_exclude_paths_host) | unique %}
-!{{ path | regex_escape }}(/|$)
-{% endfor %}
+# own rules, after the exclusions aide-report writes before each run. Those are
+# the mount points of filesystems other than the watched ones, the paths the
+# settings exclude and swap files, each a rule AIDE does not walk past ("-"
+# from AIDE 0.19, "!" before). Each is a rule at its own path, so AIDE's
+# deepest match picks it over the package's wider rules, and it comes first, so
+# it wins over a package rule at the same path.
+@@include {{ aide_exclusions }}
 @@include {{ aide_package_config }}
