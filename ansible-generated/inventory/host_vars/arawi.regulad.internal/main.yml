@@ -531,9 +531,12 @@ pfsense_aliases:
     address: '{{ arawi_ipv6_prefixes.verizon_56 }}::/56'
     descr: Home IPv6 prefix
     detail: ''
+  # The tailnet's whole IPv6 range, as the Tailnet IPv6 route has it: nodes
+  # have addresses such as fd7a:115c:a1e0::ae01:c388, outside the older
+  # fd7a:115c:a1e0:ab12::/64.
   - name: tailnet_subnet_ipv6
     type: network
-    address: fd7a:115c:a1e0:ab12::/64
+    address: fd7a:115c:a1e0::/48
     descr: Tailnet subnet
     detail: ''
   - name: vcn_subnet_ipv6
