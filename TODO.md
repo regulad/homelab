@@ -79,7 +79,6 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 
 ## gonkputer containers (`ansible-generated/`, from `tofu/gonkputer`)
 
-- [x] `aameter` (130)
 - [x] `authentik` (201): authentik 2026.8 in podman-compose, served by Caddy on ingress; moved from the authentik VM (109)
 - [ ] `act` (123): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `cordpepperer` (118): a mirror of `peppercord`

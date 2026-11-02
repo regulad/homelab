@@ -54,7 +54,7 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 
 ## Resilience
 
-- [ ] Cross-site replication of services such as uptime and aameter
+- [ ] Cross-site replication of services such as uptime
 
 ## Additional cloud providers
 
