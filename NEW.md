@@ -24,12 +24,16 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   fanotify group needs. Unprivileged containers cannot run clamonacc at all; the
   inventory's `unprivileged_containers` group, from each container's
   `unprivileged`, keeps the play off them
-- [ ] Scheduled ClamAV scans on every host, containers included: a systemd timer
-  running `clamdscan --stream` against the shared clamd, mailing detections
-  through the host's mail relay. On-access scanning is best-effort: it misses
-  files written while clamonacc is not running, events it drops when it falls
-  behind, and files nothing opens again, and the unprivileged containers have
-  none. A scheduled scan catches what is already on disk
+- [x] Scheduled ClamAV scans on every Linux host, containers included:
+  clamav-scan, the `clamav` role's `scan` entry point, run weekly by a systemd
+  timer at a delay of the host's own (`RandomizedDelaySec=1w` with
+  `FixedRandomDelay=`). It sends each file to the shared clamd, or to the
+  host's own where it runs one, over the on-access directories, `/var` and each
+  host's additions, and quarantines and mails what it finds through the host's
+  mail relay; prodingus alone scans the CephFS. On-access scanning is best-effort: it misses files written while
+  clamonacc is not running, events it drops when it falls behind, and files
+  nothing opens again, and the unprivileged containers have none. A scheduled
+  scan catches what is already on disk
   - [ ] Once the scans are done, the backups scheduled the same way: each
     `restic_jobs` timer at a delay of the host's own (`RandomizedDelaySec=`
     with `FixedRandomDelay=`) in place of the fixed times in host_vars, and the
