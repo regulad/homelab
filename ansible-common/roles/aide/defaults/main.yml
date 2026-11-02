@@ -25,6 +25,7 @@ aide_exclude_paths:
   - /var/lib/aide-report
   - /var/lib/containers
   - /var/lib/docker
+  - /var/lib/containerd
   - /var/cache
   - /root/.cache
   - /var/log/sysstat
