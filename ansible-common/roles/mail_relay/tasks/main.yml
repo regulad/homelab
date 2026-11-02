@@ -42,6 +42,28 @@
     state: present
   register: mail_relay_installed
 
+# The package's own main.cf sets a compatibility level. Without one Postfix
+# runs at level 0, where smtpd_relay_restrictions is empty and smtpd refuses
+# to start, so mail submitted over SMTP, as dnf-automatic's is, is never
+# accepted, while sendmail's still is.
+- name: Read Postfix's compatibility level
+  ansible.builtin.command:
+    argv: [postconf, -nh, compatibility_level]
+  register: mail_relay_compatibility_level
+  changed_when: false
+  check_mode: false
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and mail_relay_installed is changed)
+
+- name: Check main.cf sets a compatibility level
+  ansible.builtin.assert:
+    that: mail_relay_compatibility_level.stdout | trim | length > 0
+    fail_msg: >-
+      /etc/postfix/main.cf sets no compatibility_level, so Postfix runs at level 0 and its smtpd
+      refuses to start. Start main.cf from the package's own, which sets one, then rerun.
+    quiet: true
+  when: not (ansible_check_mode and mail_relay_installed is changed)
+
 - name: Relay login
   ansible.builtin.copy:
     dest: /etc/postfix/sasl_passwd
