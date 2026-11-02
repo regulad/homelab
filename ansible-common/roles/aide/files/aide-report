@@ -18,8 +18,14 @@ A change is left out when:
   vouches for it;
 - the path is gone, and the package that owned it at the baseline is no longer
   installed in that version;
+- the path is one of dpkg's records of a package under /var/lib/dpkg/info, its
+  maintainer scripts among them, and the package was installed, upgraded or
+  removed since the baseline, or the record's contents are unchanged;
 - the path is a directory whose only changes are its timestamps, size, inode
   or link count, which follow from the entries in it, each listed itself.
+
+dpkg records its files' contents alone, so on Debian and Ubuntu the mode of a
+file a package installed since the baseline is not checked.
 
 Settings come from a JSON file, by default /etc/aide-report/settings.json.
 """
@@ -49,6 +55,8 @@ INCIDENTAL = {"access_time", "change_time", "modify_time", "inode", "link_count"
 # rpm --verify also checks mode, ownership, link target, type and
 # capabilities; neither package manager records these.
 UNRECORDED = {"acl", "selinux", "xattrs", "e2fsattrs"}
+# dpkg's records of a package: /var/lib/dpkg/info/<package>[:<arch>].<kind>.
+DPKG_INFO = re.compile(r"^/var/lib/dpkg/info/([^/]+)\.[A-Za-z0-9_-]+$")
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -138,6 +146,10 @@ class Packages:
                     for line in handle:
                         self.owner.setdefault(line.rstrip("\n"), package_id)
 
+    def versions(self):
+        """Each installed package's version, by the name dpkg's records use."""
+        return dict(package_id.split("=", 1) for package_id in self.installed if "=" in package_id)
+
     def package(self, package_id):
         """The name the package manager verifies a package by."""
         return package_id if self.rpm else package_id.split("=", 1)[0]
@@ -202,11 +214,27 @@ def explain(report, packages, manifest):
         target = targets.get(path)
         return target in packages.owner and target not in unverified
 
+    baseline_owner = manifest.get("owner", {})
+    baseline_installed = manifest.get("installed") or list(set(baseline_owner.values()))
+    now = packages.versions() if not packages.rpm else {}
+    then = dict(i.split("=", 1) for i in baseline_installed if "=" in i) if not packages.rpm else {}
+
+    def dpkg_record(path, section):
+        match = None if packages.rpm else DPKG_INFO.match(path)
+        if not match:
+            return False
+        name = match.group(1)
+        if now.get(name) != then.get(name):
+            return True
+        return section == "changed" and not changed_attributes(report, path) - INCIDENTAL
+
     for section, items in (("added", added), ("changed", changed)):
         for path, summary in items.items():
             kind = summary[:1]
             attributes = changed_attributes(report, path)
             if kind == "d" and section == "changed" and not attributes - INCIDENTAL - {"size", "block_count"}:
+                explained += 1
+            elif dpkg_record(path, section):
                 explained += 1
             elif vouched(path):
                 explained += 1
@@ -214,10 +242,9 @@ def explain(report, packages, manifest):
                 explained += 1
             else:
                 kept[section][path] = summary
-    baseline_owner = manifest.get("owner", {})
     for path, summary in removed.items():
         owner = baseline_owner.get(path)
-        if owner is not None and owner not in packages.installed:
+        if (owner is not None and owner not in packages.installed) or dpkg_record(path, "removed"):
             explained += 1
         else:
             kept["removed"][path] = summary
@@ -310,7 +337,7 @@ def baseline(settings):
     os.makedirs(settings["state"], mode=0o700, exist_ok=True)
     manifest = settings["manifest"]
     with gzip.open(manifest + ".tmp", "wt") as handle:
-        json.dump({"owner": packages.owner}, handle)
+        json.dump({"owner": packages.owner, "installed": sorted(packages.installed)}, handle)
     os.replace(settings["database_new"], settings["database"])
     os.replace(manifest + ".tmp", manifest)
     print("Accepted the files as they are: %s" % settings["database"])

@@ -24,7 +24,12 @@ aide_exclude_paths:
   - /var/lib/aide-report
   - /var/lib/containers
   - /var/lib/docker
+  - /var/cache
   - /root/.cache
+  - /var/log/sysstat
+  # Shared scratch space, on its own tmpfs on most hosts and scanned by ClamAV.
+  - /tmp
+  - /var/tmp
   # Ansible's scratch files, which every task it runs creates and removes, the
   # wait for aide-accept's new baseline among them: root's, and those of the
   # user it connects as over SSH.
@@ -32,10 +37,13 @@ aide_exclude_paths:
   - /root/.ansible_async
   - "{{ ('/root' if (ansible_user | default('root')) == 'root' else '/home/' ~ ansible_user) ~ '/.ansible/tmp' }}"
 # The package manager's own state, which every transaction rewrites and any
-# query of it may touch, such as the rpm database's SQLite shared memory.
+# query of it may touch, such as the rpm database's SQLite shared memory, and
+# apt's lists of what its repositories offer. dpkg's records of each package,
+# its maintainer scripts among them, stay watched: aide-report explains them
+# by their package's version.
 aide_exclude_paths_packages: >-
-  {{ ['/usr/lib/sysimage/rpm', '/var/lib/rpm', '/var/lib/dnf', '/var/cache/dnf']
-     if 'rhel' in group_names else [] }}
+  {{ ['/usr/lib/sysimage/rpm', '/var/lib/rpm', '/var/lib/dnf']
+     if 'rhel' in group_names else ['/var/lib/apt/lists'] }}
 # Each host's additions, such as a service's data directory.
 aide_exclude_paths_host: []
 
