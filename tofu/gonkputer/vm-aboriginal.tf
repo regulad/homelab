@@ -7,8 +7,6 @@ resource "proxmox_virtual_environment_vm" "aboriginal" {
   name      = "aboriginal"
   node_name = "prodingus"
   description = chomp(<<EOT
-MAINTENENCE TASKS AT 5:35
-
 Needs >48GiB
 
 This node has a graphics card passed through, even though it does not absolutely need it. This is because it was migrated from a standalone Ubuntu Server install, and things like grub and many services expect a GPU.

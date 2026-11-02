@@ -6,7 +6,6 @@ resource "proxmox_virtual_environment_vm" "dodo" {
 
   name                = "dodo"
   node_name           = "prodingus"
-  description         = "MAINTENANCE TASKS AT 5:15"
   bios                = "ovmf"
   hook_script_file_id = "local:snippets/101.sh"
   hotplug             = "disk,network,usb"
