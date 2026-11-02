@@ -9,6 +9,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [ ] AIDE and auditd on every host, containers included: AIDE's file integrity
   checks and auditd's rules, each mailing regulad@regulad.xyz through the host's
   mail relay when something anomalous is detected
+  - [ ] Once AIDE is in place, finding mutations sooner than a backup could,
+    the daily backups run weekly
 - [x] ClamAV on-access on the hardware hosts and every other Linux host with
   its own kernel, scanning for anomalous files: implants and bad user data
   alike. Each host's clamonacc scans files as they are opened and written, and
@@ -30,17 +32,16 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   `FixedRandomDelay=`). It sends each file to the shared clamd, or to the
   host's own where it runs one, over the on-access directories, `/var` and each
   host's additions, and quarantines and mails what it finds through the host's
-  mail relay; prodingus alone scans the CephFS. On-access scanning is best-effort: it misses files written while
-  clamonacc is not running, events it drops when it falls behind, and files
-  nothing opens again, and the unprivileged containers have none. A scheduled
-  scan catches what is already on disk
-  - [ ] Once the scans are done, the backups scheduled the same way: each
-    `restic_jobs` timer at a delay of the host's own (`RandomizedDelaySec=`
-    with `FixedRandomDelay=`) in place of the fixed times in host_vars, and the
-    guest descriptions that announce those times removed: "MAINTENENCE TASKS
-    AT 5:35" on aboriginal and "MAINTENANCE TASKS AT 5:15" on dodo, in
-    tofu/gonkputer. Once AIDE is in place, finding mutations sooner than a
-    backup could, the daily backups run weekly
+  mail relay; prodingus alone scans the CephFS. On-access scanning is
+  best-effort: it misses files written while clamonacc is not running, events
+  it drops when it falls behind, and files nothing opens again, and the
+  unprivileged containers have none. A scheduled scan catches what is already
+  on disk
+  - [x] The backups scheduled the same way: each `restic_jobs` job sets a
+    `period`, daily or weekly, and its timer runs it at a delay of the host's
+    own within that period (`RandomizedDelaySec=` with `FixedRandomDelay=`),
+    in place of the fixed times in host_vars; the guest descriptions that
+    announced those times are gone from tofu/gonkputer
 - [x] ClamAV in qBittorrent on qb: qb-clamav, its hooks for torrents added and
   finished, stages each new torrent in the `unscanned` category, scans it
   through the shared clamd once finished, and releases a clean one to
