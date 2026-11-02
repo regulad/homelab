@@ -1,14 +1,12 @@
-locals {
-  # Reuse these stable family keys for rules that are identical across IPv4 and IPv6.
-  dual_stack_internet_cidrs = {
-    ipv4 = "0.0.0.0/0"
-    ipv6 = "::/0"
-  }
+# wahlecloud: the VCN, its internet gateway, and the DHCP options, route table
+# and security list OCI created with it.
 
-  dual_stack_vcn_sources = {
+locals {
+  # The VCN's own address space, for rules admitting its hosts.
+  dual_stack_wahlecloud_cidrs = {
     ipv4 = "10.131.0.0/16"
     # Derive the enclosing /56 without publishing the GUA prefix.
-    ipv6 = cidrsubnet(replace(var.ipv6_subnet_cidr, "/64", "/56"), 0, 0)
+    ipv6 = cidrsubnet(replace(var.ipv6_subnet_cidrs.wahlecloud, "/64", "/56"), 0, 0)
   }
 }
 
@@ -145,7 +143,7 @@ resource "oci_core_security_list" "services_default" {
   }
 
   dynamic "ingress_security_rules" {
-    for_each = local.dual_stack_vcn_sources
+    for_each = local.dual_stack_wahlecloud_cidrs
     iterator = cidr
     content {
       description = "LAN"

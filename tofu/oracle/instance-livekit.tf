@@ -3,7 +3,7 @@
 resource "oci_core_instance" "livekit" {
   display_name        = "livekit"
   compartment_id      = var.tenancy_ocid
-  availability_domain = var.availability_domains.ad_1
+  availability_domain = local.availability_domains.ad_1
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
   metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCd2nNjLPxuJEWMOJJ0nfJ5C1qK/ydxbJiBQJPX+GH4SfIabQn5mfKLkX+p16k7JJj74M1zRAfhvdN/EAjIzDWt6yG1grSystxPHyN/Bt2r5UubHiVHVH/+1iktl7HankbD5vFl4A0xn8tt4gXEpUO2wZTQyuRryItsmjzl+2IXbhsGwyR60+yaZtoh2NKGhwgakT04dz9aPBHC69KJdvhZsgtE3cn2pyDUuOHkFoUHvqJHccoL168HtEi2QtXVn4ZjXw+4uLypHZJSNVcGwfG5oXtJwY5PAf004KDDNiZHIwo656FWFQIsC3kqc/8YQVLjpWCsA6lEAX1SzZa02PZP ssh-key-2025-12-19" }
@@ -82,7 +82,7 @@ resource "oci_core_instance" "livekit" {
 resource "oci_core_boot_volume" "livekit" {
   display_name         = "livekit (Boot Volume)"
   compartment_id       = var.tenancy_ocid
-  availability_domain  = var.availability_domains.ad_1
+  availability_domain  = local.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
   vpus_per_gb          = "10"
@@ -124,7 +124,7 @@ data "oci_core_vnic_attachments" "livekit" {
 resource "oci_core_ipv6" "livekit" {
   display_name = "ipv620251219003930"
   subnet_id    = oci_core_subnet.services.id
-  ip_address   = cidrhost(var.ipv6_subnet_cidr, parseint("000099cd7ea59801", 16))
+  ip_address   = cidrhost(var.ipv6_subnet_cidrs.wahlecloud, parseint("000099cd7ea59801", 16))
   lifetime     = "RESERVED"
   vnic_id      = one(data.oci_core_vnic_attachments.livekit.vnic_attachments).vnic_id
 

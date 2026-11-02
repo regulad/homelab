@@ -1,77 +1,82 @@
 # OCI infrastructure
 
-The `.tf` files in the `legacy`, `wahlecloud`, and `state-backend` child modules
-are the source of truth. They describe 82 managed resources, ordinary
-configuration values, nested blocks, and direct resource references. Run OpenTofu
-from this root so the modules share the existing provider configuration and
-encrypted remote state.
+The `.tf` files in this directory are the source of truth. They describe 82
+managed resources, ordinary configuration values, nested blocks, and direct
+resource references. The root is one flat module: OpenTofu loads no
+subdirectories into a module, so its files are grouped by name prefix instead.
 
-| Location | Configuration |
+| Files | Configuration |
 |---|---|
-| `legacy/` | Legacy VCN and networking, web instance, boot volume, backup-policy assignment and IPv6 assignment (10 resources) |
-| `wahlecloud/` | Wahlecloud VCN and networking, bailout/livekit/mail/router hosts, volumes, IPv6 and Email Delivery (66 resources) |
-| `state-backend/` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
-| `main.tf` | Local module calls, the availability-domain lookup, and explicit provider/input wiring |
-| `moved.tf` | Mappings from the original root addresses to their module addresses |
+| `network-legacy.tf`, `subnet-subnet--20230331--2242.tf`, `instance-web.tf` | The legacy VCN and its networking, and the web instance with its boot volume, backup-policy assignment and IPv6 assignment (10 resources) |
+| `network-wahlecloud.tf`, `subnet-public.tf`, `instance-{bailout,livekit,mail,router}.tf` | The wahlecloud VCN and its networking, and the bailout, livekit, mail and router hosts with their volumes, IPv6 assignments and NSGs (61 resources) |
+| `email.tf` | Email Delivery: the `regulad.xyz` domain, its DKIM key and senders, and the `svc-mail` policy (5 resources) |
+| `state-bucket.tf`, `state-identity.tf` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
+| `main.tf` | The availability-domain lookup and the `tofu/shared` module call |
+| `locals.tf` | Values several files share |
+| `moved.tf` | Every past address of each resource |
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
 | `state.tf` | The s3 backend, and enforced encryption for state and saved plans |
 
 Each host has an `instance-<name>.tf` file containing, in order, any host-local
 constants, its instance, boot volume, backup-policy assignment, VNIC
 lookup, IPv6 assignment, and dedicated firewall resources. These files are
-`legacy/instance-web.tf` and `wahlecloud/instance-{bailout,livekit,mail,router}.tf`.
-The web-only agent policy is grouped with the web instance.
+`instance-web.tf` and `instance-{bailout,livekit,mail,router}.tf`. Web's own
+agent plugin policy is at the top of its file.
 
 Each subnet has a `subnet-<name>.tf` file containing the subnet, followed by the
 DHCP options, route table, and security list that only it uses:
-`wahlecloud/subnet-public.tf` (`pubsub`) and
-`legacy/subnet-subnet--20230331--2242.tf`. A `-` inside a name is written as `--`
-because `-` already delimits the prefix. Each module's `network.tf` contains its
-network-wide locals, VCN, internet gateway, and the DHCP options, route table, and
-security list OCI created with the VCN, in that order. Legacy's subnet uses those
-VCN defaults; wahlecloud's `pubsub` attaches the default security list alongside
-its own.
+`subnet-public.tf` (`pubsub`) and `subnet-subnet--20230331--2242.tf`. A `-`
+inside a name is written as `--` because `-` already delimits the prefix. Each
+VCN's `network-<vcn>.tf` contains its own locals, the VCN, its internet gateway,
+and the DHCP options, route table, and security list OCI created with the VCN,
+in that order. Legacy's subnet uses those VCN defaults; wahlecloud's `pubsub`
+attaches the default security list alongside its own.
 
 Within a resource, scalar arguments come before nested blocks, and the
 import-artifact `lifecycle` footer (with the boot-volume `source_details`
 placeholder) stays last.
 
-Wahlecloud's shared agent plugin policy, backup policies, and platform images are in `wahlecloud/locals.tf`. `variables.tf` declares
-each module's inputs. Email resources live in `wahlecloud/email.tf`. Child modules
-declare the OCI provider source but inherit the root's provider instance; version
-pins live only in the root `versions.tf`.
+`locals.tf` holds the values several files share: the Oracle Linux instances'
+agent plugin policy, Oracle's backup policies and platform images, and
+`local.dual_stack_internet_cidrs`. `variables.tf` declares the root's inputs,
+and version pins live only in `versions.tf`.
 
-Matching IPv4/IPv6 firewall rules and internet routes share the CIDR maps in
-`wahlecloud/network.tf`: `local.dual_stack_internet_cidrs` and
-`local.dual_stack_vcn_sources`. An NSG rule uses
+Matching IPv4/IPv6 firewall rules and internet routes share the CIDR maps
+`local.dual_stack_internet_cidrs`, in `locals.tf`, and
+`local.dual_stack_wahlecloud_cidrs`, in `network-wahlecloud.tf`. An NSG rule uses
 `for_each = local.dual_stack_internet_cidrs` and `source = each.value`, keeping
 its ports, protocol, and other settings together in its instance file. Nested
 security-list rules and internet routes use `dynamic` blocks with the same maps. The stable `ipv4`
 and `ipv6` keys preserve identities independently of ordering.
-`wahlecloud/moved.tf` maps the former separate NSG rules to those keyed instances
-and chains after the root's module moves. Only matching pairs are consolidated;
-bailout's different IPv4/IPv6 ports and the distinct ICMP rules remain explicit.
+`moved.tf` maps the former separate NSG rules to those keyed instances. Only
+matching pairs are consolidated; bailout's different IPv4/IPv6 ports and the
+distinct ICMP rules remain explicit.
 
-`local.dual_stack_homelab_cidrs`, at the top of `wahlecloud/subnet-public.tf`
+`moved.tf` keeps every address each resource has had. The resources began at
+this root, moved into the child modules `legacy`, `wahlecloud` and
+`state_backend`, and came back. Moves chain only between addresses of the same
+kind, so keyed resources move one instance at a time.
+
+`local.dual_stack_homelab_cidrs`, at the top of `subnet-public.tf`
 because the homelab is bridged to that subnet, pairs `10.23.0.0/20` with the homelab IPv6 ULA
 `fd83:b84c:aa57:1::/64` (fourth hextet `0001`). Its routes select the router's
 next-hop ID by IP family. The existing homelab security-list ingress rule remains
 IPv4-only; the shared address pair does not implicitly add firewall permissions.
 
 The non-sensitive sender addresses are listed in `local.email_senders` at the top
-of `wahlecloud/email.tf`. One sender resource uses `for_each` over that list, keyed
+of `email.tf`. One sender resource uses `for_each` over that list, keyed
 by email address so reordering the list does not change resource identities.
 
 IPv4 addresses/CIDRs, ULA and Tailscale ranges are plaintext HCL.
 `../shared/tailscale.tf` exports the common Tailscale IPv4/IPv6 ranges through a
-resource-free module that future provider roots can also call. Both OCI modules
-receive its `tailscale_cidrs` output. Wahlecloud also names its repeated home-LAN
-CIDR and router address in locals. GUA IPv6 `/64` prefixes remain encrypted in
-`ipv6_subnet_cidrs`; our router next-hop OCIDs remain encrypted in
-`router_next_hop_ids`. Each module receives its own sensitive
-`ipv6_subnet_cidr`; instance files combine that prefix with a plaintext 64-bit
-hexadecimal host suffix using `cidrhost` and `parseint`. The enclosing wahlecloud
-`/56` is derived from its `/64`, so no GUA network prefix is published in HCL.
+resource-free module that every provider root can call; the network and subnet
+files read its `tailscale_cidrs` output. Wahlecloud also names its repeated
+home-LAN CIDR and router address in locals. GUA IPv6 `/64` prefixes remain
+encrypted in `ipv6_subnet_cidrs`, keyed by VCN; our router next-hop OCIDs remain
+encrypted in `router_next_hop_ids`. Instance files combine their VCN's prefix
+with a plaintext 64-bit hexadecimal host suffix using `cidrhost` and
+`parseint`. The enclosing wahlecloud `/56` is derived from its `/64`, so no GUA
+network prefix is published in HCL.
 
 `secrets.sops.json` stores those prefixes and the other inputs that remain
 sensitive: the tenancy and router next-hop identifiers, and the state encryption
@@ -89,19 +94,18 @@ outside OpenTofu, so it never lives in the state it unlocks.
 
 Values that are not ours, or not secret, stay out of SOPS:
 
-- Verified Oracle platform-image IDs are plaintext in each module's
+- Verified Oracle platform-image IDs are plaintext in `locals.tf`'s
   `platform_image_ids` map, keyed by exact image name. Instances select theirs by
   that name. These Oracle-owned regional images are shared across tenancies.
   Custom-image IDs owned by our compartments remain sensitive.
 - Every boot volume is assigned Oracle's predefined `bronze` backup policy from
-  each module's `backup_policy_ids` map. Its realm-wide OCID belongs to no
+  `locals.tf`'s `backup_policy_ids` map. Its realm-wide OCID belongs to no
   compartment.
-- The maps live in `wahlecloud/locals.tf` and at the top of
-  `legacy/instance-web.tf`, the only file in `legacy` that uses them.
 - Each instance's SSH public key is plaintext in its `metadata`. Web and bailout
   share one key.
 - Availability-domain names carry a tenancy-specific prefix, so `main.tf` looks
-  them up from the tenancy and passes them to both modules, keyed `ad_<number>`.
+  them up from the tenancy, keyed `ad_<number>`, and marks them sensitive so
+  plans redact them.
 
 ## Local checks
 
@@ -141,7 +145,7 @@ remote state, so restoring one needs `tofu state push -force`.
 
 - All adopted resources have `prevent_destroy = true`. Do not remove this to get
   an unexpected replacement through a plan. Resources created by OpenTofu, such
-  as those in `state-backend/`, do not.
+  as those in `state-bucket.tf` and `state-identity.tf`, do not.
 - Image-created boot volumes expose no creation source. The provider requires a
   `source_details` block, so these existing volumes use a schema-only `bootVolume`
   type with no invented source ID and `ignore_changes = [source_details]`.

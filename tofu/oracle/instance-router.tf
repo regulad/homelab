@@ -3,13 +3,13 @@
 locals {
   # Reused by the address assignments and subnet DNS configuration.
   router_ipv4_address = "10.131.80.239"
-  router_ipv6_address = cidrhost(var.ipv6_subnet_cidr, parseint("0000efc0c5471a01", 16))
+  router_ipv6_address = cidrhost(var.ipv6_subnet_cidrs.wahlecloud, parseint("0000efc0c5471a01", 16))
 }
 
 resource "oci_core_instance" "router" {
   display_name        = "tailscalerouter"
   compartment_id      = var.tenancy_ocid
-  availability_domain = var.availability_domains.ad_3
+  availability_domain = local.availability_domains.ad_3
   fault_domain        = "FAULT-DOMAIN-1"
   shape               = "VM.Standard.E2.1.Micro"
   metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDpNJsQQDEtDUBjyUr4uR24C1Irt4+5caHdPG4k7uZ+Vzt0qgXNhTVvP+yRDA0+O8jJ1DzAvbFUgU13BknxoLKeBEShhW9ZiuGDHorYoe4zDe+30hnR8HtWe8htEaeCdLe61VsVLdVOzhNqPWSG6w79z2S//VlpK134/ItvUYaxBSKD/rb5K/AXQ7i9/VsLTPFvnimA9DXEKCVZ5fxIzDMBtfAK+XNiDq1slsMczDaqmJb2k1zQg6PbCDHtLqrK9mvHQEjvGEA/pKtDmnp8uS593akaFH8yIaGDAiCmSmez9s1n4OGMqsQoHLXFddLLHGpsJGIo05F/VNuzIa46Sr0V ssh-key-2025-12-08" }
@@ -82,7 +82,7 @@ resource "oci_core_instance" "router" {
 resource "oci_core_boot_volume" "router" {
   display_name         = "tailscalerouter (Boot Volume)"
   compartment_id       = var.tenancy_ocid
-  availability_domain  = var.availability_domains.ad_3
+  availability_domain  = local.availability_domains.ad_3
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
   vpus_per_gb          = "10"

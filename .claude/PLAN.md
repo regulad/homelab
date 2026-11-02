@@ -151,7 +151,7 @@ key and with its own enforced encryption passphrase, before any import.
 - Inventory with the read-only `oci` CLI, then adopt in `tofu/oracle` through `import {}` blocks and `tofu plan -generate-config-out`. `oracle/oci` is published on the OpenTofu registry. Refactor the generated configuration into readable HCL (`AGENTS.md` conventions).
 - Reconcile until `tofu plan` is a no-op.
 - **Accept:** `tofu plan` is a no-op, and no plan showed a destroy or replace.
-- **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source. The state bucket and its service user live in `tofu/oracle`'s `state-backend` module.
+- **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source. The state bucket and its service user live in `tofu/oracle`'s `state-bucket.tf` and `state-identity.tf`.
 
 #### Proxmox guests (`tofu/gonkputer`)
 - **Status:** adopted. The first, descriptive pass pins `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1`, served by the provider mirror, covers the Ceph objects (see Ceph scope in `AGENTS.md`), and plans no changes. The import blocks are removed.

@@ -3,7 +3,7 @@
 resource "oci_core_instance" "mail" {
   display_name        = "mail"
   compartment_id      = var.tenancy_ocid
-  availability_domain = var.availability_domains.ad_1
+  availability_domain = local.availability_domains.ad_1
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.A1.Flex"
   metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDxXmCTFU5AtK2O0qhoGCwNnGZedLuGKJwepda9j3hx3r/H5esWZI2cuEBXn4dvVdZqZeSAyAWffhYY22Lx6yTysBDnsvcFnNrpf31BkRzqXT5vNTn8VTPd4HnbjrrtM4w+CjETU/Q3mwG7fWog2XbkW12lonB9kmiC7bggmrxDhyKyv8hhFrunW5J4tlTFjNd9AcJi9Qx9OhC4PftK1kZCD1xAKHuG648PgI4jGD4V24icEnO76T7KgeeZHQkH0WakvBQgbOMwS4mnaooCEBB2dADR73U9jnF5bUeIyuP6UmJh2nvG51kKhnAcVVLktJt00xMq3NngtNxISXJEU2+f ssh-key-2025-12-08" }
@@ -82,7 +82,7 @@ resource "oci_core_instance" "mail" {
 resource "oci_core_boot_volume" "mail" {
   display_name         = "mail (Boot Volume)"
   compartment_id       = var.tenancy_ocid
-  availability_domain  = var.availability_domains.ad_1
+  availability_domain  = local.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
   vpus_per_gb          = "10"
@@ -124,7 +124,7 @@ data "oci_core_vnic_attachments" "mail" {
 resource "oci_core_ipv6" "mail" {
   display_name = "ipv620251208230834"
   subnet_id    = oci_core_subnet.services.id
-  ip_address   = cidrhost(var.ipv6_subnet_cidr, parseint("0000e075c8d7eb01", 16))
+  ip_address   = cidrhost(var.ipv6_subnet_cidrs.wahlecloud, parseint("0000e075c8d7eb01", 16))
   lifetime     = "RESERVED"
   vnic_id      = one(data.oci_core_vnic_attachments.mail.vnic_attachments).vnic_id
 

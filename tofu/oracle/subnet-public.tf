@@ -15,7 +15,7 @@ resource "oci_core_subnet" "services" {
   cidr_block                = "10.131.80.0/24"
   dhcp_options_id           = oci_core_dhcp_options.services_public.id
   dns_label                 = "pubsub"
-  ipv6cidr_blocks           = [var.ipv6_subnet_cidr]
+  ipv6cidr_blocks           = [var.ipv6_subnet_cidrs.wahlecloud]
   prohibit_internet_ingress = false
   route_table_id            = oci_core_route_table.services_public.id
   security_list_ids         = [oci_core_security_list.services_public.id, oci_core_security_list.services_default.id]
@@ -72,14 +72,14 @@ resource "oci_core_route_table" "services_public" {
   }
 
   route_rules {
-    destination       = var.tailscale_cidrs.ipv4
+    destination       = module.shared.tailscale_cidrs.ipv4
     destination_type  = "CIDR_BLOCK"
     network_entity_id = var.router_next_hop_ids.ipv4
     route_type        = "STATIC"
   }
 
   route_rules {
-    destination       = var.tailscale_cidrs.ipv6
+    destination       = module.shared.tailscale_cidrs.ipv6
     destination_type  = "CIDR_BLOCK"
     network_entity_id = var.router_next_hop_ids.ipv6
     route_type        = "STATIC"
@@ -108,7 +108,7 @@ resource "oci_core_security_list" "services_public" {
   ingress_security_rules {
     description = "Peering"
     protocol    = "all" # All IP protocols
-    source      = var.tailscale_cidrs.ipv4
+    source      = module.shared.tailscale_cidrs.ipv4
     source_type = "CIDR_BLOCK"
     stateless   = false
   }
@@ -116,7 +116,7 @@ resource "oci_core_security_list" "services_public" {
   ingress_security_rules {
     description = "Peering"
     protocol    = "all" # All IP protocols
-    source      = var.tailscale_cidrs.ipv6
+    source      = module.shared.tailscale_cidrs.ipv6
     source_type = "CIDR_BLOCK"
     stateless   = false
   }

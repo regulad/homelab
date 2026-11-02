@@ -3,7 +3,7 @@
 resource "oci_core_instance" "bailout" {
   display_name        = "bailout"
   compartment_id      = var.tenancy_ocid
-  availability_domain = var.availability_domains.ad_3
+  availability_domain = local.availability_domains.ad_3
   fault_domain        = "FAULT-DOMAIN-3"
   shape               = "VM.Standard.E2.1.Micro"
   metadata            = { ssh_authorized_keys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDBpJLGTbli8J2qSzPVpBzeNpVLLMakYeREp8jRkAePuMfMcNMcSNOcPyq+MXhdZc2npKPaZgeZj1w5mQIA4I0M+yhkduWYAwg8utchrqloVGd7NDd+BphSDJ8u/4S3J0iPEj1tsmdE2PJKm7CX6jzoSS7sQwE56HgjN/9Qsc+vsndpLPb0dnepCycuJ9SnfQrK4LMLjAzGsPyM8mpmG10mzS4RNmeF2Wqs/qHGKT1jXFSAUUlpQUSvUgaP0M3UJjYclSp84S3bxEGVzl0Os1l0YQeA1iKLZlzURhE/IiRQdNgI36hTfPeTx0TE2Uw8KOla6xcyijvIWJyPAChqdC42vIIEXtZ52cFDj0mlXjcXTPxBzVMZuusakzzReol6j12nXahy9OTW9feMnRnQSAN9xXLBZjiLpAeYJlggjdscvmjYgp3AkJBNMBTi7ECOsNBr0VMtU+l/ULf2KqwTdd6fzC/AnTIZOSXj2TtOxvM4Vn6lHEKWB8nxFOG1uU5I/xE=" }
@@ -76,7 +76,7 @@ resource "oci_core_instance" "bailout" {
 resource "oci_core_boot_volume" "bailout" {
   display_name         = "bailout (Boot Volume)"
   compartment_id       = var.tenancy_ocid
-  availability_domain  = var.availability_domains.ad_3
+  availability_domain  = local.availability_domains.ad_3
   is_auto_tune_enabled = false
   size_in_gbs          = "47"
   vpus_per_gb          = "10"
@@ -113,7 +113,7 @@ data "oci_core_vnic_attachments" "bailout" {
 resource "oci_core_ipv6" "bailout" {
   display_name = "ipv620260809235715"
   subnet_id    = oci_core_subnet.services.id
-  ip_address   = cidrhost(var.ipv6_subnet_cidr, parseint("0000e821108db201", 16))
+  ip_address   = cidrhost(var.ipv6_subnet_cidrs.wahlecloud, parseint("0000e821108db201", 16))
   lifetime     = "RESERVED"
   vnic_id      = one(data.oci_core_vnic_attachments.bailout.vnic_attachments).vnic_id
 

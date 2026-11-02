@@ -1,5 +1,6 @@
 locals {
-  # Preserve the existing plugin states and provider list order.
+  # The Oracle Linux instances' agent plugins. Preserve the existing plugin
+  # states and provider list order.
   agent_plugins = [
     { name = "WebLogic Management Service", desired_state = "DISABLED" },
     { name = "Vulnerability Scanning", desired_state = "DISABLED" },
@@ -24,12 +25,19 @@ locals {
     "bronze" = "ocid1.volumebackuppolicy.oc1..aaaaaaaadrzfwjb5tflixtmy5axp2kx65uqakgnupfogabzjhtn5x5dfra6q"
   }
 
+  # Reuse these stable family keys for rules that are identical across IPv4 and IPv6.
+  dual_stack_internet_cidrs = {
+    ipv4 = "0.0.0.0/0"
+    ipv6 = "::/0"
+  }
+
   # Oracle platform images, keyed by exact image name. These regional images are
   # shared across tenancies.
   platform_image_ids = {
-    "Oracle-Linux-9.6-2025.11.20-0"         = "ocid1.image.oc1.iad.aaaaaaaaglxne5nh73mxqppl3fkzkqdlda3k22y6oyxcvy6gcaxxsym54mca"
-    "Oracle-Linux-9.6-aarch64-2025.11.20-0" = "ocid1.image.oc1.iad.aaaaaaaaa53zducgjvcstvpe76ctctt6ddw5bloq2wvhvboggfs5usyd47za"
-    "Oracle-Linux-9.6-aarch64-2025.11.20-1" = "ocid1.image.oc1.iad.aaaaaaaaz3iia6dyo7qkwbkp4crbk6unkjkwg572v553l3rsf4dvsp2teugq"
-    "Oracle-Linux-9.8-2026.07.20-1"         = "ocid1.image.oc1.iad.aaaaaaaai4tjt6h3zmwiou6gppgnyjnm3twfqaezcynx6dp3uwr6i2be43cq"
+    "Canonical-Ubuntu-24.04-Minimal-aarch64-2025.09.22-0" = "ocid1.image.oc1.iad.aaaaaaaaoxcb6yp3brpepe726ar3bsadhbs3mqrn6cyaeq2dneo75opgfija"
+    "Oracle-Linux-9.6-2025.11.20-0"                       = "ocid1.image.oc1.iad.aaaaaaaaglxne5nh73mxqppl3fkzkqdlda3k22y6oyxcvy6gcaxxsym54mca"
+    "Oracle-Linux-9.6-aarch64-2025.11.20-0"               = "ocid1.image.oc1.iad.aaaaaaaaa53zducgjvcstvpe76ctctt6ddw5bloq2wvhvboggfs5usyd47za"
+    "Oracle-Linux-9.6-aarch64-2025.11.20-1"               = "ocid1.image.oc1.iad.aaaaaaaaz3iia6dyo7qkwbkp4crbk6unkjkwg572v553l3rsf4dvsp2teugq"
+    "Oracle-Linux-9.8-2026.07.20-1"                       = "ocid1.image.oc1.iad.aaaaaaaai4tjt6h3zmwiou6gppgnyjnm3twfqaezcynx6dp3uwr6i2be43cq"
   }
 }

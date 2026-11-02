@@ -1,3 +1,6 @@
+# legacy: the VCN vcn-20230331-2242, its internet gateway, and the DHCP options,
+# route table and security list OCI created with it.
+
 resource "oci_core_vcn" "legacy" {
   display_name   = "vcn-20230331-2242"
   compartment_id = var.tenancy_ocid
@@ -120,7 +123,7 @@ resource "oci_core_security_list" "legacy_default" {
 
   ingress_security_rules {
     protocol    = "all" # All IP protocols
-    source      = var.tailscale_cidrs.ipv4
+    source      = module.shared.tailscale_cidrs.ipv4
     source_type = "CIDR_BLOCK"
     stateless   = false
   }
