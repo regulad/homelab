@@ -32,3 +32,7 @@ mail_relay_freeipa_delegate: "{{ inventory_hostname }}"
 mail_relay_freeipa_host: wako.regulad.internal
 mail_relay_freeipa_user: svc-ansible
 mail_relay_freeipa_password: ""
+
+# A retired host's account, for the remove_account entry point to delete, its
+# mail_relay_account while it was in the inventory. Set on the command line.
+mail_relay_remove_account: ""

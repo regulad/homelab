@@ -43,3 +43,17 @@
       ansible.builtin.include_role:
         name: restic
         tasks_from: prune_keys
+
+# Delete a retired host's FreeIPA mail account, once, from either stage, after
+# the host has left the inventory:
+# --tags mail-account-remove -e mail_relay_remove_account=null-<name>. The API
+# calls run on the stage's mail_relay_freeipa_delegate.
+- name: Mail account removal
+  hosts: localhost
+  gather_facts: false
+  tags: [mail-account-remove]
+  tasks:
+    - name: Delete the retired host's account
+      ansible.builtin.include_role:
+        name: mail_relay
+        tasks_from: remove_account

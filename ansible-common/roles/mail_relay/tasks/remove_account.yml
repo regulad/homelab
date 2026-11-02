@@ -1,0 +1,22 @@
+---
+# Delete a retired host's mail account from FreeIPA, from either stage's
+# maintenance.yml (--tags mail-account-remove), once the host is gone.
+- name: Check the account to remove
+  ansible.builtin.assert:
+    that:
+      - mail_relay_remove_account is match('null-.')
+      - mail_relay_freeipa_password | length > 0
+    fail_msg: Name the retired host's null- account in mail_relay_remove_account, and set the FreeIPA password through SOPS.
+    quiet: true
+
+- name: Mail account in FreeIPA
+  community.general.ipa_user:
+    name: "{{ mail_relay_remove_account }}"
+    state: absent
+    ipa_host: "{{ mail_relay_freeipa_host }}"
+    ipa_user: "{{ mail_relay_freeipa_user }}"
+    ipa_pass: "{{ mail_relay_freeipa_password }}"
+    validate_certs: true
+  delegate_to: "{{ mail_relay_freeipa_delegate }}"
+  become: false
+  no_log: true
