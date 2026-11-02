@@ -21,7 +21,7 @@ Where this file and the plan disagree, this file wins.
 ## Hard rules
 
 1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `pvesh set|create|delete`, `ceph config set` and other Ceph changes, `podman rm|stop`, and `oci ... delete|update`. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
-2. **Read-only discovery.** Discover with reads only. The OCI session token and the `gonkputer` `root@pam` API token and root SSH are read/write, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
+2. **Read-only discovery.** Discover with reads only. The OCI API key and session token and the `gonkputer` `root@pam` API token and root SSH are read/write, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
 3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
 4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
    - OCIDs owned by our tenancy or compartments link resources to the tenancy, so they stay encrypted, including router next-hop IDs. Verified Oracle-defined OCIDs may be plaintext as entries in a module's `platform_image_ids` or `backup_policy_ids` map, keyed by their exact Oracle name. Verify ownership before publishing an unfamiliar OCID.
@@ -88,9 +88,7 @@ homelab/
 From the repository root, in bash or zsh:
 
 ```bash
-. tofu/oracle/prepare.sh                          # decrypt inputs; export the state backend's credentials into this shell
-export OCI_CLI_AUTH=security_token
-oci session validate --profile DEFAULT            # `oci session refresh` extends a still-valid token
+. tofu/oracle/prepare.sh                          # decrypt inputs; export the OCI API key and the state backend's credentials into this shell
 tofu -chdir=tofu/oracle init -input=false -lockfile=readonly    # once per clone; downloads providers
 tofu -chdir=tofu/oracle plan -input=false -detailed-exitcode    # 0 no changes, 2 diff, 1 error
 pre-commit run --all-files
@@ -100,7 +98,7 @@ pre-commit run --all-files
 - Write plaintext plan output and saved plans to `docs/snapshot/`, each saved plan named for the commit it was made at, `<root>@<commit>.tfplan` (see [Parallel agents](#parallel-agents)). State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
 - Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op. The state bucket's versioning keeps every earlier state version, so applies need no separate backups.
 - After an apply to `tofu/oracle` or `tofu/gonkputer`, run the next `ansible-generated` command with `--flush-cache`: its inventory caches their state for an hour.
-- The OCI session token lasts 60 minutes, and refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate` himself.
+- The `oci` CLI uses a session token, which lasts 60 minutes; refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate --profile-name DEFAULT` himself. OpenTofu needs no session.
 
 ## Parallel agents
 
@@ -229,7 +227,7 @@ The rules above apply, with these additions.
 
 - **Pre-commit:** `.pre-commit-config.yaml` runs the pinned `pre-commit/pre-commit-hooks` plus local hooks that use installed tools (`language: unsupported`) or `pygrep`. Gitleaks is not wanted.
 - **Discovery snapshots** stay on the operator's machine; only configuration derived from them is committed. Parker's review of `docs/snapshot/SUMMARY.md` gates the adoption phases.
-- **OCI auth:** Parker's own user, through an `oci session authenticate` read/write session token in the `DEFAULT` profile, because OpenTofu writes back to OCI.
+- **OCI auth:** OpenTofu authenticates as Parker's own user with an API signing key. The key, its fingerprint and his user OCID are in `tofu/oracle/provider.sops.env`, which `prepare.sh` exports, as gonkputer's API token is. A session token lasts at most a day, and the key lasts until Parker deletes it from his user in the console, which revokes it. A separate scoped user would contain nothing, because `tofu/oracle` manages IAM policies itself. The `oci` CLI keeps a read/write session token in the `DEFAULT` profile.
 - **OCI adoption is complete** for the scope in the OCI part of the plan's Phase 3. Never regenerate or re-import it.
 - **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/shared/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
