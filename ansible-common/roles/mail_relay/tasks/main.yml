@@ -141,6 +141,9 @@
       smtp_sasl_password_maps: texthash:/etc/postfix/sasl_passwd
       smtp_sasl_security_options: noanonymous
       inet_interfaces: loopback-only
+      # The packages' own value: loopback on both families, and the relay
+      # reached over IPv6 first.
+      inet_protocols: all
       mydestination: ""
       mydomain: "{{ mail_relay_domain }}"
       myorigin: $mydomain

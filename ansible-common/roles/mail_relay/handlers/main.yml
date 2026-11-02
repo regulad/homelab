@@ -1,7 +1,7 @@
 ---
-# inet_interfaces only changes on a restart; the other settings and the
-# texthash login are reread on a reload. A check run that would first install
-# Postfix has no unit to act on.
+# inet_interfaces and inet_protocols only change on a restart; the other
+# settings and the texthash login are reread on a reload. A check run that
+# would first install Postfix has no unit to act on.
 - name: Restart Postfix
   ansible.builtin.systemd_service:
     name: postfix
