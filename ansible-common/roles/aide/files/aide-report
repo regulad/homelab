@@ -244,6 +244,13 @@ def describe(report, path, summary):
     return line + ("\n      " + "; ".join(parts) if parts else "")
 
 
+def save_kept(settings, kept, explained):
+    """What the last report mailed, and how many changes it left out."""
+    os.makedirs(settings["state"], mode=0o700, exist_ok=True)
+    with open(os.path.join(settings["state"], "kept.json"), "w") as handle:
+        json.dump({"time": time.time(), "explained": explained, "kept": kept}, handle)
+
+
 def check(settings):
     if not os.path.exists(settings["database"]):
         mail("no baseline", ["There is no baseline at %s, so nothing was checked." % settings["database"],
@@ -255,6 +262,7 @@ def check(settings):
              + result.stderr.splitlines()[-40:])
         return 1
     if result.returncode == 0:
+        save_kept(settings, {"added": {}, "removed": {}, "changed": {}}, 0)
         return 0
     try:
         report = json.loads(result.stdout)
@@ -272,6 +280,7 @@ def check(settings):
         with gzip.open(settings["manifest"], "rt") as handle:
             manifest = json.load(handle)
     kept, explained = explain(report, Packages(), manifest)
+    save_kept(settings, kept, explained)
     total = sum(len(items) for items in kept.values())
     if total == 0:
         return 0
@@ -283,7 +292,8 @@ def check(settings):
             lines.append("%s (%d):" % (section.capitalize(), len(kept[section])))
             lines.extend(describe(report, path, summary) for path, summary in sorted(kept[section].items()))
             lines.append("")
-    lines += ["The full report is %s." % os.path.join(settings["state"], "report.json"),
+    lines += ["The full report is %s, and what it mailed %s." % (
+                  os.path.join(settings["state"], "report.json"), os.path.join(settings["state"], "kept.json")),
               "Once each change is accounted for, accept the files as they are with:",
               "  " + settings["accept"]]
     mail("%d changes" % total, lines)
