@@ -57,3 +57,16 @@
       ansible.builtin.include_role:
         name: mail_relay
         tasks_from: remove_account
+
+# Move AIDE's baseline to the files as they are, on the hosts given with
+# --limit, once each change their reports listed is accounted for.
+- name: AIDE baseline accepted
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [aide-accept]
+  tasks:
+    - name: Accept the files as they are
+      ansible.builtin.include_role:
+        name: aide
+        tasks_from: accept

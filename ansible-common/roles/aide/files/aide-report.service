@@ -1,0 +1,12 @@
+# Managed by Ansible (aide).
+[Unit]
+Description=AIDE's report of file changes the host's packages do not explain
+Documentation=man:aide(1)
+After=local-fs.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/aide-report
+Nice=19
+IOSchedulingClass=idle

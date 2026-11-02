@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: AIDE's daily report, mailed, of file changes the host's packages do not explain, against a baseline held until accepted
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

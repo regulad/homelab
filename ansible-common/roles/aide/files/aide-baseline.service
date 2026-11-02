@@ -1,0 +1,14 @@
+# Managed by Ansible (aide). Accepts the host's files as they are: a new AIDE
+# database, and the list of package-owned paths beside it. Started by the aide
+# role where there is no baseline yet, and by maintenance.yml --tags
+# aide-accept.
+[Unit]
+Description=AIDE baseline of the host's files as they are
+Documentation=man:aide(1)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/aide-report --baseline
+Nice=19
+IOSchedulingClass=idle

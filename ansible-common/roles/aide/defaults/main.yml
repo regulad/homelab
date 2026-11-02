@@ -1,0 +1,47 @@
+---
+# AIDE's daily report on the host's files, by the package's own rules, of the
+# changes since the accepted baseline that the host's packages do not explain,
+# mailed to root through the host's mail relay. aide-report decides what the
+# packages explain; maintenance.yml --tags aide-accept moves the baseline to the
+# files as they are, once a report's changes are accounted for.
+aide_enabled: true
+
+# The filesystems AIDE walks, by mount point: the system's own. aide-report
+# excludes every other mount point at each run, with everything below it: data
+# disks, the CephFS, container storage and the kernel's virtual filesystems
+# among them. Those listed here that a host does not have are skipped.
+aide_filesystems:
+  - /
+  - /boot
+  - /boot/efi
+  - /usr
+  - /var
+# Paths on those filesystems that are not checked, each with everything below
+# it: AIDE's own databases, and data that changes as the host works rather than
+# as it is configured.
+aide_exclude_paths:
+  - /var/lib/aide
+  - /var/lib/aide-report
+  - /var/lib/containers
+  - /var/lib/docker
+  - /root/.cache
+# Each host's additions, such as a service's data directory.
+aide_exclude_paths_host: []
+
+# The package's own configuration, which aide-report's configuration includes
+# after its exclusions, and the databases it names.
+aide_package_config: "{{ '/etc/aide.conf' if 'rhel' in group_names else '/etc/aide/aide.conf' }}"
+aide_database: "{{ '/var/lib/aide/aide.db.gz' if 'rhel' in group_names else '/var/lib/aide/aide.db' }}"
+aide_database_new: "{{ '/var/lib/aide/aide.db.new.gz' if 'rhel' in group_names else '/var/lib/aide/aide.db.new' }}"
+
+aide_settings_dir: /etc/aide-report
+aide_state_dir: /var/lib/aide-report
+# The exclusions of other filesystems, written by aide-report at each run.
+aide_mounts: /run/aide-report/mounts.conf
+
+# The packages' own daily checks, masked before the packages are installed so
+# that neither runs beside aide-report: Debian and Ubuntu's mails every change,
+# package updates included, and Enterprise Linux's mails nothing.
+aide_masked_units: >-
+  {{ ['aide-check.timer', 'aide-check.service'] if 'rhel' in group_names
+     else ['dailyaidecheck.timer', 'dailyaidecheck.service'] }}

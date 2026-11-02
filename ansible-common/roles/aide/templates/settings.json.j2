@@ -1,0 +1,11 @@
+{{ {
+  "config": aide_settings_dir ~ "/aide.conf",
+  "mounts": aide_mounts,
+  "filesystems": aide_filesystems,
+  "database": aide_database,
+  "database_new": aide_database_new,
+  "state": aide_state_dir,
+  "manifest": aide_state_dir ~ "/packages.json.gz",
+  "lock": "/run/aide-report.lock",
+  "accept": "cd " ~ (inventory_dir | dirname | basename) ~ " && ansible-playbook playbooks/maintenance.yml --tags aide-accept --limit " ~ inventory_hostname
+} | to_nice_json }}
