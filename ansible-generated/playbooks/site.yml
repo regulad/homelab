@@ -167,3 +167,17 @@
   tags: [qbittorrent]
   roles:
     - qbittorrent
+
+# Last: AIDE's baseline moved for the files this run wrote, as the aide_written
+# callback recorded them. Tagged always, so that a run scoped with --tags
+# refreshes what its plays wrote too.
+- name: File integrity baseline for this run's files
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [always, aide, aide_refresh]
+  tasks:
+    - name: AIDE's baseline for the files this run wrote
+      ansible.builtin.import_role:
+        name: aide
+        tasks_from: refresh

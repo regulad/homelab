@@ -1,0 +1,29 @@
+---
+# Move AIDE's baseline for the files this run wrote on the host, as the
+# aide_written callback recorded them, so that the next report does not list
+# Ansible's own changes to the files it manages. A file Ansible restored after
+# tampering is recorded as the repository declares it; every other change
+# stays in the report. Without the callback, or before a host has a baseline,
+# there is nothing to do.
+- name: Read the baseline
+  ansible.builtin.stat:
+    path: "{{ aide_database }}"
+    get_checksum: false
+  register: aide_baseline
+
+- name: Files this run wrote
+  ansible.builtin.set_fact:
+    aide_written: >-
+      {{ (lookup('ansible.builtin.file',
+                 lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname,
+                 errors='ignore') or '')
+         | split('\n') | select | unique | list }}
+  when: aide_baseline.stat.exists
+
+- name: AIDE's baseline for them
+  ansible.builtin.command:
+    argv: "{{ ['/usr/local/bin/aide-report', '--refresh'] + aide_written }}"
+  changed_when: true
+  when:
+    - aide_baseline.stat.exists
+    - aide_written | length > 0
