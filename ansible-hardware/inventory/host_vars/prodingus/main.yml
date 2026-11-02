@@ -205,3 +205,11 @@ clamav_scan_paths_host:
 clamav_exclude_paths:
   - "{{ restic_jobs.cephfs.path }}/dump"
   - "{{ restic_jobs.cephfs.path }}/homes/regulad/downloads/.quarantine"
+
+# Not checked by AIDE: Ceph's monitor store, Proxmox's cluster database (which
+# /etc/pve, its own filesystem, is served from) and its metrics, each rewritten
+# as the cluster runs.
+aide_exclude_paths_host:
+  - /var/lib/ceph
+  - /var/lib/pve-cluster
+  - /var/lib/rrdcached
