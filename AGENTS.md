@@ -51,7 +51,7 @@ homelab/
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
 │   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze)
-│   │   └── <child>/             # child modules split by network or concern
+│   │   └── *.tf                 # flat: OpenTofu loads no subdirectories into a module, so files group by name prefix
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
 │   ├── group_vars/              # all.sops.yml: secrets both stages share, linked from each stage's inventory/group_vars/
@@ -175,11 +175,11 @@ plan shows an unintended destroy or replace.
 
 ### OpenTofu HCL (as practiced in `tofu/oracle`)
 - **HCL first:** ordinary, readable `.tf` resources with inline non-sensitive settings and direct references. SOPS holds sensitive input values only, never encrypted HCL, resource definitions, or a topology data model.
-- **Files:** one `instance-<name>.tf` per host and one `subnet-<name>.tf` per subnet, each opening with a `# <name>: <contents>.` header. `network.tf` holds network-wide `locals`, the VCN, gateways, and the defaults the provider creates with the VCN. A distinct concern gets its own file (`email.tf`). `locals.tf` holds only values shared across files, and `variables.tf` declares inputs. `moved.tf` keeps every past address move so old states and backups still plan cleanly.
+- **Files:** a root is one flat module, since OpenTofu loads no subdirectories into a module; file-name prefixes group its files. One `instance-<name>.tf` per host and one `subnet-<name>.tf` per subnet, each opening with a `# <name>: <contents>.` header. Each VCN's `network-<vcn>.tf` holds its own `locals`, the VCN, gateways, and the defaults the provider creates with the VCN. A distinct concern gets its own file (`email.tf`, `state-bucket.tf`). `locals.tf` holds only values shared across files, and `variables.tf` declares inputs. `moved.tf` keeps every past address move so old states and backups still plan cleanly.
 - **Order within a file:** file-local `locals` first, then the primary resource, then what depends on it.
   - Host files: instance, boot volume, backup-policy assignment, VNIC lookup, IPv6 assignment, NSG, NSG rules.
   - Subnet files: the subnet, then its own DHCP options, route table, and security lists.
-  - `network.tf`: VCN, internet gateway, DHCP options, route tables, security lists.
+  - `network-<vcn>.tf`: VCN, internet gateway, DHCP options, route tables, security lists.
 - **Order within a resource:** meta-arguments (`for_each`) first, followed by a blank line. Then identity (`display_name`, `compartment_id`, parent IDs), placement (`availability_domain`, `fault_domain`), other scalar arguments, and nested blocks. Blank lines separate nested blocks; none directly inside an opening brace. Keep list order the provider or service treats as meaningful.
 - **Imperative leftovers:** every adopted resource ends with this footer:
   ```hcl
@@ -197,12 +197,12 @@ plan shows an unintended destroy or replace.
   Plaintext Oracle OCIDs need no comment: their map key is their exact name (rule 4).
 
   Use HCL comments for this, not new `description` arguments; adding a description changes infrastructure.
-- **IPv4/IPv6 pairs:** values that exist per IP family are objects keyed `ipv4`, then `ipv6`, named `dual_stack_<what>` when local (`local.dual_stack_internet_cidrs`, `var.tailscale_cidrs`, `var.router_next_hop_ids`).
+- **IPv4/IPv6 pairs:** values that exist per IP family are objects keyed `ipv4`, then `ipv6`, named `dual_stack_<what>` when local (`local.dual_stack_internet_cidrs`, `module.shared.tailscale_cidrs`, `var.router_next_hop_ids`).
   - Rules or routes identical across families iterate over the pair: `for_each` with `each.value`, or a `dynamic` block with `iterator = cidr`. The stable family keys keep resource addresses independent of ordering.
   - Rules that differ by family stay explicit.
   - A shared address pair never implies a permission for both families. Comment any family-only exception, such as an IPv4-only peering rule.
-  - Constants that belong to one subnet or host live at the top of that file; network-wide pairs live in `network.tf`.
-- **Addresses:** GUA host addresses are `cidrhost(var.ipv6_subnet_cidr, parseint("<64-bit hex suffix>", 16))`. Enclosing prefixes are derived from the encrypted `/64`, never written.
+  - Constants that belong to one subnet or host live at the top of that file; a VCN's pairs live in its `network-<vcn>.tf`, and pairs several files use in `locals.tf`.
+- **Addresses:** GUA host addresses are `cidrhost(var.ipv6_subnet_cidrs.<vcn>, parseint("<64-bit hex suffix>", 16))`. Enclosing prefixes are derived from the encrypted `/64`, never written.
 - **Lookups:** read a host's VNIC through a `data "oci_core_vnic_attachments"` filtered to `ATTACHED` and `one()`, so a second VNIC fails loudly instead of being guessed.
 - **Inputs:** sensitive inputs are `sensitive = true` and `nullable = false` and come from `secrets.sops.json`. Non-sensitive values are inline HCL, not variables. Resource-free constants shared by several roots live in `tofu/shared`.
 - **Versions:** pins live only in each root's `versions.tf`. OpenTofu's own version is its `language { compatible_with { opentofu } }` block, since OpenTofu ignores `required_version` in `.tf` files. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
