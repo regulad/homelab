@@ -18,7 +18,8 @@ aide_filesystems:
   - /var
 # Paths on those filesystems that are not checked, each with everything below
 # it: AIDE's own databases, and data that changes as the host works rather than
-# as it is configured.
+# as it is configured. aide-report also leaves out swap files, from
+# /proc/swaps, at each run.
 aide_exclude_paths:
   - /var/lib/aide
   - /var/lib/aide-report
@@ -27,6 +28,8 @@ aide_exclude_paths:
   - /var/cache
   - /root/.cache
   - /var/log/sysstat
+  # Kernel crash dumps, gigabytes each.
+  - /var/crash
   # Shared scratch space, on its own tmpfs on most hosts and scanned by ClamAV.
   - /tmp
   - /var/tmp
