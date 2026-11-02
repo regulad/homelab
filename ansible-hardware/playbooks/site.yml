@@ -7,6 +7,7 @@
 
 - name: Proxmox and Ceph cluster settings owned by Ansible
   hosts: proxmox_nodes
+  tags: [proxmox_cluster]
   roles:
     - proxmox_cluster
 
@@ -15,6 +16,7 @@
   hosts: proxmox_nodes
   gather_facts: false
   become: true
+  tags: [ceph_rgw]
   roles:
     - ceph_rgw
 
@@ -22,6 +24,7 @@
 - name: Uptime Kuma's webhooks
   hosts: webhookd
   become: true
+  tags: [webhookd]
   roles:
     - webhookd
 
@@ -30,6 +33,7 @@
   hosts: usb_port_disable
   gather_facts: false
   become: true
+  tags: [usb_port_disable]
   roles:
     - usb_port_disable
 
@@ -37,6 +41,7 @@
 - name: Arista switches
   hosts: eos
   gather_facts: false
+  tags: [eos]
   roles:
     - eos
 
@@ -47,5 +52,6 @@
   hosts: ciscosmb
   gather_facts: false
   serial: 1
+  tags: [ciscosmb]
   roles:
     - ciscosmb
