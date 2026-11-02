@@ -70,7 +70,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [ ] DKIM signing for `nefumllc.com`, and the malformed MTA-STS record
   - [ ] webhookd: unpinned, its TLS key world-readable
 - [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
-  - [ ] IPv6 from the VCN into the homelab: tailscalerouter's queries to arawi's ULA go out over the tailnet, by the `regulad-internal` subnet router's `fd83:b84c:aa57:1::/64` route, and get no answer, while IPv4 to arawi answers. Until it does, the VCN's resolver forwards to arawi over IPv4, and VCN clients reach `ingress` and `dodo` over IPv6 only after a timeout
+  - [ ] The VCN's resolver forwards to arawi over IPv4 alone: arawi's `tailnet_subnet_ipv6` alias held `fd7a:115c:a1e0:ab12::/64`, so its firewall dropped queries from tailscalerouter's tailnet address, `fd7a:115c:a1e0::ae01:c388`. The VCN's other instances reach arawi's ULA from their GUAs, which `vcn_subnet_ipv6` admits. Once the alias is the tailnet's whole `/48`, `forward-addr: {{ lan_arawi.ipv6 }}` goes back into `homelab-forward.conf.j2`
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
 
 ## gonkputer VMs (`ansible-generated/`, from `tofu/gonkputer`)
