@@ -77,6 +77,30 @@
       # A check run cannot read what an install still pending would create.
       when: not (ansible_check_mode and aide_units is changed)
 
+    # AppArmor's compiled policy cache, /var/cache/apparmor, lies below
+    # /var/cache, and AIDE does not walk into an excluded directory whatever a
+    # deeper rule selects. So AppArmor keeps no cache: it compiles each profile
+    # from its source in /etc/apparmor.d, which AIDE watches, at every load.
+    # parser.conf is a dpkg conffile (AGENTS.md, AppArmor keeps no policy cache).
+    - name: Read AppArmor's parser settings
+      ansible.builtin.stat:
+        path: /etc/apparmor/parser.conf
+        get_checksum: false
+      register: aide_apparmor_parser
+
+    - name: AppArmor without a policy cache
+      ansible.builtin.lineinfile:
+        path: /etc/apparmor/parser.conf
+        regexp: '^#?\s*skip-cache\s*$'
+        line: skip-cache
+      when: aide_apparmor_parser.stat.exists
+
+    - name: AppArmor's old policy cache removed
+      ansible.builtin.file:
+        path: /var/cache/apparmor
+        state: absent
+      when: aide_apparmor_parser.stat.exists
+
     - name: Read the baseline
       ansible.builtin.stat:
         path: "{{ aide_database }}"
