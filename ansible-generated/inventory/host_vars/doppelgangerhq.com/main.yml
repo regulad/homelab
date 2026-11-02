@@ -57,3 +57,7 @@ firewalld_zones:
 # clamd of its own: the host is outside the homelab, so its files stay on it.
 clamav_onaccess_enabled: true
 clamav_clamd_local: true
+# The devices' data, their compose files and their Android images, in the
+# weekly scan alone.
+clamav_scan_paths_host:
+  - /opt/doppelganger
