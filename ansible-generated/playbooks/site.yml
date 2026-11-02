@@ -11,6 +11,7 @@
   hosts: proxmox_containers
   gather_facts: false
   become: true
+  tags: [lxc_guest]
   roles:
     - lxc_guest
 
@@ -20,6 +21,7 @@
   hosts: certbot
   gather_facts: false
   become: true
+  tags: [certbot]
   roles:
     - certbot
 
@@ -28,6 +30,7 @@
   hosts: docker_hosts
   gather_facts: false
   become: true
+  tags: [docker]
   roles:
     - docker
 
@@ -36,6 +39,7 @@
   hosts: wings
   gather_facts: false
   become: true
+  tags: [wings]
   roles:
     - wings
 
@@ -44,6 +48,7 @@
   hosts: watchdog
   gather_facts: false
   become: true
+  tags: [watchdog]
   roles:
     - watchdog
 
@@ -54,6 +59,7 @@
   hosts: arawi
   gather_facts: false
   become: true
+  tags: [pfsense]
   roles:
     - pfsense
 
@@ -62,6 +68,7 @@
 - name: PHP-FPM hosts
   hosts: php_fpm
   gather_facts: false
+  tags: [php_fpm]
   roles:
     - php_fpm
 
@@ -70,6 +77,7 @@
 - name: Matrix homeserver
   hosts: matrix
   become: true
+  tags: [matrix]
   roles:
     - matrix
 
@@ -78,6 +86,7 @@
   hosts: generated:!arawi
   gather_facts: false
   become: true
+  tags: [host_files]
   roles:
     - host_files
 
@@ -86,6 +95,7 @@
   hosts: freeipa_servers
   gather_facts: false
   become: true
+  tags: [freeipa_server]
   roles:
     - freeipa_server
 
@@ -94,6 +104,7 @@
   hosts: ldap_proxies
   gather_facts: false
   become: true
+  tags: [ldap_proxy]
   roles:
     - ldap_proxy
 
@@ -102,6 +113,7 @@
   hosts: freeradius_servers
   gather_facts: false
   become: true
+  tags: [freeradius]
   roles:
     - freeradius
 
@@ -109,6 +121,7 @@
   hosts: softether_servers
   gather_facts: false
   become: true
+  tags: [softether]
   roles:
     - softether
 
@@ -116,6 +129,7 @@
   hosts: lime
   gather_facts: false
   become: true
+  tags: [lime]
   roles:
     - lime
 
@@ -125,6 +139,7 @@
   hosts: pterodactyl
   gather_facts: false
   become: true
+  tags: [pterodactyl]
   roles:
     - pterodactyl
 
@@ -132,13 +147,16 @@
   hosts: podman_hosts
   become: true
   roles:
-    - podman
-    - avahi
+    - role: podman
+      tags: [podman]
+    - role: avahi
+      tags: [avahi]
 
 # Rendered from host_vars/<host>/services.yml.
 - name: Quadlet services
   hosts: podman_hosts
   become: true
+  tags: [quadlet]
   roles:
     - quadlet
 
@@ -146,5 +164,6 @@
 - name: BitTorrent clients
   hosts: qbittorrent
   gather_facts: false
+  tags: [qbittorrent]
   roles:
     - qbittorrent
