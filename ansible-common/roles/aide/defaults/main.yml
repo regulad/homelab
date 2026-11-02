@@ -30,7 +30,8 @@ aide_exclude_paths:
   - /var/log/sysstat
   # Kernel crash dumps, gigabytes each.
   - /var/crash
-  # Shared scratch space, on its own tmpfs on most hosts and scanned by ClamAV.
+  # Shared scratch space, scanned by ClamAV: a tmpfs on Ubuntu 26.04 and
+  # Debian 13, on the root filesystem on Ubuntu 24.04 and Enterprise Linux.
   - /tmp
   - /var/tmp
   # Ansible's scratch files, which every task it runs creates and removes, the
