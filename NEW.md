@@ -6,9 +6,16 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 
 ## Security hardening
 
-- [ ] AIDE and auditd on every host, containers included: AIDE's file integrity
-  checks and auditd's rules, each mailing regulad@regulad.xyz through the host's
-  mail relay when something anomalous is detected
+- [x] AIDE on every Linux host, containers included: aide-report checks the
+  host's files daily, at a time of each host's own, against a baseline held
+  until `maintenance.yml --tags aide-accept` moves it, and mails root, through
+  the host's mail relay, the changes its packages do not explain (`rpm
+  --verify`, or dpkg's checksums). Each `site.yml` run moves the baseline for
+  the files it wrote. Not yet on turk, which was unreachable
+- [ ] auditd on every host, containers included, to instrument an intrusion
+  should one occur: its rules record what happened for the investigation. It
+  detects and notifies nothing, and sends no mail; that is AIDE's job
+- [ ] `/tmp` a tmpfs mounted `noexec` in every container and VM
 - [x] ClamAV on-access on the hardware hosts and every other Linux host with
   its own kernel, scanning for anomalous files: implants and bad user data
   alike. Each host's clamonacc scans files as they are opened and written, and
