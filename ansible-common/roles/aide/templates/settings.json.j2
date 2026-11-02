@@ -2,6 +2,7 @@
   "config": aide_settings_dir ~ "/aide.conf",
   "mounts": aide_mounts,
   "filesystems": aide_filesystems,
+  "excluded": (aide_exclude_paths + aide_exclude_paths_packages + aide_exclude_paths_host) | unique,
   "database": aide_database,
   "database_new": aide_database_new,
   "state": aide_state_dir,
