@@ -4,7 +4,7 @@
 # picks it over the package's wider rules, and it comes first, so it wins over
 # a package rule at the same path.
 @@include {{ aide_mounts }}
-{% for path in aide_exclude_paths + aide_exclude_paths_host %}
+{% for path in (aide_exclude_paths + aide_exclude_paths_packages + aide_exclude_paths_host) | unique %}
 !{{ path | regex_escape }}(/|$)
 {% endfor %}
 @@include {{ aide_package_config }}

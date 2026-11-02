@@ -112,7 +112,7 @@ class Packages:
         self.installed = set()
         if self.rpm:
             out = subprocess.run(
-                ["rpm", "-qa", "--qf", "[%{FILENAMES}\\t%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\\n]"],
+                ["rpm", "-qa", "--qf", "[%{FILENAMES}\\t%{=NAME}-%{=VERSION}-%{=RELEASE}.%{=ARCH}\\n]"],
                 stdout=subprocess.PIPE, text=True, errors="replace", check=True).stdout
             for line in out.splitlines():
                 path, _, package = line.rpartition("\t")
