@@ -6,8 +6,7 @@
 # onaccess, the on-access scanner, clamonacc, on the hosts that turn it on and
 # can run it. They share these settings. Both move what they find into the
 # quarantine, and mail it to root through the host's mail relay: clamav-scan
-# once its run ends, and for clamonacc, clamonacc-mail.timer each minute, with
-# any directory it failed to watch.
+# once its run ends, and for clamonacc, clamonacc-mail.timer each minute.
 
 # The directories scanned on access and weekly, each with every directory below
 # it. They are where files from elsewhere land, and are the same on Debian,
@@ -81,8 +80,9 @@ clamav_onaccess_enabled: false
 clamav_onaccess_exclude_unames: []
 # Also scan files when they are created, moved in or closed after writing, not
 # only when they are opened. clamonacc logs its being on once it has walked the
-# watched trees at start, which the unit's start check waits for; with it off,
-# the unit cannot tell when a tree was lost, and runs no check.
+# watched trees at start, which the unit's start check waits for, restarting
+# clamonacc if it lost a tree. With it off, the unit cannot tell when a tree was
+# lost and runs no check, so a lost tree stays unwatched until the next start.
 clamav_onaccess_extra_scanning: true
 # Hold each open until clamd's verdict, and deny an infected file. Off, because
 # clamonacc scans one file at a time

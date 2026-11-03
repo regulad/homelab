@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Managed by Ansible (clamav). Mails clamonacc's new detections, and the
-# directories it failed to watch, to root through the host's mail relay, which
-# delivers every recipient to the homelab's mailbox:
+# Managed by Ansible (clamav). Mails clamonacc's new detections to root through
+# the host's mail relay, which delivers every recipient to the homelab's
+# mailbox:
 #
 #   clamonacc-mail
 #
@@ -13,11 +13,9 @@
 # went out before the failure goes out again. The first run only sets the
 # cursor at the journal's end.
 #
-# A directory that vanishes while clamonacc walks a watched tree at start makes
-# it log "could not watch path '<tree>', ..." and run on without watching that
-# tree, until it restarts (https://github.com/Cisco-Talos/clamav/issues/186).
-# The unit's start check then fails the start, and systemd starts it again 30
-# seconds later. Those lines are mailed apart, as they are.
+# A tree clamonacc failed to watch at start, which it logs as "could not watch
+# path '<tree>', ...", is not mailed: the unit's start check fails that start,
+# and systemd starts it again 30 seconds later (clamonacc-watched).
 set -euo pipefail
 
 cursor=$STATE_DIRECTORY/cursor
@@ -34,13 +32,7 @@ fi
 cp "$cursor" "$cursor.next"
 log=$("${journal[@]}" --cursor-file="$cursor.next")
 found=$(sed -n 's/ FOUND$//p' <<<"$log")
-unwatched=$(grep -F 'could not watch path' <<<"$log" || true)
 if [[ -n $found ]]; then
     printf '%s\n' "$found" | mail -s "ClamAV on $host: infected files found" root
-fi
-if [[ -n $unwatched ]]; then
-    printf '%s\n\n%s\n' "$unwatched" \
-        'clamonacc failed its start over this, and systemd starts it again 30 seconds later; systemctl status clamav-clamonacc.service shows how that went.' \
-        | mail -s "ClamAV on $host: directories not watched" root
 fi
 mv "$cursor.next" "$cursor"
