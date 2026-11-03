@@ -65,10 +65,13 @@ aide_exclude_paths:
   - /var/lib/snapd/state.json
   - /var/lib/landscape/landscape-sysinfo.cache
   # certbot's logs: each run renames every earlier log one number along, and
-  # each keeps the SELinux label of the run that wrote it. And the Oracle Cloud
-  # Agent's logs, on OCI instances.
+  # each keeps the SELinux label of the run that wrote it. And on OCI
+  # instances, the Oracle Cloud Agent's logs, and the status of the Unified
+  # Monitoring Agent's configuration downloads, which its downloader rewrites
+  # every 15 to 25 minutes; the configuration itself, in conf.d, stays watched.
   - /var/log/letsencrypt
   - /var/log/oracle-cloud-agent
+  - /etc/unified-monitoring-agent/unified_monitoring.json
 # The package manager's own state, which every transaction rewrites and any
 # query of it may touch, such as the rpm database's SQLite shared memory, and
 # apt's lists of what its repositories offer, with Ubuntu Pro's copy of them
