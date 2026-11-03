@@ -7,3 +7,14 @@ swap_enabled: false
 # vkasm's login user. The operator's SSH configuration sets it only for the
 # short name, and Ansible connects by the DNS name.
 ansible_user: kasm_admin
+
+# Kasm's installation, as the image laid it out. An upgrade installs to a new
+# directory named for its version.
+kasm_dir: /opt/kasm/1.19.0
+
+# Not checked by AIDE: what Kasm writes in its installation as it runs, its
+# logs, health checks and scratch files, and Open vSwitch's logs and database,
+# which ovsdb-server rewrites as it compacts it.
+aide_exclude_paths_host: >-
+  {{ ['log', 'healthcheck', 'tmp'] | map('regex_replace', '^', kasm_dir ~ '/') | list
+     + ['/var/log/openvswitch', '/var/lib/openvswitch'] }}
