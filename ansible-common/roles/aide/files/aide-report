@@ -77,6 +77,9 @@ INCIDENTAL = {"access_time", "change_time", "modify_time", "inode", "link_count"
 UNRECORDED = {"acl", "selinux", "xattrs", "e2fsattrs"}
 # dpkg's records of a package: /var/lib/dpkg/info/<package>[:<arch>].<kind>.
 DPKG_INFO = re.compile(r"^/var/lib/dpkg/info/([^/]+)\.[A-Za-z0-9_-]+$")
+# The links of a merged /usr, which AIDE does not follow. Packages may still
+# list their files below them, as dpkg records each path as its package has it.
+USR_MERGE_LINKS = ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32")
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -175,6 +178,7 @@ class Packages:
 
     def __init__(self):
         self.rpm = os.path.exists("/usr/bin/rpm") and not os.path.exists("/usr/bin/dpkg")
+        self.merged = {link: os.path.realpath(link) for link in USR_MERGE_LINKS if os.path.islink(link)}
         self.owner = {}
         self.installed = set()
         if self.rpm:
@@ -184,7 +188,7 @@ class Packages:
             for line in out.splitlines():
                 path, _, package = line.rpartition("\t")
                 if path:
-                    self.owner.setdefault(path, package)
+                    self.owner.setdefault(self.canonical(path), package)
                     self.installed.add(package)
         else:
             out = subprocess.run(
@@ -203,7 +207,13 @@ class Packages:
                 self.installed.add(package_id)
                 with open(os.path.join(info, name), errors="replace") as handle:
                     for line in handle:
-                        self.owner.setdefault(line.rstrip("\n"), package_id)
+                        self.owner.setdefault(self.canonical(line.rstrip("\n")), package_id)
+
+    def canonical(self, path):
+        """The path AIDE reports for one a package lists, below /usr where merged."""
+        top, sep, rest = path[1:].partition("/")
+        target = self.merged.get("/" + top)
+        return target + sep + rest if target and sep else path
 
     def versions(self):
         """Each installed package's version, by the name dpkg's records use."""
@@ -230,7 +240,7 @@ class Packages:
                 # Only rpm's mtime flag, T, leaves the file as the package has it.
                 if self.rpm and flags != "missing" and not set(flags) - set(".T"):
                     continue
-                failed.add(path)
+                failed.add(self.canonical(path))
         return failed
 
 
@@ -273,7 +283,7 @@ def explain(report, packages, manifest, excluded=()):
         target = targets.get(path)
         return target in packages.owner and target not in unverified
 
-    baseline_owner = manifest.get("owner", {})
+    baseline_owner = {packages.canonical(path): owner for path, owner in manifest.get("owner", {}).items()}
     baseline_installed = manifest.get("installed") or list(set(baseline_owner.values()))
     now = packages.versions() if not packages.rpm else {}
     then = dict(i.split("=", 1) for i in baseline_installed if "=" in i) if not packages.rpm else {}
