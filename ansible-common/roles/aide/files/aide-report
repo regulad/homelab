@@ -64,9 +64,11 @@ SETTINGS = "/etc/aide-report/settings.json"
 # AIDE's attributes, by the field names of its JSON report. A package's own
 # file may show changes in its contents and in what follows from replacing a
 # file; dpkg vouches for those alone, as it records only its files' contents.
+# AIDE 0.19 added the last three hashes.
 CHECKSUMS = {
     "md5", "sha1", "sha256", "sha512", "rmd160", "tiger", "haval", "gost",
     "crc32", "crc32b", "whirlpool", "stribog256", "stribog512",
+    "sha512-256", "sha3-256", "sha3-512",
 }
 CONTENT = CHECKSUMS | {"size", "block_count", "growing_size"}
 INCIDENTAL = {"access_time", "change_time", "modify_time", "inode", "link_count"}
