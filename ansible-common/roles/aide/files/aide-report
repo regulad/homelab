@@ -31,6 +31,19 @@ A change is left out when:
 dpkg records its files' contents alone, so on Debian and Ubuntu the mode of a
 file a package installed since the baseline is not checked.
 
+AIDE does not walk the container engines' image stores, which every pull
+changes. aide-report runs each engine's own check of its image layers instead,
+and mails what it finds with the report:
+- Podman's, podman system check from Podman 5.2 and containers-storage check
+  before it: each layer rebuilt from Podman's record of it and checked against
+  its diff ID, and its files' type, owner, mode, size and mtime, with none
+  added or removed. Neither compares setuid, setgid or sticky bits, extended
+  attributes or symlink targets;
+- Docker's, docker save of each image, on Docker's own image store: each
+  layer's file contents, rebuilt and checked against its diff ID;
+- none on Docker's containerd image store, which has no check of the layers
+  containers run from.
+
 Settings come from a JSON file, by default /etc/aide-report/settings.json.
 """
 
@@ -40,6 +53,7 @@ import gzip
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -295,6 +309,85 @@ def explain(report, packages, manifest, excluded=()):
     return kept, explained
 
 
+def failed(command, result):
+    return (["%s exited %d:" % (command, result.returncode)]
+            + ["  " + line for line in result.stdout.splitlines()[-20:]] + [""])
+
+
+def normal_priority():
+    # The unit runs at the lowest priority, but Podman's check holds its layer
+    # store while it reads, and a container starting waits for it. Lowering a
+    # niceness needs CAP_SYS_NICE outside any user namespace, which root in an
+    # unprivileged container lacks, so there the check stays at the unit's.
+    try:
+        os.setpriority(os.PRIO_PROCESS, 0, 0)
+    except OSError:
+        pass
+
+
+def podman_check():
+    """Podman's check of its image layers, as lines to mail, if it found damage."""
+    if not shutil.which("podman"):
+        return []
+    version = subprocess.run(["podman", "version", "--format", "{{.Client.Version}}"],
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    numbers = tuple(int(number) for number in re.findall(r"\d+", version.stdout)[:2])
+    if version.returncode != 0 or len(numbers) < 2:
+        return failed("podman version", version)
+    # Without flags, both check everything; --quick skips the layers' contents.
+    if numbers >= (5, 2):
+        argv, repair = ["podman", "system", "check"], "podman system check --repair"
+    elif shutil.which("containers-storage"):
+        argv, repair = ["containers-storage", "check"], "containers-storage check --repair"
+    else:
+        return ["Podman %s has no check of its image layers, and containers-storage, which has one, "
+                "is not installed." % version.stdout.strip(), ""]
+    result = subprocess.run(["ionice", "-t", "-c", "2", "-n", "4"] + argv, preexec_fn=normal_priority,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    if result.returncode == 0:
+        return []
+    return (["%s exited %d:" % (" ".join(argv), result.returncode)]
+            + ["  " + line for line in result.stdout.splitlines()]
+            + ["Once each is accounted for, %s removes the damaged images and layers," % repair,
+               "which their services pull again as they start.", ""])
+
+
+def docker_check():
+    """Docker's check of its image layers, as lines to mail, if it found damage."""
+    if not shutil.which("dockerd") or subprocess.run(
+            ["systemctl", "is-active", "--quiet", "docker.service"]).returncode != 0:
+        return []
+    info = subprocess.run(["docker", "info", "--format", "{{json .DriverStatus}}"],
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    if info.returncode != 0:
+        return failed("docker info", info)
+    # The containerd image store keeps no record a layer can be rebuilt from.
+    if "io.containerd.snapshotter.v1" in info.stdout:
+        return []
+    listed = subprocess.run(["docker", "image", "ls", "--no-trunc", "--format", "{{.ID}} {{.Repository}}:{{.Tag}}"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    if listed.returncode != 0:
+        return failed("docker image ls", listed)
+    names = {}
+    for line in listed.stdout.splitlines():
+        image, _, name = line.partition(" ")
+        names.setdefault(image, []).append(name)
+    damaged = []
+    for image in sorted(names):
+        # docker save rebuilds each layer from Docker's record of it and fails
+        # on one whose contents no longer match its diff ID. Its output goes to
+        # /dev/null as a stream: -o writes a file beside its target and renames it.
+        result = subprocess.run(["docker", "save", image], stdout=subprocess.DEVNULL,
+                                stderr=subprocess.PIPE, text=True, errors="replace")
+        if result.returncode != 0:
+            reason = (result.stderr.strip().splitlines() or ["exited %d" % result.returncode])[-1]
+            damaged.append("  %s (%s): %s" % (", ".join(names[image]), image, reason))
+    if not damaged:
+        return []
+    return (["docker save could not verify %d images:" % len(damaged)] + damaged
+            + ["Once each is accounted for, remove the image and pull it again.", ""])
+
+
 def mail(subject, lines):
     if len(lines) > MAIL_LINES:
         lines = lines[:MAIL_LINES] + ["", "... and %d more lines." % (len(lines) - MAIL_LINES)]
@@ -323,26 +416,36 @@ def save_kept(settings, kept, explained):
 
 
 def check(settings):
+    subject, lines, status = check_files(settings)
+    # AIDE does not walk the engines' image stores: each checks its own.
+    images = podman_check() + docker_check()
+    if images:
+        subject = ", ".join(part for part in (subject, "container images") if part)
+        lines = lines + ([""] if lines else []) + images
+    if subject:
+        mail(subject, lines)
+    return status
+
+
+def check_files(settings):
+    """AIDE's report: a mail's subject, or none, its lines, and the exit status."""
     if not os.path.exists(settings["database"]):
-        mail("no baseline", ["There is no baseline at %s, so nothing was checked." % settings["database"],
-                             "Create one with: " + settings["accept"]])
-        return 1
+        return "no baseline", ["There is no baseline at %s, so nothing was checked." % settings["database"],
+                               "Create one with: " + settings["accept"]], 1
     result = aide(settings, "--check")
     if result.returncode >= 14 or result.returncode < 0:
-        mail("the check failed", ["aide exited %d." % result.returncode, ""]
-             + result.stderr.splitlines()[-40:])
-        return 1
+        return "the check failed", ["aide exited %d." % result.returncode, ""] + result.stderr.splitlines()[-40:], 1
     if result.returncode == 0:
         save_kept(settings, {"added": {}, "removed": {}, "changed": {}}, 0)
-        return 0
+        return None, [], 0
     try:
         report = json.loads(result.stdout)
     except ValueError as error:
         # AIDE escapes only backslashes, so a path with a quote or a newline in it
         # breaks the JSON: send the report as it is, unfiltered.
-        mail("changes, unfiltered", ["AIDE's report is not valid JSON (%s), so nothing was left out." % error, ""]
-             + result.stdout.splitlines())
-        return 0
+        return ("changes, unfiltered",
+                ["AIDE's report is not valid JSON (%s), so nothing was left out." % error, ""]
+                + result.stdout.splitlines(), 0)
     os.makedirs(settings["state"], mode=0o700, exist_ok=True)
     with open(os.path.join(settings["state"], "report.json"), "w") as handle:
         json.dump(report, handle)
@@ -354,7 +457,7 @@ def check(settings):
     save_kept(settings, kept, explained)
     total = sum(len(items) for items in kept.values())
     if total == 0:
-        return 0
+        return None, [], 0
     accepted = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(os.path.getmtime(settings["database"])))
     lines = ["%d changes since the baseline accepted %s that the host's packages do not explain;"
              % (total, accepted), "%d others they do were left out." % explained, ""]
@@ -367,8 +470,7 @@ def check(settings):
                   os.path.join(settings["state"], "report.json"), os.path.join(settings["state"], "kept.json")),
               "Once each change is accounted for, accept the files as they are with:",
               "  " + settings["accept"]]
-    mail("%d changes" % total, lines)
-    return 0
+    return "%d changes" % total, lines, 0
 
 
 def baseline(settings):

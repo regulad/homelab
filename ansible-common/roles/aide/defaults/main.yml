@@ -23,6 +23,9 @@ aide_filesystems:
 aide_exclude_paths:
   - /var/lib/aide
   - /var/lib/aide-report
+  # The container engines' image stores, which every pull changes. aide-report
+  # runs each engine's own check of its image layers instead, where it has one:
+  # Podman's, and Docker's on its own image store, not its containerd one.
   - /var/lib/containers
   - /var/lib/docker
   - /var/lib/containerd

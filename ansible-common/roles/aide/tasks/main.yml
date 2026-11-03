@@ -20,6 +20,21 @@
         state: present
       register: aide_installed
 
+    # aide-report runs Podman's own check of its image stores, which AIDE does
+    # not walk. Podman has one from 5.2; before it, containers-storage, from
+    # the same library, has the same check. On Ubuntu 24.04 its storage.conf
+    # becomes Podman's, as on later releases, where Podman depends on it.
+    - name: Installed packages
+      ansible.builtin.package_facts:
+
+    - name: Podman's layer check before Podman 5.2, from containers-storage
+      ansible.builtin.package:
+        name: containers-storage
+        state: present
+      when:
+        - "'podman' in ansible_facts.packages"
+        - ansible_facts.packages.podman[0].version is version('5.2', '<')
+
     - name: Directories
       ansible.builtin.file:
         path: "{{ item.path }}"
