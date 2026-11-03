@@ -3,3 +3,10 @@
 
 # The login every instance shares, beside its image's own (opc, ubuntu).
 base_admin_user: regulad
+
+# Not checked by AIDE: the status of the Unified Monitoring Agent's
+# configuration downloads, which its downloader rewrites every 15 to 25
+# minutes; its configuration, in conf.d, stays watched. Enterprise Linux's
+# AIDE rule for /etc records no contents there (AGENTS.md), so it is left out
+# only on instances of other systems.
+aide_exclude_paths_group: "{{ [] if 'rhel' in group_names else ['/etc/unified-monitoring-agent/unified_monitoring.json'] }}"
