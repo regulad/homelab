@@ -460,8 +460,9 @@ def check(settings):
 
 def check_files(settings):
     """AIDE's report: a mail's subject, or none, its lines, and the exit status."""
-    if not os.path.exists(settings["database"]):
-        return "no baseline", ["There is no baseline at %s, so nothing was checked." % settings["database"],
+    # A database without the manifest beside it is not one aide-report accepted.
+    if not os.path.exists(settings["database"]) or not os.path.exists(settings["manifest"]):
+        return "no baseline", ["There is no accepted baseline at %s, so nothing was checked." % settings["database"],
                                "Create one with: " + settings["accept"]], 1
     result = aide(settings, "--check")
     if result.returncode >= 14 or result.returncode < 0:

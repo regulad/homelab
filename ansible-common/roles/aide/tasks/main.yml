@@ -137,9 +137,11 @@
         state: absent
       when: aide_apparmor_parser.stat.exists
 
-    - name: Read the baseline
+    # A baseline aide-report accepted has its manifest beside it; a database
+    # alone may be the package's own, made when it was installed.
+    - name: Read the baseline's manifest
       ansible.builtin.stat:
-        path: "{{ aide_database }}"
+        path: "{{ aide_manifest }}"
         get_checksum: false
       register: aide_baseline
 

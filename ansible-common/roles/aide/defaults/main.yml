@@ -63,6 +63,10 @@ aide_database_new: "{{ '/var/lib/aide/aide.db.new.gz' if 'rhel' in group_names e
 
 aide_settings_dir: /etc/aide-report
 aide_state_dir: /var/lib/aide-report
+# The package-owned paths at the accepted baseline, which aide-report writes
+# with each baseline: a database without it is not one aide-report accepted,
+# such as one the distribution's package made when it was installed.
+aide_manifest: "{{ aide_state_dir }}/packages.json.gz"
 # The exclusions, written by aide-report before each run, from the settings and
 # what the host has mounted.
 aide_exclusions: /run/aide-report/exclusions.conf
