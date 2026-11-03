@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: What a Proxmox container needs from inside, such as no AppArmor in a privileged one
+  description: What a Proxmox container needs from inside, such as no AppArmor in a privileged one and no udev steps in netplan's unit
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []
