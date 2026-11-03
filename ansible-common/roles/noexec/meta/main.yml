@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Directories bound over themselves with noexec, each by a mount unit of its own
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

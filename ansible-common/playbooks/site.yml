@@ -89,6 +89,16 @@
   roles:
     - swap
 
+# Directories bound over themselves with noexec, on every Linux host, containers
+# included.
+- name: Directories mounted noexec
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [noexec]
+  roles:
+    - noexec
+
 # Access to the restic repository, and the host's backup jobs, on hosts with a
 # key of their own.
 - name: Restic repository access and backups

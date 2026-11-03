@@ -1,0 +1,42 @@
+---
+# Each of noexec_paths bound over itself with noexec by its own mount unit,
+# started and enabled for local-fs.target. Runs on every Linux host, containers
+# included.
+- name: Name the paths' mount units, and check fstab mounts none of them
+  ansible.builtin.command:
+    argv: "{{ ['sh', '-ec', noexec_script, 'sh'] + noexec_paths }}"
+  vars:
+    noexec_script: |
+      for path in "$@"; do
+        if findmnt --fstab --noheadings --mountpoint "$path" > /dev/null 2>&1; then
+          echo "$path has a line in /etc/fstab, which its mount unit would hide" >&2
+          exit 1
+        fi
+      done
+      systemd-escape --path --suffix=mount -- "$@"
+  register: noexec_units
+  changed_when: false
+  check_mode: false
+
+- name: Mount units
+  ansible.builtin.template:
+    src: bind.mount.j2
+    dest: /etc/systemd/system/{{ item.1 }}
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ noexec_paths | zip(noexec_units.stdout_lines) | list }}"
+  loop_control:
+    label: "{{ item.1 }}"
+  register: noexec_unit_files
+  notify: Remount the changed paths
+
+- name: Paths mounted, and at each boot
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ noexec_units.stdout_lines }}"
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and noexec_unit_files is changed)

@@ -1,0 +1,11 @@
+---
+# A changed unit's options take effect by remounting its path, which leaves
+# open files open; restarting the unit would unmount it.
+- name: Remount the changed paths
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: reloaded
+    daemon_reload: true
+  loop: "{{ noexec_unit_files.results | selectattr('changed') | map(attribute='item') | map('last') | list }}"
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and noexec_unit_files is changed)

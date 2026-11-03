@@ -1,0 +1,10 @@
+---
+# Directories bound over themselves with noexec, each by a mount unit of its
+# own: nothing below one, on its filesystem, can be run as a program or mapped
+# executable as a shared library is, though an interpreter can still read a
+# script there. A filesystem mounted below one keeps its own options. Each must
+# be a directory on its parent's filesystem: the role refuses one with a line
+# in /etc/fstab, which its unit would hide.
+noexec_paths:
+  # Logs, which AIDE does not watch (aide role).
+  - /var/log

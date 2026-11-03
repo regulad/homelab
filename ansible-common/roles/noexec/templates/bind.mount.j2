@@ -1,0 +1,14 @@
+# Managed by Ansible (noexec). {{ item.0 }} bound over itself with noexec, so
+# that nothing below it on its filesystem can be run or mapped executable.
+[Unit]
+Description=Bind {{ item.0 }} over itself, noexec
+Documentation=man:systemd.mount(5) man:mount(8)
+
+[Mount]
+What={{ item.0 }}
+Where={{ item.0 }}
+Type=none
+Options=bind,noexec
+
+[Install]
+WantedBy=local-fs.target

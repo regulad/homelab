@@ -16,6 +16,9 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   should one occur: its rules record what happened for the investigation. It
   detects and notifies nothing, and sends no mail; that is AIDE's job
 - [ ] `/tmp` a tmpfs mounted `noexec` in every container and VM
+- [ ] `/var/log` bound over itself `noexec` on every Linux host, containers
+  included, by a mount unit of its own (the `noexec` role): AIDE does not watch
+  it, so nothing put there can be run from there either
 - [x] ClamAV on-access on the hardware hosts and every other Linux host with
   its own kernel, scanning for anomalous files: implants and bad user data
   alike. Each host's clamonacc scans files as they are opened and written, and
