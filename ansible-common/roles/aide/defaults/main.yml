@@ -53,6 +53,10 @@ aide_exclude_paths:
   - /var/lib/tailscale/dns-cache
   # clamonacc-mail's journal cursor, its unit's StateDirectory (clamav role).
   - /var/lib/clamonacc-mail
+  # ClamAV's quarantine, the clamav role's clamav_quarantine: ClamAV mails each
+  # file it moves there, and clamonacc's --move leaves a lock file there at
+  # each start, named for its process ID, which only a clean exit removes.
+  - /root/quarantine
   # Postfix's queue, with its process IDs and the copies of /etc's files it
   # makes for its chroot, and its own state (mail_relay role).
   - /var/spool/postfix
