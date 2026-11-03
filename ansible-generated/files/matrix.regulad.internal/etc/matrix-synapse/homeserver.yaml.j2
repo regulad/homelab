@@ -27,8 +27,10 @@ encryption_enabled_by_default_for_room_type: "off" # unfortunately, setting this
 trusted_key_servers:
   - server_name: "matrix.org"
 suppress_key_server_warning: true
+# Local media has no lifetime: retention deletes its database rows with its
+# files, so Synapse would lose it, though the S3 bucket keeps a copy. Remote
+# media can be fetched again from its server.
 media_retention:
-    local_media_lifetime: "14d"
     remote_media_lifetime: "1d"
 redaction_retention_period: "7d"
 forgotten_room_retention_period: "7d"
