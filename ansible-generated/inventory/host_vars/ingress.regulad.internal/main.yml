@@ -81,3 +81,6 @@ host_files_units: [caddy.service, cydia-sync.timer]
 # Podman first ran here on Ubuntu 24.04 without a storage.conf, so its database
 # recorded no storage driver; it still does after the release upgrade.
 podman_storage_driver_unnamed: true
+
+# The Ubuntu release maintenance.yml's release-upgrade play upgrades it to.
+ubuntu_release: "26.04"

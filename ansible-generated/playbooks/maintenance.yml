@@ -59,6 +59,236 @@
         name: podman
         tasks_from: repair_volatile
 
+# Upgrade a Proxmox container running Ubuntu to the release its host_vars
+# declare in ubuntu_release, by Ubuntu's own do-release-upgrade, one host at a
+# time: bump ubuntu_release, then run this play with --limit. Hosts that declare
+# none, or run it already, are left alone. VMs are refused: their inventory
+# carries no VMID for the snapshot.
+#
+# Before the upgrade the container is snapshotted on its node as
+# pre-release-upgrade: `pct rollback <vmid> pre-release-upgrade` undoes the
+# upgrade, and `pct delsnapshot <vmid> pre-release-upgrade` removes it once the
+# host is verified. The non-interactive frontend keeps a changed configuration
+# file's old version at each prompt and answers yes to its own questions. It
+# disables third-party apt sources, which the host's next site.yml restores, so
+# afterwards run site.yml on the host, then maintenance.yml --tags aide-accept.
+- name: Ubuntu release upgrade to its declared release
+  hosts: ubuntu
+  gather_facts: true
+  serial: 1
+  become: true
+  tags: [release-upgrade]
+  vars:
+    # A container shares its node's kernel, whose boot ID, which the reboot
+    # module compares by default, does not change; systemd's own start does.
+    release_upgrade_boot_time: systemctl show --property=UserspaceTimestampMonotonic --value
+  tasks:
+    - name: Only where a release is declared
+      ansible.builtin.meta: end_host
+      when: ubuntu_release is not defined
+
+    - name: No downgrade
+      ansible.builtin.assert:
+        that: ubuntu_release is version(ansible_facts.distribution_version, '>=')
+        fail_msg: ubuntu_release declares {{ ubuntu_release }}, older than the running {{ ansible_facts.distribution_version }}.
+        quiet: true
+
+    - name: Stop here where the declared release runs
+      ansible.builtin.meta: end_host
+      when: ansible_facts.distribution_version is version(ubuntu_release, '==')
+
+    - name: A Proxmox container
+      ansible.builtin.assert:
+        that: proxmox_vmid | default(none) is not none
+        fail_msg: >-
+          {{ inventory_hostname }} is not a Proxmox container: the play snapshots
+          a container on its node first, and has been tested on containers alone.
+        quiet: true
+
+    - name: One that may reboot on its own
+      ansible.builtin.assert:
+        that: auto_updates_unattended_upgrade['Automatic-Reboot'] | default('true') != 'false'
+        fail_msg: "{{ inventory_hostname }} is never rebooted on its own, and the upgrade ends in a reboot."
+        quiet: true
+
+    - name: Read Podman's storage settings
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        get_checksum: false
+      loop: [/usr/bin/podman, /etc/containers/storage.conf, /usr/share/containers/storage.conf]
+      register: release_upgrade_podman
+
+    # A Podman that runs without any storage.conf recorded no storage driver,
+    # and the new release's Podman depends on containers-storage, whose
+    # storage.conf names one; Podman then refuses to run.
+    - name: Podman keeps the storage driver it recorded
+      ansible.builtin.assert:
+        that: >-
+          not release_upgrade_podman.results[0].stat.exists
+          or release_upgrade_podman.results[1].stat.exists
+          or release_upgrade_podman.results[2].stat.exists
+        fail_msg: >-
+          Podman on {{ inventory_hostname }} runs without a storage.conf: set
+          podman_storage_driver_unnamed in its host_vars and run site.yml --tags
+          podman on it first.
+        quiet: true
+
+    # Netplan's unit among what a container needs, before the new release's
+    # first boot.
+    - name: What a container needs from inside
+      ansible.builtin.include_role:
+        name: lxc_guest
+
+    - name: Its settings in effect
+      ansible.builtin.meta: flush_handlers
+
+    - name: The running release's updates, which the upgrade requires first
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+
+    - name: Read whether they need a reboot
+      ansible.builtin.stat:
+        path: /run/reboot-required
+        get_checksum: false
+      register: release_upgrade_reboot_required
+
+    - name: Reboot into them
+      ansible.builtin.reboot:
+        boot_time_command: "{{ release_upgrade_boot_time }}"
+      when: release_upgrade_reboot_required.stat.exists
+
+    - name: Ubuntu's release upgrader
+      ansible.builtin.apt:
+        name: ubuntu-release-upgrader-core
+        state: present
+
+    - name: The release it offers
+      ansible.builtin.command:
+        argv: [do-release-upgrade, --check-dist-upgrade-only]
+      register: release_upgrade_offer
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: It offers the declared release
+      ansible.builtin.assert:
+        that: ("New release '" ~ ubuntu_release) in release_upgrade_offer.stdout
+        fail_msg: "do-release-upgrade offers: {{ release_upgrade_offer.stdout_lines | last | default('nothing') }}"
+        quiet: true
+
+    - name: The container's snapshot on its node
+      ansible.builtin.command:
+        argv:
+          - pct
+          - snapshot
+          - "{{ proxmox_vmid }}"
+          - pre-release-upgrade
+          - --description
+          - Before the upgrade to Ubuntu {{ ubuntu_release }}.
+      delegate_to: "{{ ansible_host }}"
+      vars:
+        ansible_connection: ssh
+        ansible_user: root
+        ansible_become: false
+      changed_when: true
+
+    # The upgrade restarts services and can outlast a connection, so it runs in
+    # a unit of its own; it is left for the play to read how it ended.
+    - name: Read the upgrade's unit
+      ansible.builtin.command:
+        argv: [systemctl, show, release-upgrade.service, --property=LoadState, --value]
+      register: release_upgrade_unit
+      changed_when: false
+      check_mode: false
+
+    - name: The upgrade
+      ansible.builtin.command:
+        argv:
+          - systemd-run
+          - --unit=release-upgrade
+          - --remain-after-exit
+          - --property=Type=exec
+          - --setenv=DEBIAN_FRONTEND=noninteractive
+          - /usr/bin/do-release-upgrade
+          - --frontend=DistUpgradeViewNonInteractive
+      when: release_upgrade_unit.stdout == 'not-found'
+      changed_when: true
+
+    - name: Wait for it
+      ansible.builtin.command:
+        argv: [systemctl, show, release-upgrade.service, --property=SubState, --value]
+      register: release_upgrade_state
+      until: release_upgrade_state.stdout not in ['start', 'running']
+      retries: 240
+      delay: 30
+      changed_when: false
+      check_mode: false
+
+    - name: Read how it ended
+      ansible.builtin.command:
+        argv: [systemctl, show, release-upgrade.service, --property=Result, --property=ExecMainStatus]
+      register: release_upgrade_result
+      changed_when: false
+      check_mode: false
+
+    - name: It succeeded
+      ansible.builtin.assert:
+        that:
+          - "'Result=success' in release_upgrade_result.stdout_lines"
+          - "'ExecMainStatus=0' in release_upgrade_result.stdout_lines"
+        fail_msg: >-
+          The upgrade ended {{ release_upgrade_result.stdout_lines | join(', ') }}: see
+          /var/log/dist-upgrade/main.log and journalctl -u release-upgrade on
+          {{ inventory_hostname }}, or roll back to the snapshot.
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Reboot into the new release
+      ansible.builtin.reboot:
+        boot_time_command: "{{ release_upgrade_boot_time }}"
+
+    - name: The new release's facts
+      ansible.builtin.setup:
+        gather_subset: [min]
+
+    - name: The declared release runs
+      ansible.builtin.assert:
+        that: ansible_facts.distribution_version is version(ubuntu_release, '==')
+        fail_msg: "{{ inventory_hostname }} runs Ubuntu {{ ansible_facts.distribution_version }}, not {{ ubuntu_release }}."
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Read systemd's state once it has booted
+      ansible.builtin.command:
+        argv: [systemctl, is-system-running, --wait]
+      register: release_upgrade_systemd
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read its failed units
+      ansible.builtin.command:
+        argv: [systemctl, --failed, --plain, --no-legend]
+      register: release_upgrade_failed
+      changed_when: false
+      check_mode: false
+
+    - name: It runs with no failed unit
+      ansible.builtin.assert:
+        that: release_upgrade_systemd.stdout == 'running'
+        fail_msg: "systemd is {{ release_upgrade_systemd.stdout }}: {{ release_upgrade_failed.stdout_lines | join('; ') }}"
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: What remains
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} runs Ubuntu {{ ubuntu_release }}. Run site.yml
+          on it, which restores the third-party apt sources the upgrade disabled,
+          then maintenance.yml --tags aide-accept; once it is verified, run
+          `pct delsnapshot {{ proxmox_vmid }} pre-release-upgrade` on {{ ansible_host }}.
+
 # Compact each of Nexus's blob stores, reclaiming the space of soft-deleted
 # blobs, such as Docker's abandoned upload chunks, which Nexus keeps until a
 # compaction. Nexus 3.70's REST API runs and polls tasks but cannot create

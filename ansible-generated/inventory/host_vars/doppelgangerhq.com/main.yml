@@ -11,6 +11,9 @@ kernel_params_sysctl_files:
 # A legacy host: no admin login beside its image's own.
 base_admin_user: ""
 
+# No ubuntu_release: it stays on Ubuntu 24.04 until it is retired at 24.04's
+# end of standard support, and is never release-upgraded.
+
 # binder_linux, the one kernel module the Redroid devices need, which Ubuntu's
 # generic kernels ship in linux-modules-extra. linux-image-generic depends on
 # its kernel's, so each generic kernel it brings has binder. A new kernel leaves
