@@ -210,8 +210,7 @@ clamav_exclude_paths:
 # /etc/pve, its own filesystem, is served from) and its metrics, each rewritten
 # as the cluster runs. Also what Proxmox derives from that database as it runs:
 # each container's LXC configuration, written at its start, the firewall's
-# rule sets, and pve-manager's job states and lists of updates and appliances;
-# and Ceph's and Proxmox's logs, its task logs among them.
+# rule sets, and pve-manager's job states and lists of updates and appliances.
 aide_exclude_paths_host:
   - /var/lib/ceph
   - /var/lib/pve-cluster
@@ -219,6 +218,3 @@ aide_exclude_paths_host:
   - /var/lib/lxc
   - /var/lib/pve-firewall
   - /var/lib/pve-manager
-  - /var/log/ceph
-  - /var/log/pve
-  - /var/log/pveproxy

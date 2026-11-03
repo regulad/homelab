@@ -31,7 +31,10 @@ aide_exclude_paths:
   - /var/lib/containerd
   - /var/cache
   - /root/.cache
-  - /var/log/sysstat
+  # Logs, which their writers append to, rotate and remove as the host runs.
+  # AIDE does not see a log truncated or removed there, or anything else put
+  # there.
+  - /var/log
   # Kernel crash dumps, gigabytes each.
   - /var/crash
   # Shared scratch space, scanned by ClamAV: a tmpfs on Ubuntu 26.04 and
@@ -75,24 +78,19 @@ aide_exclude_paths:
   - /var/lib/ubuntu-advantage/private/machine-token.json
   - /var/lib/ubuntu-advantage/machine-token.json
   - /var/lib/ubuntu-advantage/jobs-status.json
-  # certbot's logs: each run renames every earlier log one number along, and
-  # each keeps the SELinux label of the run that wrote it. And the Oracle Cloud
-  # Agent's logs, on OCI instances.
-  - /var/log/letsencrypt
-  - /var/log/oracle-cloud-agent
 # The package manager's own state, which every transaction rewrites and any
 # query of it may touch, such as the rpm database's SQLite shared memory, and
 # apt's lists of what its repositories offer, with Ubuntu Pro's copy of them
 # and of apt's caches for its ESM repositories, and command-not-found's index
-# of them. Also the automatic updater's own state and logs, and
-# apt-listchanges' record of the changelogs it has shown. dpkg's records of
-# each package, its maintainer scripts among them, stay watched: aide-report
-# explains them by their package's version.
+# of them. Also the automatic updater's own state, and apt-listchanges' record
+# of the changelogs it has shown. dpkg's records of each package, its
+# maintainer scripts among them, stay watched: aide-report explains them by
+# their package's version.
 aide_exclude_paths_packages: >-
   {{ ['/usr/lib/sysimage/rpm', '/var/lib/rpm', '/var/lib/dnf']
      if 'rhel' in group_names else
      ['/var/lib/apt/lists', '/var/lib/ubuntu-advantage/apt-esm', '/var/lib/command-not-found',
-      '/var/lib/unattended-upgrades', '/var/log/unattended-upgrades',
+      '/var/lib/unattended-upgrades',
       '/var/lib/apt/listchanges', '/var/lib/apt/listchanges-old'] }}
 # Each group's additions, from its group_vars, such as what a platform's own
 # agents write.

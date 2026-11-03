@@ -114,5 +114,5 @@ podman_storage_driver_unnamed: true
 
 # Not checked by AIDE: Wings' data, in its default root directory: the game
 # servers' volumes, their archives and backups, and its own database and
-# state. And Wings' logs. Its configuration is the panel's (roles/wings).
-aide_exclude_paths_host: [/var/lib/pterodactyl, /var/log/pterodactyl]
+# state. Its configuration is the panel's (roles/wings).
+aide_exclude_paths_host: [/var/lib/pterodactyl]
