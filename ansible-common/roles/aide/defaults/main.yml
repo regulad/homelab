@@ -45,14 +45,44 @@ aide_exclude_paths:
   - /root/.ansible/tmp
   - /root/.ansible_async
   - "{{ aide_connection_home.stdout | default('/root') }}/.ansible/tmp"
+  # Tailscale's logs and its caches of the DERP map and the control plane's
+  # addresses. tailscaled.state, with the node's keys, stays watched.
+  - /var/lib/tailscale/tailscaled.log1.txt
+  - /var/lib/tailscale/tailscaled.log2.txt
+  - /var/lib/tailscale/derpmap.cached.json
+  - /var/lib/tailscale/dns-cache
+  # clamonacc-mail's journal cursor, its unit's StateDirectory (clamav role).
+  - /var/lib/clamonacc-mail
+  # Postfix's queue, with its process IDs and the copies of /etc's files it
+  # makes for its chroot, and its own state (mail_relay role).
+  - /var/spool/postfix
+  - /var/lib/postfix
+  # smartd's record of each disk's attributes, and DHCP clients' leases.
+  - /var/lib/smartmontools
+  - /var/lib/dhcp
+  # snapd's state, and the cache of the system information the login banner
+  # shows, on Ubuntu.
+  - /var/lib/snapd/state.json
+  - /var/lib/landscape/landscape-sysinfo.cache
+  # certbot's logs: each run renames every earlier log one number along, and
+  # each keeps the SELinux label of the run that wrote it. And the Oracle Cloud
+  # Agent's logs, on OCI instances.
+  - /var/log/letsencrypt
+  - /var/log/oracle-cloud-agent
 # The package manager's own state, which every transaction rewrites and any
 # query of it may touch, such as the rpm database's SQLite shared memory, and
-# apt's lists of what its repositories offer. dpkg's records of each package,
-# its maintainer scripts among them, stay watched: aide-report explains them
-# by their package's version.
+# apt's lists of what its repositories offer, with Ubuntu Pro's copy of them
+# and of apt's caches for its ESM repositories, and command-not-found's index
+# of them. Also the automatic updater's own state and logs, and
+# apt-listchanges' record of the changelogs it has shown. dpkg's records of
+# each package, its maintainer scripts among them, stay watched: aide-report
+# explains them by their package's version.
 aide_exclude_paths_packages: >-
   {{ ['/usr/lib/sysimage/rpm', '/var/lib/rpm', '/var/lib/dnf']
-     if 'rhel' in group_names else ['/var/lib/apt/lists'] }}
+     if 'rhel' in group_names else
+     ['/var/lib/apt/lists', '/var/lib/ubuntu-advantage/apt-esm', '/var/lib/command-not-found',
+      '/var/lib/unattended-upgrades', '/var/log/unattended-upgrades',
+      '/var/lib/apt/listchanges', '/var/lib/apt/listchanges-old'] }}
 # Each host's additions, such as a service's data directory.
 aide_exclude_paths_host: []
 
