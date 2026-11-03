@@ -52,3 +52,6 @@ host_files_packages:
   - php8.3-xml
   - php8.3-zip
 host_files_units: [nginx.service, php8.3-fpm.service, mariadb.service, redis-server.service, pteroq.service]
+
+# Not checked by AIDE: the panel's MariaDB data and nginx's logs.
+aide_exclude_paths_host: [/var/lib/mysql, /var/log/nginx]
