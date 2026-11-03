@@ -469,13 +469,133 @@
       when: not ansible_check_mode
       no_log: true
 
+# Rebuild each APT hosted repository's metadata, its dists/ Release and
+# Packages files, which Nexus otherwise rebuilds only as packages change.
+# Sonatype's upgrade path calls for it once a database is H2 or PostgreSQL,
+# where a migrated repository keeps its packages but not its metadata. A
+# missing rebuild task is created through ExtDirect with a manual schedule, as
+# the compaction play's are, and runs as a full rebuild. Requests to the
+# repository may answer 503 while it runs.
+- name: Nexus APT metadata rebuilt
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-apt-rebuild]
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  tasks:
+    - name: Repositories
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/repositories"
+      register: nexus_apt_repositories
+      check_mode: false
+      no_log: true
+
+    - name: Its APT hosted ones
+      ansible.builtin.set_fact:
+        nexus_apt_hosted: >-
+          {{ nexus_apt_repositories.json | selectattr('format', 'eq', 'apt')
+             | selectattr('type', 'eq', 'hosted') | map(attribute='name') | list }}
+
+    - name: Rebuild tasks
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks?type=repository.apt.rebuild.metadata"
+      register: nexus_apt_tasks
+      check_mode: false
+      no_log: true
+
+    - name: Create a rebuild task for each APT hosted repository without one
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/extdirect"
+        method: POST
+        body_format: json
+        body:
+          action: coreui_Task
+          method: create
+          type: rpc
+          tid: 1
+          data:
+            - enabled: true
+              name: Rebuild APT metadata of {{ item }}
+              typeId: repository.apt.rebuild.metadata
+              schedule: manual
+              notificationCondition: FAILURE
+              properties:
+                repositoryName: "{{ item }}"
+                rebuildAptMetadataFullRebuild: "true"
+      register: nexus_apt_created
+      # ExtDirect answers 200 whatever happened; its result says.
+      failed_when: not (nexus_apt_created.json.result.success | default(false))
+      changed_when: true
+      loop: >-
+        {{ nexus_apt_hosted
+           | reject('in', nexus_apt_tasks.json['items'] | map(attribute='name')
+                          | map('regex_replace', '^Rebuild APT metadata of ', '') | list)
+           | list }}
+      no_log: true
+
+    - name: Rebuild tasks, created ones included
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks?type=repository.apt.rebuild.metadata"
+      register: nexus_apt_tasks
+      check_mode: false
+      no_log: true
+
+    - name: Run each rebuild task
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks/{{ item.id }}/run"
+        method: POST
+        status_code: 204
+      changed_when: true
+      loop: "{{ nexus_apt_tasks.json['items'] }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+
+    - name: Wait for each rebuild to finish
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/tasks/{{ item.id }}"
+      register: nexus_apt_status
+      until: nexus_apt_status.json.currentState == 'WAITING'
+      retries: 240
+      delay: 15
+      failed_when: >-
+        nexus_apt_status.json.currentState == 'WAITING'
+        and nexus_apt_status.json.lastRunResult != 'OK'
+      loop: "{{ nexus_apt_tasks.json['items'] }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: not ansible_check_mode
+      no_log: true
+
+    - name: Each repository's settings
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/repositories/apt/hosted/{{ item }}"
+      register: nexus_apt_settings
+      loop: "{{ nexus_apt_hosted }}"
+      check_mode: false
+      no_log: true
+
+    - name: Each serves its distribution's Release
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/repository/{{ item.item }}/dists/{{ item.json.apt.distribution }}/Release"
+        method: HEAD
+      loop: "{{ nexus_apt_settings.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: not ansible_check_mode
+
 # Move Nexus off OrientDB, which 3.70.x is the last release to run, to H2, by
 # Sonatype's Database Migrator procedure: export the databases, stop Nexus,
 # migrate the export with the migrator of the 3.70.5 release it runs, put
 # nexus.mv.db in place, enable the datastore, and start it again on 3.70.5.
 # services.yml then moves the image to a current release. Rerunning is safe:
 # a host already on H2 is skipped, and an unfinished run starts over from a
-# fresh export. The OrientDB files stay in place until removed by hand.
+# fresh export. The OrientDB files stay in place until removed by hand. Its
+# APT repositories' metadata is rebuilt afterwards by the nexus-apt-rebuild
+# play, as Sonatype's upgrade path calls for.
 - name: Nexus database from OrientDB to H2
   hosts: nexus_servers
   gather_facts: false
