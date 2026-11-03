@@ -15,6 +15,10 @@ ExecStartPre=/usr/bin/xcaddy build \
     --output /usr/local/bin/caddy
 ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
 ExecReload=/usr/local/bin/caddy reload --force --config /etc/caddy/Caddyfile
+# The build runs at every start. After Go or a plugin changes, its cache is
+# cold and it takes longer than systemd's default 90 s: on Ubuntu 26.04's Go,
+# the first start timed out, and the second built in 47 s on a warmer cache.
+TimeoutStartSec=30min
 TimeoutStopSec=5s
 Restart=on-failure
 
