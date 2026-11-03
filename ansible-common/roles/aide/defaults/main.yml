@@ -68,6 +68,13 @@ aide_exclude_paths:
   # shows, on Ubuntu.
   - /var/lib/snapd/state.json
   - /var/lib/landscape/landscape-sysinfo.cache
+  # The Ubuntu Pro client's two copies of its machine token, with and without
+  # the tokens, which its metering job rewrites with the activity the contract
+  # server returns at each run, and its jobs' status. Its configuration,
+  # uaclient.conf, stays watched.
+  - /var/lib/ubuntu-advantage/private/machine-token.json
+  - /var/lib/ubuntu-advantage/machine-token.json
+  - /var/lib/ubuntu-advantage/jobs-status.json
   # certbot's logs: each run renames every earlier log one number along, and
   # each keeps the SELinux label of the run that wrote it. And the Oracle Cloud
   # Agent's logs, on OCI instances.

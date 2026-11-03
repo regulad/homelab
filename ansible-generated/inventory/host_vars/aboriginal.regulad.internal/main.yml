@@ -542,12 +542,10 @@ clamav_scan_paths_host: [/mnt/ssd]
 # Not checked by AIDE: Nextcloud's user data, regulad's home and Homebrew's,
 # over 70 GB on the root filesystem that change as they are used. ClamAV's
 # on-access scanner watches /home. Also what Ubuntu's clients record as they
-# run: NetworkManager's leases and state, Livepatch's status and logs, and the
-# Ubuntu Pro client's job status.
+# run: NetworkManager's leases and state, and Livepatch's status and logs.
 aide_exclude_paths_host:
   - "{{ nextcloud_data_dir }}"
   - /home/regulad
   - /home/linuxbrew
   - /var/lib/NetworkManager
   - /var/snap/canonical-livepatch/common
-  - /var/lib/ubuntu-advantage/jobs-status.json
