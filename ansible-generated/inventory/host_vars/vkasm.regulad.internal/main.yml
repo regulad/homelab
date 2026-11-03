@@ -13,8 +13,15 @@ ansible_user: kasm_admin
 kasm_dir: /opt/kasm/1.19.0
 
 # Not checked by AIDE: what Kasm writes in its installation as it runs, its
-# logs, health checks and scratch files, and Open vSwitch's logs and database,
-# which ovsdb-server rewrites as it compacts it.
+# logs, health checks and scratch files, and the configurations of its agent
+# and gateways, which it writes anew every 30 to 100 seconds with what they
+# held, too often for AIDE to hash them between finding and reading them; and
+# Open vSwitch's logs and database, which ovsdb-server rewrites as it compacts
+# it.
 aide_exclude_paths_host: >-
-  {{ ['log', 'healthcheck', 'tmp'] | map('regex_replace', '^', kasm_dir ~ '/') | list
+  {{ ['log', 'healthcheck', 'tmp',
+      'conf/app/agent/agent.app.config.yaml', 'conf/app/guac/kasmguac.app.config.yaml',
+      'conf/app/rdp_gateway/passthrough.app.config.yaml',
+      'conf/app/rdp_https_gateway/rdp_https_gateway.app.config.yaml']
+     | map('regex_replace', '^', kasm_dir ~ '/') | list
      + ['/var/log/openvswitch', '/var/lib/openvswitch'] }}
