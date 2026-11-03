@@ -22,7 +22,11 @@
 
     # aide-report runs Podman's own check of its image stores, which AIDE does
     # not walk. Podman has one from 5.2; before it, containers-storage, from
-    # the same library, has the same check.
+    # the same library, has the same check. Ubuntu 24.04's, 1.51, mounts each
+    # layer read-write while it checks, though it only reads: 1.55 made the
+    # mounts read-only, and 24.04 has no newer build. In an unprivileged
+    # container it cannot run at all, as it takes root there for a rootless
+    # user and fails to re-execute itself in a user namespace.
     - name: Installed packages
       ansible.builtin.package_facts:
 
