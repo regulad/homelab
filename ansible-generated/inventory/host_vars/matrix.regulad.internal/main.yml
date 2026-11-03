@@ -186,3 +186,11 @@ host_files_units:
 # ClamAV's weekly scan also reads the container's data disk, its RBD mount
 # point (tofu/gonkputer's lxc-matrix.tf).
 clamav_scan_paths_host: [/mnt/synapse]
+
+# Not checked by AIDE: Synapse's media store (homeserver.yaml.j2's
+# media_store_path), Synapse's and PostgreSQL's logs, and each bridge's SQLite
+# database and logs. The bridges' configurations stay watched.
+aide_exclude_paths_host: >-
+  {{ ['/var/lib/matrix-synapse/media', '/var/log/matrix-synapse', '/var/log/postgresql']
+     + matrix_bridge_users | map(attribute='home')
+       | product(['db', 'db-shm', 'db-wal', 'logs']) | map('join', '/') | list }}
