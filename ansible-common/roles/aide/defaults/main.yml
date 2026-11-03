@@ -40,10 +40,11 @@ aide_exclude_paths:
   - /var/tmp
   # Ansible's scratch files, which every task it runs creates and removes, the
   # wait for aide-accept's new baseline among them: root's, and those of the
-  # user it connects as over SSH.
+  # user it connects as over SSH, which the operator's SSH configuration may
+  # name rather than the inventory. The role reads that user's home first.
   - /root/.ansible/tmp
   - /root/.ansible_async
-  - "{{ ('/root' if (ansible_user | default('root')) == 'root' else '/home/' ~ ansible_user) ~ '/.ansible/tmp' }}"
+  - "{{ aide_connection_home.stdout | default('/root') }}/.ansible/tmp"
 # The package manager's own state, which every transaction rewrites and any
 # query of it may touch, such as the rpm database's SQLite shared memory, and
 # apt's lists of what its repositories offer. dpkg's records of each package,

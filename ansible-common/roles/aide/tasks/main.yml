@@ -68,6 +68,14 @@
         - {path: "{{ aide_state_dir }}", mode: "0700"}
         - {path: /usr/local/lib/systemd/system, mode: "0755"}
 
+    # Ansible's scratch files lie in the home of the user it connects as.
+    - name: Read the connecting user's home
+      ansible.builtin.command: printenv HOME
+      become: false
+      check_mode: false
+      changed_when: false
+      register: aide_connection_home
+
     # Each takes effect at the next run.
     - name: Settings
       ansible.builtin.template:
