@@ -1,0 +1,9 @@
+---
+# Not checked by AIDE: OpenClaw's received media, its main agent's sessions,
+# its state database and its workspace attestations. Its configuration stays
+# watched.
+aide_exclude_paths_host:
+  - /root/.openclaw/media
+  - /root/.openclaw/agents/main/sessions
+  - /root/.openclaw/state
+  - /root/.openclaw/workspace-attestations
