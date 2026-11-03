@@ -94,7 +94,9 @@
 
     # The upgrade runs in a unit of its own, as it restarts services and can
     # outlast a connection, and the unit stays until the reboot after it. Its
-    # state is read without Python, which the upgrade replaces as it goes.
+    # state is read without Python, which the upgrade replaces as it goes, and
+    # matched within the output: raw through proxmox_pct_remote runs on a
+    # terminal, which wraps it in carriage returns and escape sequences.
     - name: Read the upgrade's unit
       ansible.builtin.raw: systemctl show release-upgrade.service --property=LoadState --value
       register: release_upgrade_unit
@@ -103,7 +105,7 @@
 
     - name: Whether an upgrade has started since the last boot
       ansible.builtin.set_fact:
-        release_upgrade_started: "{{ (release_upgrade_unit.stdout | trim) == 'loaded' }}"
+        release_upgrade_started: "{{ release_upgrade_unit.stdout is search('\\bloaded\\b') }}"
 
     - name: No downgrade
       ansible.builtin.assert:
@@ -228,11 +230,12 @@
               - --frontend=DistUpgradeViewNonInteractive
           changed_when: true
 
-    # A read that fails while packages change counts as one more wait.
+    # Until it is in a state it does not leave by itself; a read that fails
+    # while packages change counts as one more wait.
     - name: Wait for it
       ansible.builtin.raw: systemctl show release-upgrade.service --property=SubState --value
       register: release_upgrade_state
-      until: (release_upgrade_state.stdout | default('') | trim) not in ['start', 'running', '']
+      until: release_upgrade_state.stdout | default('') is search('\\b(exited|failed|dead)\\b')
       retries: 240
       delay: 30
       changed_when: false
@@ -248,10 +251,10 @@
     - name: It succeeded
       ansible.builtin.assert:
         that:
-          - "'Result=success' in release_upgrade_result.stdout"
-          - "'ExecMainStatus=0' in release_upgrade_result.stdout"
+          - release_upgrade_result.stdout is search('\\bResult=success\\b')
+          - release_upgrade_result.stdout is search('\\bExecMainStatus=0\\b')
         fail_msg: >-
-          The upgrade ended {{ release_upgrade_result.stdout | trim | replace('\n', ', ') }}: see
+          The upgrade ended {{ release_upgrade_result.stdout | regex_findall('[A-Za-z]+=[A-Za-z0-9-]+') | join(', ') }}: see
           /var/log/dist-upgrade/main.log and journalctl -u release-upgrade on
           {{ inventory_hostname }}, or roll back to the snapshot.
         quiet: true
