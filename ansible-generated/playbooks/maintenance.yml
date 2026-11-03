@@ -67,8 +67,8 @@
 #
 # Before the upgrade the container is snapshotted on its node as
 # pre-release-upgrade: `pct rollback <vmid> pre-release-upgrade` undoes the
-# upgrade, and `pct delsnapshot <vmid> pre-release-upgrade` removes it once the
-# host is verified. The non-interactive frontend keeps a changed configuration
+# upgrade, and the release-upgrade-cleanup play below removes it once the host
+# is verified. The non-interactive frontend keeps a changed configuration
 # file's old version at each prompt and answers yes to its own questions. It
 # disables third-party apt sources, which the host's next site.yml restores, so
 # afterwards run site.yml on the host, then maintenance.yml --tags aide-accept.
@@ -303,7 +303,78 @@
           {{ inventory_hostname }} runs Ubuntu {{ ubuntu_release }}. Run site.yml
           on it, which restores the third-party apt sources the upgrade disabled,
           then maintenance.yml --tags aide-accept; once it is verified, run
-          `pct delsnapshot {{ proxmox_vmid }} pre-release-upgrade` on {{ ansible_host }}.
+          maintenance.yml --tags release-upgrade-cleanup on it.
+
+# Remove what release-upgrade leaves behind, once the new release has proven
+# itself: the pre-release-upgrade snapshot on the container's node. It refuses
+# while the container does not run the release ubuntu_release declares, has not
+# rebooted since the upgrade, or has a failed unit, as the snapshot is then
+# still the way back. Run it with --limit <host>, as the upgrade.
+- name: Ubuntu release upgrade's snapshot removed
+  hosts: ubuntu
+  gather_facts: true
+  become: true
+  tags: [release-upgrade-cleanup]
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  tasks:
+    - name: Only where a release is declared, on a Proxmox container
+      ansible.builtin.meta: end_host
+      when: ubuntu_release is not defined or proxmox_vmid | default(none) is none
+
+    - name: The declared release runs
+      ansible.builtin.assert:
+        that: ansible_facts.distribution_version is version(ubuntu_release, '==')
+        fail_msg: >-
+          {{ inventory_hostname }} runs Ubuntu {{ ansible_facts.distribution_version }},
+          not {{ ubuntu_release }}, so its snapshot may still be needed.
+        quiet: true
+
+    - name: Read the upgrade's unit
+      ansible.builtin.raw: systemctl show release-upgrade.service --property=LoadState --value
+      register: release_upgrade_cleanup_unit
+      changed_when: false
+      check_mode: false
+
+    - name: It has rebooted since the upgrade
+      ansible.builtin.assert:
+        that: release_upgrade_cleanup_unit.stdout is not search('\\bloaded\\b')
+        fail_msg: The upgrade's unit is still there, so the reboot after it has not happened.
+        quiet: true
+
+    - name: Read systemd's state
+      ansible.builtin.command:
+        argv: [systemctl, is-system-running]
+      register: release_upgrade_cleanup_systemd
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: It runs with no failed unit
+      ansible.builtin.assert:
+        that: release_upgrade_cleanup_systemd.stdout == 'running'
+        fail_msg: systemd is {{ release_upgrade_cleanup_systemd.stdout }}, so the snapshot may still be needed.
+        quiet: true
+
+    - name: The container's snapshots on its node
+      ansible.builtin.command:
+        argv: [pct, listsnapshot, "{{ proxmox_vmid }}"]
+      delegate_to: "{{ ansible_host }}"
+      vars: &release_upgrade_node
+        ansible_connection: ssh
+        ansible_user: root
+        ansible_become: false
+      register: release_upgrade_cleanup_snapshots
+      changed_when: false
+      check_mode: false
+
+    - name: The upgrade's snapshot removed
+      ansible.builtin.command:
+        argv: [pct, delsnapshot, "{{ proxmox_vmid }}", pre-release-upgrade]
+      delegate_to: "{{ ansible_host }}"
+      vars: *release_upgrade_node
+      when: release_upgrade_cleanup_snapshots.stdout is search('\\bpre-release-upgrade\\b')
+      changed_when: true
 
 # Compact each of Nexus's blob stores, reclaiming the space of soft-deleted
 # blobs, such as Docker's abandoned upload chunks, which Nexus keeps until a
