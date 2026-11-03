@@ -15,8 +15,11 @@ ExecStartPre=/bin/sh -c 'until getent hosts vpn.ncsu.edu >/dev/null; do sleep 5;
 TimeoutStartSec=infinity
 # The second password is a Duo passcode: a TOTP code from the secret of the
 # Duo Mobile device that maintenance.yml --tags ncsu-duo activated.
+# No DTLS: the gateway drops DTLS datagrams from here over 1200 bytes, without
+# an ICMP error, though it sets a tunnel MTU of 1399, so a full-sized TCP segment
+# never arrived. The TLS channel carries packets of any size.
 ExecStart=/bin/sh -c 'exec /usr/sbin/openconnect \
-  --protocol=anyconnect --authgroup 2-Student --user pewahle \
+  --protocol=anyconnect --authgroup 2-Student --user pewahle --no-dtls \
   --token-mode=totp --token-secret="@$CREDENTIALS_DIRECTORY/duototp" --passwd-on-stdin \
   --script "/usr/local/bin/vpn-slice {{ ncsu_tun_routes | join(' ') }}" \
   vpn.ncsu.edu < "$CREDENTIALS_DIRECTORY/vpnpass"'
