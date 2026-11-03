@@ -26,7 +26,10 @@ A change is left out when:
   maintainer scripts among them, and the package was installed, upgraded or
   removed since the baseline, or the record's contents are unchanged;
 - the path is a directory whose only changes are its timestamps, size, inode
-  or link count, which follow from the entries in it, each listed itself.
+  or link count, which follow from the entries in it, each listed itself;
+- the path was rewritten with what it held: AIDE compared its contents, a
+  file's hashes or a symlink's target, and found them unchanged, and nothing
+  about it changed but its timestamps and inode.
 
 dpkg records its files' contents alone, so on Debian and Ubuntu the mode of a
 file a package installed since the baseline is not checked.
@@ -80,6 +83,13 @@ DPKG_INFO = re.compile(r"^/var/lib/dpkg/info/([^/]+)\.[A-Za-z0-9_-]+$")
 # The links of a merged /usr, which AIDE does not follow. Packages may still
 # list their files below them, as dpkg records each path as its package has it.
 USR_MERGE_LINKS = ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32")
+# What rewriting a file with what it already held changes.
+REWRITTEN = {"access_time", "change_time", "modify_time", "inode"}
+# A changed entry's summary has a column per attribute, in AIDE's order from
+# 0.18 (report_attrs_order in src/report.c): '.' where AIDE compared it at both
+# ends and found it unchanged, a space where the entry's rule does not record it.
+SUMMARY_LINK_NAME = 1
+SUMMARY_HASHES = 12
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -256,7 +266,7 @@ def changed_attributes(report, path):
 
 
 def explain(report, packages, manifest, excluded=()):
-    """The report's entries, split into those packages explain and the rest."""
+    """The report's entries, split into those explained and the rest."""
     added = entries(report, "added")
     removed = entries(report, "removed")
     changed = entries(report, "changed")
@@ -278,6 +288,11 @@ def explain(report, packages, manifest, excluded=()):
         if packages.rpm:
             return not attributes & UNRECORDED
         return not attributes - CONTENT - INCIDENTAL
+
+    def rewritten(path, summary):
+        # Its contents compared and the same: a file's hashes, a symlink's target.
+        column = SUMMARY_LINK_NAME if summary[:1] == "l" else SUMMARY_HASHES
+        return summary[column:column + 1] == "." and not changed_attributes(report, path) - REWRITTEN
 
     def symlink_vouched(path):
         target = targets.get(path)
@@ -302,6 +317,8 @@ def explain(report, packages, manifest, excluded=()):
             kind = summary[:1]
             attributes = changed_attributes(report, path)
             if kind == "d" and section == "changed" and not attributes - INCIDENTAL - {"size", "block_count"}:
+                explained += 1
+            elif section == "changed" and rewritten(path, summary):
                 explained += 1
             elif dpkg_record(path, section):
                 explained += 1
@@ -474,7 +491,8 @@ def check_files(settings):
         return None, [], 0
     accepted = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(os.path.getmtime(settings["database"])))
     lines = ["%d changes since the baseline accepted %s that the host's packages do not explain;"
-             % (total, accepted), "%d others they do were left out." % explained, ""]
+             % (total, accepted), "%d others, which they do or which left a file as it was, were left out."
+             % explained, ""]
     for section in ("added", "removed", "changed"):
         if kept[section]:
             lines.append("%s (%d):" % (section.capitalize(), len(kept[section])))
