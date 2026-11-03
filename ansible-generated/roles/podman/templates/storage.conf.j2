@@ -1,0 +1,13 @@
+# Managed by Ansible (podman). Podman's storage settings on a host whose Podman
+# recorded no storage driver when it first ran, without a storage.conf:
+# Podman refuses to run with any driver named here, even the same one, so this
+# file keeps containers-storage's /usr/share/containers/storage.conf, which
+# names one, from taking effect.
+[storage]
+# Without a driver, the library warns at every command unless a priority is
+# set; it picks a driver by it only for storage not yet initialized.
+driver_priority = ["overlay"]
+# The library applies its default roots only where no storage.conf exists: one
+# that leaves them out fails every command.
+runroot = "/run/containers/storage"
+graphroot = "{{ podman_storage_root }}"

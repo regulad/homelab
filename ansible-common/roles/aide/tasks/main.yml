@@ -33,23 +33,24 @@
              and ansible_facts.packages.podman[0].version is version('5.2', '<') }}
 
     # containers-storage ships /usr/share/containers/storage.conf, which Podman
-    # reads where /etc has none. Its driver, "overlay", does not match the
-    # default, unnamed one Podman recorded when it first ran without either
-    # file, and Podman then refuses to run. This file keeps the default.
-    - name: Podman's storage settings, as it recorded them
-      ansible.builtin.copy:
-        src: storage.conf
-        dest: /etc/containers/storage.conf
-        owner: root
-        group: root
-        mode: "0644"
+    # reads where /etc has none. It names the overlay driver, and a Podman that
+    # recorded none when it first ran, as on Ubuntu 24.04, then refuses to run.
+    # So it is installed only beside /etc/containers/storage.conf, which the
+    # podman role writes where podman_storage_driver_unnamed is set.
+    - name: Read Podman's storage settings
+      ansible.builtin.stat:
+        path: /etc/containers/storage.conf
+        get_checksum: false
+      register: aide_podman_storage_conf
       when: aide_podman_before_check
 
     - name: Podman's layer check before Podman 5.2, from containers-storage
       ansible.builtin.package:
         name: containers-storage
         state: present
-      when: aide_podman_before_check
+      when:
+        - aide_podman_before_check
+        - aide_podman_storage_conf.stat.exists
 
     - name: Directories
       ansible.builtin.file:

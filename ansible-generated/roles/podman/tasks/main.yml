@@ -1,6 +1,15 @@
 ---
 # Install Podman, whose Quadlet generator and auto-update timer the quadlet role
 # uses. Runs on generated hosts in podman_hosts (Phase 4).
+- name: Podman's storage settings, without a driver
+  ansible.builtin.template:
+    src: storage.conf.j2
+    dest: /etc/containers/storage.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: podman_storage_driver_unnamed
+
 - name: Install Podman
   ansible.builtin.package:
     name: "{{ podman_packages }}"

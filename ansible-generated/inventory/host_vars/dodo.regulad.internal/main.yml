@@ -107,3 +107,7 @@ restic_retired_scripts:
 
 # ClamAV's on-access scanner, over the baseline directories alone.
 clamav_onaccess_enabled: true
+
+# Podman first ran here on Ubuntu 24.04 without a storage.conf, so its database
+# recorded no storage driver.
+podman_storage_driver_unnamed: true

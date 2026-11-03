@@ -15,3 +15,12 @@ podman_nocow_subdirs: [volumes, overlay]
 podman_volatile_stores:
   - overlay-containers/volatile-containers.json
   - overlay-layers/volatile-layers.json
+
+# Whether Podman's database here recorded no storage driver, as on a host
+# where Podman first ran without a storage.conf: Ubuntu 24.04's Podman, which
+# does not depend on containers-storage. Podman checks the record at every
+# command and refuses a driver that differs, so where this is true the role
+# writes /etc/containers/storage.conf without one. containers-storage's own
+# storage.conf names the overlay driver: the aide role installs the package
+# beside Podman before 5.2, and Ubuntu 26.04's Podman depends on it.
+podman_storage_driver_unnamed: false

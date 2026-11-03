@@ -77,3 +77,7 @@ host_files_trees:
     reloads: [caddy.service]
 host_files_packages: [xcaddy, golang-go, gnupg, imagemagick, bzip2, curl]
 host_files_units: [caddy.service, cydia-sync.timer]
+
+# Podman first ran here on Ubuntu 24.04 without a storage.conf, so its database
+# recorded no storage driver; it still does after the release upgrade.
+podman_storage_driver_unnamed: true
