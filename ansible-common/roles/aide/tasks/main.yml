@@ -22,18 +22,34 @@
 
     # aide-report runs Podman's own check of its image stores, which AIDE does
     # not walk. Podman has one from 5.2; before it, containers-storage, from
-    # the same library, has the same check. On Ubuntu 24.04 its storage.conf
-    # becomes Podman's, as on later releases, where Podman depends on it.
+    # the same library, has the same check.
     - name: Installed packages
       ansible.builtin.package_facts:
+
+    - name: Podman before 5.2
+      ansible.builtin.set_fact:
+        aide_podman_before_check: >-
+          {{ 'podman' in ansible_facts.packages
+             and ansible_facts.packages.podman[0].version is version('5.2', '<') }}
+
+    # containers-storage ships /usr/share/containers/storage.conf, which Podman
+    # reads where /etc has none. Its driver, "overlay", does not match the
+    # default, unnamed one Podman recorded when it first ran without either
+    # file, and Podman then refuses to run. This file keeps the default.
+    - name: Podman's storage settings, as it recorded them
+      ansible.builtin.copy:
+        src: storage.conf
+        dest: /etc/containers/storage.conf
+        owner: root
+        group: root
+        mode: "0644"
+      when: aide_podman_before_check
 
     - name: Podman's layer check before Podman 5.2, from containers-storage
       ansible.builtin.package:
         name: containers-storage
         state: present
-      when:
-        - "'podman' in ansible_facts.packages"
-        - ansible_facts.packages.podman[0].version is version('5.2', '<')
+      when: aide_podman_before_check
 
     - name: Directories
       ansible.builtin.file:
