@@ -26,3 +26,6 @@ resolved_mode: networkmanager
 # rsyslog's log rotation, which the Oracle Linux 9.6 images leave out; without
 # it /var/log/messages and secure grow unrotated.
 base_packages: [rsyslog-logrotate]
+
+# EPEL's certbot names its renewal timer certbot-renew.timer.
+certbot_timer: certbot-renew.timer

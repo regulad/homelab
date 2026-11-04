@@ -15,3 +15,7 @@ certbot_cloudflare_credentials: /etc/letsencrypt/cloudflare.ini
 # The ACME account's contact address; empty registers without one, as Let's
 # Encrypt no longer sends expiry mail.
 certbot_email: ""
+
+# The timer the distribution's certbot package renews with; Enterprise Linux's
+# EPEL package names its own in group_vars/rhel.yml.
+certbot_timer: certbot.timer

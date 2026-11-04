@@ -14,6 +14,7 @@
       - certbot
       - python3-certbot-dns-cloudflare
     state: present
+  register: certbot_installed
 
 - name: Cloudflare credentials
   ansible.builtin.copy:
@@ -65,8 +66,10 @@
   # A check run cannot read a renewal file a pending issue would write.
   when: not ansible_check_mode or (certbot_renewal.results | selectattr('item.name', '==', item.0.name) | first).stat.exists
 
+# A check run cannot start the timer that an install still pending would add.
 - name: Renewal timer
   ansible.builtin.systemd_service:
-    name: certbot.timer
+    name: "{{ certbot_timer }}"
     enabled: true
     state: started
+  when: not (ansible_check_mode and certbot_installed is changed)
