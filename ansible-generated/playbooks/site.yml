@@ -18,7 +18,7 @@
 # systemd-resolved, and its mDNS, on every homelab host that runs it; the OCI
 # instances' networks carry no multicast.
 - name: Name resolution and mDNS
-  hosts: ubuntu:!oci
+  hosts: ubuntu:rhel:!oci
   gather_facts: false
   become: true
   tags: [resolved]

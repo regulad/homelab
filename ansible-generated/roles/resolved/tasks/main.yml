@@ -2,6 +2,18 @@
 # systemd-resolved's mDNS on the host and on its networks' links, and in a
 # Proxmox container resolved's stub as the resolver. Runs on the generated
 # homelab hosts that run resolved (Phase 4).
+- name: Check what manages the links
+  ansible.builtin.assert:
+    that: resolved_mode in ['networkd', 'networkmanager']
+    fail_msg: "Set resolved_mode to networkd or networkmanager through the host's OS group."
+    quiet: true
+
+# Part of systemd on Ubuntu, a package of its own on Enterprise Linux.
+- name: Install systemd-resolved
+  ansible.builtin.package:
+    name: systemd-resolved
+    state: present
+
 - name: Resolved's drop-in directory
   ansible.builtin.file:
     path: /etc/systemd/resolved.conf.d
@@ -51,49 +63,85 @@
     name: systemd-resolved
     enabled: true
     state: started
+  # A check run before the package is installed has no unit to look at.
+  ignore_errors: "{{ ansible_check_mode }}"
 
-- name: The links' drop-in directories
-  ansible.builtin.file:
-    path: /etc/systemd/network/{{ item }}.d
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-  loop: "{{ resolved_networks }}"
+- name: Links by networkd
+  when: resolved_mode == 'networkd'
+  block:
+    - name: The links' drop-in directories
+      ansible.builtin.file:
+        path: /etc/systemd/network/{{ item }}.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop: "{{ resolved_networks }}"
 
-- name: Each link's mDNS
+    - name: Each link's mDNS
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/{{ item }}.d/mdns.conf
+        content: |
+          # Managed by Ansible (resolved).
+          [Network]
+          MulticastDNS={{ resolved_mdns }}
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ resolved_networks }}"
+      notify: Reload networkd
+
+    - name: Each link's DNS, as Proxmox's resolv.conf gave it
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/{{ item }}.d/dns.conf
+        content: |
+          # Managed by Ansible (resolved): arawi, IPv6 first, and its domain, not
+          # the DNS servers router advertisements carry.
+          [Network]
+          {% for server in resolved_dns %}
+          DNS={{ server }}
+          {% endfor %}
+          Domains={{ resolved_domains | join(' ') }}
+
+          [IPv6AcceptRA]
+          UseDNS=false
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ resolved_networks }}"
+      when: resolved_stub
+      notify: Reload networkd
+
+# NetworkManager's plugin for resolved (RHEL 10's networking guide, 19.2)
+# hands each link's DNS to resolved, and leaves each link's mDNS, while its
+# profile's connection.mdns is the default, to resolved's own MulticastDNS.
+# Proxmox rewrites a container's profile at each start, so nothing is set
+# there: the global DNS overrides what the profile, DHCP and router
+# advertisements carry.
+- name: Links by NetworkManager
   ansible.builtin.copy:
-    dest: /etc/systemd/network/{{ item }}.d/mdns.conf
+    dest: /etc/NetworkManager/conf.d/resolved.conf
     content: |
-      # Managed by Ansible (resolved).
-      [Network]
-      MulticastDNS={{ resolved_mdns }}
+      # Managed by Ansible (resolved): resolved as NetworkManager's DNS{{ ',' if resolved_stub }}
+      {% if resolved_stub %}
+      # with arawi, IPv6 first, and its domain for every link, not the DNS
+      # servers the profiles, DHCP and router advertisements carry.
+      {% endif %}
+      [main]
+      dns=systemd-resolved
+      {% if resolved_stub %}
+
+      [global-dns]
+      searches={{ resolved_domains | join(',') }}
+
+      [global-dns-domain-*]
+      servers={{ resolved_dns | join(',') }}
+      {% endif %}
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ resolved_networks }}"
-  notify: Reload networkd
-
-- name: Each link's DNS, as Proxmox's resolv.conf gave it
-  ansible.builtin.copy:
-    dest: /etc/systemd/network/{{ item }}.d/dns.conf
-    content: |
-      # Managed by Ansible (resolved): arawi, IPv6 first, and its domain, not
-      # the DNS servers router advertisements carry.
-      [Network]
-      {% for server in resolved_dns %}
-      DNS={{ server }}
-      {% endfor %}
-      Domains={{ resolved_domains | join(' ') }}
-
-      [IPv6AcceptRA]
-      UseDNS=false
-    owner: root
-    group: root
-    mode: "0644"
-  loop: "{{ resolved_networks }}"
-  when: resolved_stub
-  notify: Reload networkd
+  when: resolved_mode == 'networkmanager'
+  notify: Reload NetworkManager
 
 # The links carry their DNS before the stub becomes the resolver.
 - name: Apply the links' settings

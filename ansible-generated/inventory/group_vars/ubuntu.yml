@@ -24,3 +24,7 @@ mail_relay_family: debian
 # Debian's grub-mkconfig reads kernel arguments from drop-ins in
 # /etc/default/grub.d.
 kernel_params_mode: debian
+
+# Ubuntu's links are networkd's: Proxmox's eth0.network in a container, netplan's
+# files on a VM.
+resolved_mode: networkd

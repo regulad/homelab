@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: systemd-resolved resolving and answering mDNS, off where Avahi reflects it, and in Proxmox containers its stub as the resolver
+  description: systemd-resolved resolving and answering mDNS, off where Avahi reflects it, on networkd or NetworkManager links; containers' resolver
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []

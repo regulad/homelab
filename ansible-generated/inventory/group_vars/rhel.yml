@@ -20,6 +20,9 @@ mail_relay_family: rhel
 # entry.
 kernel_params_mode: grubby
 
+# Enterprise Linux's links are NetworkManager's.
+resolved_mode: networkmanager
+
 # rsyslog's log rotation, which the Oracle Linux 9.6 images leave out; without
 # it /var/log/messages and secure grow unrotated.
 base_packages: [rsyslog-logrotate]
