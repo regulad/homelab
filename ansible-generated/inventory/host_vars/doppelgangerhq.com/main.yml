@@ -18,9 +18,11 @@ base_admin_user: ""
 # generic kernels ship in linux-modules-extra. linux-image-generic depends on
 # its kernel's, so each generic kernel it brings has binder. A new kernel leaves
 # /var/run/reboot-required, which unattended-upgrades' next run, through
-# Automatic-Reboot, reboots for.
+# Automatic-Reboot, reboots for. rsync copies the devices' data between
+# volumes, keeping hard links, ACLs and extended attributes.
 host_files_packages:
   - linux-image-generic
+  - rsync
 
 host_files_list:
   # binder_linux at boot, before Docker starts the devices. Ubuntu builds
