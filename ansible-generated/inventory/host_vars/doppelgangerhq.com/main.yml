@@ -57,6 +57,36 @@ host_files_list:
     content: |
       [Unit]
       RequiresMountsFor=/opt/doppelganger
+  # The dangling images each newer pull leaves, removed daily at a time drawn
+  # afresh for each run in the hour after 04:00, when root's crontab ran it. A
+  # fixed offset as well would need systemd 258's RandomizedOffsetSec=; Ubuntu
+  # 24.04 has 255. Only while Docker runs: the timer never starts Docker, and
+  # with it the devices.
+  - path: /etc/systemd/system/docker-image-prune.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Remove dangling Docker images
+      Requisite=docker.service
+      After=docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/docker image prune --force
+  - path: /etc/systemd/system/docker-image-prune.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Daily trigger for docker-image-prune.service
+
+      [Timer]
+      OnCalendar=*-*-* 04:00:00
+      RandomizedDelaySec=1h
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+    restarts: [docker-image-prune.timer]
   # binder_linux at boot, before Docker starts the devices. Ubuntu builds
   # binderfs with no default devices (CONFIG_ANDROID_BINDER_DEVICES=""), so
   # devices= names the ones each binderfs mount, one per Redroid container,
@@ -94,8 +124,8 @@ host_files_list:
     shared_src: oci/direct.xml
     reloads: [firewalld]
 
-# Mounted now and at each boot.
-host_files_units: [opt-doppelganger.mount]
+# Mounted now and at each boot, and the prune scheduled.
+host_files_units: [opt-doppelganger.mount, docker-image-prune.timer]
 
 # The website, which nginx serves natively, outside Docker.
 firewalld_zones:
