@@ -1,0 +1,38 @@
+# The app's stack. The devices are compose projects of their own, which the web
+# app writes under /opt/doppelganger, on the external doppelganger network.
+name: doppelganger
+services:
+  web:
+    image: ghcr.io/regulad/doppelganger:latest
+    restart: unless-stopped
+    hostname: doppelganger
+    ports:
+      # Caddy's upstream, on loopback alone.
+      - "127.0.0.1:81:3000/tcp"
+      - "[::1]:81:3000/tcp"
+    volumes:
+      # ANDROID_RUNTIME_DIR
+      - /opt/doppelganger:/opt/doppelganger
+      # DOCKER_HOST
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file: [/etc/doppelganger/web.env]
+    networks:
+      # EXTERNAL_NETWORK_NAME
+      - doppelganger
+  cron:
+    image: ghcr.io/regulad/http-docker-cron:latest
+    restart: unless-stopped
+    env_file: [/etc/doppelganger/cron.env]
+    networks: [doppelganger]
+  # The Prisma query cache, which nothing keeps: no snapshots or append-only
+  # file, and its image's /data volume a tmpfs.
+  redis:
+    image: redis:8
+    restart: unless-stopped
+    hostname: redis
+    command: [redis-server, --save, "", --appendonly, "no"]
+    tmpfs: [/data]
+    networks: [doppelganger]
+networks:
+  doppelganger:
+    external: true

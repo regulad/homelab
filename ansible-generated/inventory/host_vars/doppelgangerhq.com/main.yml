@@ -40,8 +40,18 @@ docker_registries:
     username: svc-doppelganger
     password: "{{ hostvars[groups['nexus_servers'] | first].nexus_svc_doppelganger_password }}"
 
+# The app's stack, from host_files_list's compose file. Its external network,
+# doppelganger (bridge, 172.18.0.0/16 and fd7b:250b:b33c::/64), which the
+# devices' projects join too, was created by hand in 2025 and stays Docker's
+# state: the host is never rebuilt.
+docker_compose_projects:
+  - name: doppelganger
+    files: [/etc/doppelganger/compose.yml]
+
 host_files_directories:
   - path: /etc/systemd/system/docker.service.d
+    mode: "0755"
+  - path: /etc/doppelganger
     mode: "0755"
 
 host_files_list:
@@ -103,6 +113,50 @@ host_files_list:
       [Install]
       WantedBy=timers.target
     restarts: [docker-image-prune.timer]
+  # The app's stack, which the docker role's compose entry point brings up, with
+  # its environment from SOPS. The compose file is checked with the env files in
+  # place, so they come first.
+  - path: /etc/doppelganger/web.env
+    mode: "0600"
+    content: "{{ doppelganger_web_env }}"
+    secret: true
+  - path: /etc/doppelganger/cron.env
+    mode: "0600"
+    content: "{{ doppelganger_cron_env }}"
+    secret: true
+  - path: /etc/doppelganger/compose.yml
+    mode: "0644"
+    validate: /usr/bin/docker compose --file %s config --quiet
+  # The stack's newer images, pulled daily at a time drawn afresh for each run in
+  # the hour after 03:00, ahead of the prune, and the services they change
+  # recreated, as podman-auto-update does on the Podman hosts. The devices,
+  # compose projects of their own, are left alone. Only while Docker runs.
+  - path: /etc/systemd/system/doppelganger-update.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Pull the app stack's newer images and recreate the services they change
+      Requisite=docker.service
+      After=docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/docker compose --file /etc/doppelganger/compose.yml pull --quiet
+      ExecStart=/usr/bin/docker compose --file /etc/doppelganger/compose.yml up --detach --remove-orphans --wait
+  - path: /etc/systemd/system/doppelganger-update.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Daily trigger for doppelganger-update.service
+
+      [Timer]
+      OnCalendar=*-*-* 03:00:00
+      RandomizedDelaySec=1h
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+    restarts: [doppelganger-update.timer]
   # binder_linux at boot, before Docker starts the devices. Ubuntu builds
   # binderfs with no default devices (CONFIG_ANDROID_BINDER_DEVICES=""), so
   # devices= names the ones each binderfs mount, one per Redroid container,
@@ -156,8 +210,9 @@ host_files_trees:
     check: env HOME=/run/caddy-validate /usr/bin/caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
     reloads: [caddy.service]
 
-# Mounted now and at each boot, the prune scheduled, and Caddy running.
-host_files_units: [opt-doppelganger.mount, docker-image-prune.timer, caddy.service]
+# Mounted now and at each boot, the prune and the stack's updates scheduled,
+# and Caddy running.
+host_files_units: [opt-doppelganger.mount, docker-image-prune.timer, doppelganger-update.timer, caddy.service]
 
 # The website, which Caddy serves natively, outside Docker.
 firewalld_zones:
