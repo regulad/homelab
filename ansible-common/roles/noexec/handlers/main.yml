@@ -20,3 +20,10 @@
   when:
     - noexec_tmp_state.fstype == 'tmpfs'
     - not ansible_check_mode
+
+# A failure of the service as it was says nothing of the service as it is; it
+# runs again at the next boot.
+- name: Clear tmp-erase's last failure
+  ansible.builtin.command: systemctl reset-failed tmp-erase.service
+  changed_when: true
+  when: not ansible_check_mode

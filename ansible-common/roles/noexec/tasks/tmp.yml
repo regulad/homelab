@@ -108,11 +108,16 @@
 
       [Service]
       Type=oneshot
+      # A /tmp root cannot write to, such as one with the immutable
+      # attribute, gains nothing to hide and loses nothing: it is left as it
+      # is, and the unit skipped rather than failed.
+      ExecCondition=/usr/bin/test -w /tmp
       ExecStart=/usr/bin/find /tmp -mindepth 1 -xdev -delete
     owner: root
     group: root
     mode: "0644"
   when: not noexec_tmp_state.distribution
+  notify: Clear tmp-erase's last failure
 
 - name: Drop-in erasing /tmp before each mount
   ansible.builtin.copy:
