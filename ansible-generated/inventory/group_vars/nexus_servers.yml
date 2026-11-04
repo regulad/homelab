@@ -3,3 +3,23 @@
 # nexus_servers.sops.yml. The public URL reaches Nexus wherever it runs.
 nexus_url: https://repo.regulad.xyz
 nexus_api_user: svc-ansible
+
+# Nexus's own roles and users that the nexus_security role converges; the
+# others, such as nx-aaoracled, are left as they are. svc-doppelganger, with
+# which doppelgangerhq.com's Docker pulls from cr.regulad.xyz, may read and
+# browse the cr repository and nothing else, under a role of its own name, as
+# nx-aaoracled has.
+nexus_security_roles:
+  - id: svc-doppelganger
+    name: svc-doppelganger
+    description: Pulls from the cr Docker repository
+    privileges: [nx-repository-view-docker-cr-browse, nx-repository-view-docker-cr-read]
+    roles: []
+nexus_security_users:
+  - userId: svc-doppelganger
+    firstName: Doppelganger
+    lastName: Service
+    emailAddress: regulad@regulad.xyz
+    password: "{{ nexus_svc_doppelganger_password }}"
+    status: active
+    roles: [svc-doppelganger]
