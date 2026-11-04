@@ -14,9 +14,12 @@ TimeoutStartSec={{ restic_job_timeout }}
 # A restic mount keeps the index it read at its start, which a prune leaves
 # naming packs it removed, and their files then fail with "Key not found". The
 # mounts stop for the run, and with them every unit that needs them; the units
-# they took down start again after it, whether or not it succeeded.
-ExecStartPre=/bin/sh -c 'systemctl list-units --type=service,mount --state=active --plain --no-legend | cut -d" " -f1 | sort >/run/restic-forget.active; systemctl stop {{ job.mounts | join(" ") }}; systemctl list-units --type=service,mount --state=active --plain --no-legend | cut -d" " -f1 | sort | comm -23 /run/restic-forget.active - >/run/restic-forget.stopped'
-ExecStopPost=/bin/sh -c 'if [ -s /run/restic-forget.stopped ]; then systemctl start $$(cat /run/restic-forget.stopped); fi; rm -f /run/restic-forget.active /run/restic-forget.stopped'
+# they took down start again after it, whether or not it succeeded, except
+# those no longer loaded, such as the mounts of the containers that stopped.
+# The lists are sorted and compared in the C locale: under en_US.UTF-8, comm
+# rejected the order sort gave it.
+ExecStartPre=/bin/sh -c 'export LC_ALL=C; systemctl list-units --type=service,mount --state=active --plain --no-legend | cut -d" " -f1 | sort >/run/restic-forget.active; systemctl stop {{ job.mounts | join(" ") }}; systemctl list-units --type=service,mount --state=active --plain --no-legend | cut -d" " -f1 | sort | comm -23 /run/restic-forget.active - >/run/restic-forget.stopped'
+ExecStopPost=/bin/sh -c 'units=; for unit in $$(cat /run/restic-forget.stopped 2>/dev/null); do if [ "$$(systemctl show --property=LoadState --value "$$unit")" = loaded ]; then units="$$units $$unit"; fi; done; if [ -n "$$units" ]; then systemctl start $$units; fi; rm -f /run/restic-forget.active /run/restic-forget.stopped'
 {% endif %}
 # A stale lock, left by a run that died, blocks every other command.
 ExecStartPre=/usr/bin/restic unlock
