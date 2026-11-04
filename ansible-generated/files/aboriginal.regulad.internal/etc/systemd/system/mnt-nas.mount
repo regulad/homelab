@@ -13,3 +13,8 @@ What=/mnt/restic/snapshots/latest/mnt/nas
 Where=/mnt/nas
 Type=none
 Options=bind,ro
+# Detached even while an overlay's fuse-overlayfs still holds its lower layer
+# open, so a stop of mnt-restic.service never leaves /mnt/nas bound to the
+# restic mount it killed. Read-only, so nothing is lost; the overlays above it
+# unmount normally.
+LazyUnmount=yes
