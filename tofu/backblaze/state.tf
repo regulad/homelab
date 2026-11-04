@@ -32,6 +32,10 @@ terraform {
   encryption {
     key_provider "pbkdf2" "backblaze" {
       passphrase = var.state_encryption_passphrase
+      # State under the passphrase set on 2026-11-04 stores its salt under
+      # this name, apart from the previous passphrase's default name,
+      # key_provider.pbkdf2.backblaze. Never change it.
+      encrypted_metadata_alias = "backblaze-2026-11-04"
     }
 
     method "aes_gcm" "backblaze" {
