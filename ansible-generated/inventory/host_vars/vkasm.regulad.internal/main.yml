@@ -24,3 +24,10 @@ aide_exclude_paths_host: >-
       'conf/app/rdp_https_gateway/rdp_https_gateway.app.config.yaml']
      | map('regex_replace', '^', kasm_dir ~ '/') | list
      + ['/var/lib/openvswitch'] }}
+
+# mDNS by systemd-resolved on ens18 (resolved role), which firewalld admits
+# beside its default zone's services.
+resolved_networks: [10-netplan-ens18.network]
+firewalld_zones:
+  public:
+    services: [mdns]

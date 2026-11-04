@@ -162,14 +162,6 @@ host_files_list:
     content: "{{ llama_server_api_key }}\n"
     secret: true
     restarts: [llama-server.service]
-  # mDNS in systemd-resolved, which lime browses; the netplan drop-in below
-  # turns it on for eth0.
-  - path: /etc/systemd/resolved.conf.d/mdns.conf
-    mode: "0644"
-    content: |
-      [Resolve]
-      MulticastDNS = yes
-    restarts: [systemd-resolved.service]
   # mosquitto's configuration, its whole /mosquitto/config (services.yml).
   - path: /etc/mosquitto/mosquitto.conf
     mode: "0644"
@@ -470,11 +462,9 @@ netplan_config:
           auth:
             key-management: psk
             password: "{{ wifi_psks.WahleNet }}"
-netplan_networkd_dropins:
-  10-netplan-eth0.network.d/mdns.conf: |
-    # This drop-in exists because netplan has no multicast DNS setting.
-    [Network]
-    MulticastDNS=yes
+# mDNS by systemd-resolved on eth0, which netplan has no setting for (resolved
+# role): lime browses it, and Home Assistant and matter-server answer beside it.
+resolved_networks: [10-netplan-eth0.network]
 
 # Swap: zram at half the RAM, then a swapfile on the root's btrfs, on the SATA
 # SSD passed through to this VM.

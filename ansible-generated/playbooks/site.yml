@@ -15,6 +15,17 @@
   roles:
     - lxc_guest
 
+# systemd-resolved, and its mDNS, on every homelab host that runs it; the OCI
+# instances' networks carry no multicast.
+- name: Name resolution and mDNS
+  hosts: ubuntu:!oci
+  gather_facts: false
+  become: true
+  tags: [resolved]
+  roles:
+    - role: resolved
+      when: resolved_enabled
+
 # Let's Encrypt certificates by Cloudflare DNS-01, ahead of the host files
 # whose renewal hooks act on them.
 - name: Certificates

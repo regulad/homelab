@@ -1,0 +1,23 @@
+---
+# systemd-resolved, each homelab host's resolver, resolving mDNS and
+# answering it for the host's name on its networks' links. Where Avahi
+# reflects mDNS for the host's containers (avahi role, avahi_enabled), Avahi
+# resolves it, through nss-mdns, and answers it, and resolved's mDNS is off;
+# resolved still resolves every other name.
+# Off on a host whose resolver is something else.
+resolved_enabled: true
+resolved_mdns: "{{ 'no' if avahi_enabled | default(false) else 'yes' }}"
+
+# The networkd files whose links take part, each given drop-ins: Proxmox's
+# eth0.network in a container, the netplan file on a VM.
+resolved_networks: [eth0.network]
+
+# In a Proxmox container, whose /etc/resolv.conf Proxmox writes from its
+# node's at each start: resolved's stub in its place, which Proxmox is told to
+# leave alone, with each link's DNS what Proxmox wrote there, arawi, by IPv6
+# then IPv4, and arawi's domain to search. The DNS servers router
+# advertisements carry are left out, as the upstream router's knows nothing of
+# the LAN's names. A VM takes its own from netplan.
+resolved_stub: "{{ 'proxmox_containers' in group_names }}"
+resolved_dns: ["{{ lan_arawi.ipv6 }}", "{{ lan_arawi.ipv4 }}"]
+resolved_domains: ["{{ hostvars['arawi.regulad.internal'].pfsense_setup.domain }}"]

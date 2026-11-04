@@ -13,3 +13,7 @@ host_files_list:
       sh -c 'command -v podman >/dev/null && podman image exists ghcr.io/0xerr0r/blocky:latest || exit 0;
       exec podman run --rm --user 0 -v "$1":/app/config.yml:ro ghcr.io/0xerr0r/blocky:latest validate --config /app/config.yml' validate %s
     restarts: [blocky.service]
+
+# pihole resolves through its own blocky (nameserver 127.0.0.1), so it keeps
+# its own resolv.conf; resolved answers mDNS for it (resolved role).
+resolved_stub: false

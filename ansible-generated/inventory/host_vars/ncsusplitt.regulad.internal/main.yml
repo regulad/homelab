@@ -90,3 +90,7 @@ clamav_onaccess_enabled: true
 # checked by AIDE.
 noexec_paths_host: [/opt/pipx/logs]
 aide_exclude_paths_host: "{{ noexec_paths_host }}"
+
+# unbound is the resolver here, for the NCSU domains' split DNS, and
+# systemd-resolved does not run (resolved role).
+resolved_enabled: false
