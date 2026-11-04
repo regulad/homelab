@@ -28,7 +28,8 @@ Anywhere:
   `rolesanywhere-ca.crt` has issued or can issue: the CA's key was discarded after signing it.
   That CA is the trust anchor's.
 - The certificate's private key is in `provider.sops.yaml` as encrypted PKCS#8, with its
-  password and the ARNs of the trust anchor, its profile and the role, which name the account.
+  password. The trust anchor's, profile's and role's ARNs are plaintext in `prepare.sh`, which
+  needs them before OpenTofu can read its state.
 - Sourcing `prepare.sh` runs the credential helper's `credential-process`, which signs
   `CreateSession` on Roles Anywhere's dual-stack endpoint in the trust anchor's region. The
   temporary credentials it returns last an hour; source `prepare.sh` again to renew them.

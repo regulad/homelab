@@ -30,7 +30,15 @@ _homelab_sops() {
 _homelab_aws_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext provider backend session region keyfile helper_status name value
+    local root dir destination plaintext provider backend session keyfile helper_status name value account region trust_anchor_arn profile_arn role_arn
+    # The Roles Anywhere trust anchor, profile and role this root signs in
+    # through, all three in rolesanywhere.tf. CreateSession goes to the trust
+    # anchor's region.
+    account=937261977223
+    region=us-east-1
+    trust_anchor_arn="arn:aws:rolesanywhere:${region}:${account}:trust-anchor/234c136e-ec69-4684-8c27-f4f08c574a99"
+    profile_arn="arn:aws:rolesanywhere:${region}:${account}:profile/4f7737bc-bbc5-4849-90c0-d866e48a2951"
+    role_arn="arn:aws:iam::${account}:role/homelab-tofu"
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/aws"
     destination="$dir/secrets.auto.tfvars.json"
@@ -46,8 +54,8 @@ _homelab_aws_prepare() {
     # never printed.
     provider=$(_homelab_sops decrypt --output-type json "$dir/provider.sops.yaml") || return 1
     if ! printf '%s\n' "$provider" |
-        jq -e 'keys == ["private_key", "private_key_password", "profile_arn", "role_arn", "trust_anchor_arn"] and all(.[]; . != "")' >/dev/null; then
-        echo 'prepare.sh: provider.sops.yaml must hold exactly private_key, private_key_password, profile_arn, role_arn and trust_anchor_arn.' >&2
+        jq -e 'keys == ["private_key", "private_key_password"] and all(.[]; . != "")' >/dev/null; then
+        echo 'prepare.sh: provider.sops.yaml must hold exactly private_key and private_key_password.' >&2
         return 1
     fi
     # The s3 backend reads these from the environment, so they never reach
@@ -74,8 +82,6 @@ _homelab_aws_prepare() {
     else
         (umask 077 && printf '%s\n' "$plaintext" >"$destination") || return 1
     fi
-    # CreateSession goes to the trust anchor's region, on its dual-stack endpoint.
-    region=$(printf '%s\n' "$provider" | jq -r .trust_anchor_arn | cut -d: -f4)
     keyfile=$(umask 077 && mktemp "${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/homelab-aws-key.XXXXXX") || return 1
     helper_status=0
     if printf '%s\n' "$provider" | jq -r .private_key >"$keyfile"; then
@@ -85,9 +91,9 @@ _homelab_aws_prepare() {
             --certificate "$dir/rolesanywhere-tofu.crt" \
             --private-key "$keyfile" \
             --pkcs8-password "$(printf '%s\n' "$provider" | jq -r .private_key_password)" \
-            --trust-anchor-arn "$(printf '%s\n' "$provider" | jq -r .trust_anchor_arn)" \
-            --profile-arn "$(printf '%s\n' "$provider" | jq -r .profile_arn)" \
-            --role-arn "$(printf '%s\n' "$provider" | jq -r .role_arn)" \
+            --trust-anchor-arn "$trust_anchor_arn" \
+            --profile-arn "$profile_arn" \
+            --role-arn "$role_arn" \
             --region "$region" \
             --endpoint "https://rolesanywhere.$region.api.aws") || helper_status=$?
     else
