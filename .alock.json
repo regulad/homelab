@@ -2,6 +2,7 @@
   "tf": {
     "tofu/aws": {},
     "tofu/backblaze": {},
+    "tofu/gcp": {},
     "tofu/gonkputer": {
       "hosts": {
         "dir": "ansible-generated",

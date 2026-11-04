@@ -52,7 +52,7 @@ homelab/
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
-│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze, aws)
+│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze, aws, gcp)
 │   │   └── *.tf                 # flat: OpenTofu loads no subdirectories into a module, so files group by name prefix
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
