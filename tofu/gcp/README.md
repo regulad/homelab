@@ -3,8 +3,9 @@
 The `.tf` files are to be the source of truth for Google Cloud: every project of Parker's, in
 this one root and state. There is no organization, so the projects stand side by side, and
 each grants `homelab-tofu` Owner in its own IAM policy. This is the first, descriptive pass: it
-mirrors the four projects Parker keeps, adopting each resource with an import block in
-`imports.tf`, which goes once the adoption is applied. Fixes follow as separate, reviewed changes.
+mirrors the four projects Parker keeps. Every resource was imported, and the import blocks were
+removed after the adoption apply, which changed nothing live; a plan is now a no-op. Every
+adopted resource carries `prevent_destroy = true`. Fixes follow as separate, reviewed changes.
 
 | Location | Configuration |
 |---|---|
