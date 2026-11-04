@@ -112,36 +112,45 @@
       when: resolved_stub
       notify: Reload networkd
 
-# NetworkManager's plugin for resolved (RHEL 10's networking guide, 19.2)
-# hands each link's DNS to resolved, and leaves each link's mDNS, while its
-# profile's connection.mdns is the default, to resolved's own MulticastDNS.
-# Proxmox rewrites a container's profile at each start, so nothing is set
-# there: the global DNS overrides what the profile, DHCP and router
-# advertisements carry.
+# NetworkManager's plugin for resolved hands resolved each link's DNS from its
+# profile, DHCP and router advertisements, and ignores the global DNS that
+# would override them (update() in NetworkManager 1.56's
+# nm-dns-systemd-resolved.c). Proxmox rewrites a container's profile at each
+# start, so NetworkManager is kept out of DNS altogether, and resolved, seeing
+# no one configure the links, gives each its global settings: its mDNS, and
+# its DNS servers and domains, here arawi's.
 - name: Links by NetworkManager
-  ansible.builtin.copy:
-    dest: /etc/NetworkManager/conf.d/resolved.conf
-    content: |
-      # Managed by Ansible (resolved): resolved as NetworkManager's DNS{{ ',' if resolved_stub }}
-      {% if resolved_stub %}
-      # with arawi, IPv6 first, and its domain for every link, not the DNS
-      # servers the profiles, DHCP and router advertisements carry.
-      {% endif %}
-      [main]
-      dns=systemd-resolved
-      {% if resolved_stub %}
-
-      [global-dns]
-      searches={{ resolved_domains | join(',') }}
-
-      [global-dns-domain-*]
-      servers={{ resolved_dns | join(',') }}
-      {% endif %}
-    owner: root
-    group: root
-    mode: "0644"
   when: resolved_mode == 'networkmanager'
-  notify: Reload NetworkManager
+  block:
+    - name: NetworkManager out of DNS
+      ansible.builtin.copy:
+        dest: /etc/NetworkManager/conf.d/resolved.conf
+        content: |
+          # Managed by Ansible (resolved): resolved has the links' DNS, and
+          # NetworkManager neither writes resolv.conf nor tells resolved anything.
+          [main]
+          dns=none
+          systemd-resolved=false
+        owner: root
+        group: root
+        mode: "0644"
+      # resolved forgets at its restart what NetworkManager handed it.
+      notify: [Reload NetworkManager, Restart systemd-resolved]
+
+    - name: Resolved's DNS, as Proxmox's resolv.conf gave it
+      ansible.builtin.copy:
+        dest: /etc/systemd/resolved.conf.d/dns.conf
+        content: |
+          # Managed by Ansible (resolved): arawi, IPv6 first, and its domain, for
+          # every link, not the DNS servers DHCP and router advertisements carry.
+          [Resolve]
+          DNS={{ resolved_dns | join(' ') }}
+          Domains={{ resolved_domains | join(' ') }}
+        owner: root
+        group: root
+        mode: "0644"
+      when: resolved_stub
+      notify: Restart systemd-resolved
 
 # The links carry their DNS before the stub becomes the resolver.
 - name: Apply the links' settings

@@ -1,4 +1,12 @@
 ---
+# Ahead of resolved's restart, so that NetworkManager has stopped handing it
+# the links' DNS before resolved forgets what it was handed.
+- name: Reload NetworkManager
+  ansible.builtin.systemd_service:
+    name: NetworkManager
+    state: reloaded
+  when: not ansible_check_mode
+
 - name: Restart systemd-resolved
   ansible.builtin.systemd_service:
     name: systemd-resolved
@@ -12,12 +20,4 @@
   ansible.builtin.command:
     argv: [networkctl, reload]
   changed_when: true
-  when: not ansible_check_mode
-
-# NetworkManager rereads its configuration, its DNS plugin and global DNS
-# among it, on a reload.
-- name: Reload NetworkManager
-  ansible.builtin.systemd_service:
-    name: NetworkManager
-    state: reloaded
   when: not ansible_check_mode

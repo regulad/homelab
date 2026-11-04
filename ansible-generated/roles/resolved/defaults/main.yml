@@ -10,8 +10,7 @@ resolved_mdns: "{{ 'no' if avahi_enabled | default(false) else 'yes' }}"
 
 # What manages the host's links, set by its OS group: networkd, whose .network
 # files take drop-ins (resolved_networks), or networkmanager, which a drop-in
-# of its own makes hand its links to resolved, leaving their mDNS to
-# resolved's own setting.
+# of its own keeps out of DNS, leaving each link resolved's global settings.
 resolved_mode: ""
 
 # With networkd, the files whose links take part, each given drop-ins:
@@ -23,9 +22,9 @@ resolved_networks: [eth0.network]
 # leave alone, with each link's DNS what Proxmox wrote there, arawi, by IPv6
 # then IPv4, and arawi's domain to search. The DNS servers router
 # advertisements carry are left out, as the upstream router's knows nothing of
-# the LAN's names: by a drop-in of each link's file with networkd, and by
-# NetworkManager's global DNS, which overrides every profile's, with
-# networkmanager. A VM takes its own from netplan.
+# the LAN's names: by a drop-in of each link's file with networkd, and as
+# resolved's own global DNS with networkmanager. A VM takes its own from
+# netplan.
 resolved_stub: "{{ 'proxmox_containers' in group_names }}"
 resolved_dns: ["{{ lan_arawi.ipv6 }}", "{{ lan_arawi.ipv4 }}"]
 resolved_domains: ["{{ hostvars['arawi.regulad.internal'].pfsense_setup.domain }}"]
