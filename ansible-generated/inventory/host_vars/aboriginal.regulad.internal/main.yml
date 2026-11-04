@@ -529,15 +529,17 @@ lime_macs:
 clamav_onaccess_enabled: true
 clamav_scan_paths_host: [/mnt/ssd]
 
+# pipx's logs of each command it runs, in its global home (host_files_pipx),
+# written at every Ansible run: bound over themselves noexec.
+noexec_paths_host: [/opt/pipx/logs]
+
 # Not checked by AIDE: Nextcloud's user data, regulad's home and Homebrew's,
 # over 70 GB on the root filesystem that change as they are used. ClamAV's
 # on-access scanner watches /home. Also what Ubuntu's clients record as they
-# run: NetworkManager's leases and state, and Livepatch's status and logs. And
-# lime's state, a file per Mac, the StateDirectory of its DynamicUser unit.
-aide_exclude_paths_host:
-  - "{{ nextcloud_data_dir }}"
-  - /home/regulad
-  - /home/linuxbrew
-  - /var/lib/NetworkManager
-  - /var/snap/canonical-livepatch/common
-  - /var/lib/private/lime
+# run: NetworkManager's leases and state, and Livepatch's status and logs;
+# lime's state, a file per Mac, the StateDirectory of its DynamicUser unit; and
+# the noexec paths.
+aide_exclude_paths_host: >-
+  {{ [nextcloud_data_dir, '/home/regulad', '/home/linuxbrew', '/var/lib/NetworkManager',
+      '/var/snap/canonical-livepatch/common', '/var/lib/private/lime']
+     + noexec_paths_host }}

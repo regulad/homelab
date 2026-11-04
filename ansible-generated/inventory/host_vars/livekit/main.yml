@@ -14,6 +14,11 @@ firewalld_zones:
     ports: [7881/tcp, 5349/tcp, 3478/udp, 30000-40000/udp, 50000-60000/udp]
     forward: true
 
+# The Unified Monitoring Agent's sockets (oci group): bound over themselves
+# noexec, and so not checked by AIDE.
+noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
+aide_exclude_paths_host: "{{ noexec_paths_host }}"
+
 # nginx proxies to LiveKit and lk-jwt-service on localhost.
 host_files_selinux_booleans:
   httpd_can_network_connect: true

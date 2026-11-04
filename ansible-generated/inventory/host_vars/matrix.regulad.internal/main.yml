@@ -187,10 +187,15 @@ host_files_units:
 # point (tofu/gonkputer's lxc-matrix.tf).
 clamav_scan_paths_host: [/mnt/synapse]
 
+# pipx's logs of each command it runs, in its global home (host_files_pipx),
+# written at every Ansible run: bound over themselves noexec.
+noexec_paths_host: [/opt/pipx/logs]
+
 # Not checked by AIDE: Synapse's media store (homeserver.yaml.j2's
-# media_store_path), and each bridge's SQLite database and logs. The bridges'
-# configurations stay watched.
+# media_store_path), each bridge's SQLite database and logs, and the noexec
+# paths. The bridges' configurations stay watched.
 aide_exclude_paths_host: >-
   {{ ['/var/lib/matrix-synapse/media']
      + matrix_bridge_users | map(attribute='home')
-       | product(['db', 'db-shm', 'db-wal', 'logs']) | map('join', '/') | list }}
+       | product(['db', 'db-shm', 'db-wal', 'logs']) | map('join', '/') | list
+     + noexec_paths_host }}

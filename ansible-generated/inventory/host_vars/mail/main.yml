@@ -30,6 +30,12 @@ mail_dms_dir: /root/mailserver/docker-data/dms
 clamav_onaccess_enabled: true
 clamav_exclude_paths: ["{{ mail_dms_dir }}"]
 
+# The Unified Monitoring Agent's sockets (oci group): bound over themselves
+# noexec, and so not checked by AIDE.
+noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
+
 # Not checked by AIDE: docker-mailserver's mailboxes, its services' state and
-# its logs. Its configuration stays watched.
-aide_exclude_paths_host: "{{ ['mail-data', 'mail-state', 'mail-logs'] | map('regex_replace', '^', mail_dms_dir ~ '/') | list }}"
+# its logs, and the noexec paths. Its configuration stays watched.
+aide_exclude_paths_host: >-
+  {{ (['mail-data', 'mail-state', 'mail-logs'] | map('regex_replace', '^', mail_dms_dir ~ '/') | list)
+     + noexec_paths_host }}

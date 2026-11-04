@@ -145,8 +145,13 @@ clamav_clamd_local: true
 clamav_scan_paths_host:
   - /opt/doppelganger
 
+# The Unified Monitoring Agent's sockets (oci group): bound over themselves
+# noexec, and so not checked by AIDE.
+noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
+
 # Not checked by AIDE: certbot's renewal configuration, which its twice-daily
 # check rewrites with the ACME server's next renewal-information time
-# (ari_retry_after). The renewal settings in it, and any hook added to it, go
-# unwatched with it; the hook directories and the certificates stay watched.
-aide_exclude_paths_host: [/etc/letsencrypt/renewal/doppelgangerhq.com.conf]
+# (ari_retry_after), and the noexec paths. The renewal settings in it, and any
+# hook added to it, go unwatched with it; the hook directories and the
+# certificates stay watched.
+aide_exclude_paths_host: "{{ ['/etc/letsencrypt/renewal/doppelgangerhq.com.conf'] + noexec_paths_host }}"
