@@ -18,49 +18,25 @@
   changed_when: false
   check_mode: false
 
-- name: Mount units, enabled for {{ noexec_target }}
-  vars:
-    noexec_target: local-fs.target
-  block:
-    - name: Mount units
-      ansible.builtin.template:
-        src: bind.mount.j2
-        dest: /etc/systemd/system/{{ item.1 }}
-        owner: root
-        group: root
-        mode: "0644"
-      loop: "{{ noexec_paths | zip(noexec_units.stdout_lines) | list }}"
-      loop_control:
-        label: "{{ item.1 }}"
-      register: noexec_unit_files
-      notify: Remount the changed paths
+- name: Mount units
+  ansible.builtin.template:
+    src: bind.mount.j2
+    dest: /etc/systemd/system/{{ item.1 }}
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ noexec_paths | zip(noexec_units.stdout_lines) | list }}"
+  loop_control:
+    label: "{{ item.1 }}"
+  register: noexec_unit_files
+  notify: Remount the changed paths
 
-    # The links systemctl enable would make for each unit's WantedBy=, made
-    # here instead, so that AIDE's refresh at the end of the run moves the
-    # baseline for them as for any file a task writes.
-    - name: The target's wants directory
-      ansible.builtin.file:
-        path: /etc/systemd/system/{{ noexec_target }}.wants
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Units enabled
-      ansible.builtin.file:
-        path: /etc/systemd/system/{{ noexec_target }}.wants/{{ item }}
-        src: /etc/systemd/system/{{ item }}
-        state: link
-      loop: "{{ noexec_units.stdout_lines }}"
-      # A check run cannot read what an install still pending would create.
-      when: not (ansible_check_mode and noexec_unit_files is changed)
-
-    - name: Paths mounted, and at each boot
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        enabled: true
-        state: started
-        daemon_reload: true
-      loop: "{{ noexec_units.stdout_lines }}"
-      # A check run cannot read what an install still pending would create.
-      when: not (ansible_check_mode and noexec_unit_files is changed)
+- name: Paths mounted, and at each boot
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ noexec_units.stdout_lines }}"
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and noexec_unit_files is changed)
