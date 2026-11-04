@@ -12,7 +12,7 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   the host's mail relay, the changes its packages do not explain (`rpm
   --verify`, or dpkg's checksums). Each `site.yml` run moves the baseline for
   the files it wrote. Not yet on turk, which was unreachable
-- [ ] auditd on every Linux host with its own kernel, to instrument an
+- [x] auditd on every Linux host with its own kernel, to instrument an
   intrusion should one occur: its rules record what happened for the
   investigation. Containers cannot run it, and prodingus's records their
   processes. It detects and notifies nothing, and sends no mail; that is
