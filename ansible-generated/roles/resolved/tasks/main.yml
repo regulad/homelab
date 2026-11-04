@@ -156,6 +156,30 @@
 - name: Apply the links' settings
   ansible.builtin.meta: flush_handlers
 
+# resolved keeps what it is told over D-Bus about a link in
+# /run/systemd/resolve/netif/<ifindex>, and reloads it at a restart, so what
+# NetworkManager's plugin told it outlives the plugin. Reverting the links
+# NetworkManager manages clears it; links it leaves alone, such as
+# tailscale0, keep what their own daemons said.
+- name: Nothing NetworkManager told resolved, on the links it manages
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      nmcli -g DEVICE,STATE device status | while IFS=: read -r device state; do
+        case "$state" in connected*) ;; *) continue ;; esac
+        [ "$device" != lo ] || continue
+        if [ -e "/run/systemd/resolve/netif/$(cat "/sys/class/net/$device/ifindex")" ]; then
+          resolvectl revert "$device"
+          echo "$device"
+        fi
+      done
+    executable: /bin/bash
+  register: resolved_reverted
+  changed_when: resolved_reverted.stdout | length > 0
+  when:
+    - resolved_mode == 'networkmanager'
+    - not ansible_check_mode
+
 - name: Proxmox told to leave resolv.conf alone
   ansible.builtin.copy:
     dest: /etc/.pve-ignore.resolv.conf
