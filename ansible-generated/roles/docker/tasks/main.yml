@@ -42,3 +42,16 @@
   when: >-
     (docker_daemon_file.content | default('e30=') | b64decode | from_json) != docker_daemon
   notify: Restart Docker
+
+# root's logins, in /root/.docker/config.json, which Docker's CLI and Compose
+# send with each pull. docker_login logs in again only when the file's
+# credentials for a registry differ from the listed ones.
+- name: Registry logins
+  community.docker.docker_login:
+    registry_url: "{{ item.registry }}"
+    username: "{{ item.username }}"
+    password: "{{ item.password }}"
+  loop: "{{ docker_registries }}"
+  loop_control:
+    label: "{{ item.registry }}"
+  no_log: true

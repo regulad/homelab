@@ -29,3 +29,6 @@ collections:
   # Enterprise Linux hosts.
   - name: ansible.posix
     version: 2.2.2
+  # docker_login, with which the docker role logs each host into its registries.
+  - name: community.docker
+    version: 5.4.0

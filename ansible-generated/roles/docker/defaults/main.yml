@@ -5,3 +5,7 @@ docker_ula_prefix: ""
 
 # Other daemon.json settings, by name, which override the IPv6 ones.
 docker_daemon_settings: {}
+
+# Registries root logs into, each a registry, username and password, the
+# password from SOPS.
+docker_registries: []
