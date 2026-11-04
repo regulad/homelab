@@ -148,29 +148,38 @@ resource "oci_core_security_list" "legacy_default" {
     stateless   = false
   }
 
-  ingress_security_rules {
-    description = "HTTP"
-    protocol    = "6" # TCP
-    source      = "0.0.0.0/0"
-    source_type = "CIDR_BLOCK"
-    stateless   = false
+  # web's website, over both families.
+  dynamic "ingress_security_rules" {
+    for_each = local.dual_stack_internet_cidrs
+    iterator = cidr
+    content {
+      description = "HTTP"
+      protocol    = "6" # TCP
+      source      = cidr.value
+      source_type = "CIDR_BLOCK"
+      stateless   = false
 
-    tcp_options {
-      max = 80
-      min = 80
+      tcp_options {
+        max = 80
+        min = 80
+      }
     }
   }
 
-  ingress_security_rules {
-    description = "HTTPS"
-    protocol    = "6" # TCP
-    source      = "0.0.0.0/0"
-    source_type = "CIDR_BLOCK"
-    stateless   = false
+  dynamic "ingress_security_rules" {
+    for_each = local.dual_stack_internet_cidrs
+    iterator = cidr
+    content {
+      description = "HTTPS"
+      protocol    = "6" # TCP
+      source      = cidr.value
+      source_type = "CIDR_BLOCK"
+      stateless   = false
 
-    tcp_options {
-      max = 443
-      min = 443
+      tcp_options {
+        max = 443
+        min = 443
+      }
     }
   }
 
