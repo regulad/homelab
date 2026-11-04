@@ -1,0 +1,9 @@
+## Managed by Ansible (auditd). What is not recorded: sshd's record of each
+## session key, its most frequent and least telling, and the host's periodic
+## pollers run as root by a service (auditd_exec_exclusions_host).
+-a always,exclude -F msgtype=CRYPTO_KEY_USER
+{% for arch in auditd_arches %}
+{% for exe in auditd_exec_exclusions_host %}
+-a never,exit -F arch={{ arch }} -S execve,execveat -F exe={{ exe }} -F auid=unset -F uid=0
+{% endfor %}
+{% endfor %}

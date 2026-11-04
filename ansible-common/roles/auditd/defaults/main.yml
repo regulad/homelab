@@ -1,0 +1,58 @@
+---
+# auditd records what its rules select, for investigating an intrusion should
+# one occur. It mails and alerts nothing: detection is AIDE's and ClamAV's. It
+# runs on hosts with their own kernel; the kernel's audit takes no rules or
+# records from a container, and prodingus's records its containers' processes,
+# under the host's IDs, each labelled with its container's AppArmor profile.
+auditd_package: "{{ 'audit' if 'rhel' in group_names else 'auditd' }}"
+
+# The logs keep at most this share of the root filesystem, which holds
+# /var/log/audit, in files of auditd_max_log_file megabytes rotated by auditd.
+auditd_root_share: 0.10
+auditd_max_log_file: 100
+
+# Paths whose writes and attribute changes are recorded, each with its key:
+# who changed identity, privilege, logins, the loader, scheduled jobs, units or
+# auditing itself, and when; files written and removed between AIDE's checks
+# included. A directory's watch covers everything below it. Paths a host does
+# not have are left out.
+auditd_watches:
+  - {path: /etc/passwd, key: identity}
+  - {path: /etc/group, key: identity}
+  - {path: /etc/shadow, key: identity}
+  - {path: /etc/gshadow, key: identity}
+  - {path: /etc/security/opasswd, key: identity}
+  - {path: /etc/sudoers, key: privilege}
+  - {path: /etc/sudoers.d, key: privilege}
+  - {path: /etc/ssh/sshd_config, key: logins}
+  - {path: /etc/ssh/sshd_config.d, key: logins}
+  - {path: /root/.ssh, key: logins}
+  - {path: /etc/pam.d, key: logins}
+  - {path: /etc/security, key: logins}
+  - {path: /etc/nsswitch.conf, key: logins}
+  - {path: /etc/ld.so.preload, key: loader}
+  - {path: /etc/ld.so.conf, key: loader}
+  - {path: /etc/ld.so.conf.d, key: loader}
+  - {path: /etc/crontab, key: schedule}
+  - {path: /etc/cron.d, key: schedule}
+  - {path: /etc/cron.hourly, key: schedule}
+  - {path: /etc/cron.daily, key: schedule}
+  - {path: /etc/cron.weekly, key: schedule}
+  - {path: /etc/cron.monthly, key: schedule}
+  - {path: /var/spool/cron, key: schedule}
+  - {path: /etc/systemd/system, key: units}
+  - {path: /usr/local/lib/systemd/system, key: units}
+  - {path: /etc/localtime, key: time}
+  - {path: /etc/audit, key: audit-config}
+# The admin user's keys, where its group names one (the base role's
+# base_admin_user).
+auditd_watches_admin: >-
+  {{ [{'path': '/home/' ~ base_admin_user ~ '/.ssh', 'key': 'logins'}]
+     if base_admin_user | default('') else [] }}
+# Each host's additions.
+auditd_watches_host: []
+
+# Programs whose executions are not recorded when a service, rather than a
+# login, runs them as root: periodic pollers that would fill the logs, each
+# measured on its host first, as an attacker's run of one goes unrecorded too.
+auditd_exec_exclusions_host: []

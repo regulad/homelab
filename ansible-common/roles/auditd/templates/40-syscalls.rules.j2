@@ -1,0 +1,18 @@
+## Managed by Ansible (auditd). The clock set; mounts by a login; kernel
+## modules loaded and removed, and kernels loaded for kexec; and writes into
+## another process: ptrace's POKETEXT, POKEDATA and POKEUSER, its ATTACH and
+## SEIZE, and process_vm_writev.
+{% for arch in auditd_arches %}
+-a always,exit -F arch={{ arch }} -S settimeofday -k time
+-a always,exit -F arch={{ arch }} -S clock_settime -F a0=0x0 -k time
+-a always,exit -F arch={{ arch }} -S mount,umount2 -F auid!=unset -k mount
+-a always,exit -F arch={{ arch }} -S init_module,finit_module -k module-load
+-a always,exit -F arch={{ arch }} -S delete_module -k module-unload
+-a always,exit -F arch={{ arch }} -S {{ 'kexec_load,kexec_file_load' if arch == 'b64' else 'kexec_load' }} -k kexec
+-a always,exit -F arch={{ arch }} -S ptrace -F a0=0x4 -k injection
+-a always,exit -F arch={{ arch }} -S ptrace -F a0=0x5 -k injection
+-a always,exit -F arch={{ arch }} -S ptrace -F a0=0x6 -k injection
+-a always,exit -F arch={{ arch }} -S ptrace -F a0=0x10 -k injection
+-a always,exit -F arch={{ arch }} -S ptrace -F a0=0x4206 -k injection
+-a always,exit -F arch={{ arch }} -S process_vm_writev -k injection
+{% endfor %}

@@ -1,0 +1,5 @@
+## Managed by Ansible (auditd). Every program run, by a login or a service,
+## with its arguments.
+{% for arch in auditd_arches %}
+-a always,exit -F arch={{ arch }} -S execve,execveat -k exec
+{% endfor %}

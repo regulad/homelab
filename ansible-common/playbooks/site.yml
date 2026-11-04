@@ -99,6 +99,16 @@
   roles:
     - noexec
 
+# auditd on every Linux host with its own kernel. Containers cannot run it;
+# prodingus's records their processes.
+- name: Audit records
+  hosts: debian:ubuntu:rhel:!proxmox_containers
+  gather_facts: false
+  become: true
+  tags: [auditd]
+  roles:
+    - auditd
+
 # Access to the restic repository, and the host's backup jobs, on hosts with a
 # key of their own.
 - name: Restic repository access and backups

@@ -1,0 +1,14 @@
+---
+# auditd rereads its settings on SIGHUP. Its unit refuses a manual stop, so it
+# is not restarted.
+- name: Reload auditd's settings
+  ansible.builtin.command:
+    argv: [systemctl, kill, --signal=SIGHUP, auditd.service]
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Load the rules
+  ansible.builtin.command:
+    argv: [augenrules, --load]
+  changed_when: true
+  when: not ansible_check_mode
