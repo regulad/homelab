@@ -62,7 +62,9 @@ server:
     # FreeIPA's system records for the REGULAD.INTERNAL realm, as wako, which
     # serves no DNS of its own, lists them (ipa dns-update-system-records
     # --dry-run), but ipa-ca: a CNAME to wako, whose addresses are published
-    # above, in place of copies of them.
+    # above, in place of copies of them. Unbound resolves a local CNAME's
+    # target only in a redirect zone, and answers a static zone's bare, which
+    # glibc's resolver does not follow; so ipa-ca has a zone of its own.
     local-data: "_kerberos-master._tcp.regulad.internal. 3600 IN SRV 0 100 88 wako.regulad.internal."
     local-data: "_kerberos-master._udp.regulad.internal. 3600 IN SRV 0 100 88 wako.regulad.internal."
     local-data: "_kerberos._tcp.regulad.internal. 3600 IN SRV 0 100 88 wako.regulad.internal."
@@ -75,6 +77,7 @@ server:
     local-data: '_kpasswd.regulad.internal. 3600 IN URI 0 100 "krb5srv:m:tcp:wako.regulad.internal."'
     local-data: '_kpasswd.regulad.internal. 3600 IN URI 0 100 "krb5srv:m:udp:wako.regulad.internal."'
     local-data: "_ldap._tcp.regulad.internal. 3600 IN SRV 0 100 389 wako.regulad.internal."
+    local-zone: "ipa-ca.regulad.internal." redirect
     local-data: "ipa-ca.regulad.internal. 3600 IN CNAME wako.regulad.internal."
     #
     private-domain: "regulad-verizon-livingston.internal."
