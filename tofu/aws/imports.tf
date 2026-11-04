@@ -68,6 +68,21 @@ import {
 }
 
 import {
+  to = aws_cloudwatch_log_group.home_assistant
+  id = "/aws/lambda/home-assistant"
+}
+
+import {
+  to = aws_lambda_function.home_assistant
+  id = "home-assistant"
+}
+
+import {
+  to = aws_lambda_permission.home_assistant
+  id = "home-assistant/lambda-da65f78a-7759-47f1-9f61-7686f28fef1f"
+}
+
+import {
   to = aws_rolesanywhere_trust_anchor.homelab_tofu
   id = "234c136e-ec69-4684-8c27-f4f08c574a99"
 }

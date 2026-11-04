@@ -21,3 +21,11 @@ variable "aws_session_token" {
   ephemeral = true
   nullable  = false
 }
+
+# Home Assistant's address on the internet, which the home-assistant Lambda
+# forwards Alexa's directives to.
+variable "home_assistant_base_url" {
+  type      = string
+  sensitive = true
+  nullable  = false
+}

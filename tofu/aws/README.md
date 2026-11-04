@@ -9,7 +9,8 @@ the adoption is applied. Fixes follow as separate, reviewed changes.
 |---|---|
 | `user-HomeAssistant.tf` | The IAM user Home Assistant's AWS integrations sign in as, with its managed policies and access key |
 | `user-ASK--CLI.tf` | The IAM user, group and policy the Alexa Skills Kit CLI deploys as, with its access key |
-| `lambda-home--assistant.tf` | The execution role of the Lambda behind Home Assistant's Alexa Smart Home skill |
+| `lambda-home--assistant.tf` | The Lambda behind Home Assistant's Alexa Smart Home skill: its role, log group, function and Alexa trigger |
+| `lambda/home-assistant/lambda_function.py` | That Lambda's code, Home Assistant's published one byte for byte as deployed, zipped by the `archive` provider at plan time |
 | `rolesanywhere.tf` | The trust anchor, profile and role `homelab-tofu` that this root signs in through |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `variables.tf` | The session credentials, ephemeral inputs from `prepare.sh` |
@@ -69,7 +70,7 @@ tofu -chdir=tofu/aws plan -input=false -detailed-exitcode
 `prepare.sh` must be sourced, not executed, so its exports reach the shell that runs `tofu`.
 It needs `sops`, `jq`, `git`, Go 1.26.6 or later and a C compiler. It decrypts
 `secrets.sops.yaml` into the ignored `secrets.auto.tfvars.json`, which holds the state
-passphrase.
+passphrase and the home-assistant Lambda's `BASE_URL`.
 
 State and saved plans use enforced AES-GCM encryption. Never change or lose the passphrase.
 State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, under the key
