@@ -10,3 +10,10 @@ noexec_paths:
   - /var/log
 # Each host's additions, such as an application's logs.
 noexec_paths_host: []
+
+# /tmp a tmpfs by systemd's own tmp.mount, enabled, with noexec added to the
+# unit's options by a drop-in where they lack it. Where /tmp is not a tmpfs
+# yet, it becomes one at the next boot; where the distribution does not mount
+# it itself, tmp-erase.service erases what the root filesystem holds there
+# before each mount.
+noexec_tmp: true

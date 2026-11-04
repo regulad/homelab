@@ -9,3 +9,14 @@
   loop: "{{ noexec_unit_files.results | selectattr('changed') | map(attribute='item') | map('last') | list }}"
   # A check run cannot read what an install still pending would create.
   when: not (ansible_check_mode and noexec_unit_files is changed)
+
+# The drop-in's options take effect by remounting /tmp where tmp.mount has it
+# mounted, and elsewhere at the next boot.
+- name: Remount /tmp
+  ansible.builtin.systemd_service:
+    name: tmp.mount
+    state: reloaded
+    daemon_reload: true
+  when:
+    - noexec_tmp_state.fstype == 'tmpfs'
+    - not ansible_check_mode

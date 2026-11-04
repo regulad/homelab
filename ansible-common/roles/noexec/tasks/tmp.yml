@@ -1,0 +1,145 @@
+---
+# /tmp a tmpfs by systemd's own tmp.mount, enabled, with noexec added by a
+# drop-in to the options the unit has. A /tmp that is a tmpfs already is
+# remounted with them; one that is not yet becomes one at the next boot, as a
+# tmpfs mounted over it now would hide the files running services keep there,
+# and the directory clamonacc watches. Where the distribution does not mount
+# /tmp itself, a service erases what the root filesystem holds there before
+# each mount, below which it would otherwise lie hidden.
+- name: Read tmp.mount and /tmp
+  ansible.builtin.command:
+    argv: [python3, -c, "{{ noexec_tmp_script }}"]
+  vars:
+    noexec_tmp_script: |
+      import json, os, subprocess
+      def run(*argv):
+          return subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+      fragment = run("systemctl", "show", "-P", "FragmentPath", "tmp.mount").stdout.strip()
+      state = run("systemctl", "show", "-P", "UnitFileState", "tmp.mount").stdout.strip()
+      # Debian and Ubuntu before Debian 13 ship the unit outside systemd's search path.
+      shipped = "/usr/share/systemd/tmp.mount"
+      unit = fragment or (shipped if os.path.exists(shipped) else "")
+      options = None
+      if unit:
+          with open(os.path.realpath(unit)) as handle:
+              for line in handle:
+                  if line.startswith("Options="):
+                      options = line.rstrip("\n")[len("Options="):]
+      print(json.dumps({
+          "fragment": fragment,
+          # static where the distribution mounts /tmp itself.
+          "distribution": state == "static",
+          "unit": unit,
+          "options": options,
+          "fstype": run("findmnt", "--noheadings", "--output", "FSTYPE", "--mountpoint", "/tmp").stdout.strip(),
+          "fstab": run("findmnt", "--fstab", "--noheadings", "--mountpoint", "/tmp").returncode == 0,
+          "symlink": os.path.islink("/tmp"),
+      }))
+  register: noexec_tmp_read
+  changed_when: false
+  check_mode: false
+
+- name: Gather what tmp.mount and /tmp are
+  ansible.builtin.set_fact:
+    noexec_tmp_state: "{{ noexec_tmp_read.stdout | from_json }}"
+
+- name: Check /tmp can be tmp.mount's
+  ansible.builtin.assert:
+    that:
+      - noexec_tmp_state.options is not none
+      - not noexec_tmp_state.fstab
+      - not noexec_tmp_state.symlink
+    fail_msg: >-
+      /tmp must not be a symlink or have a line in /etc/fstab, and systemd's
+      tmp.mount must be installed, with its Options=.
+    quiet: true
+
+- name: Link tmp.mount into systemd's search path
+  ansible.builtin.command:
+    argv: [systemctl, link, "{{ noexec_tmp_state.unit }}"]
+    creates: /etc/systemd/system/tmp.mount
+  when: noexec_tmp_state.fragment | length == 0
+  register: noexec_tmp_link
+
+- name: The drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/tmp.mount.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: "'noexec' not in noexec_tmp_state.options.split(',') or not noexec_tmp_state.distribution"
+
+# The unit's own options, which a drop-in's Options= replaces, with noexec.
+- name: Drop-in adding noexec
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/tmp.mount.d/noexec.conf
+    content: |
+      # Managed by Ansible (noexec): tmp.mount's own options, with noexec.
+      [Mount]
+      Options={{ noexec_tmp_state.options }},noexec
+    owner: root
+    group: root
+    mode: "0644"
+  when: "'noexec' not in noexec_tmp_state.options.split(',')"
+  register: noexec_tmp_dropin
+  notify: Remount /tmp
+
+- name: No drop-in where the unit's options have noexec
+  ansible.builtin.file:
+    path: /etc/systemd/system/tmp.mount.d/noexec.conf
+    state: absent
+  when: "'noexec' in noexec_tmp_state.options.split(',')"
+
+# A mount unit runs no commands of its own (systemd.mount(5)), so the erasing
+# is a service of its own, which a drop-in has tmp.mount pull in and follow.
+- name: The service erasing /tmp on the root filesystem
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/tmp-erase.service
+    content: |
+      # Managed by Ansible (noexec). Erases what /tmp holds on the root
+      # filesystem before tmp.mount mounts a tmpfs over it.
+      [Unit]
+      Description=Erase /tmp on the root filesystem before tmp.mount covers it
+      DefaultDependencies=no
+      ConditionPathIsMountPoint=!/tmp
+      After=systemd-remount-fs.service
+      Before=tmp.mount
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/find /tmp -mindepth 1 -xdev -delete
+    owner: root
+    group: root
+    mode: "0644"
+  when: not noexec_tmp_state.distribution
+
+- name: Drop-in erasing /tmp before each mount
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/tmp.mount.d/erase.conf
+    content: |
+      # Managed by Ansible (noexec): tmp-erase.service first, which erases what
+      # /tmp holds on the root filesystem.
+      [Unit]
+      Wants=tmp-erase.service
+      After=tmp-erase.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: not noexec_tmp_state.distribution
+
+- name: No erasing where the distribution mounts /tmp itself
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: [/etc/systemd/system/tmp-erase.service, /etc/systemd/system/tmp.mount.d/erase.conf]
+  when: noexec_tmp_state.distribution
+
+- name: Systemd's tmp.mount enabled, and mounted where /tmp is a tmpfs already
+  ansible.builtin.systemd_service:
+    name: tmp.mount
+    enabled: true
+    state: "{{ 'started' if noexec_tmp_state.fstype == 'tmpfs' else omit }}"
+    daemon_reload: true
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and noexec_tmp_link is changed)

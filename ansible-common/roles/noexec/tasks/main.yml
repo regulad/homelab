@@ -1,7 +1,8 @@
 ---
 # Each of noexec_paths and noexec_paths_host bound over itself with noexec by
-# its own mount unit, started and enabled for local-fs.target. Runs on every
-# Linux host, containers included.
+# its own mount unit, started and enabled for local-fs.target; and /tmp a tmpfs
+# by systemd's own tmp.mount, with noexec. Runs on every Linux host, containers
+# included.
 - name: Gather the paths
   ansible.builtin.set_fact:
     noexec_bind_paths: "{{ (noexec_paths + noexec_paths_host) | unique }}"
@@ -44,3 +45,7 @@
   loop: "{{ noexec_units.stdout_lines }}"
   # A check run cannot read what an install still pending would create.
   when: not (ansible_check_mode and noexec_unit_files is changed)
+
+- name: /tmp
+  ansible.builtin.import_tasks: tmp.yml
+  when: noexec_tmp
