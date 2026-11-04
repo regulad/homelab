@@ -1,5 +1,6 @@
 {
   "tf": {
+    "tofu/aws": {},
     "tofu/backblaze": {},
     "tofu/gonkputer": {
       "hosts": {
