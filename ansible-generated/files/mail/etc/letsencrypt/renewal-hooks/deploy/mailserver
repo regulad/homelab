@@ -1,0 +1,5 @@
+#!/bin/sh
+# docker-mailserver's change detector runs only with file-based accounts, and
+# mail's are LDAP's, so Postfix and Dovecot take a renewed certificate only when
+# they restart.
+exec /usr/bin/podman exec mailserver supervisorctl restart postfix dovecot

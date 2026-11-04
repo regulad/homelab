@@ -53,3 +53,5 @@ groups:
   kdump: freeform_tags.os == 'rhel'
   # The devices' Docker, from the docker role.
   docker_hosts: display_name == 'doppelgangerhq.com'
+  # docker-mailserver's certificate, from the certbot role.
+  certbot: display_name == 'mail'

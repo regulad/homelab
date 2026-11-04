@@ -20,6 +20,16 @@ host_files_list:
     mode: "0644"
     shared_src: oci/direct.xml
     reloads: [firewalld]
+  - path: /etc/letsencrypt/renewal-hooks/deploy/mailserver
+    mode: "0755"
+
+# docker-mailserver's certificate, which certbot renews by Cloudflare DNS-01
+# with the token from secrets.sops.yml, the hook above restarting Postfix and
+# Dovecot after each renewal.
+certbot_certificates:
+  - name: mail.regulad.xyz
+    domains: [mail.regulad.xyz]
+certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 
 # docker-mailserver's configuration and data, bind-mounted into its container.
 mail_dms_dir: /root/mailserver/docker-data/dms
