@@ -18,10 +18,16 @@
           exit 1
         fi
       done
+      # One name per path, separated by spaces, which escaped names never hold.
       systemd-escape --path --suffix=mount -- "$@"
   register: noexec_units
   changed_when: false
   check_mode: false
+
+- name: Check each path has its unit's name
+  ansible.builtin.assert:
+    that: noexec_units.stdout.split() | length == noexec_bind_paths | length
+    quiet: true
 
 - name: Mount units
   ansible.builtin.template:
@@ -30,7 +36,7 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ noexec_bind_paths | zip(noexec_units.stdout_lines) | list }}"
+  loop: "{{ noexec_bind_paths | zip(noexec_units.stdout.split()) | list }}"
   loop_control:
     label: "{{ item.1 }}"
   register: noexec_unit_files
@@ -42,7 +48,7 @@
     enabled: true
     state: started
     daemon_reload: true
-  loop: "{{ noexec_units.stdout_lines }}"
+  loop: "{{ noexec_units.stdout.split() }}"
   # A check run cannot read what an install still pending would create.
   when: not (ansible_check_mode and noexec_unit_files is changed)
 
