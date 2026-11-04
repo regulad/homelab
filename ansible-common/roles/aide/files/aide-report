@@ -46,9 +46,10 @@ A change is left out when:
   it as it upgrades any package with one, moving that package's lines to the
   end;
 - the path is one a kernel's installation generates, named for its release
-  (its initramfs images, its boot entry, depmod's indexes of its modules),
-  added with a kernel package installed since the baseline, or gone with one
-  removed since;
+  (its initramfs images, its boot entry, depmod's indexes of its modules, and
+  on Enterprise Linux microcode_ctl's firmware links and weak-modules' links
+  for it), added with a kernel package installed since the baseline, or gone
+  with one removed since;
 - the path is kdump's initramfs for the running kernel, added and written
   during this boot, which began after the baseline was accepted: kdump.service
   builds it at the first boot into a kernel, not at the kernel's installation;
@@ -141,6 +142,10 @@ KERNEL_COPIES = (
 # What a kernel's installation generates, named for its release: its initramfs
 # images (dracut's and kdump's, or initramfs-tools' and its record of one), its
 # boot entry, depmod's indexes of its modules, and the directory of its keys.
+# On Enterprise Linux also microcode_ctl's tree for it in /usr/lib/firmware,
+# links to the microcode it allows that kernel and their readmes, and
+# weak-modules' links to the kABI-compatible modules another kernel's kmod
+# packages installed.
 KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/boot/initramfs-(?P<release>[^/]+?)(kdump)?\.img$",
     r"^/boot/initrd\.img-(?P<release>[^/]+)$",
@@ -148,6 +153,8 @@ KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/boot/loader/entries/[0-9a-f]{32}-(?P<release>[^/]+)\.conf$",
     r"^/usr/lib/modules/(?P<release>[^/]+)/modules\.[^/]+$",
     r"^/usr/share/doc/kernel-keys/(?P<release>[^/]+)$",
+    r"^/usr/lib/firmware/(?P<release>[^/]+)(/.*)?$",
+    r"^/usr/lib/modules/(?P<release>[^/]+)/weak-updates/.+$",
 ))
 # kdump's initramfs for a kernel, which kdump.service builds at the first boot
 # into that kernel: kexec-tools' kernel-install hook builds none.
