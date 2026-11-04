@@ -1,0 +1,20 @@
+{
+	# WebSockets over HTTP/3 break in Chrome behind Caddy, as on ingress, and
+	# the legacy security list admits no UDP 443.
+	servers {
+		protocols h1 h2
+	}
+}
+
+# HSTS as the preload list requires it: a year or more (hstspreload.org
+# recommends two), every subdomain, and the preload token. Joining the list is
+# a submission at hstspreload.org.
+(hsts) {
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+	}
+}
+
+# Each site, in a file of its own named after its first address. The path is
+# absolute, so validating a copy of this file elsewhere reads them too.
+import /etc/caddy/config.d/*.caddyfile

@@ -1,0 +1,10 @@
+doppelgangerhq.com {
+	import hsts
+
+	reverse_proxy localhost:81 {
+		# The headers nginx sent that Caddy does not set itself; it sets
+		# X-Forwarded-For, -Proto and -Host.
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Port 443
+	}
+}
