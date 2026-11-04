@@ -1,9 +1,10 @@
 # aws (Amazon Web Services)
 
 The `.tf` files are the source of truth for the AWS account's IAM users and roles that the
-homelab keeps, and for this root's own access. This is the first, descriptive pass: it mirrors
-the live account, adopting each resource with an import block in `imports.tf`, which goes once
-the adoption is applied. Fixes follow as separate, reviewed changes.
+homelab keeps, the home-assistant Lambda, and this root's own access. This is the first,
+descriptive pass: it mirrors the live account. Every resource was imported, and the import
+blocks were removed after the adoption apply; a plan is now a no-op. Every adopted resource
+carries `prevent_destroy = true`. Fixes follow as separate, reviewed changes.
 
 | Location | Configuration |
 |---|---|
