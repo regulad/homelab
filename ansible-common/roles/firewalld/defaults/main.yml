@@ -20,5 +20,8 @@ firewalld_trusted_interfaces: [tailscale0]
 
 # Other firewall managers, removed where the role manages firewalld, so that
 # each host's firewall has one owner. Whatever rules they held are described
-# in the host's zones first.
-firewalld_removed_packages: [ufw]
+# in the host's zones first. iptables-persistent's save, which
+# netfilter-persistent loads at boot, is already inert beside firewalld: on
+# Debian and Ubuntu, firewalld.service conflicts with netfilter-persistent.service,
+# so it stops the loader when it starts and keeps it from starting at boot.
+firewalld_removed_packages: [ufw, iptables-persistent, netfilter-persistent]
