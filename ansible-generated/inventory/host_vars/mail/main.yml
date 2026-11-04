@@ -20,6 +20,9 @@ host_files_list:
     mode: "0644"
     shared_src: oci/direct.xml
     reloads: [firewalld]
+  # The package's, with compress uncommented.
+  - path: /etc/logrotate.conf
+    mode: "0644"
   - path: /etc/letsencrypt/renewal-hooks/deploy/mailserver
     mode: "0755"
 
