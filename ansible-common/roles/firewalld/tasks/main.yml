@@ -1,8 +1,9 @@
 ---
 # Converge firewalld: installed and running, with Docker and rootful Podman's
-# containers stopped meanwhile when it first starts, other firewall managers
-# removed, and the zones the host declares set, with the trusted interfaces in
-# the trusted zone. Runs on Linux hosts with their own kernel but Proxmox
+# containers stopped meanwhile when it first starts, Netavark's reload service
+# running where Netavark ships it, other firewall managers removed, and the
+# zones the host declares set, with the trusted interfaces in the trusted
+# zone. Runs on Linux hosts with their own kernel but Proxmox
 # nodes, hardware (Phase 2) and generated (Phase 4); a host that declares no
 # zones keeps firewalld's default zone as the package ships it.
 - name: Firewalld
@@ -40,6 +41,20 @@
             state: started
             enabled: true
           when: not (ansible_check_mode and firewalld_installed is changed)
+
+        # Netavark adds each Podman network to the trusted zone at run time
+        # only, so every reload or restart of firewalld drops them. Where
+        # Netavark ships it, its own service applies its rules again when it
+        # starts, after firewalld, and at each reload, before the zones below
+        # reload firewalld.
+        - name: Netavark's rules applied again after firewalld reloads
+          ansible.builtin.systemd_service:
+            name: netavark-firewalld-reload.service
+            state: started
+            enabled: true
+          when:
+            - "'netavark-firewalld-reload.service' in ansible_facts.services"
+            - not (ansible_check_mode and firewalld_installed is changed)
       always:
         - name: Start containers again
           ansible.builtin.include_tasks: containers_start.yml
