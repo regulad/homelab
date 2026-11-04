@@ -97,6 +97,11 @@ aide_exclude_paths_packages: >-
 aide_exclude_paths_group: []
 # Each host's additions, such as a service's data directory.
 aide_exclude_paths_host: []
+# Paths left out while the host's firmware reports Secure Boot on, which
+# aide-report reads at each run: /boot, whose boot loader and kernels Secure
+# Boot verifies. With shim and GRUB it does not verify the initramfs images,
+# grub.cfg, grubenv or the boot entries, which go unwatched with them there.
+aide_exclude_paths_secure_boot: [/boot]
 
 # The package's own configuration, which aide-report's configuration includes
 # after its exclusions, and the databases it names.

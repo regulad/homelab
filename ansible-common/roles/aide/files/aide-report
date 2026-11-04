@@ -43,6 +43,10 @@ A change is left out when:
 dpkg records its files' contents alone, so on Debian and Ubuntu the mode of a
 file a package installed since the baseline is not checked.
 
+While the firmware reports Secure Boot on, the paths the settings leave to it,
+/boot by default, are excluded too, read from its Secure Boot variable at each
+run.
+
 AIDE does not walk the container engines' image stores, which every pull
 changes. aide-report runs each engine's own check of its image layers instead,
 and mails what it finds with the report:
@@ -94,6 +98,9 @@ DPKG_INFO = re.compile(r"^/var/lib/dpkg/info/([^/]+)\.[A-Za-z0-9_-]+$")
 USR_MERGE_LINKS = ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32")
 # What rewriting a file with what it already held changes.
 REWRITTEN = {"access_time", "change_time", "modify_time", "inode"}
+# The firmware's Secure Boot variable: four bytes of attributes, then 1 while
+# Secure Boot is on.
+SECURE_BOOT_VARIABLE = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
 # The copies kernel-install makes in /boot of a kernel's own files, each with
 # the file of its package it copies. The package lists the copies as %ghost.
 KERNEL_COPIES = (
@@ -167,6 +174,24 @@ def swap_files():
     return files
 
 
+def secure_boot():
+    """Whether the firmware reports Secure Boot on."""
+    try:
+        with open(SECURE_BOOT_VARIABLE, "rb") as handle:
+            data = handle.read()
+    except OSError:
+        return False
+    return len(data) >= 5 and data[4] == 1
+
+
+def excluded_paths(settings):
+    """The paths the settings exclude, with those they leave to Secure Boot while it is on."""
+    paths = list(settings.get("excluded", []))
+    if secure_boot():
+        paths += settings.get("excluded_secure_boot", [])
+    return [path.rstrip("/") for path in paths]
+
+
 def below(path, roots):
     """Whether path is one of roots, or below one; / is never such a root."""
     return any(root != "/" and (path == root or path.startswith(root + "/")) for root in roots)
@@ -191,8 +216,8 @@ def write_exclusions(settings):
         "# Every mount point but the watched filesystems', from /proc/self/mountinfo:",
     ]
     lines += ["%s%s(/|$)" % (prune, regex(point)) for point in sorted(mount_points(settings))]
-    lines.append("# The paths the host's settings exclude:")
-    lines += ["%s%s(/|$)" % (prune, regex(path.rstrip("/"))) for path in settings.get("excluded", [])]
+    lines.append("# The paths the host's settings exclude, with those left to Secure Boot while it is on:")
+    lines += ["%s%s(/|$)" % (prune, regex(path)) for path in excluded_paths(settings)]
     # The kernel rewrites swap files as it pages, and they can be gigabytes.
     lines.append("# Swap files, from /proc/swaps:")
     lines += ["%s%s$" % (prune, regex(swap)) for swap in sorted(swap_files())]
@@ -584,7 +609,7 @@ def check_files(settings):
     if os.path.exists(settings["manifest"]):
         with gzip.open(settings["manifest"], "rt") as handle:
             manifest = json.load(handle)
-    kept, explained = explain(report, Packages(), manifest, [p.rstrip("/") for p in settings.get("excluded", [])])
+    kept, explained = explain(report, Packages(), manifest, excluded_paths(settings))
     save_kept(settings, kept, explained)
     total = sum(len(items) for items in kept.values())
     if total == 0:
