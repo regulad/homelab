@@ -1,7 +1,7 @@
 ---
 # Converge firewalld: installed and running, with Docker and rootful Podman's
 # containers stopped meanwhile when it first starts, Netavark's reload service
-# running where Netavark ships it, other firewall managers removed, and the
+# running where Netavark ships it, other firewall managers purged, and the
 # zones the host declares set, with the trusted interfaces in the trusted
 # zone. Runs on Linux hosts with their own kernel but Proxmox
 # nodes, hardware (Phase 2) and generated (Phase 4); a host that declares no
@@ -29,10 +29,22 @@
             state: present
           register: firewalld_installed
 
-        - name: Remove other firewall managers
-          ansible.builtin.package:
+        # Purged on Debian and Ubuntu, where a removal leaves the package's
+        # configuration files behind, as config-files, until a purge; one left
+        # so before is purged too. rpm removes them, keeping a changed one as
+        # .rpmsave.
+        - name: Remove other firewall managers (apt)
+          ansible.builtin.apt:
             name: "{{ firewalld_removed_packages }}"
             state: absent
+            purge: true
+          when: "'rhel' not in group_names"
+
+        - name: Remove other firewall managers (dnf)
+          ansible.builtin.dnf:
+            name: "{{ firewalld_removed_packages }}"
+            state: absent
+          when: "'rhel' in group_names"
 
         # A check run cannot start the firewalld that an install still pending would add.
         - name: Firewalld running
@@ -71,6 +83,10 @@
               {{ firewalld_zones | combine({'trusted': trusted | combine({'interfaces':
                    (trusted.interfaces | default([]) + firewalld_trusted_interfaces) | unique})}) }}
 
+        # firewalld writes each permanent change into the zone's file in
+        # /etc/firewalld/zones, which the module does not name: declared for
+        # AIDE's refresh at the end of the run (aide_written callback), as
+        # every zone's file, since a task's declaration takes no item.
         - name: Declared zones
           ansible.posix.firewalld:
             zone: "{{ item }}"
@@ -78,6 +94,8 @@
             permanent: true
           loop: "{{ firewalld_managed_zones.keys() | list }}"
           register: firewalld_declared
+          vars:
+            aide_writes: [/etc/firewalld/zones/*.xml]
 
         # A new zone takes entries only once firewalld has loaded it. Not a
         # handler: handlers cannot be flushed inside this conditional block.
@@ -101,6 +119,8 @@
           loop_control:
             label: "{{ item.key }}"
           notify: Reload firewalld
+          vars:
+            aide_writes: [/etc/firewalld/zones/*.xml]
 
         - name: Gather the zones' entries
           ansible.builtin.set_fact:
@@ -138,3 +158,5 @@
           loop: "{{ firewalld_entries }}"
           loop_control:
             label: "{{ item.zone }} {{ item.kind }} {{ item.value }}{{ ' removed' if item.state == 'disabled' else '' }}"
+          vars:
+            aide_writes: [/etc/firewalld/zones/*.xml]
