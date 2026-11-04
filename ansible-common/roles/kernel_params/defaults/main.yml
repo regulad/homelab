@@ -15,6 +15,15 @@ kernel_params_ip_forwarding: false
 
 # Files in /etc/default/grub.d (Debian and Ubuntu), each a name without .cfg
 # mapped to the kernel arguments it appends to GRUB_CMDLINE_LINUX_DEFAULT.
-# kdump-tools belongs to the kdump role. A change takes effect on the next boot;
-# the role never reboots.
+# kdump-tools belongs to the kdump role, and 99-audit comes from this role's
+# own settings. A change takes effect on the next boot; the role never
+# reboots.
 kernel_params_grub_dropins: {}
+
+# Auditing from boot, written as the drop-in 99-audit.cfg: without audit=1 the
+# kernel audits only once auditd starts, and a process already running then,
+# PID 1, journald and udevd among them, is never audited; the backlog holds
+# their records until auditd reads them, as the audit package's rules size it
+# (-b 8192). On wherever the host runs its own kernel, and so auditd (auditd
+# role), but Enterprise Linux, which has no grub.d.
+kernel_params_audit: "{{ 'proxmox_containers' not in group_names and 'rhel' not in group_names }}"
