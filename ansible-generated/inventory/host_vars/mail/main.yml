@@ -23,6 +23,18 @@ host_files_list:
   - path: /etc/letsencrypt/renewal-hooks/deploy/mailserver
     mode: "0755"
 
+# webhookd, which restarts docker-mailserver when its monitor reports it down,
+# at upstream's release in place of the unversioned build it replaced.
+host_files_archives:
+  - url: https://github.com/ncarlier/webhookd/releases/download/v1.22.1/webhookd-linux-arm64.tgz
+    checksum: sha256:06c0632d0ca3c88740d0b9027e4d3d91c7093d9977dac328e111392354c0c780
+    dest: /usr/local/bin
+    files: [webhookd]
+    owner: root
+    group: root
+    mode: "0755"
+    restarts: [webhookd]
+
 # docker-mailserver's certificate, which certbot renews by Cloudflare DNS-01
 # with the token from secrets.sops.yml, the hook above restarting Postfix and
 # Dovecot after each renewal.
