@@ -46,6 +46,10 @@ vault-password*
 *.decrypted
 *.decrypted.*
 
+# --- Alexa ------------------------------------------------------------------
+# The ASK CLI's deploy state, which it keeps beside each skill project.
+alexa/*/.ask/
+
 # --- Ansible ----------------------------------------------------------------
 ansible-*/collections
 *.retry

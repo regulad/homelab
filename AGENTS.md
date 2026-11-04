@@ -20,7 +20,7 @@ Where this file and the plan disagree, this file wins.
 
 ## Hard rules
 
-1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `pvesh set|create|delete`, `ceph config set` and other Ceph changes, `podman rm|stop`, and `oci ... delete|update`. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
+1. **Approval for every mutation.** Never change infrastructure or state without Parker's explicit approval in chat for that specific action; an earlier approval never carries over. This covers `tofu apply|destroy|import`, `tofu state rm|mv|push`, `ansible-playbook` without `--check`, `pct|qm destroy|stop|set`, `pvesh set|create|delete`, `ceph config set` and other Ceph changes, `podman rm|stop`, `oci ... delete|update`, `aws` calls that create, change or delete, and `ask deploy` and `ask smapi` create, update and delete calls. Local file edits, SOPS encryption, validation, and read-only plans need no approval.
 2. **Read-only discovery.** Discover with reads only. The OCI API key and session token and the `gonkputer` `root@pam` API token and root SSH are read/write, so rule 1 is the safeguard there. Never create or broaden credentials yourself.
 3. **No installs.** Never install tools, Python packages (`uv sync`, `uv tool install`), pre-commit hook environments, or OpenTofu providers (`tofu init` downloads) without Parker's approval for that install. He manages tools declaratively; `uv` is the Python/tool manager.
 4. **No secrets in git; the repository is public.** Never commit tokens, keys, state, plans, `.terraform/`, plaintext `*.tfvars`, or discovery output. Sensitive values that must be committed go in SOPS-encrypted `*.sops.*` files (age recipients in `.sops.yaml`).
@@ -46,6 +46,7 @@ homelab/
 ├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy, Ansible lint hooks
 ├── .sops.yaml, .gitignore
+├── alexa/                       # <skill>/: each Alexa skill's package and ASK CLI project file
 ├── docs/
 │   ├── snapshot/                # local-only discovery output (gitignored)
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
@@ -253,4 +254,5 @@ The rules above apply, with these additions.
 - **gonkputer state** lives in the same `homelab-tofu-state` bucket under the key `gonkputer/terraform.tfstate`, with the same backend credentials and its own encryption passphrase. No state from the draft carried over; all 86 resources were imported afresh, and the import blocks removed after the adoption apply.
 - **backblaze state** lives in the same bucket under `backblaze/terraform.tfstate`, with its own passphrase. The root holds the whole B2 account: its buckets and application keys. The provider authenticates with the account's master application key, from `tofu/backblaze/provider.sops.env`, which never leaves the operator's machine. It runs before both Ansible stages: the `restic` role reads its `restic` output, the repository and a key per host, through the `cloud.terraform.tf_output` lookup. A host's key rotates with `tofu apply -replace` and then `site.yml`.
 - **Restic password:** one repository password, shared by every host, in `ansible-common/group_vars/all.sops.yml` (see No security theatre). To rotate it, run `maintenance.yml --tags restic-password` once from either stage, then `site.yml` in both stages, then `--tags restic-password-prune`, which removes the old repository key.
+- **Alexa skills:** each skill's package in `alexa/<skill>/` is its source of truth, as the ASK CLI lays one out; no tool tracks a skill's state. Drift shows by exporting the live package (`ask smapi export-package`) and diffing; a change is `ask deploy --target skill-metadata` from the skill's directory. The ASK CLI comes from `regulad/dotfiles`, signed in per machine with `ask configure` and never linked to AWS. A skill's AWS side, such as the Smart Home skill's Lambda, belongs to `tofu/aws`.
 - **Known non-issues:** the Email Delivery DKIM key shows `NEEDS_ATTENTION` for about a week after the mail server power-cycles; this is cosmetic. The tenancy is pay-as-you-go, so resources beyond Always Free limits (such as extra boot-volume backups) are expected.
