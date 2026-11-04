@@ -1,13 +1,13 @@
 # OCI infrastructure
 
-The `.tf` files in this directory are the source of truth. They describe 82
+The `.tf` files in this directory are the source of truth. They describe 85
 managed resources, ordinary configuration values, nested blocks, and direct
 resource references. The root is one flat module: OpenTofu loads no
 subdirectories into a module, so its files are grouped by name prefix instead.
 
 | Files | Configuration |
 |---|---|
-| `network-legacy.tf`, `subnet-subnet--20230331--2242.tf`, `instance-web.tf` | The legacy VCN and its networking, and the web instance with its boot volume, backup-policy assignment and IPv6 assignment (10 resources) |
+| `network-legacy.tf`, `subnet-subnet--20230331--2242.tf`, `instance-web.tf` | The legacy VCN and its networking, and the web instance with its boot and data volumes, their backup-policy assignments, the data volume's attachment, and its IPv6 assignment (13 resources) |
 | `network-wahlecloud.tf`, `subnet-public.tf`, `instance-{bailout,livekit,mail,router}.tf` | The wahlecloud VCN and its networking, and the bailout, livekit, mail and router hosts with their volumes, IPv6 assignments and NSGs (61 resources) |
 | `email.tf` | Email Delivery: the `regulad.xyz` domain, its DKIM key and senders, and the `svc-mail` policy (5 resources) |
 | `state-bucket.tf`, `state-identity.tf` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
@@ -18,10 +18,14 @@ subdirectories into a module, so its files are grouped by name prefix instead.
 | `state.tf` | The s3 backend, and enforced encryption for state and saved plans |
 
 Each host has an `instance-<name>.tf` file containing, in order, any host-local
-constants, its instance, boot volume, backup-policy assignment, VNIC
-lookup, IPv6 assignment, and dedicated firewall resources. These files are
+constants, its instance, boot volume, backup-policy assignment, each data
+volume with its attachment and backup-policy assignment, VNIC lookup, IPv6
+assignment, and dedicated firewall resources. These files are
 `instance-web.tf` and `instance-{bailout,livekit,mail,router}.tf`. Web's own
 agent plugin policy is at the top of its file.
+
+Web's data volume, for the devices' data in `/opt/doppelganger`, is attached
+paravirtualized at Oracle's consistent device path `/dev/oracleoci/oraclevdb`.
 
 Each subnet has a `subnet-<name>.tf` file containing the subnet, followed by the
 DHCP options, route table, and security list that only it uses:
@@ -151,7 +155,8 @@ remote state, so restoring one needs `tofu state push -force`.
 
 - All adopted resources have `prevent_destroy = true`. Do not remove this to get
   an unexpected replacement through a plan. Resources created by OpenTofu, such
-  as those in `state-bucket.tf` and `state-identity.tf`, do not.
+  as those in `state-bucket.tf` and `state-identity.tf`, do not, except web's
+  data volume, which holds customers' data.
 - Image-created boot volumes expose no creation source. The provider requires a
   `source_details` block, so these existing volumes use a schema-only `bootVolume`
   type with no invented source ID and `ignore_changes = [source_details]`.

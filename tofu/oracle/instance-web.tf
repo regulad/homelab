@@ -121,6 +121,40 @@ resource "oci_core_volume_backup_policy_assignment" "web" {
   policy_id = local.backup_policy_ids.bronze
 }
 
+# The devices' data, /opt/doppelganger, on a volume of its own: Oracle's
+# smallest block volume, more than twice the data's 22 GB.
+resource "oci_core_volume" "web_data" {
+  display_name         = "doppelgangerhq.com (Data)"
+  compartment_id       = var.tenancy_ocid
+  availability_domain  = local.availability_domains.ad_1
+  is_auto_tune_enabled = false
+  size_in_gbs          = "50"
+  vpus_per_gb          = "10" # Balanced
+
+  # It holds customers' data, which a replacement would lose.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Paravirtualized at Oracle's consistent device path, a name on the host that
+# stays the same across reboots and reattachment.
+resource "oci_core_volume_attachment" "web_data" {
+  display_name                        = "doppelgangerhq.com (Data)"
+  instance_id                         = oci_core_instance.web.id
+  volume_id                           = oci_core_volume.web_data.id
+  attachment_type                     = "paravirtualized"
+  device                              = "/dev/oracleoci/oraclevdb"
+  is_pv_encryption_in_transit_enabled = true
+  is_read_only                        = false
+  is_shareable                        = false
+}
+
+resource "oci_core_volume_backup_policy_assignment" "web_data" {
+  asset_id  = oci_core_volume.web_data.id
+  policy_id = local.backup_policy_ids.bronze
+}
+
 # This instance has one attached VNIC. one() fails if that changes.
 data "oci_core_vnic_attachments" "web" {
   compartment_id = var.tenancy_ocid
