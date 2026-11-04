@@ -23,6 +23,10 @@ A change is left out when:
   which its package lists there only as a %ghost: it holds what the file it
   copies in /usr/lib/modules holds, or points at it, and that file's package
   vouches for it;
+- the path is a cache a tool builds from files AIDE watches, ld.so.cache by
+  ldconfig or gconv-modules.cache by iconvconfig, the tool builds the same
+  bytes now, into a scratch file, and nothing else about it changed but what
+  rebuilding it changes;
 - the path is one a kernel's installation generates, named for its release
   (its initramfs images, its boot entry, depmod's indexes of its modules),
   added with a kernel package installed since the baseline, or gone with one
@@ -122,6 +126,16 @@ KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/usr/lib/modules/(?P<release>[^/]+)/modules\.[^/]+$",
     r"^/usr/share/doc/kernel-keys/(?P<release>[^/]+)$",
 ))
+# Caches a tool builds from files AIDE watches, each with the command that
+# builds it into the file named after the command instead: ldconfig's index of
+# the shared libraries, without its auxiliary cache and leaving the libraries'
+# links alone, and iconvconfig's of glibc's character-set converters, in the
+# native library directory. A multilib's, such as /usr/lib32's, is not one the
+# native iconvconfig builds; on Debian and Ubuntu, packages ship both.
+REBUILT = (
+    (re.compile(r"^/etc/ld\.so\.cache$"), ["ldconfig", "-i", "-X", "-C"]),
+    (re.compile(r"^/usr/lib(64|/[^/]+-linux-gnu)/gconv/gconv-modules\.cache$"), ["iconvconfig", "-o"]),
+)
 # A changed entry's summary has a column per attribute, in AIDE's order from
 # 0.18 (report_attrs_order in src/report.c): '.' where AIDE compared it at both
 # ends and found it unchanged, a space where the entry's rule does not record it.
@@ -362,6 +376,23 @@ def same_contents(first, second):
         return False
 
 
+def rebuilds_same(path, command, scratch):
+    """Whether the tool that builds a cache builds the same bytes now, into a
+    file in scratch that is removed again."""
+    os.makedirs(scratch, mode=0o700, exist_ok=True)
+    rebuilt = os.path.join(scratch, "rebuilt")
+    try:
+        result = subprocess.run(command + [rebuilt], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return result.returncode == 0 and same_contents(path, rebuilt)
+    except OSError:
+        return False
+    finally:
+        try:
+            os.remove(rebuilt)
+        except OSError:
+            pass
+
+
 def kernel_package(release, owner):
     """The package of a kernel release, as the owner of its image."""
     for image in ("/usr/lib/modules/%s/vmlinuz" % release, "/boot/vmlinuz-%s" % release):
@@ -370,8 +401,9 @@ def kernel_package(release, owner):
     return None
 
 
-def explain(report, packages, manifest, excluded=()):
-    """The report's entries, split into those explained and the rest."""
+def explain(report, packages, manifest, excluded=(), scratch=None):
+    """The report's entries, split into those explained and the rest; caches are
+    rebuilt in scratch, where it is given."""
     added = entries(report, "added")
     removed = entries(report, "removed")
     changed = entries(report, "changed")
@@ -430,6 +462,19 @@ def explain(report, packages, manifest, excluded=()):
     baseline_owner = {packages.canonical(path): owner for path, owner in manifest.get("owner", {}).items()}
     baseline_installed = manifest.get("installed") or list(set(baseline_owner.values()))
 
+    def cache_rebuilt(path, summary):
+        # A cache its tool builds the same now from what AIDE watches, with
+        # nothing else about it changed but what rebuilding it changes.
+        attributes = changed_attributes(report, path) - CONTENT - INCIDENTAL
+        if selinux_user_only(report, path):
+            attributes -= {"selinux", "xattrs"}
+        if scratch is None or summary[:1] != "f" or attributes:
+            return False
+        for pattern, command in REBUILT:
+            if pattern.match(path):
+                return rebuilds_same(path, command, scratch)
+        return False
+
     def kernel_generated(path, section):
         # Made with a kernel installed since the baseline, or gone with one
         # removed since; a later change to it stays in the report. A package
@@ -473,6 +518,8 @@ def explain(report, packages, manifest, excluded=()):
             elif kind == "l" and symlink_vouched(path) and not attributes - INCIDENTAL - {"link_name", "size", "block_count"}:
                 explained += 1
             elif copy_vouched(path, summary):
+                explained += 1
+            elif section == "changed" and cache_rebuilt(path, summary):
                 explained += 1
             elif section == "added" and kernel_generated(path, section):
                 explained += 1
@@ -635,7 +682,8 @@ def check_files(settings):
     if os.path.exists(settings["manifest"]):
         with gzip.open(settings["manifest"], "rt") as handle:
             manifest = json.load(handle)
-    kept, explained = explain(report, Packages(), manifest, excluded_paths(settings))
+    kept, explained = explain(report, Packages(), manifest, excluded_paths(settings),
+                              os.path.dirname(settings["exclusions"]))
     save_kept(settings, kept, explained)
     total = sum(len(items) for items in kept.values())
     if total == 0:
