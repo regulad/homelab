@@ -51,3 +51,5 @@ groups:
   oci: true
   # The Enterprise Linux images ship kdump on, and it stays on.
   kdump: freeform_tags.os == 'rhel'
+  # The devices' Docker, from the docker role.
+  docker_hosts: display_name == 'doppelgangerhq.com'
