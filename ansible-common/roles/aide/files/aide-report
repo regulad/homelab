@@ -12,6 +12,9 @@ aide-report --refresh PATH... [--units UNIT...]: moves the baseline for those
 paths alone, the files an Ansible run wrote, in which a * stands for any part
 of one name, and for the links in /etc/systemd/system of the units it enabled,
 disabled or masked, and leaves every other entry as it was.
+aide-report --repair-images: removes the damaged images and layers that the
+container engine's own check of its image layers finds, with the engine's own
+repair, Podman's; images that containers use stay, damaged or not.
 
 A change is left out when:
 - the path belongs to an installed package that vouches for it as it is now:
@@ -38,10 +41,17 @@ A change is left out when:
 - the path is dpkg's diversions, or its copy of them, and every diversion
   added or removed since the baseline is a package's that was installed,
   upgraded or removed since;
+- the path is dpkg's list of file triggers, and it lists exactly those the
+  installed packages' records under /var/lib/dpkg/info declare: dpkg rewrites
+  it as it upgrades any package with one, moving that package's lines to the
+  end;
 - the path is one a kernel's installation generates, named for its release
   (its initramfs images, its boot entry, depmod's indexes of its modules),
   added with a kernel package installed since the baseline, or gone with one
   removed since;
+- the path is kdump's initramfs for the running kernel, added and written
+  during this boot, which began after the baseline was accepted: kdump.service
+  builds it at the first boot into a kernel, not at the kernel's installation;
 - the path is gone, and the package that owned it at the baseline is no longer
   installed in that version, or it now lies below a path the configuration
   excludes (not below a new mount point: a filesystem mounted over a watched
@@ -138,6 +148,9 @@ KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/usr/lib/modules/(?P<release>[^/]+)/modules\.[^/]+$",
     r"^/usr/share/doc/kernel-keys/(?P<release>[^/]+)$",
 ))
+# kdump's initramfs for a kernel, which kdump.service builds at the first boot
+# into that kernel: kexec-tools' kernel-install hook builds none.
+KDUMP_IMAGE = re.compile(r"^/boot/initramfs-(?P<release>[^/]+)kdump\.img$")
 # Caches a tool builds from files AIDE watches, each with the command that
 # builds it into the file named after the command instead: ldconfig's index of
 # the shared libraries, without its auxiliary cache and leaving the libraries'
@@ -169,6 +182,11 @@ DSH_STATE = "/var/lib/systemd/deb-systemd-helper-enabled"
 # dpkg's diversions, and its copy of them before their last change.
 DPKG_DIVERSIONS = "/var/lib/dpkg/diversions"
 DPKG_DIVERSIONS_OLD = "/var/lib/dpkg/diversions-old"
+# dpkg's list of file triggers, a line for each path a package's records
+# declare an interest in: the path, the package, and /noawait for an
+# interest-noawait. The records are /var/lib/dpkg/info/<package>.triggers.
+DPKG_FILE_TRIGGERS = "/var/lib/dpkg/triggers/File"
+DPKG_TRIGGER_RECORDS = "/var/lib/dpkg/info/*.triggers"
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -469,6 +487,48 @@ def diversions(path=DPKG_DIVERSIONS):
     return {tuple(lines[i:i + 3]) for i in range(0, len(lines) - 2, 3)}
 
 
+def file_triggers():
+    """The file triggers dpkg lists, each a line of its list; None without it."""
+    try:
+        with open(DPKG_FILE_TRIGGERS, errors="replace") as handle:
+            return set(handle.read().splitlines())
+    except OSError:
+        return None
+
+
+def declared_file_triggers():
+    """The file triggers the installed packages' records declare, as dpkg lists
+    them; None where a record cannot be read. A removed package's record goes
+    with its other records, so only installed packages have one."""
+    declared = set()
+    for record in glob.glob(DPKG_TRIGGER_RECORDS):
+        package = os.path.basename(record)[:-len(".triggers")]
+        try:
+            with open(record, errors="replace") as handle:
+                lines = handle.read().splitlines()
+        except OSError:
+            return None
+        for line in lines:
+            # deb-triggers(5): a directive and its trigger, then a comment.
+            words = line.split("#", 1)[0].split()
+            if (len(words) == 2 and words[0] in ("interest", "interest-await", "interest-noawait")
+                    and words[1].startswith("/")):
+                declared.add("%s %s%s" % (words[1], package, "/noawait" if words[0] == "interest-noawait" else ""))
+    return declared
+
+
+def boot_time():
+    """When the running kernel booted, from /proc/stat; None without it."""
+    try:
+        with open("/proc/stat") as handle:
+            for line in handle:
+                if line.startswith("btime "):
+                    return int(line.split()[1])
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def kernel_package(release, owner):
     """The package of a kernel release, as the owner of its image."""
     for image in ("/usr/lib/modules/%s/vmlinuz" % release, "/boot/vmlinuz-%s" % release):
@@ -477,9 +537,10 @@ def kernel_package(release, owner):
     return None
 
 
-def explain(report, packages, manifest, excluded=(), scratch=None):
+def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None):
     """The report's entries, split into those explained and the rest; caches are
-    rebuilt in scratch, where it is given."""
+    rebuilt in scratch, where it is given. accepted is when the baseline was,
+    as a Unix time."""
     added = entries(report, "added")
     removed = entries(report, "removed")
     changed = entries(report, "changed")
@@ -578,6 +639,24 @@ def explain(report, packages, manifest, excluded=(), scratch=None):
                 package = kernel_package(release, baseline_owner)
                 return package is not None and package not in packages.installed
         return False
+
+    booted = boot_time()
+
+    def kdump_built(path):
+        # kdump's image for the running kernel, of an installed package, written
+        # since this boot began, and the boot after the baseline: kdump.service
+        # built it at the first boot into the kernel. A later rebuild changes it,
+        # and stays in the report.
+        match = KDUMP_IMAGE.match(path)
+        if (not match or match.group("release") != os.uname().release or accepted is None
+                or booted is None or booted <= accepted
+                or kernel_package(match.group("release"), packages.owner) is None):
+            return False
+        try:
+            return os.path.getmtime(path) >= booted
+        except OSError:
+            return False
+
     now = packages.versions() if not packages.rpm else {}
     then = dict(i.split("=", 1) for i in baseline_installed if "=" in i) if not packages.rpm else {}
 
@@ -653,6 +732,11 @@ def explain(report, packages, manifest, excluded=(), scratch=None):
                   else diversions(DPKG_DIVERSIONS_OLD))
         diverted = (current is not None and before is not None
                     and all(package != ":" and package_changed(package) for _, _, package in current ^ before))
+    # dpkg's file triggers, as the installed packages' records declare them.
+    declared = None
+    if not packages.rpm and DPKG_FILE_TRIGGERS in changed:
+        listed = file_triggers()
+        declared = listed is not None and listed == declared_file_triggers()
 
     for section, items in (("added", added), ("changed", changed)):
         for path, summary in items.items():
@@ -674,9 +758,14 @@ def explain(report, packages, manifest, excluded=(), scratch=None):
                 explained += 1
             elif section == "added" and kernel_generated(path, section):
                 explained += 1
+            elif section == "added" and kdump_built(path):
+                explained += 1
             elif section == "added" and installed_with(path):
                 explained += 1
             elif (section == "changed" and diverted and path in (DPKG_DIVERSIONS, DPKG_DIVERSIONS_OLD)
+                  and not attributes - CONTENT - INCIDENTAL):
+                explained += 1
+            elif (section == "changed" and declared and path == DPKG_FILE_TRIGGERS
                   and not attributes - CONTENT - INCIDENTAL):
                 explained += 1
             else:
@@ -716,32 +805,59 @@ def normal_priority():
         pass
 
 
-def podman_check():
-    """Podman's check of its image layers, as lines to mail, if it found damage."""
+def podman_command():
+    """Podman's check of its image layers, as its arguments, which --repair
+    makes its repair; or, where it has none, lines to mail instead of it.
+    Neither without Podman."""
     if not shutil.which("podman"):
-        return []
+        return None, []
     # Podman's warnings go to standard error, and may hold digits of their own.
     version = subprocess.run(["podman", "version", "--format", "{{.Client.Version}}"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace")
     numbers = tuple(int(number) for number in re.findall(r"\d+", version.stdout)[:2])
     if version.returncode != 0 or len(numbers) < 2:
-        return failed("podman version", version)
+        return None, failed("podman version", version)
     # Without flags, both check everything; --quick skips the layers' contents.
     if numbers >= (5, 2):
-        argv, repair = ["podman", "system", "check"], "podman system check --repair"
-    elif shutil.which("containers-storage"):
-        argv, repair = ["containers-storage", "check"], "containers-storage check --repair"
-    else:
-        return ["Podman %s has no check of its image layers, and containers-storage, which has one, "
-                "is not installed." % version.stdout.strip(), ""]
-    result = subprocess.run(["ionice", "-t", "-c", "2", "-n", "4"] + argv, preexec_fn=normal_priority,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+        return ["podman", "system", "check"], []
+    if shutil.which("containers-storage"):
+        return ["containers-storage", "check"], []
+    return None, ["Podman %s has no check of its image layers, and containers-storage, which has one, "
+                  "is not installed." % version.stdout.strip(), ""]
+
+
+def run_podman(argv):
+    return subprocess.run(["ionice", "-t", "-c", "2", "-n", "4"] + argv, preexec_fn=normal_priority,
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+
+
+def podman_check(settings):
+    """Podman's check of its image layers, as lines to mail, if it found damage."""
+    argv, lines = podman_command()
+    if argv is None:
+        return lines
+    result = run_podman(argv)
     if result.returncode == 0:
         return []
     return (["%s exited %d:" % (" ".join(argv), result.returncode)]
             + ["  " + line for line in result.stdout.splitlines()]
-            + ["Once each is accounted for, %s removes the damaged images and layers," % repair,
-               "which their services pull again as they start.", ""])
+            + ["Once each is accounted for, remove the damaged images and layers, but those containers use,",
+               "which their services pull again as they start, with:", "  " + settings["repair"], ""])
+
+
+def repair_images():
+    """Podman's repair of what its check of its image layers finds: the damaged
+    images that no container uses and the damaged layers, removed. It checks
+    again after, and fails if damage is left, as in an image containers use."""
+    argv, lines = podman_command()
+    if argv is None:
+        sys.stderr.write("\n".join(lines or ["There is no Podman here."]) + "\n")
+        return 1
+    result = run_podman(argv + ["--repair"])
+    sys.stdout.write(result.stdout)
+    if result.returncode != 0:
+        sys.stderr.write("%s exited %d\n" % (" ".join(argv + ["--repair"]), result.returncode))
+    return result.returncode
 
 
 def docker_check():
@@ -810,7 +926,7 @@ def save_kept(settings, kept, explained):
 def check(settings):
     subject, lines, status = check_files(settings)
     # AIDE does not walk the engines' image stores: each checks its own.
-    images = podman_check() + docker_check()
+    images = podman_check(settings) + docker_check()
     if images:
         subject = ", ".join(part for part in (subject, "container images") if part)
         lines = lines + ([""] if lines else []) + images
@@ -846,13 +962,15 @@ def check_files(settings):
     if os.path.exists(settings["manifest"]):
         with gzip.open(settings["manifest"], "rt") as handle:
             manifest = json.load(handle)
+    # Only --baseline writes the manifest; a refresh rewrites the database too.
+    accepted_at = os.path.getmtime(settings["manifest"])
     kept, explained = explain(report, Packages(), manifest, excluded_paths(settings),
-                              os.path.dirname(settings["exclusions"]))
+                              os.path.dirname(settings["exclusions"]), accepted_at)
     save_kept(settings, kept, explained)
     total = sum(len(items) for items in kept.values())
     if total == 0:
         return None, [], 0
-    accepted = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(os.path.getmtime(settings["database"])))
+    accepted = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(accepted_at))
     lines = ["%d changes since the baseline accepted %s that the host's packages do not explain;"
              % (total, accepted), "%d others, which they do or which left a file as it was, were left out."
              % explained, ""]
@@ -938,6 +1056,8 @@ def main():
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--baseline", action="store_true", help="accept the files as they are")
     action.add_argument("--refresh", metavar="PATH", nargs="*", help="move the baseline for these paths alone, a * standing for any part of one name")
+    action.add_argument("--repair-images", action="store_true",
+                        help="remove the damaged images no container uses, and the damaged layers")
     parser.add_argument("--units", metavar="UNIT", nargs="+", default=[],
                         help="with --refresh, and for the links of these systemd units")
     parser.add_argument("--settings", default=SETTINGS)
@@ -950,6 +1070,8 @@ def main():
             return baseline(settings)
         if args.refresh is not None:
             return refresh(settings, args.refresh, args.units)
+        if args.repair_images:
+            return repair_images()
         return check(settings)
 
 

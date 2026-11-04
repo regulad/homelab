@@ -1,0 +1,27 @@
+---
+# Remove the damaged images and layers that aide-report's check of Podman's
+# image store found, from maintenance.yml --tags podman-repair, once each is
+# accounted for: Podman's own repair, which removes the damaged images no
+# container uses and the damaged layers, and their services pull what went
+# again as they start. A damaged image a container uses stays, and the run then
+# fails, as Podman checks again after and finds it. A run without --limit
+# would repair every host's store unread, so it refuses.
+- name: Check the run names its hosts
+  ansible.builtin.assert:
+    that: ansible_limit is defined
+    fail_msg: Name the hosts whose reports were reviewed with --limit.
+    quiet: true
+  run_once: true
+
+# Podman checks every layer twice: before the repair, and after it.
+- name: Repair the image store
+  ansible.builtin.command:
+    argv: [/usr/local/bin/aide-report, --repair-images]
+  async: 7200
+  poll: 30
+  register: aide_repair
+  changed_when: true
+
+- name: What the repair found and removed
+  ansible.builtin.debug:
+    var: aide_repair.stdout_lines

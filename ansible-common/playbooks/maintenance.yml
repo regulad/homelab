@@ -70,3 +70,17 @@
       ansible.builtin.include_role:
         name: aide
         tasks_from: accept
+
+# Remove the damaged images and layers that AIDE's report found in Podman's
+# image store, on the hosts given with --limit, once each is accounted for.
+# Images that containers use stay.
+- name: Podman image store repaired
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [podman-repair]
+  tasks:
+    - name: Remove the damaged images and layers
+      ansible.builtin.include_role:
+        name: aide
+        tasks_from: repair
