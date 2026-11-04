@@ -64,8 +64,9 @@ host_files_list:
   - path: /etc/firewalld/policies/wg2wan.xml
     mode: "0644"
     reloads: [firewalld]
-  # Oracle's passthroughs for the instance's own services, as the image
-  # ships them, after the IPv6 NAT and MSS clamping rules.
+  # Oracle's passthroughs for the instance's own services, as in the OCI
+  # instances' shared files/shared/oci/direct.xml, after the IPv6 NAT and MSS
+  # clamping rules.
   - path: /etc/firewalld/direct.xml
     mode: "0644"
     reloads: [firewalld]

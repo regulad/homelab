@@ -66,6 +66,12 @@ host_files_list:
   # The package's, with certbot's twice-daily renewal.
   - path: /etc/crontab
     mode: "0644"
+  # Oracle's passthroughs for the instance's own services, shared by the OCI
+  # instances.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    shared_src: oci/direct.xml
+    reloads: [firewalld]
 host_files_downloads:
   - path: /usr/bin/lk-jwt-service
     url: https://github.com/element-hq/lk-jwt-service/releases/download/v0.4.0/lk-jwt-service_linux_arm64

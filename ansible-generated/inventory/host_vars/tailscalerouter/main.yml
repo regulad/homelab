@@ -72,6 +72,12 @@ host_files_list:
   - path: /etc/firewalld/policies/allow-peering-fwd.xml
     mode: "0644"
     reloads: [firewalld]
+  # Oracle's passthroughs for the instance's own services, shared by the OCI
+  # instances.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    shared_src: oci/direct.xml
+    reloads: [firewalld]
 host_files_units: [unbound]
 
 # ClamAV's on-access scanner, over the baseline directories alone.

@@ -14,10 +14,11 @@ host_files_list:
   - path: /etc/firewalld/policies/allow-mail-out.xml
     mode: "0644"
     reloads: [firewalld]
-  # Oracle's passthroughs for the instance's own services, as the image ships
-  # them.
+  # Oracle's passthroughs for the instance's own services, shared by the OCI
+  # instances.
   - path: /etc/firewalld/direct.xml
     mode: "0644"
+    shared_src: oci/direct.xml
     reloads: [firewalld]
 
 # docker-mailserver's configuration and data, bind-mounted into its container.
