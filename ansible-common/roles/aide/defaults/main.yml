@@ -67,10 +67,12 @@ aide_exclude_paths:
   # smartd's record of each disk's attributes, and DHCP clients' leases.
   - /var/lib/smartmontools
   - /var/lib/dhcp
-  # snapd's state, and the cache of the system information the login banner
-  # shows, on Ubuntu.
+  # snapd's state, and what the login banner shows, on Ubuntu: the cache of the
+  # system information, and update-notifier's count of the pending updates,
+  # rewritten as updates arrive.
   - /var/lib/snapd/state.json
   - /var/lib/landscape/landscape-sysinfo.cache
+  - /var/lib/update-notifier/updates-available
   # The Ubuntu Pro client's two copies of its machine token, with and without
   # the tokens, which its metering job rewrites with the activity the contract
   # server returns at each run, and its jobs' status. Its configuration,
