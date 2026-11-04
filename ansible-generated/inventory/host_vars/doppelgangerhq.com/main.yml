@@ -19,10 +19,14 @@ base_admin_user: ""
 # its kernel's, so each generic kernel it brings has binder. A new kernel leaves
 # /var/run/reboot-required, which unattended-upgrades' next run, through
 # Automatic-Reboot, reboots for. rsync copies the devices' data between
-# volumes, keeping hard links, ACLs and extended attributes.
+# volumes, keeping hard links, ACLs and extended attributes. Docker, with its
+# Compose and buildx plugins, comes from Ubuntu's archive, not Docker's own.
 host_files_packages:
   - linux-image-generic
   - rsync
+  - docker.io
+  - docker-compose-v2
+  - docker-buildx
 
 host_files_directories:
   - path: /etc/systemd/system/docker.service.d
