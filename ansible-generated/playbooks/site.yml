@@ -101,6 +101,19 @@
   roles:
     - host_files
 
+# The docker role's compose projects, once host_files has placed their files and
+# secrets.
+- name: Docker Compose projects
+  hosts: docker_hosts
+  gather_facts: false
+  become: true
+  tags: [docker, docker_compose]
+  tasks:
+    - name: Compose projects
+      ansible.builtin.include_role:
+        name: docker
+        tasks_from: compose
+
 # FreeIPA's servers, after the host files that give them their /etc/hosts.
 - name: FreeIPA servers
   hosts: freeipa_servers

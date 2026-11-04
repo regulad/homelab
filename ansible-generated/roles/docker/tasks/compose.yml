@@ -1,0 +1,19 @@
+---
+# Bring up each of docker_compose_projects with docker compose: each service
+# recreated where its definition differs from its container, its images pulled
+# only where missing, and the project's orphans removed. Newer images come from
+# each host's own update timer, not from here. An entry point of its own, run
+# after host_files has placed the projects' files and secrets.
+- name: Compose projects
+  community.docker.docker_compose_v2:
+    project_name: "{{ item.name }}"
+    project_src: "{{ item.files | first | dirname }}"
+    files: "{{ item.files | map('basename') | list }}"
+    state: present
+    pull: missing
+    remove_orphans: true
+    wait: true
+    wait_timeout: 300
+  loop: "{{ docker_compose_projects }}"
+  loop_control:
+    label: "{{ item.name }}"

@@ -9,3 +9,7 @@ docker_daemon_settings: {}
 # Registries root logs into, each a registry, username and password, the
 # password from SOPS.
 docker_registries: []
+
+# Compose projects tasks_from: compose brings up, each a name and its files'
+# absolute paths in one directory, such as those host_files places.
+docker_compose_projects: []
