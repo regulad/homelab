@@ -84,3 +84,9 @@ host_files_units: [ncsu-tun.service, ncsu-keepalive.timer, unbound.service]
 
 # ClamAV's on-access scanner, over the baseline directories alone.
 clamav_onaccess_enabled: true
+
+# pipx's logs of each command it runs, in its global home (host_files_pipx),
+# written at every Ansible run: bound over themselves noexec, and so not
+# checked by AIDE.
+noexec_paths_host: [/opt/pipx/logs]
+aide_exclude_paths_host: "{{ noexec_paths_host }}"
