@@ -24,7 +24,39 @@ host_files_packages:
   - linux-image-generic
   - rsync
 
+host_files_directories:
+  - path: /etc/systemd/system/docker.service.d
+    mode: "0755"
+
 host_files_list:
+  # The devices' data on its own block volume, tofu/oracle's web_data, at its
+  # consistent device path. _netdev and nofail, as Oracle's guide sets for every
+  # attached volume: the mount waits for the network, and a missing volume does
+  # not hold up the boot. Docker, which requires the mount, then stays down
+  # rather than starting the devices over the empty mount point. A change
+  # applies at the next mount, as Docker is not restarted for it.
+  - path: /etc/systemd/system/opt-doppelganger.mount
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=/opt/doppelganger: the devices' data, on its own block volume
+
+      [Mount]
+      What=/dev/oracleoci/oraclevdb
+      Where=/opt/doppelganger
+      Type=ext4
+      Options=defaults,_netdev,nofail
+
+      [Install]
+      WantedBy=remote-fs.target
+  # The web container binds /opt/doppelganger and starts the devices, which
+  # bind their data from it, so Docker starts after the mount and stops before
+  # it is unmounted.
+  - path: /etc/systemd/system/docker.service.d/mounts.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/opt/doppelganger
   # binder_linux at boot, before Docker starts the devices. Ubuntu builds
   # binderfs with no default devices (CONFIG_ANDROID_BINDER_DEVICES=""), so
   # devices= names the ones each binderfs mount, one per Redroid container,
@@ -52,6 +84,9 @@ host_files_list:
       nft_reject_inet
       nft_chain_nat
     restarts: [systemd-modules-load.service]
+
+# Mounted now and at each boot.
+host_files_units: [opt-doppelganger.mount]
 
 # The website, which nginx serves natively, outside Docker.
 firewalld_zones:
