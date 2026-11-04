@@ -29,6 +29,15 @@ A change is left out when:
   ldconfig or gconv-modules.cache by iconvconfig, the tool builds the same
   bytes now, into a scratch file, and nothing else about it changed but what
   rebuilding it changes;
+- the path is what the install of a package installed or upgraded since the
+  baseline made, or what its removal took away, following from a file of the
+  package that vouches for it: a unit's links by its unit file's [Install]
+  (systemctl enable or preset, or deb-systemd-helper, and its record of them),
+  and update-rc.d's links by the init script's LSB runlevels; or a new
+  directory under /etc/systemd/system holding only such links;
+- the path is dpkg's diversions, or its copy of them, and every diversion
+  added or removed since the baseline is a package's that was installed,
+  upgraded or removed since;
 - the path is one a kernel's installation generates, named for its release
   (its initramfs images, its boot entry, depmod's indexes of its modules),
   added with a kernel package installed since the baseline, or gone with one
@@ -149,6 +158,17 @@ SUMMARY_HASHES = 12
 SYSTEMD_UNITS = "/etc/systemd/system"
 UNIT_SUFFIXES = (".service", ".socket", ".target", ".timer", ".mount", ".automount",
                  ".swap", ".path", ".slice", ".scope", ".device")
+# The links enabling a unit makes, by the [Install] settings naming them: a
+# link in each target's directory of this suffix, and one of each Alias= name.
+INSTALL_LINKS = {"WantedBy": ".wants", "RequiredBy": ".requires", "UpheldBy": ".upholds"}
+# update-rc.d's links to an init script, in each runlevel's directory.
+SYSV_LINK = re.compile(r"^/etc/rc([0-6S])\.d/([SK])\d\d([^/]+)$")
+# deb-systemd-helper's record of the links it made: a file per unit listing
+# them, and an empty file mirroring each.
+DSH_STATE = "/var/lib/systemd/deb-systemd-helper-enabled"
+# dpkg's diversions, and its copy of them before their last change.
+DPKG_DIVERSIONS = "/var/lib/dpkg/diversions"
+DPKG_DIVERSIONS_OLD = "/var/lib/dpkg/diversions-old"
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -401,6 +421,54 @@ def rebuilds_same(path, command, scratch):
             pass
 
 
+def install_links(unit_file):
+    """The links in /etc/systemd/system that enabling a unit makes, from its
+    file's [Install] section."""
+    name = os.path.basename(unit_file)
+    settings = {}
+    section = None
+    try:
+        with open(unit_file, errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("[") and line.endswith("]"):
+                    section = line[1:-1]
+                elif section == "Install" and "=" in line and not line.startswith(("#", ";")):
+                    key, _, value = line.partition("=")
+                    settings.setdefault(key.strip(), []).extend(value.split())
+    except OSError:
+        return set()
+    links = {"%s/%s%s/%s" % (SYSTEMD_UNITS, target, suffix, name)
+             for key, suffix in INSTALL_LINKS.items() for target in settings.get(key, [])}
+    return links | {"%s/%s" % (SYSTEMD_UNITS, alias) for alias in settings.get("Alias", [])}
+
+
+def lsb_runlevels(script):
+    """An init script's runlevels from its LSB header: Default-Start's and
+    Default-Stop's."""
+    levels = {"Default-Start": set(), "Default-Stop": set()}
+    try:
+        with open(script, errors="replace") as handle:
+            for line in handle:
+                match = re.match(r"^#\s*(Default-Start|Default-Stop):(.*)$", line)
+                if match:
+                    levels[match.group(1)].update(match.group(2).split())
+    except OSError:
+        pass
+    return levels["Default-Start"], levels["Default-Stop"]
+
+
+def diversions(path=DPKG_DIVERSIONS):
+    """dpkg's diversions, each the file, where it is diverted to, and the
+    package diverting it (: for a local one); None without the file."""
+    try:
+        with open(path, errors="replace") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return None
+    return {tuple(lines[i:i + 3]) for i in range(0, len(lines) - 2, 3)}
+
+
 def kernel_package(release, owner):
     """The package of a kernel release, as the owner of its image."""
     for image in ("/usr/lib/modules/%s/vmlinuz" % release, "/boot/vmlinuz-%s" % release):
@@ -428,8 +496,19 @@ def explain(report, packages, manifest, excluded=(), scratch=None):
         for pattern, template in KERNEL_COPIES:
             if pattern.match(path):
                 copies[path] = pattern.sub(template, path)
+    # What a package's install scripts made, systemctl preset among them, by
+    # the packaged unit file or init script each follows from.
+    sources = {}
+    for path, summary in added.items():
+        if summary[:1] == "l" and (path.startswith(SYSTEMD_UNITS + "/") or SYSV_LINK.match(path)):
+            sources[path] = packages.canonical(os.path.realpath(path))
+        elif summary[:1] == "f" and path.startswith(DSH_STATE + "/"):
+            unit = os.path.basename(path)
+            unit = unit[:-len(".dsh-also")] if unit.endswith(".dsh-also") else unit
+            sources[path] = packages.canonical("/lib/systemd/system/" + unit)
     unverified = packages.unverified(candidates + [t for t in targets.values() if t in packages.owner]
-                                     + [t for t in copies.values() if t in packages.owner])
+                                     + [t for t in copies.values() if t in packages.owner]
+                                     + [t for t in sources.values() if t in packages.owner])
     kept = {"added": {}, "removed": {}, "changed": {}}
     explained = 0
 
@@ -511,6 +590,70 @@ def explain(report, packages, manifest, excluded=(), scratch=None):
             return True
         return section == "changed" and not changed_attributes(report, path) - INCIDENTAL
 
+    def package_changed(name):
+        # A dpkg package installed, upgraded or removed since the baseline,
+        # by its name with or without its architecture.
+        def version(versions):
+            return sorted(v for k, v in versions.items() if k == name or k.split(":")[0] == name)
+        return version(now) != version(then)
+
+    def installed_with(path):
+        # Made by the install of a package installed or upgraded since the
+        # baseline, from its own unit file or init script, as it vouches for
+        # it: a unit's links by its [Install], deb-systemd-helper's record of
+        # them, and update-rc.d's links by the script's LSB runlevels.
+        source = sources.get(path)
+        if source is None or not verified(source) or packages.owner[source] in baseline_installed:
+            return False
+        sysv = SYSV_LINK.match(path)
+        if sysv:
+            level, kind, name = sysv.groups()
+            start, stop = lsb_runlevels(source)
+            return source == "/etc/init.d/" + name and level in (start if kind == "S" else stop)
+        links = install_links(source)
+        if not path.startswith(DSH_STATE + "/"):
+            return path in links
+        if path.endswith(".dsh-also"):
+            try:
+                with open(path, errors="replace") as handle:
+                    listed = set(handle.read().split())
+            except OSError:
+                return False
+            return bool(listed) and listed <= links
+        try:
+            empty = os.path.getsize(path) == 0
+        except OSError:
+            return False
+        return empty and SYSTEMD_UNITS + path[len(DSH_STATE):] in links
+
+    def removed_with(path, summary):
+        # What such an install made, gone with the package that owned its unit
+        # file or init script at the baseline: a link, or deb-systemd-helper's
+        # record of one.
+        sysv = SYSV_LINK.match(path)
+        if summary[:1] != ("f" if path.startswith(DSH_STATE + "/") else "l"):
+            return False
+        if sysv:
+            source = "/etc/init.d/" + sysv.group(3)
+        elif path.startswith((SYSTEMD_UNITS + "/", DSH_STATE + "/")):
+            unit = os.path.basename(path)
+            source = packages.canonical("/lib/systemd/system/" + unit.replace(".dsh-also", ""))
+        else:
+            return False
+        owner = baseline_owner.get(source)
+        return owner is not None and owner not in packages.installed
+
+    # A diversion added or removed by a package installed, upgraded or removed
+    # since the baseline: against the diversions the baseline kept, or before
+    # it kept them, dpkg's own copy of those before their last change.
+    diverted = None
+    if not packages.rpm and DPKG_DIVERSIONS in changed:
+        current = diversions()
+        before = ({tuple(d) for d in manifest["diversions"]} if "diversions" in manifest
+                  else diversions(DPKG_DIVERSIONS_OLD))
+        diverted = (current is not None and before is not None
+                    and all(package != ":" and package_changed(package) for _, _, package in current ^ before))
+
     for section, items in (("added", added), ("changed", changed)):
         for path, summary in items.items():
             kind = summary[:1]
@@ -531,15 +674,28 @@ def explain(report, packages, manifest, excluded=(), scratch=None):
                 explained += 1
             elif section == "added" and kernel_generated(path, section):
                 explained += 1
+            elif section == "added" and installed_with(path):
+                explained += 1
+            elif (section == "changed" and diverted and path in (DPKG_DIVERSIONS, DPKG_DIVERSIONS_OLD)
+                  and not attributes - CONTENT - INCIDENTAL):
+                explained += 1
             else:
                 kept[section][path] = summary
     for path, summary in removed.items():
         owner = baseline_owner.get(path)
         if ((owner is not None and owner not in packages.installed) or dpkg_record(path, "removed")
-                or kernel_generated(path, "removed") or below(path, excluded)):
+                or kernel_generated(path, "removed") or removed_with(path, summary) or below(path, excluded)):
             explained += 1
         else:
             kept["removed"][path] = summary
+    # A directory a package's install made for links it explains, such as a
+    # target's .wants, holding nothing it does not.
+    for path, summary in list(kept["added"].items()):
+        if (summary[:1] == "d" and path.startswith((SYSTEMD_UNITS + "/", DSH_STATE + "/"))
+                and any(p.startswith(path + "/") for p in added)
+                and not any(p.startswith(path + "/") for section in kept.values() for p in section)):
+            del kept["added"][path]
+            explained += 1
     return kept, explained
 
 
@@ -722,7 +878,10 @@ def baseline(settings):
     os.makedirs(settings["state"], mode=0o700, exist_ok=True)
     manifest = settings["manifest"]
     with gzip.open(manifest + ".tmp", "wt") as handle:
-        json.dump({"owner": packages.owner, "installed": sorted(packages.installed)}, handle)
+        recorded = {"owner": packages.owner, "installed": sorted(packages.installed)}
+        if not packages.rpm and diversions() is not None:
+            recorded["diversions"] = sorted(diversions())
+        json.dump(recorded, handle)
     os.replace(settings["database_new"], settings["database"])
     os.replace(manifest + ".tmp", manifest)
     print("Accepted the files as they are: %s" % settings["database"])
