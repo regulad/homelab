@@ -21,3 +21,8 @@ resolved_networks: [eth0.network]
 resolved_stub: "{{ 'proxmox_containers' in group_names }}"
 resolved_dns: ["{{ lan_arawi.ipv6 }}", "{{ lan_arawi.ipv4 }}"]
 resolved_domains: ["{{ hostvars['arawi.regulad.internal'].pfsense_setup.domain }}"]
+
+# Each host's own [Resolve] settings, by name, written as a drop-in of their
+# own, host.conf, before resolved starts: DNSStubListener off where another
+# resolver runs, for one.
+resolved_settings_host: {}

@@ -2,12 +2,6 @@
 # systemd-resolved's mDNS on the host and on its networks' links, and in a
 # Proxmox container resolved's stub as the resolver. Runs on the generated
 # homelab hosts that run resolved (Phase 4).
-- name: Resolved running
-  ansible.builtin.systemd_service:
-    name: systemd-resolved
-    enabled: true
-    state: started
-
 - name: Resolved's drop-in directory
   ansible.builtin.file:
     path: /etc/systemd/resolved.conf.d
@@ -28,6 +22,35 @@
     group: root
     mode: "0644"
   notify: Restart systemd-resolved
+
+- name: The host's own settings
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/host.conf
+    content: |
+      # Managed by Ansible (resolved): the host's resolved_settings_host.
+      [Resolve]
+      {% for name, value in resolved_settings_host.items() %}
+      {{ name }}={{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  when: resolved_settings_host | length > 0
+  notify: Restart systemd-resolved
+
+- name: No settings of the host's own
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d/host.conf
+    state: absent
+  when: resolved_settings_host | length == 0
+  notify: Restart systemd-resolved
+
+# Started once its settings are in place.
+- name: Resolved running
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+    enabled: true
+    state: started
 
 - name: The links' drop-in directories
   ansible.builtin.file:
