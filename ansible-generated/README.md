@@ -33,6 +33,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `freeradius` | FreeRADIUS in a site of its own, checking each password by binding to an LDAP directory as the user; clients and secrets from SOPS | `freeradius_servers` |
 | [`softether`](roles/softether/README.md) | SoftEther VPN Server's Stable edition (4.x, not 5.x, whose Windows builds are unsigned and flagged by Defender), built from upstream's source tarball pinned by SHA-256, run from `/usr/local/vpnserver` under systemd once its `vpn_server.config`, state moved by hand, is in place | `softether_servers` |
 | `pterodactyl` | Installs the Pterodactyl panel where none exists and keeps its `.env`; `playbooks/maintenance.yml` upgrades it to `pterodactyl_version` | `pterodactyl` |
+| `nexus_security` | Nexus's own roles and users from `nexus_security_roles` and `nexus_security_users`, through its REST API as `svc-ansible`: each created where missing, updated where it differs, and its password set where Nexus rejects it; Nexus's other roles and users are left as they are | `nexus_servers` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
 which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks

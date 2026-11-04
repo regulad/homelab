@@ -1,0 +1,11 @@
+---
+# Nexus's own roles, each as its REST API takes one: id, name, description,
+# privileges and roles. Roles Nexus has that are not listed are left as they
+# are.
+nexus_security_roles: []
+
+# Nexus's own users, the default realm's, each as its REST API takes one:
+# userId, firstName, lastName, emailAddress, status and roles, with its
+# password from SOPS. A user whose password Nexus rejects gets the listed one.
+# Users Nexus has that are not listed are left as they are.
+nexus_security_users: []

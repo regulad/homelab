@@ -179,6 +179,15 @@
   roles:
     - qbittorrent
 
+# Nexus's own roles and users, through its REST API as svc-ansible, once its
+# Quadlet runs.
+- name: Nexus security
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus_security]
+  roles:
+    - nexus_security
+
 # Last: AIDE's baseline moved for the files this run wrote, as the aide_written
 # callback recorded them. Tagged always, so that a run scoped with --tags
 # refreshes what its plays wrote too.

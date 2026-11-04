@@ -1,0 +1,173 @@
+---
+# Converge Nexus's own roles and users through its REST API at nexus_url, as
+# svc-ansible (nexus_api_user, with its password from nexus_servers.sops.yml).
+# Only what nexus_security_roles and nexus_security_users name changes. uri has
+# no check mode, so a check run reports what a run would change instead.
+- name: Nexus security
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  block:
+    - name: Read Nexus's roles
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/roles?source=default"
+      register: nexus_security_roles_live
+      check_mode: false
+
+    - name: Roles to create or update
+      ansible.builtin.set_fact:
+        nexus_security_roles_new: >-
+          {{ nexus_security_roles | rejectattr('id', 'in', nexus_security_roles_live.json | map(attribute='id') | list) | list }}
+        nexus_security_roles_changed: >-
+          {%- set out = [] -%}
+          {%- for role in nexus_security_roles -%}
+          {%- for live in nexus_security_roles_live.json if live.id == role.id -%}
+          {%- if live.name != role.name
+                or live.description | default('') != role.description | default('')
+                or live.privileges | sort != role.privileges | default([]) | sort
+                or live.roles | sort != role.roles | default([]) | sort -%}
+          {%- set _ = out.append(role) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {%- endfor -%}
+          {{ out }}
+
+    - name: Create roles
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/roles"
+        method: POST
+        body_format: json
+        body: "{{ item | combine({'privileges': item.privileges | default([]), 'roles': item.roles | default([])}) }}"
+        status_code: 200
+      loop: "{{ nexus_security_roles_new }}"
+      loop_control:
+        label: "{{ item.id }}"
+      changed_when: true
+
+    - name: Update roles
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/roles/{{ item.id }}"
+        method: PUT
+        body_format: json
+        body: "{{ item | combine({'privileges': item.privileges | default([]), 'roles': item.roles | default([])}) }}"
+        status_code: 204
+      loop: "{{ nexus_security_roles_changed }}"
+      loop_control:
+        label: "{{ item.id }}"
+      changed_when: true
+
+    - name: Read Nexus's users
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/users?source=default"
+      register: nexus_security_users_live
+      check_mode: false
+
+    - name: Users to create or update
+      ansible.builtin.set_fact:
+        nexus_security_users_new: >-
+          {{ nexus_security_users | rejectattr('userId', 'in', nexus_security_users_live.json | map(attribute='userId') | list)
+             | map(attribute='userId') | list }}
+        nexus_security_users_existing: >-
+          {{ nexus_security_users | selectattr('userId', 'in', nexus_security_users_live.json | map(attribute='userId') | list)
+             | map(attribute='userId') | list }}
+        nexus_security_users_changed: >-
+          {%- set out = [] -%}
+          {%- for user in nexus_security_users -%}
+          {%- for live in nexus_security_users_live.json if live.userId == user.userId -%}
+          {%- if live.firstName != user.firstName or live.lastName != user.lastName
+                or live.emailAddress != user.emailAddress or live.status != user.status | default('active')
+                or live.roles | sort != user.roles | default([]) | sort -%}
+          {%- set _ = out.append(user.userId) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {%- endfor -%}
+          {{ out }}
+
+    - name: Create users
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/users"
+        method: POST
+        body_format: json
+        body:
+          userId: "{{ item.userId }}"
+          firstName: "{{ item.firstName }}"
+          lastName: "{{ item.lastName }}"
+          emailAddress: "{{ item.emailAddress }}"
+          password: "{{ item.password }}"
+          status: "{{ item.status | default('active') }}"
+          roles: "{{ item.roles | default([]) }}"
+        status_code: 200
+      loop: "{{ nexus_security_users | selectattr('userId', 'in', nexus_security_users_new) | list }}"
+      loop_control:
+        label: "{{ item.userId }}"
+      no_log: true
+      changed_when: true
+
+    - name: Update users
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/users/{{ item.userId }}"
+        method: PUT
+        body_format: json
+        body:
+          userId: "{{ item.userId }}"
+          firstName: "{{ item.firstName }}"
+          lastName: "{{ item.lastName }}"
+          emailAddress: "{{ item.emailAddress }}"
+          source: default
+          status: "{{ item.status | default('active') }}"
+          readOnly: false
+          roles: "{{ item.roles | default([]) }}"
+          externalRoles: []
+        status_code: 204
+      loop: "{{ nexus_security_users | selectattr('userId', 'in', nexus_security_users_changed) | list }}"
+      loop_control:
+        label: "{{ item.userId }}"
+      no_log: true
+      changed_when: true
+
+    # A wrong password gets 401; a right one 200, or 403 where the user lacks
+    # nx-metrics-all, since the check endpoint needs it.
+    - name: Test the existing users' passwords
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/check"
+        url_username: "{{ item.userId }}"
+        url_password: "{{ item.password }}"
+        status_code: [200, 401, 403]
+      loop: "{{ nexus_security_users | selectattr('userId', 'in', nexus_security_users_existing) | list }}"
+      loop_control:
+        label: "{{ item.userId }}"
+      register: nexus_security_passwords
+      check_mode: false
+      no_log: true
+
+    - name: Set the passwords Nexus rejects
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/users/{{ item.item.userId }}/change-password"
+        method: PUT
+        headers:
+          Content-Type: text/plain
+        body: "{{ item.item.password }}"
+        status_code: 204
+      loop: "{{ nexus_security_passwords.results | default([]) | selectattr('status', 'equalto', 401) | list }}"
+      loop_control:
+        label: "{{ item.item.userId }}"
+      no_log: true
+      changed_when: true
+
+    - name: What a run would change
+      ansible.builtin.debug:
+        msg:
+          roles_created: "{{ nexus_security_roles_new | map(attribute='id') | list }}"
+          roles_updated: "{{ nexus_security_roles_changed | map(attribute='id') | list }}"
+          users_created: "{{ nexus_security_users_new }}"
+          users_updated: "{{ nexus_security_users_changed }}"
+          passwords_set: >-
+            {{ nexus_security_passwords.results | default([]) | selectattr('status', 'equalto', 401)
+               | map(attribute='item.userId') | list }}
+      when: ansible_check_mode
+      changed_when: >-
+        (nexus_security_roles_new + nexus_security_roles_changed + nexus_security_users_new
+         + nexus_security_users_changed) | length > 0
+        or nexus_security_passwords.results | default([]) | selectattr('status', 'equalto', 401) | list | length > 0
