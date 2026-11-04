@@ -53,11 +53,15 @@ resource "oci_core_route_table" "legacy_default" {
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.legacy.id
 
-  route_rules {
-    destination       = "0.0.0.0/0"
-    destination_type  = "CIDR_BLOCK"
-    network_entity_id = oci_core_internet_gateway.legacy.id
-    route_type        = "STATIC"
+  dynamic "route_rules" {
+    for_each = local.dual_stack_internet_cidrs
+    iterator = cidr
+    content {
+      destination       = cidr.value
+      destination_type  = "CIDR_BLOCK"
+      network_entity_id = oci_core_internet_gateway.legacy.id
+      route_type        = "STATIC"
+    }
   }
 
   # The following exists as an artifact of import from the imperative setup.
@@ -71,11 +75,15 @@ resource "oci_core_security_list" "legacy_default" {
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.legacy.id
 
-  egress_security_rules {
-    destination      = "0.0.0.0/0"
-    destination_type = "CIDR_BLOCK"
-    protocol         = "all" # All IP protocols
-    stateless        = false
+  dynamic "egress_security_rules" {
+    for_each = local.dual_stack_internet_cidrs
+    iterator = cidr
+    content {
+      destination      = cidr.value
+      destination_type = "CIDR_BLOCK"
+      protocol         = "all" # All IP protocols
+      stateless        = false
+    }
   }
 
   ingress_security_rules {
@@ -99,6 +107,18 @@ resource "oci_core_security_list" "legacy_default" {
     icmp_options {
       type = 3 # Destination Unreachable
       code = 4 # Fragmentation Needed and DF set (path MTU discovery)
+    }
+  }
+
+  ingress_security_rules {
+    protocol    = "58" # ICMPv6
+    source      = "::/0"
+    source_type = "CIDR_BLOCK"
+    stateless   = false
+
+    icmp_options {
+      type = 2 # Packet Too Big
+      code = 0 # The only code for this type
     }
   }
 
