@@ -1,10 +1,14 @@
 ---
-# Each of noexec_paths bound over itself with noexec by its own mount unit,
-# started and enabled for local-fs.target. Runs on every Linux host, containers
-# included.
+# Each of noexec_paths and noexec_paths_host bound over itself with noexec by
+# its own mount unit, started and enabled for local-fs.target. Runs on every
+# Linux host, containers included.
+- name: Gather the paths
+  ansible.builtin.set_fact:
+    noexec_bind_paths: "{{ (noexec_paths + noexec_paths_host) | unique }}"
+
 - name: Name the paths' mount units, and check fstab mounts none of them
   ansible.builtin.command:
-    argv: "{{ ['sh', '-ec', noexec_script, 'sh'] + noexec_paths }}"
+    argv: "{{ ['sh', '-ec', noexec_script, 'sh'] + noexec_bind_paths }}"
   vars:
     noexec_script: |
       for path in "$@"; do
@@ -25,7 +29,7 @@
     owner: root
     group: root
     mode: "0644"
-  loop: "{{ noexec_paths | zip(noexec_units.stdout_lines) | list }}"
+  loop: "{{ noexec_bind_paths | zip(noexec_units.stdout_lines) | list }}"
   loop_control:
     label: "{{ item.1 }}"
   register: noexec_unit_files

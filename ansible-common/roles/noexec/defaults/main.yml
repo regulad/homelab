@@ -8,3 +8,5 @@
 noexec_paths:
   # Logs, which AIDE does not watch (aide role).
   - /var/log
+# Each host's additions, such as an application's logs.
+noexec_paths_host: []
