@@ -8,6 +8,9 @@
 noexec_paths:
   # Logs, which AIDE does not watch (aide role).
   - /var/log
+# The package manager's copies of its own state, which AIDE does not watch
+# (aide role): dpkg's and apt's daily ones in /var/backups, on Debian and Ubuntu.
+noexec_paths_packages: "{{ [] if 'rhel' in group_names else ['/var/backups'] }}"
 # Each host's additions, such as an application's logs.
 noexec_paths_host: []
 

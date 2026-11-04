@@ -1,11 +1,11 @@
 ---
-# Each of noexec_paths and noexec_paths_host bound over itself with noexec by
-# its own mount unit, started and enabled for local-fs.target; and /tmp a tmpfs
-# by systemd's own tmp.mount, with noexec. Runs on every Linux host, containers
-# included.
+# Each of noexec_paths, noexec_paths_packages and noexec_paths_host bound over
+# itself with noexec by its own mount unit, started and enabled for
+# local-fs.target; and /tmp a tmpfs by systemd's own tmp.mount, with noexec.
+# Runs on every Linux host, containers included.
 - name: Gather the paths
   ansible.builtin.set_fact:
-    noexec_bind_paths: "{{ (noexec_paths + noexec_paths_host) | unique }}"
+    noexec_bind_paths: "{{ (noexec_paths + noexec_paths_packages + noexec_paths_host) | unique }}"
 
 - name: Name the paths' mount units, and check fstab mounts none of them
   ansible.builtin.command:

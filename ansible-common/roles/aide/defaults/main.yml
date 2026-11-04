@@ -91,13 +91,17 @@ aide_exclude_paths:
 # of them. Also the automatic updater's own state, and apt-listchanges' record
 # of the changelogs it has shown. dpkg's records of each package, its
 # maintainer scripts among them, stay watched: aide-report explains them by
-# their package's version.
+# their package's version. And /var/backups, where dpkg-db-backup keeps daily
+# copies of dpkg's state and of the alternatives, and apt of its record of
+# packages installed automatically, each rotated through seven; Debian's own
+# rules for them say an exclusion handles them best, as AIDE cannot follow a
+# rotation that leaves a file as it was. The noexec role binds it noexec.
 aide_exclude_paths_packages: >-
   {{ ['/usr/lib/sysimage/rpm', '/var/lib/rpm', '/var/lib/dnf']
      if 'rhel' in group_names else
      ['/var/lib/apt/lists', '/var/lib/ubuntu-advantage/apt-esm', '/var/lib/command-not-found',
       '/var/lib/unattended-upgrades',
-      '/var/lib/apt/listchanges', '/var/lib/apt/listchanges-old'] }}
+      '/var/lib/apt/listchanges', '/var/lib/apt/listchanges-old', '/var/backups'] }}
 # Each group's additions, from its group_vars, such as what a platform's own
 # agents write.
 aide_exclude_paths_group: []
