@@ -96,6 +96,11 @@ resource "proxmox_virtual_environment_firewall_rules" "ncsusplitt" {
     action = "ACCEPT"
     macro  = "DNS"
   }
+
+  # mDNS, which systemd-resolved answers here (resolved role).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+  }
 }
 
 resource "proxmox_virtual_environment_firewall_options" "ncsusplitt" {

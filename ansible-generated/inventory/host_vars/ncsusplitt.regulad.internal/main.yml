@@ -91,6 +91,9 @@ clamav_onaccess_enabled: true
 noexec_paths_host: [/opt/pipx/logs]
 aide_exclude_paths_host: "{{ noexec_paths_host }}"
 
-# unbound is the resolver here, for the NCSU domains' split DNS, and
-# systemd-resolved does not run (resolved role).
-resolved_enabled: false
+# systemd-resolved answers mDNS here beside unbound, which serves the NCSU
+# domains' split DNS on eth0's and tailscale0's addresses (resolved role). Its
+# stub listener is off, and the host keeps the resolv.conf Proxmox writes.
+resolved_stub: false
+resolved_settings_host:
+  DNSStubListener: "no"
