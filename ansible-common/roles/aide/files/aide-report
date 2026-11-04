@@ -15,7 +15,8 @@ A change is left out when:
 - the path belongs to an installed package that vouches for it as it is now:
   rpm --verify finds nothing but its mtime, or dpkg --verify finds its contents
   intact and AIDE saw no change in its type, mode, ownership or other metadata
-  dpkg does not record;
+  dpkg does not record; rpm records no contents for a %ghost file, so never
+  vouches for one;
 - the path is a symlink of a package, pointing at a file of a package that
   vouches for it;
 - the path is gone, and the package that owned it at the baseline is no longer
@@ -191,15 +192,23 @@ class Packages:
         self.merged = {link: os.path.realpath(link) for link in USR_MERGE_LINKS if os.path.islink(link)}
         self.owner = {}
         self.installed = set()
+        # rpm's %ghost files: listed, with no contents rpm --verify checks.
+        self.ghost = set()
         if self.rpm:
             out = subprocess.run(
-                ["rpm", "-qa", "--qf", "[%{FILENAMES}\\t%{=NAME}-%{=VERSION}-%{=RELEASE}.%{=ARCH}\\n]"],
+                ["rpm", "-qa", "--qf",
+                 "[%{FILENAMES}\\t%{FILEFLAGS:fflags}\\t%{=NAME}-%{=VERSION}-%{=RELEASE}.%{=ARCH}\\n]"],
                 stdout=subprocess.PIPE, text=True, errors="replace", check=True).stdout
+            regular = set()
             for line in out.splitlines():
-                path, _, package = line.rpartition("\t")
-                if path:
-                    self.owner.setdefault(self.canonical(path), package)
+                fields = line.rsplit("\t", 2)
+                if len(fields) == 3 and fields[0]:
+                    path, flags, package = self.canonical(fields[0]), fields[1], fields[2]
+                    self.owner.setdefault(path, package)
                     self.installed.add(package)
+                    (self.ghost if "g" in flags else regular).add(path)
+            # A path one package lists as a ghost and another installs is the latter's.
+            self.ghost -= regular
         else:
             out = subprocess.run(
                 ["dpkg-query", "-W", "-f", "${binary:Package}\\t${Version}\\n"],
@@ -281,8 +290,12 @@ def explain(report, packages, manifest, excluded=()):
     kept = {"added": {}, "removed": {}, "changed": {}}
     explained = 0
 
+    def verified(path):
+        # rpm --verify checks none of a ghost's contents, so passes any.
+        return path in packages.owner and path not in packages.ghost and path not in unverified
+
     def vouched(path):
-        if path not in packages.owner or path in unverified:
+        if not verified(path):
             return False
         attributes = changed_attributes(report, path)
         if packages.rpm:
@@ -296,7 +309,7 @@ def explain(report, packages, manifest, excluded=()):
 
     def symlink_vouched(path):
         target = targets.get(path)
-        return target in packages.owner and target not in unverified
+        return target is not None and verified(target)
 
     baseline_owner = {packages.canonical(path): owner for path, owner in manifest.get("owner", {}).items()}
     baseline_installed = manifest.get("installed") or list(set(baseline_owner.values()))
