@@ -14,7 +14,7 @@
     auditd_script: |
       findmnt --bytes --noheadings --output SIZE --mountpoint /
       for path in "$@"; do
-        if [ -e "$path" ]; then echo "$path"; fi
+        if [ -d "$path" ]; then echo "$path dir"; elif [ -e "$path" ]; then echo "$path path"; fi
       done
   register: auditd_read
   changed_when: false
@@ -25,9 +25,13 @@
     # The syscall tables to match: a rule for one alone is bypassed through
     # the other, and only x86_64 runs 32-bit programs here.
     auditd_arches: "{{ ['b64', 'b32'] if ansible_facts.architecture == 'x86_64' else ['b64'] }}"
+    # Each existing path's field in a rule: dir for a directory and what lies
+    # below it, path for anything else.
+    auditd_fields: "{{ dict(auditd_read.stdout_lines[1:] | map('split', ' ', 1)) }}"
     auditd_watched: >-
       {{ (auditd_watches + auditd_watches_admin + auditd_watches_host)
-         | selectattr('path', 'in', auditd_read.stdout_lines[1:]) | list }}
+         | selectattr('path', 'in', auditd_read.stdout_lines[1:] | map('split', ' ', 1) | map('first') | list)
+         | list }}
     auditd_num_logs: >-
       {{ [2, [999, ((auditd_read.stdout_lines[0] | int) * auditd_root_share / 1048576
                     / auditd_max_log_file) | int] | min] | max }}
