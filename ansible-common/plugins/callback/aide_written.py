@@ -25,8 +25,9 @@ description:
     for it with .units after. The module does not say which links it made or
     removed in /etc/systemd/system, so the refresh finds them by the unit.
   - For each changed result of a task whose vars list aide_writes, appends
-    those literal absolute paths, the files a command rewrites without naming
-    them, such as update-grub's /boot/grub/grub.cfg.
+    those absolute paths, the files a command rewrites without naming them,
+    such as update-grub's /boot/grub/grub.cfg; a * in one stands for any part
+    of one name, as grubby's /boot/loader/entries/*.conf.
   - Results delegated to another host, and results hidden by no_log, are not
     recorded, as neither says, or may say, which of the host's files changed.
 requirements:

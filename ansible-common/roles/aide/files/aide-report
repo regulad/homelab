@@ -9,9 +9,9 @@ aide-report --baseline: accepts the files as they are: a new database, and the
 list of package-owned paths beside it, which later reports use to tell a path
 an upgrade removed from one removed by hand.
 aide-report --refresh PATH... [--units UNIT...]: moves the baseline for those
-paths alone, the files an Ansible run wrote, and for the links in
-/etc/systemd/system of the units it enabled, disabled or masked, and leaves
-every other entry as it was.
+paths alone, the files an Ansible run wrote, in which a * stands for any part
+of one name, and for the links in /etc/systemd/system of the units it enabled,
+disabled or masked, and leaves every other entry as it was.
 
 A change is left out when:
 - the path belongs to an installed package that vouches for it as it is now:
@@ -905,12 +905,19 @@ def unit_links(units):
     return patterns
 
 
+def refresh_pattern(path):
+    """A path given to --refresh as AIDE's regular expressions read it: a *
+    stands for any part of one name, there now or at the baseline, and every
+    other character for itself."""
+    return "[^/]*".join(regex(part) for part in path.split("*"))
+
+
 def refresh(settings, paths, units=()):
     if not os.path.exists(settings["database"]):
         return 0
     write_exclusions(settings)
     # AIDE anchors --limit at the start of each path.
-    patterns = [regex(path) for path in sorted(set(paths))] + unit_links(units)
+    patterns = [refresh_pattern(path) for path in sorted(set(paths))] + unit_links(units)
     if not patterns:
         return 0
     limit = "(%s)$" % "|".join(sorted(set(patterns)))
@@ -930,7 +937,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--baseline", action="store_true", help="accept the files as they are")
-    action.add_argument("--refresh", metavar="PATH", nargs="*", help="move the baseline for these paths alone")
+    action.add_argument("--refresh", metavar="PATH", nargs="*", help="move the baseline for these paths alone, a * standing for any part of one name")
     parser.add_argument("--units", metavar="UNIT", nargs="+", default=[],
                         help="with --refresh, and for the links of these systemd units")
     parser.add_argument("--settings", default=SETTINGS)
