@@ -1,8 +1,8 @@
 ---
-# Converge sysctl and GRUB drop-ins the host declares. Runs on Linux hosts in an
-# OS group, hardware (Phase 2) and generated (Phase 4); with nothing declared it
-# changes nothing.
-- name: Gather the sysctl files and GRUB drop-ins
+# Converge the sysctl files and kernel arguments the host declares. Runs on
+# Linux hosts in an OS group, hardware (Phase 2) and generated (Phase 4); with
+# nothing declared it changes nothing.
+- name: Gather the sysctl files and kernel arguments
   ansible.builtin.set_fact:
     kernel_params_sysctl: >-
       {{ kernel_params_sysctl_files
@@ -21,11 +21,11 @@
       - "'99-tailscale' not in kernel_params_sysctl_files"
       - "'kdump-tools' not in kernel_params_grub_dropins"
       - "'99-audit' not in kernel_params_grub_dropins"
-      - kernel_params_grub | length == 0 or 'rhel' not in group_names
+      - kernel_params_grub | length == 0 or kernel_params_mode in ['debian', 'grubby']
     fail_msg: >-
       99-panic and kdump-tools are the kdump role's, 99-acct, 99-tailscale and
-      99-audit come from this role's own settings, and Enterprise Linux has no
-      grub.d.
+      99-audit come from this role's own settings, and kernel arguments need
+      kernel_params_mode, debian or grubby, from the host's OS group.
     quiet: true
 
 - name: Sysctl files
@@ -54,4 +54,45 @@
   loop: "{{ kernel_params_grub | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  when: kernel_params_mode == 'debian'
   notify: Update GRUB
+
+# grubby --update-kernel=ALL rewrites every boot entry's options, and with them
+# GRUB_CMDLINE_LINUX in /etc/default/grub and /etc/kernel/cmdline, which
+# kernel-install gives each kernel installed later. It first takes out each
+# argument of the same name, whatever its value, so it converges all of them;
+# it runs only when one is missing from an entry or from /etc/kernel/cmdline.
+- name: Kernel arguments by grubby
+  when:
+    - kernel_params_mode == 'grubby'
+    - kernel_params_grub | length > 0
+  block:
+    - name: Read every boot entry's arguments
+      ansible.builtin.command: grubby --info=ALL
+      register: kernel_params_entries
+      changed_when: false
+      check_mode: false
+
+    - name: Read the arguments of kernels installed later
+      ansible.builtin.slurp:
+        src: /etc/kernel/cmdline
+      register: kernel_params_cmdline
+      # grubby makes the file where it is missing.
+      failed_when: false
+
+    - name: Kernel arguments in every boot entry
+      ansible.builtin.command:
+        argv: [grubby, --update-kernel=ALL, "--args={{ kernel_params_args | join(' ') }}"]
+      changed_when: true
+      when: >-
+        kernel_params_found | map('split') | map('intersect', kernel_params_args)
+        | map('length') | reject('eq', kernel_params_args | length) | list | length > 0
+      vars:
+        kernel_params_args: "{{ kernel_params_grub.values() | flatten | unique }}"
+        kernel_params_found: >-
+          {{ kernel_params_entries.stdout_lines | select('match', '^args=')
+             | map('regex_replace', '^args="(.*)"$', '\1') | list
+             + [kernel_params_cmdline.content | default('') | b64decode] }}
+        # What grubby rewrites, which the command does not name, for AIDE's
+        # refresh at the end of the run (aide_written callback).
+        aide_writes: [/boot/loader/entries/*.conf, /etc/default/grub, /etc/kernel/cmdline]

@@ -13,17 +13,26 @@ kernel_params_task_delayacct: "{{ 'proxmox_containers' not in group_names }}"
 # documentation names, on hosts that route for others.
 kernel_params_ip_forwarding: false
 
-# Files in /etc/default/grub.d (Debian and Ubuntu), each a name without .cfg
-# mapped to the kernel arguments it appends to GRUB_CMDLINE_LINUX_DEFAULT.
-# kdump-tools belongs to the kdump role, and 99-audit comes from this role's
-# own settings. A change takes effect on the next boot; the role never
-# reboots.
+# How the kernel gets its arguments, set by the host's OS group: debian
+# (drop-ins in /etc/default/grub.d, which Debian's grub-mkconfig reads, and
+# update-grub; on Debian and Ubuntu) or grubby (every boot loader entry; on
+# Enterprise Linux).
+kernel_params_mode: ""
+
+# Kernel arguments, each set a name mapped to its arguments. With debian, the
+# name is a file in /etc/default/grub.d, without .cfg, that appends them to
+# GRUB_CMDLINE_LINUX_DEFAULT. With grubby, they go into every boot loader entry
+# and /etc/kernel/cmdline, which kernel-install gives each kernel installed
+# later, and the name is a label alone. kdump-tools belongs to the kdump role,
+# and 99-audit comes from this role's own settings. A change takes effect on
+# the next boot; the role never reboots, and takes out no argument it no
+# longer declares.
 kernel_params_grub_dropins: {}
 
-# Auditing from boot, written as the drop-in 99-audit.cfg: without audit=1 the
-# kernel audits only once auditd starts, and a process already running then,
-# PID 1, journald and udevd among them, is never audited; the backlog holds
-# their records until auditd reads them, as the audit package's rules size it
+# Auditing from boot, as the set 99-audit: without audit=1 the kernel audits
+# only once auditd starts, and a process already running then, PID 1,
+# journald and udevd among them, is never audited; the backlog holds their
+# records until auditd reads them, as the audit package's rules size it
 # (-b 8192). On wherever the host runs its own kernel, and so auditd (auditd
-# role), but Enterprise Linux, which has no grub.d.
-kernel_params_audit: "{{ 'proxmox_containers' not in group_names and 'rhel' not in group_names }}"
+# role).
+kernel_params_audit: "{{ 'proxmox_containers' not in group_names }}"

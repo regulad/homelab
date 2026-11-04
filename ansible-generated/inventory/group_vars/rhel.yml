@@ -16,6 +16,10 @@ auto_updates_dnf_automatic:
 
 mail_relay_family: rhel
 
+# Enterprise Linux has no grub.d: grubby writes kernel arguments into each boot
+# entry.
+kernel_params_mode: grubby
+
 # rsyslog's log rotation, which the Oracle Linux 9.6 images leave out; without
 # it /var/log/messages and secure grow unrotated.
 base_packages: [rsyslog-logrotate]

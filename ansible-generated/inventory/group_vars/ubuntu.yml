@@ -20,3 +20,7 @@ auto_updates_unattended_upgrade:
   Sender: "{{ auto_updates_mail_from }}"
 
 mail_relay_family: debian
+
+# Debian's grub-mkconfig reads kernel arguments from drop-ins in
+# /etc/default/grub.d.
+kernel_params_mode: debian
