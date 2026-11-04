@@ -1,4 +1,14 @@
-# firewall: cluster-wide firewall options.
+# firewall: cluster-wide firewall options, and the security groups guests share.
+
+locals {
+  # mDNS's multicast groups, by IP family. A guest that resolves and answers
+  # mDNS admits what is sent to them: an answer comes from whichever host
+  # answers, so conntrack matches none to its question.
+  dual_stack_mdns_groups = {
+    ipv4 = "224.0.0.251"
+    ipv6 = "ff02::fb"
+  }
+}
 
 resource "proxmox_virtual_environment_cluster_firewall" "cluster" {
   enabled        = true
@@ -10,5 +20,24 @@ resource "proxmox_virtual_environment_cluster_firewall" "cluster" {
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
+  }
+}
+
+# mDNS's queries and answers, for the guests whose systemd-resolved resolves
+# and answers it (ansible-generated's resolved role).
+resource "proxmox_virtual_environment_cluster_firewall_security_group" "mdns" {
+  name = "mdns"
+
+  dynamic "rule" {
+    for_each = local.dual_stack_mdns_groups
+    iterator = group
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      dest   = group.value
+      proto  = "udp"
+      dport  = "5353" # mDNS
+    }
   }
 }

@@ -94,6 +94,11 @@ resource "proxmox_virtual_environment_firewall_rules" "jenkins" {
     proto  = "tcp"
     dport  = "8080" # Jenkins
   }
+
+  # mDNS, which systemd-resolved resolves and answers here (resolved role).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+  }
 }
 
 # Enabled after its rules exist, so the guest is never cut off. Proxmox applies

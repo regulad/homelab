@@ -2,30 +2,6 @@
 
 resource "proxmox_virtual_environment_container" "ingress" {
   node_name     = "prodingus"
-  description   = <<EOT
-Enabling mDNS in an LXC container is annoying.
-
-```
-systemctl enable --now systemd-resolved
-ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-touch /etc/.pve-ignore.resolv.conf
-echo 'make_resolv_conf() { :; }' > /etc/dhcp/dhclient-enter-hooks.d/leave_my_resolv_conf_alone
-chmod 755 /etc/dhcp/dhclient-enter-hooks.d/leave_my_resolv_conf_alone
-touch /etc/systemd/network/.pve-ignore.eth0.network
-```
-
-```
-# /etc/systemd/resolved.conf
-[Resolve]
-MulticastDNS=yes
-```
-
-```
-# /etc/systemd/network/eth0.network
-[Network]
-MulticastDNS=yes
-```
-EOT
   start_on_boot = false
   unprivileged  = true
   tags          = [local.tags.terraform]
