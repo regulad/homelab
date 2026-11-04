@@ -54,6 +54,10 @@ aide_exclude_paths:
   - /var/lib/tailscale/tailscaled.log2.txt
   - /var/lib/tailscale/derpmap.cached.json
   - /var/lib/tailscale/dns-cache
+  # The rules augenrules joins from /etc/audit/rules.d, which stays watched, at
+  # each load, and the copy it keeps of those it replaced (auditd role).
+  - /etc/audit/audit.rules
+  - /etc/audit/audit.rules.prev
   # clamonacc-mail's journal cursor, its unit's StateDirectory (clamav role).
   - /var/lib/clamonacc-mail
   # ClamAV's quarantine, the clamav role's clamav_quarantine: ClamAV mails each
