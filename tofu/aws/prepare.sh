@@ -30,7 +30,7 @@ _homelab_sops() {
 _homelab_aws_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext provider backend session region keyfile status name value
+    local root dir destination plaintext provider backend session region keyfile helper_status name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/aws"
     destination="$dir/secrets.auto.tfvars.json"
@@ -77,7 +77,7 @@ _homelab_aws_prepare() {
     # CreateSession goes to the trust anchor's region, on its dual-stack endpoint.
     region=$(printf '%s\n' "$provider" | jq -r .trust_anchor_arn | cut -d: -f4)
     keyfile=$(umask 077 && mktemp "${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/homelab-aws-key.XXXXXX") || return 1
-    status=0
+    helper_status=0
     if printf '%s\n' "$provider" | jq -r .private_key >"$keyfile"; then
         # go -C runs the helper in tools/, so every path it gets is absolute.
         # GOTOOLCHAIN=local builds it with the installed Go, never a download.
@@ -89,12 +89,12 @@ _homelab_aws_prepare() {
             --profile-arn "$(printf '%s\n' "$provider" | jq -r .profile_arn)" \
             --role-arn "$(printf '%s\n' "$provider" | jq -r .role_arn)" \
             --region "$region" \
-            --endpoint "https://rolesanywhere.$region.api.aws") || status=$?
+            --endpoint "https://rolesanywhere.$region.api.aws") || helper_status=$?
     else
-        status=1
+        helper_status=1
     fi
     rm -f "$keyfile"
-    [ "$status" -eq 0 ] || return "$status"
+    [ "$helper_status" -eq 0 ] || return "$helper_status"
     if ! printf '%s\n' "$session" |
         jq -e '[.AccessKeyId, .SecretAccessKey, .SessionToken] | all(. != null and . != "")' >/dev/null; then
         echo 'prepare.sh: aws_signing_helper returned no session credentials.' >&2
