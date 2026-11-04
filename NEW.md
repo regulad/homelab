@@ -12,9 +12,11 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   the host's mail relay, the changes its packages do not explain (`rpm
   --verify`, or dpkg's checksums). Each `site.yml` run moves the baseline for
   the files it wrote. Not yet on turk, which was unreachable
-- [ ] auditd on every host, containers included, to instrument an intrusion
-  should one occur: its rules record what happened for the investigation. It
-  detects and notifies nothing, and sends no mail; that is AIDE's job
+- [ ] auditd on every Linux host with its own kernel, to instrument an
+  intrusion should one occur: its rules record what happened for the
+  investigation. Containers cannot run it, and prodingus's records their
+  processes. It detects and notifies nothing, and sends no mail; that is
+  AIDE's job
 - [x] `/tmp` a tmpfs mounted `noexec` on every Linux host, containers
   included, by systemd's own `tmp.mount` with a drop-in adding `noexec` (the
   `noexec` role). Where `/tmp` was on the root filesystem, the tmpfs comes at
