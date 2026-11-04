@@ -28,6 +28,7 @@ description:
     recorded, as neither says, or may say, which of the host's files changed.
 requirements:
   - enabled in callbacks_enabled
+  - inject_invocation, so that results carry their modules' arguments
 """
 
 # Modules that write a file, or one directory entry, at the path they are given.
