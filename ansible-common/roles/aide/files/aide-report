@@ -8,8 +8,10 @@ the changes its package manager vouches for, and mails root what remains.
 aide-report --baseline: accepts the files as they are: a new database, and the
 list of package-owned paths beside it, which later reports use to tell a path
 an upgrade removed from one removed by hand.
-aide-report --refresh PATH...: moves the baseline for those paths alone, the
-files an Ansible run wrote, and leaves every other entry as it was.
+aide-report --refresh PATH... [--units UNIT...]: moves the baseline for those
+paths alone, the files an Ansible run wrote, and for the links in
+/etc/systemd/system of the units it enabled, disabled or masked, and leaves
+every other entry as it was.
 
 A change is left out when:
 - the path belongs to an installed package that vouches for it as it is now:
@@ -72,6 +74,7 @@ Settings come from a JSON file, by default /etc/aide-report/settings.json.
 
 import argparse
 import fcntl
+import glob
 import gzip
 import json
 import os
@@ -141,6 +144,11 @@ REBUILT = (
 # ends and found it unchanged, a space where the entry's rule does not record it.
 SUMMARY_LINK_NAME = 1
 SUMMARY_HASHES = 12
+# Where systemctl enable, disable, mask and link make and remove a unit's links,
+# and the suffixes of the unit types; a unit named without one is a service.
+SYSTEMD_UNITS = "/etc/systemd/system"
+UNIT_SUFFIXES = (".service", ".socket", ".target", ".timer", ".mount", ".automount",
+                 ".swap", ".path", ".slice", ".scope", ".device")
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -721,12 +729,32 @@ def baseline(settings):
     return 0
 
 
-def refresh(settings, paths):
+def unit_links(units):
+    """AIDE's expressions for the links of these units in /etc/systemd/system,
+    there now or at the baseline: the unit's own name there, a mask or a link,
+    and its name in a .wants, .requires or .upholds directory; with each such
+    directory that holds one now, which enabling it may have made. A link of
+    another name, from an Alias=, is not among them."""
+    patterns = []
+    for unit in sorted(set(units)):
+        if not unit.endswith(UNIT_SUFFIXES):
+            unit += ".service"
+        patterns.append("%s/([^/]+\\.(wants|requires|upholds)/)?%s" % (regex(SYSTEMD_UNITS), regex(unit)))
+        for kind in ("wants", "requires", "upholds"):
+            for link in glob.glob("%s/*.%s/%s" % (glob.escape(SYSTEMD_UNITS), kind, glob.escape(unit))):
+                patterns.append(regex(os.path.dirname(link)))
+    return patterns
+
+
+def refresh(settings, paths, units=()):
     if not os.path.exists(settings["database"]):
         return 0
     write_exclusions(settings)
     # AIDE anchors --limit at the start of each path.
-    limit = "(%s)$" % "|".join(regex(path) for path in sorted(set(paths)))
+    patterns = [regex(path) for path in sorted(set(paths))] + unit_links(units)
+    if not patterns:
+        return 0
+    limit = "(%s)$" % "|".join(sorted(set(patterns)))
     result = subprocess.run(
         ["aide", "--config", settings["config"], "--update", "--limit", limit, "-A", "report_format=json"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace")
@@ -735,7 +763,7 @@ def refresh(settings, paths):
         sys.stderr.write("aide --update exited %d\n" % result.returncode)
         return 1
     os.replace(settings["database_new"], settings["database"])
-    print("Refreshed the baseline for %d paths." % len(set(paths)))
+    print("Refreshed the baseline for %d paths and the links of %d units." % (len(set(paths)), len(set(units))))
     return 0
 
 
@@ -743,7 +771,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--baseline", action="store_true", help="accept the files as they are")
-    action.add_argument("--refresh", metavar="PATH", nargs="+", help="move the baseline for these paths alone")
+    action.add_argument("--refresh", metavar="PATH", nargs="*", help="move the baseline for these paths alone")
+    parser.add_argument("--units", metavar="UNIT", nargs="+", default=[],
+                        help="with --refresh, and for the links of these systemd units")
     parser.add_argument("--settings", default=SETTINGS)
     args = parser.parse_args()
     settings = load(args.settings)
@@ -752,8 +782,8 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         if args.baseline:
             return baseline(settings)
-        if args.refresh:
-            return refresh(settings, args.refresh)
+        if args.refresh is not None:
+            return refresh(settings, args.refresh, args.units)
         return check(settings)
 
 

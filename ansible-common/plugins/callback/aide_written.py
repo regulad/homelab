@@ -20,6 +20,10 @@ description:
     appends that path to a file named for the host, in a directory created for
     the run and named by the AIDE_WRITTEN_DIR environment variable, which the
     run's workers inherit. The directory is removed when the run ends.
+  - For each changed result of a module that enables, disables or masks a
+    systemd unit, appends the unit's name to a second file for the host, named
+    for it with .units after. The module does not say which links it made or
+    removed in /etc/systemd/system, so the refresh finds them by the unit.
   - Results delegated to another host, and results hidden by no_log, are not
     recorded, as neither says, or may say, which of the host's files changed.
 requirements:
@@ -31,6 +35,9 @@ MODULES = {
     "copy", "template", "file", "lineinfile", "blockinfile", "replace",
     "ini_file", "get_url", "xml",
 }
+# Modules that enable, disable or mask a systemd unit, through links in
+# /etc/systemd/system they do not name.
+UNIT_MODULES = {"systemd_service", "systemd", "service"}
 
 
 class CallbackModule(CallbackBase):
@@ -50,9 +57,17 @@ class CallbackModule(CallbackBase):
             return
         if values.get("_ansible_delegated_vars"):
             return
-        if result._task.action.rsplit(".", 1)[-1] not in MODULES:
-            return
+        action = result._task.action.rsplit(".", 1)[-1]
         arguments = values.get("invocation", {}).get("module_args", {})
+        if action in UNIT_MODULES:
+            unit = values.get("name") or arguments.get("name")
+            if (arguments.get("enabled") is not None or arguments.get("masked") is not None) \
+                    and isinstance(unit, str) and unit and "/" not in unit:
+                with open(os.path.join(self.directory, result._host.get_name() + ".units"), "a") as handle:
+                    handle.write(unit + "\n")
+            return
+        if action not in MODULES:
+            return
         path = values.get("dest") or arguments.get("dest") or arguments.get("path") or values.get("path")
         if not isinstance(path, str) or not path.startswith("/"):
             return
