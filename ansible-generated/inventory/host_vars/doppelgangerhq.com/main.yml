@@ -84,6 +84,15 @@ host_files_list:
       nft_reject_inet
       nft_chain_nat
     restarts: [systemd-modules-load.service]
+  # Oracle's rules for the instance's own services, at 169.254.0.0/16 and its
+  # IPv6 counterpart fd00:c1::a9fe:0/112 (a9fe is 169.254): only root reaches
+  # the iSCSI endpoints and 169.254.0.3, and other TCP and UDP to them is
+  # refused. They replace the image's iptables-persistent save, which
+  # firewalld's unit keeps from loading.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    shared_src: oci/direct.xml
+    reloads: [firewalld]
 
 # Mounted now and at each boot.
 host_files_units: [opt-doppelganger.mount]
