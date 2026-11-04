@@ -15,7 +15,11 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [ ] auditd on every host, containers included, to instrument an intrusion
   should one occur: its rules record what happened for the investigation. It
   detects and notifies nothing, and sends no mail; that is AIDE's job
-- [ ] `/tmp` a tmpfs mounted `noexec` in every container and VM
+- [x] `/tmp` a tmpfs mounted `noexec` on every Linux host, containers
+  included, by systemd's own `tmp.mount` with a drop-in adding `noexec` (the
+  `noexec` role). Where `/tmp` was on the root filesystem, the tmpfs comes at
+  each host's next boot, and `tmp-erase.service` erases what was left there
+  before each mount
 - [x] `/var/log` bound over itself `noexec` on every Linux host, containers
   included, by a mount unit of its own (the `noexec` role): AIDE does not watch
   it, so nothing put there can be run from there either. Not yet on turk, which
