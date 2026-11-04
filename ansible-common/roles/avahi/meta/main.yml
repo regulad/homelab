@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Avahi answering mDNS for the host's name and reflecting it to Podman bridges where asked, with nss-mdns resolving through it
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

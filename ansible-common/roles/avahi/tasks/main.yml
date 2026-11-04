@@ -1,12 +1,14 @@
 ---
-# Reflect mDNS between the LAN and the host's Podman bridge networks. Runs on
-# generated hosts in podman_hosts (Phase 4).
+# Avahi answering mDNS for the host's name, and reflecting it between the LAN
+# and the host's Podman bridge networks where avahi_reflector is set, with
+# nss-mdns resolving .local names through it. Runs on the Proxmox nodes
+# (Phase 2) and on generated hosts in podman_hosts (Phase 4).
 - name: Avahi
   when: avahi_enabled
   block:
-    - name: Install avahi-daemon
+    - name: Install avahi-daemon and nss-mdns
       ansible.builtin.package:
-        name: avahi-daemon
+        name: [avahi-daemon, libnss-mdns]
         state: present
 
     - name: Read Podman's bridge interfaces
@@ -14,6 +16,7 @@
       register: avahi_bridges
       changed_when: false
       check_mode: false
+      when: avahi_reflector
 
     - name: Avahi settings
       community.general.ini_file:
@@ -27,9 +30,10 @@
         mode: "0644"
       loop: >-
         {{ avahi_settings
-           + [{'section': 'reflector', 'option': 'enable-reflector', 'value': 'yes'},
+           + [{'section': 'reflector', 'option': 'enable-reflector', 'value': 'yes' if avahi_reflector else 'no'},
               {'section': 'server', 'option': 'allow-interfaces',
-               'value': ([avahi_lan_interface] + (avahi_bridges.stdout_lines | select | sort)) | join(',')}] }}
+               'value': ([avahi_lan_interface]
+                         + ((avahi_bridges.stdout_lines | select | sort) if avahi_reflector else [])) | join(',')}] }}
       loop_control:
         label: "{{ item.section }}: {{ item.option }}"
       notify: Restart Avahi
@@ -41,3 +45,10 @@
         state: started
       # A check run before the package is installed has no unit to look at.
       ignore_errors: "{{ ansible_check_mode }}"
+
+    # nss-mdns's package puts mdns4_minimal there; the role's choice replaces it.
+    - name: Lookups of .local names through Avahi
+      ansible.builtin.replace:
+        path: /etc/nsswitch.conf
+        regexp: '^(hosts:\s+files)(?:\s+mdns[46]?(?:_minimal)?\s+\[NOTFOUND=return\])?(\s)'
+        replace: '\1 {{ avahi_nss }} [NOTFOUND=return]\2'

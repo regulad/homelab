@@ -1,0 +1,6 @@
+---
+# mDNS on the Proxmox nodes, which run no systemd-resolved: Avahi answering
+# for the node's own name on its LAN bridge, reflecting nothing (avahi role).
+avahi_enabled: true
+avahi_reflector: false
+avahi_lan_interface: vmbr0

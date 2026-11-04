@@ -11,6 +11,16 @@
   roles:
     - proxmox_cluster
 
+# mDNS on the Proxmox nodes, which run no systemd-resolved: Avahi answering
+# for the node's own name.
+- name: mDNS
+  hosts: proxmox_nodes
+  gather_facts: false
+  become: true
+  tags: [avahi]
+  roles:
+    - avahi
+
 # The Ceph RADOS Gateway, with its users and buckets, on the nodes that run one.
 - name: Ceph RADOS Gateway
   hosts: proxmox_nodes

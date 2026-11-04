@@ -1,0 +1,30 @@
+---
+# mDNS by Avahi, where systemd-resolved does not do it (resolved role): on the
+# Proxmox nodes, which run no resolved, answering for the node's own name; and
+# on hosts whose containers sit on Podman bridge networks, reflecting mDNS
+# between those bridges and the LAN, where resolved's mDNS is off.
+avahi_enabled: false
+
+# Reflect mDNS between the LAN interface and every Podman bridge network's
+# interface on the host, read at run time.
+avahi_reflector: true
+
+# The LAN interface mDNS is answered and reflected on.
+avahi_lan_interface: eth0
+
+# avahi-daemon.conf settings beside the reflector and allow-interfaces, which
+# the role sets itself; the rest of the file stays the package's. The host
+# publishes its name and addresses alone: no hardware or workstation records,
+# and no domain for browsing.
+avahi_settings:
+  - {section: server, option: use-ipv4, value: "yes"}
+  - {section: server, option: use-ipv6, value: "yes"}
+  - {section: publish, option: publish-hinfo, value: "no"}
+  - {section: publish, option: publish-workstation, value: "no"}
+  - {section: publish, option: publish-domain, value: "no"}
+
+# The host's lookups of .local names through Avahi, by nss-mdns, before DNS:
+# mdns_minimal, for both families' addresses, where Debian's own default,
+# mdns4_minimal, gives IPv4's alone. [NOTFOUND=return] keeps a .local name
+# from unicast DNS.
+avahi_nss: mdns_minimal
