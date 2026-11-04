@@ -38,7 +38,10 @@ A change is left out when:
   or link count, which follow from the entries in it, each listed itself;
 - the path was rewritten with what it held: AIDE compared its contents, a
   file's hashes or a symlink's target, and found them unchanged, and nothing
-  about it changed but its timestamps and inode.
+  about it changed but its timestamps and inode, and the user of its SELinux
+  label, which records who wrote it: a service rewriting with system_u a file
+  last written from a login with unconfined_u. A change in its type, role or
+  level stays in the report.
 
 dpkg records its files' contents alone, so on Debian and Ubuntu the mode of a
 file a package installed since the baseline is not checked.
@@ -325,6 +328,26 @@ def changed_attributes(report, path):
     return set((report.get("details") or {}).get(path, {}).keys())
 
 
+def selinux_user_only(report, path):
+    """Whether the entry's SELinux label changed in its user alone, as when a
+    service (system_u) rewrites a file last written from a login (unconfined_u),
+    and its extended attributes in that label alone."""
+    details = (report.get("details") or {}).get(path, {})
+    label = details.get("selinux")
+    if not label:
+        return False
+    old, new = str(label.get("old", "")).split(":", 1), str(label.get("new", "")).split(":", 1)
+    if len(old) != 2 or len(new) != 2 or old[1] != new[1]:
+        return False
+    xattrs = details.get("xattrs")
+    if xattrs:
+        def others(values):
+            return [value for value in values or [] if " security.selinux = " not in value]
+        if others(xattrs.get("old")) != others(xattrs.get("new")):
+            return False
+    return True
+
+
 def same_contents(first, second):
     """Whether two files hold the same bytes."""
     try:
@@ -385,7 +408,10 @@ def explain(report, packages, manifest, excluded=()):
     def rewritten(path, summary):
         # Its contents compared and the same: a file's hashes, a symlink's target.
         column = SUMMARY_LINK_NAME if summary[:1] == "l" else SUMMARY_HASHES
-        return summary[column:column + 1] == "." and not changed_attributes(report, path) - REWRITTEN
+        attributes = changed_attributes(report, path) - REWRITTEN
+        if selinux_user_only(report, path):
+            attributes -= {"selinux", "xattrs"}
+        return summary[column:column + 1] == "." and not attributes
 
     def symlink_vouched(path):
         target = targets.get(path)
