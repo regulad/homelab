@@ -53,7 +53,8 @@ A change is left out when:
   during this boot, which began after the baseline was accepted: kdump.service
   builds it at the first boot into a kernel, not at the kernel's installation;
 - the path is gone, and the package that owned it at the baseline is no longer
-  installed in that version, or it now lies below a path the configuration
+  installed in that version (one removed but not purged is not installed,
+  though dpkg keeps its version), or it now lies below a path the configuration
   excludes (not below a new mount point: a filesystem mounted over a watched
   directory hides what was there, which stays in the report);
 - the path is one of dpkg's records of a package under /var/lib/dpkg/info, its
@@ -325,9 +326,16 @@ class Packages:
             self.ghost -= regular
         else:
             out = subprocess.run(
-                ["dpkg-query", "-W", "-f", "${binary:Package}\\t${Version}\\n"],
+                ["dpkg-query", "-W", "-f", "${binary:Package}\\t${Version}\\t${db:Status-Status}\\n"],
                 stdout=subprocess.PIPE, text=True, errors="replace", check=True).stdout
-            versions = dict(line.split("\t", 1) for line in out.splitlines() if "\t" in line)
+            # A package removed but not purged keeps its version, and a record
+            # of the configuration files it leaves, as config-files: it is not
+            # installed, and dpkg --verify vouches for none of what it left.
+            versions = {}
+            for line in out.splitlines():
+                fields = line.split("\t")
+                if len(fields) == 3 and fields[2] not in ("config-files", "not-installed"):
+                    versions[fields[0]] = fields[1]
             info = "/var/lib/dpkg/info"
             for name in os.listdir(info):
                 if not name.endswith(".list"):
