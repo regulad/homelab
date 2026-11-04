@@ -24,6 +24,9 @@ description:
     systemd unit, appends the unit's name to a second file for the host, named
     for it with .units after. The module does not say which links it made or
     removed in /etc/systemd/system, so the refresh finds them by the unit.
+  - For each changed result of a task whose vars list aide_writes, appends
+    those literal absolute paths, the files a command rewrites without naming
+    them, such as update-grub's /boot/grub/grub.cfg.
   - Results delegated to another host, and results hidden by no_log, are not
     recorded, as neither says, or may say, which of the host's files changed.
 requirements:
@@ -58,6 +61,12 @@ class CallbackModule(CallbackBase):
             return
         if values.get("_ansible_delegated_vars"):
             return
+        # What a task declares it writes, which its module does not name.
+        declared = (getattr(result._task, "vars", None) or {}).get("aide_writes") or []
+        declared = [path for path in declared if isinstance(path, str) and path.startswith("/")]
+        if declared:
+            with open(os.path.join(self.directory, result._host.get_name()), "a") as handle:
+                handle.writelines(path + "\n" for path in declared)
         action = result._task.action.rsplit(".", 1)[-1]
         arguments = values.get("invocation", {}).get("module_args", {})
         if action in UNIT_MODULES:

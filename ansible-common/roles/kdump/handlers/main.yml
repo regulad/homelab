@@ -2,6 +2,10 @@
 - name: Update GRUB
   ansible.builtin.command: update-grub
   changed_when: true
+  # What update-grub rewrites, which the command does not name, for AIDE's
+  # refresh at the end of the run (aide_written callback).
+  vars:
+    aide_writes: [/boot/grub/grub.cfg]
 
 - name: Apply the panic sysctls
   ansible.builtin.command: sysctl -p /etc/sysctl.d/99-panic.conf
