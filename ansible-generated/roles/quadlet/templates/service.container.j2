@@ -62,8 +62,10 @@ Health{{ setting | capitalize }}={{ item['health_' ~ setting] }}
 {% endfor %}
 {% if item.environment | default({}) %}
 
+{# Quadlet copies each value as written into ExecStart=, where systemd expands
+   $ and reads $$ as a literal $, so each $ is doubled to reach the container. #}
 {% for name, value in item.environment.items() %}
-Environment={{ name }}={{ value }}
+Environment={{ name }}={{ value | replace('$', '$$') }}
 {% endfor %}
 {% endif %}
 {% if item.env_file | default(false) %}

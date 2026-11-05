@@ -19,7 +19,9 @@
 #   hostname (HostName), add_capabilities (AddCapability), stop_timeout
 #   (StopTimeout, in seconds), health_cmd, health_interval, health_timeout,
 #   health_retries (HealthCmd and the others; a string command runs in a shell)
-#   environment     Environment entries, in order
+#   environment     Environment entries, in order, each value reaching the
+#                   container as written: the role doubles each $, which
+#                   systemd would expand in the ExecStart= Quadlet copies it to
 #   env_file        true to write quadlet_env_files[name], from the host's
 #                   secrets.sops.yml, to /etc/containers/systemd/<name>.env
 #   environment_files  EnvironmentFile entries, paths of env files something
