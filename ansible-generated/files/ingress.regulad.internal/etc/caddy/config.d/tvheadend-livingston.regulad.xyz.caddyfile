@@ -1,8 +1,9 @@
 tvheadend-livingston.regulad.xyz {
 	import hsts
 	import common
-	import cache
-	
+	# No cache: Souin holds each response until its upstream finishes, and a
+	# live stream never does.
+
 	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
 	# alone, as ingress's GUA rotates with the delegated prefix.
 	reverse_proxy {

@@ -2,7 +2,8 @@
 jf.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# No cache: Souin holds each response until its upstream finishes, so a
+	# stream or a direct play would wait in Caddy's memory whole.
 
 	# IPv4 only: Jellyfin does not count ingress's IPv6 address as on its LAN,
 	# so it rejects the proxy headers of connections from it.
