@@ -1,29 +1,27 @@
 ---
-# docker-mailserver's three data directories on its volume, each owned as the
-# image sets it: /var/mail by its vmail user (5000), /var/mail-state by root,
-# and /var/log/mail by its syslog user (113).
 host_files_directories:
   - path: /etc/systemd/system/podman-restart.service.d
     mode: "0755"
-  # docker-mailserver's compose project and its configuration.
-  - path: /root/mailserver
+  # docker-mailserver's configuration, which its Quadlet binds. Only root may
+  # enter it: mailserver.env and other files in it hold secrets, and the
+  # container binds what it reads directly, past this directory.
+  - path: "{{ mailserver_dir }}"
+    mode: "0700"
+  - path: "{{ mailserver_dir }}/config"
     mode: "0755"
-  - path: /root/mailserver/docker-data
+  - path: "{{ mailserver_dir }}/config/rspamd"
     mode: "0755"
-  - path: "{{ mail_dms_dir }}"
-    mode: "0755"
-  - path: "{{ mail_dms_dir }}/config"
-    mode: "0755"
-  - path: "{{ mail_dms_dir }}/config/rspamd"
-    mode: "0755"
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim"
     owner: "111"
     group: "114"
     mode: "0755"
-  - path: "{{ mail_dms_dir }}/config/rspamd/override.d"
+  - path: "{{ mailserver_dir }}/config/rspamd/override.d"
     mode: "0755"
-  - path: "{{ mail_dms_dir }}/rspamd-dqs"
+  - path: "{{ mailserver_dir }}/rspamd-dqs"
     mode: "0755"
+  # docker-mailserver's three data directories on its volume, each owned as the
+  # image sets it: /var/mail by its vmail user (5000), /var/mail-state by root,
+  # and /var/log/mail by its syslog user (113).
   - path: /mnt/mailserver/mail
     owner: "5000"
     group: "5000"
@@ -35,13 +33,20 @@ host_files_directories:
     group: "0"
     mode: "0755"
 
-# The data volume labelled for containers, which docker-mailserver's
-# directories are bound into: a rule, which a relabel keeps, rather than
-# Podman's :Z, which a relabel undoes.
+# The data volume and the configuration labelled for containers, which
+# docker-mailserver's directories are bound into: a rule, which a relabel keeps,
+# rather than Podman's :Z, which a relabel undoes.
 host_files_selinux_fcontexts:
   - target: /mnt/mailserver(/.*)?
     setype: container_file_t
     path: /mnt/mailserver
+  - target: "{{ mailserver_dir }}(/.*)?"
+    setype: container_file_t
+    path: "{{ mailserver_dir }}"
+# docker-mailserver reads its certificate from /etc/letsencrypt (cert_t), and
+# the FreeIPA CA from ca_trust's anchors.
+host_files_selinux_booleans:
+  container_read_certs: true
 # FIXME: permissive, not the oci group's enforcing: docker-mailserver still
 # writes to bind mounts under /root, labelled admin_home_t, which containers may
 # not write. Revisit at its Quadlet cutover to /mnt/mailserver.
@@ -102,84 +107,84 @@ host_files_list:
     content: |
       [Unit]
       RequiresMountsFor=/mnt/mailserver
-  # docker-mailserver's own configuration, each file as it was imported, at the
-  # paths its compose project binds. A change applies when the container next
-  # starts; nothing restarts it. The files that hold secrets are templates or
-  # content, their secrets from secrets.sops.yml.
-  - path: /root/mailserver/mailserver.env
+  # docker-mailserver's own configuration, each file as it was imported. A
+  # change applies when the container next starts; nothing restarts it. The
+  # files that hold secrets are templates or content, their secrets from
+  # secrets.sops.yml.
+  - path: "{{ mailserver_dir }}/mailserver.env"
     template: true
     secret: true
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/fail2ban-fail2ban.cf"
+  - path: "{{ mailserver_dir }}/config/fail2ban-fail2ban.cf"
     mode: "0644"
   # Its own subnet's /64 from the instance's address in OpenTofu's state.
-  - path: "{{ mail_dms_dir }}/config/fail2ban-jail.cf"
+  - path: "{{ mailserver_dir }}/config/fail2ban-jail.cf"
     template: true
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/postfix-generic.regexp"
+  - path: "{{ mailserver_dir }}/config/postfix-generic.regexp"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/postfix-main.cf"
+  - path: "{{ mailserver_dir }}/config/postfix-main.cf"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/postfix-relaymap.cf"
+  - path: "{{ mailserver_dir }}/config/postfix-relaymap.cf"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/postfix-reply-filter.regexp"
+  - path: "{{ mailserver_dir }}/config/postfix-reply-filter.regexp"
     mode: "0644"
   # The relays' logins: OCI Email Delivery and Gmail.
-  - path: "{{ mail_dms_dir }}/config/postfix-sasl-password.cf"
+  - path: "{{ mailserver_dir }}/config/postfix-sasl-password.cf"
     content: "{{ mailserver_postfix_sasl_password }}"
     secret: true
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/postfix-tls-policy.cf"
+  - path: "{{ mailserver_dir }}/config/postfix-tls-policy.cf"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/postfix-virtual.cf"
+  - path: "{{ mailserver_dir }}/config/postfix-virtual.cf"
     mode: "0644"
   # Rspamd's DKIM keys, owned by its user in the container (111:114).
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
     content: "{{ mailserver_dkim_private_keys['regulad.xyz'] }}"
     secret: true
     owner: "111"
     group: "114"
     mode: "0600"
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
     owner: "111"
     group: "114"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
     owner: "111"
     group: "114"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.private.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.private.txt"
     content: "{{ mailserver_dkim_private_keys['nefumllc.com'] }}"
     secret: true
     owner: "111"
     group: "114"
     mode: "0600"
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.txt"
     owner: "111"
     group: "114"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.dns.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.dns.txt"
     owner: "111"
     group: "114"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/rspamd/override.d/arc.conf"
+  - path: "{{ mailserver_dir }}/config/rspamd/override.d/arc.conf"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/rspamd/override.d/dkim_signing.conf"
+  - path: "{{ mailserver_dir }}/config/rspamd/override.d/dkim_signing.conf"
     owner: "111"
     group: "114"
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/config/rspamd/override.d/settings.conf"
+  - path: "{{ mailserver_dir }}/config/rspamd/override.d/settings.conf"
     mode: "0644"
   # Run by docker-mailserver at each start: trusts the old HOME.ARPA CA, which
-  # the compose project binds from /root/ipa-ca.crt.
-  - path: "{{ mail_dms_dir }}/config/user-patches.sh"
+  # its Quadlet binds from ca_trust's anchors.
+  - path: "{{ mailserver_dir }}/config/user-patches.sh"
     mode: "0755"
   # Spamhaus's DQS lists, its key from secrets.sops.yml.
-  - path: "{{ mail_dms_dir }}/rspamd-dqs/rbl.conf"
+  - path: "{{ mailserver_dir }}/rspamd-dqs/rbl.conf"
     template: true
     secret: true
     mode: "0644"
-  - path: "{{ mail_dms_dir }}/rspamd-dqs/rbl_group.conf"
+  - path: "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf"
     mode: "0644"
 
 # Mounted now and at each boot.
@@ -205,16 +210,14 @@ certbot_certificates:
     domains: [mail.regulad.xyz]
 certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 
-# docker-mailserver's configuration, bind-mounted into its container; its data
-# is on /mnt/mailserver.
-mail_dms_dir: /root/mailserver/docker-data/dms
+# docker-mailserver's configuration, bound into its container; its data is on
+# /mnt/mailserver.
+mailserver_dir: /etc/mailserver
 
-# ClamAV's on-access scanner, over the baseline directories alone, and its
-# weekly scan, both but for docker-mailserver's directory: its own ClamAV scans
-# each message as Postfix accepts it, and its state holds that ClamAV's
-# signatures. Neither reaches /mnt/mailserver, another filesystem, unlisted.
+# ClamAV's on-access scanner, over the baseline directories alone. Neither it
+# nor the weekly scan reaches /mnt/mailserver, another filesystem, unlisted:
+# docker-mailserver's own ClamAV scans each message as Postfix accepts it.
 clamav_onaccess_enabled: true
-clamav_exclude_paths: ["{{ mail_dms_dir }}"]
 
 # The Unified Monitoring Agent's sockets (oci group): bound over themselves
 # noexec, and so not checked by AIDE.
