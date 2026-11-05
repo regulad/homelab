@@ -1,4 +1,4 @@
-# tvheadend: container 127, its HA resource and its Ansible host.
+# tvheadend: container 127, its HA resource, its firewall and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "tvheadend" {
   node_name     = "prodingus"
@@ -47,11 +47,7 @@ resource "proxmox_virtual_environment_container" "tvheadend" {
   }
 
   network_interface {
-    # Bypasses the firewall: no firewall bridge for this NIC. Its HDHomeRun
-    # tuner sends each stream to a UDP port tvheadend picks at random, and
-    # answers its discovery broadcasts from its own address, neither of which
-    # conntrack matches to anything tvheadend sent.
-    firewall    = false
+    firewall    = true
     mac_address = "BC:24:11:83:46:4B"
     name        = "eth0"
     vlan_id     = 1
@@ -77,6 +73,71 @@ resource "proxmox_haresource" "tvheadend" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# In: the web UI from ingress alone (tvheadend-livingston.regulad.xyz), HTSP
+# from the homelab's own ranges, for Jellyfin on aboriginal, and UDP from
+# anywhere, for the HDHomeRun tuner.
+resource "proxmox_virtual_environment_firewall_rules" "tvheadend" {
+  node_name    = proxmox_virtual_environment_container.tvheadend.node_name
+  container_id = proxmox_virtual_environment_container.tvheadend.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    source = local.ingress_ipv4
+    proto  = "tcp"
+    dport  = "9981" # Tvheadend web UI
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = "9982" # HTSP
+    }
+  }
+
+  # UDP, for the HDHomeRun tuner's streams, which it sends to a port tvheadend
+  # picks at random, and its answers to tvheadend's discovery broadcasts, which
+  # come from its own address; conntrack matches neither to anything tvheadend
+  # sent. It covers SSDP too, and mDNS, which systemd-resolved resolves and
+  # answers here (resolved role).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.udp.name
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "tvheadend" {
+  node_name     = proxmox_virtual_environment_container.tvheadend.node_name
+  container_id  = proxmox_virtual_environment_container.tvheadend.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.tvheadend]
 }
 
 # Listed in the Ansible inventory while its HA resource is requested.

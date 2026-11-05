@@ -41,3 +41,17 @@ resource "proxmox_virtual_environment_cluster_firewall_security_group" "mdns" {
     }
   }
 }
+
+# Every UDP datagram, from anywhere and to any port, for the guests that need
+# UDP open: tailscaled's and cloudflared's NAT traversal, and tvheadend's
+# HDHomeRun tuner. Each guest's own rules still filter TCP. It covers mDNS, so
+# these guests list no mdns group.
+resource "proxmox_virtual_environment_cluster_firewall_security_group" "udp" {
+  name = "udp"
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    proto  = "udp"
+  }
+}

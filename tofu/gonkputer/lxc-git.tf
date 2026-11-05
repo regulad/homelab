@@ -1,5 +1,5 @@
-# git: container, its HA resource and its Ansible host: Forgejo and its Cloudflare
-# tunnel, moved here from the git VM (vm-git.tf).
+# git: container, its HA resource, its firewall and its Ansible host: Forgejo
+# and its Cloudflare tunnel, moved here from the git VM (vm-git.tf).
 
 resource "proxmox_virtual_environment_container" "git" {
   node_name = "prodingus"
@@ -62,6 +62,55 @@ resource "proxmox_haresource" "git" {
   resource_id = "ct:${proxmox_virtual_environment_container.git.vm_id}"
   type        = "ct"
   state       = "started"
+}
+
+# In: Forgejo's web UI from ingress alone (git.regulad.xyz), and UDP from
+# anywhere, for cloudflared's NAT traversal. Forgejo's SSH server is reached
+# through the Cloudflare tunnel, which cloudflared connects outbound.
+resource "proxmox_virtual_environment_firewall_rules" "git" {
+  node_name    = proxmox_virtual_environment_container.git.node_name
+  container_id = proxmox_virtual_environment_container.git.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    source = local.ingress_ipv4
+    proto  = "tcp"
+    dport  = "3000" # Forgejo
+  }
+
+  # UDP, for cloudflared's NAT traversal, and mDNS, which systemd-resolved
+  # resolves and answers here (resolved role).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.udp.name
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "git" {
+  node_name     = proxmox_virtual_environment_container.git.node_name
+  container_id  = proxmox_virtual_environment_container.git.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.git]
 }
 
 # Listed in the Ansible inventory while its HA resource is requested.
