@@ -778,6 +778,24 @@ resource "cloudflare_dns_record" "regulad_xyz_mail_txt" {
   }
 }
 
+# DANE (RFC 7672) for SMTP to mail: the SHA-256 of its certificate's public
+# key, which certbot keeps at each renewal (reuse_key in mail's host_vars). To
+# change the key, publish the new key's record beside this one, wait out the
+# TTL, switch keys, then remove this one.
+resource "cloudflare_dns_record" "regulad_xyz_25_tcp_mail_tlsa" {
+  name    = "_25._tcp.${cloudflare_dns_record.regulad_xyz_mail_a.name}"
+  zone_id = cloudflare_zone.regulad_xyz.id
+  type    = "TLSA"
+  ttl     = 1 # Automatic
+
+  data = {
+    usage         = 3 # DANE-EE: the server's own key
+    selector      = 1 # SubjectPublicKeyInfo
+    matching_type = 1 # SHA-256
+    certificate   = "b03f9e5812eac29198ca6cd5e8247faa2cf68b8c588bb3dd1f2f7220a7a0eabd"
+  }
+}
+
 resource "cloudflare_dns_record" "regulad_xyz_matrix_cname" {
   name    = "matrix.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id
