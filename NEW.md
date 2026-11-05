@@ -85,7 +85,10 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 - [x] GCP: `tofu/gcp`, one root for every project, signed in as a service account whose
   uploaded key Google holds only the public half of. Eleven projects were deleted, and
   the four kept are adopted with their APIs, service accounts and reCAPTCHA keys
-- [ ] Cloudflare: its zones, DNS records, rules and tunnels
+- [x] Cloudflare: `tofu/cloudflare`, signed in with an account-owned API token, as the
+  API offers no key pair. Its five zones and their records, `regulad.xyz`'s DNSSEC and
+  settings, the `git` tunnel and two hosts' API tokens are adopted; the OCI hosts'
+  records read their addresses from `tofu/oracle`'s outputs
 - [ ] Azure
 
 ## Additional declarative configuration of services
