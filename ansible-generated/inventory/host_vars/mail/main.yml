@@ -45,10 +45,6 @@ host_files_selinux_fcontexts:
 # the FreeIPA CA from ca_trust's anchors.
 host_files_selinux_booleans:
   container_read_certs: true
-# FIXME: permissive, not the oci group's enforcing: docker-mailserver still
-# writes to bind mounts under /root, labelled admin_home_t, which containers may
-# not write. Revisit at its Quadlet cutover to /mnt/mailserver.
-host_files_selinux_state: permissive
 
 # firewalld as the image and later hand edits left it. The default zone admits
 # SSH, DHCPv6, HTTP, on which nothing listens today, and webhookd; the image's
