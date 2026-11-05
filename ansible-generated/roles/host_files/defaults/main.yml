@@ -38,6 +38,13 @@ host_files_archives: []
 host_files_venvs: []
 # SELinux booleans set persistently, each a name mapped to true or false.
 host_files_selinux_booleans: {}
+# SELinux file-context rules, each a target (a regular expression, as semanage
+# fcontext takes one), its setype, and the path restorecon relabels below,
+# restoring any label that has drifted from the rules too.
+host_files_selinux_fcontexts: []
+# SELinux's mode under the targeted policy, enforcing or permissive, at once
+# and in /etc/selinux/config; empty leaves it as it is.
+host_files_selinux_state: ""
 host_files_list: []
 # Directories that hold exactly the files directly in a directory here, each
 # with its path on the host, optionally src (relative to host_files_dir;

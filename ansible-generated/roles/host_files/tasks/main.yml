@@ -246,6 +246,34 @@
   loop_control:
     label: "{{ item.key }}"
 
+- name: Host SELinux file contexts
+  community.general.sefcontext:
+    target: "{{ item.target }}"
+    setype: "{{ item.setype }}"
+    state: present
+  loop: "{{ host_files_selinux_fcontexts }}"
+  loop_control:
+    label: "{{ item.target }}"
+
+# Labels that differ from the rules, such as files written before a rule
+# existed, relabelled; with -n in a check run, which only lists them.
+- name: Host SELinux labels restored
+  ansible.builtin.command:
+    argv: "{{ ['restorecon', '-R', '-v'] + (['-n'] if ansible_check_mode else []) + [item.path] }}"
+  loop: "{{ host_files_selinux_fcontexts }}"
+  loop_control:
+    label: "{{ item.path }}"
+  register: host_files_restorecon
+  changed_when: host_files_restorecon.stdout | length > 0
+  check_mode: false
+
+# After the labels, so that an enforcing switch finds them right.
+- name: Host SELinux mode
+  ansible.posix.selinux:
+    policy: targeted
+    state: "{{ host_files_selinux_state }}"
+  when: host_files_selinux_state | length > 0
+
 # The units the restart handler restarts: those whose files changed.
 - name: Host units to restart
   ansible.builtin.set_fact:
