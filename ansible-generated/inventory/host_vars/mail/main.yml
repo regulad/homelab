@@ -1,4 +1,19 @@
 ---
+# docker-mailserver's three data directories on its volume, each owned as the
+# image sets it: /var/mail by its vmail user (5000), /var/mail-state by root,
+# and /var/log/mail by its syslog user (113).
+host_files_directories:
+  - path: /mnt/mailserver/mail
+    owner: "5000"
+    group: "5000"
+    mode: "0755"
+  - path: /mnt/mailserver/state
+    mode: "0755"
+  - path: /mnt/mailserver/log
+    owner: "113"
+    group: "0"
+    mode: "0755"
+
 # firewalld as the image and later hand edits left it. The default zone admits
 # SSH, DHCPv6, HTTP, on which nothing listens today, and webhookd; the image's
 # cockpit service is gone from it. Netavark adds the Podman networks to the
