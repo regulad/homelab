@@ -19,7 +19,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] The new CA in `ca_trust` as `freeipa-regulad.internal`, beside the old server's, renamed `freeipa-home.arpa`, while the stand-in presents the old server's certificate. FreeIPA's own tooling deletes anchors named `ipa-ca`, as `ipa-server-install` did on wako, so `ca_trust_retired` removes the old name
   - [x] A shim at the old VM's MAC, so 10.23.2.32 and `freeipa.regulad-verizon-livingston.internal` keep answering while consumers move: LDAP through OpenLDAP's `ldap` backend and `rwm` overlay, rewriting `dc=home,dc=arpa` to `dc=regulad,dc=internal` for wako, with the old server's own certificate. No Kerberos; its RADIUS proxy is retired, as softether, the last RADIUS client, uses wako directly
   - [x] The hardware stage's `mail_relay` manages its null- accounts on wako, through prodingus, as the generated stage does through wako itself
-  - [ ] Very low priority, each done only when other work on that consumer is already under way: consumers repointed (URI, base DN, bind DN, CA): mail's SMTP and IMAP logins, and with them every host's `mail_relay` account; the `mail_relay` role's `ipa_user` API calls; authentik; Proxmox's realm; Jellyfin on aboriginal; Synapse; Open WebUI
+  - [ ] Very low priority, each done only when other work on that consumer is already under way: consumers repointed (URI, base DN, bind DN, CA): authentik; Proxmox's realm; Jellyfin on aboriginal; Synapse; Open WebUI
   - [x] A new FreeRADIUS on wako, against its directory, replacing the one set up by hand on the FreeIPA VM with three clients; softether is its one client
   - [x] Backups: the weekly vzdump, which covers wako; no `ipa-backup`
   - [x] Anonymous LDAP read closed: anonymous clients get only the root DSE
@@ -51,24 +51,25 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 
 - [x] `bailout`: WireGuard to arawi, rendered from the tunnels both hosts read
 - [ ] `doppelgangerhq.com` (legacy `web`): a special case, its network configuration (hostname and `/etc/hosts` included) furnished by Oracle at install time and left as Oracle wrote it
-  - [ ] The miner and its tunnel removed, as on tailscalerouter
-  - [ ] Doppelganger's compose project, with `.env.local` from SOPS, and `web-latest` pinned; the per-device projects under `/opt/doppelganger` are the app's
-  - [ ] Docker CE from Docker's repository, where the `docker` role installs `docker.io`
-  - [ ] nginx's site, and its TLS (the certbot snap today)
-  - [ ] `binder_linux`, loaded by `/etc/rc.local` today
-  - [ ] GRUB pinned to 6.8.0-87 (`GRUB_DEFAULT=saved`), so reboots never reach newer kernels
-  - [ ] `logrotate`, which Ubuntu Minimal leaves out
-  - [ ] IPv6: an AAAA record is published, but the legacy VCN has no IPv6 route
+  - [x] The miner and its tunnel removed, as on tailscalerouter
+  - [x] Doppelganger's compose project, with its environment from SOPS, brought up by the `docker` role and its images pulled daily by `doppelganger-update.timer`; the per-device projects under `/opt/doppelganger` are the app's
+  - [ ] The app's image built again by its GitHub Actions workflow: the stack runs `ghcr.io/regulad/doppelganger:latest`, the image recovered from the host
+  - [x] Ubuntu's `docker.io` in place of Docker CE from Docker's repository
+  - [x] Caddy serves the site, with its own certificates and HSTS, in place of nginx and the certbot snap
+  - [x] `binder_linux`, loaded through `/etc/modules-load.d` in place of `/etc/rc.local`
+  - [x] GRUB back on `GRUB_DEFAULT=0`, so reboots reach the newest generic kernel
+  - [ ] `logrotate`, which Ubuntu Minimal leaves out: installed since 2026-10-30 only as a dependency of the ClamAV packages, and declared nowhere
+  - [x] IPv6: the legacy VCN routes and admits it, and Caddy serves both families
 - [x] `livekit`: LiveKit, lk-jwt-service, nginx and certbot
-- [ ] `mail`: docker-mailserver 15, authenticating against FreeIPA
-  - [ ] The miner and its tunnel removed, as on tailscalerouter
-  - [ ] docker-mailserver as a Quadlet, where `docker compose` drives Podman today, with its env file and config overrides declared and their secrets in SOPS
-  - [ ] Certificate renewal: neither scheduled path has the Cloudflare plugin, and nothing reloads Postfix and Dovecot after one
-  - [ ] Backups: restic for the mail store, the DKIM keys and the SRS secret, which only boot-volume backups cover today
-  - [ ] `/var/log/messages` at 7.9 GB, from setroubleshoot: SELinux is permissive and the bind mounts under `/root` are unlabelled, and logrotate does not compress
+- [ ] `mail`: docker-mailserver 15, authenticating against FreeIPA on wako
+  - [x] The miner and its tunnel removed, as on tailscalerouter
+  - [x] docker-mailserver as a Quadlet, in place of the compose project Podman ran, with its env file and config overrides declared and their secrets in SOPS
+  - [ ] Certificate renewal: certbot renews by Cloudflare's DNS-01, but nothing reloads Postfix and Dovecot after one: docker-mailserver's change detector runs only with `ACCOUNT_PROVISIONER=FILE`, so the container takes a renewed certificate only when it is next created
+  - [x] Backups: the mail store on a block volume of its own, under the bronze backup policy, and the DKIM keys and the SRS secret in SOPS; no restic
+  - [x] `/var/log/messages` at 7.9 GB, from setroubleshoot: setroubleshoot is gone, logrotate compresses, and SELinux enforces, with nothing bound from `/root`
   - [ ] Bounces after acceptance: Postfix accepts the LDAP `mail` addresses that Dovecot's `uid` lookup rejects
   - [ ] DKIM signing for `nefumllc.com`, and the malformed MTA-STS record
-  - [ ] webhookd: unpinned, its TLS key world-readable
+  - [x] webhookd: pinned at upstream's release, its TLS key readable by its own user alone
 - [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
 
