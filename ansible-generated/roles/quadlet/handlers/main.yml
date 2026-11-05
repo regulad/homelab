@@ -4,7 +4,7 @@
     daemon_reload: true
 
 # Regenerate the units, then restart only the services whose unit or env file
-# changed.
+# changed, but for those the role has just started, which already run them.
 - name: Restart changed Quadlet services
   ansible.builtin.systemd_service:
     name: "{{ item }}.service"
@@ -12,7 +12,9 @@
     daemon_reload: true
   loop: >-
     {{ ((quadlet_units.results | default([])) + (quadlet_envs.results | default([])))
-       | selectattr('changed') | map(attribute='item.name') | unique | list }}
+       | selectattr('changed') | map(attribute='item.name') | unique
+       | difference(quadlet_started.results | default([]) | selectattr('changed') | map(attribute='item.name') | list)
+       | list }}
   register: quadlet_restarted
   # In check mode a new unit is not written, so systemd cannot find it.
   failed_when:
