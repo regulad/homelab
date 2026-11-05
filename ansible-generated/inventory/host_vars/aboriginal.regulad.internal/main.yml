@@ -272,7 +272,7 @@ host_files_list:
       [Install]
       WantedBy=timers.target
     restarts: [nextcloud-cron.timer]
-rgw_backup_buckets: [synapse-media, mastodon-media]
+rgw_backup_buckets: [synapse-media]
 
 # Jellyfin's major release, which its image tag follows. To move to the next,
 # bump it and run maintenance.yml's jellyfin-upgrade, not site.yml: site.yml
