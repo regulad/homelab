@@ -79,8 +79,13 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 
 ## Additional cloud providers
 
-- [ ] AWS
-- [ ] GCP
+- [x] AWS: `tofu/aws`, signed in through IAM Roles Anywhere with a certificate whose key
+  is in SOPS. The account was cleaned out, and what it keeps is adopted: the IAM users
+  and roles, and the Lambda behind Home Assistant's Alexa Smart Home skill
+- [x] GCP: `tofu/gcp`, one root for every project, signed in as a service account whose
+  uploaded key Google holds only the public half of. Eleven projects were deleted, and
+  the four kept are adopted with their APIs, service accounts and reCAPTCHA keys
+- [ ] Cloudflare: its zones, DNS records, rules and tunnels
 - [ ] Azure
 
 ## Additional declarative configuration of services
