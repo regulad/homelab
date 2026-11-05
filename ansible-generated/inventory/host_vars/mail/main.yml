@@ -242,6 +242,9 @@ host_files_archives:
 certbot_certificates:
   - name: mail.regulad.xyz
     domains: [mail.regulad.xyz]
+    # The key DANE's TLSA record for mail.regulad.xyz pins, in tofu/cloudflare;
+    # changing it means publishing the new key's record first.
+    reuse_key: true
 certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 
 # docker-mailserver's configuration, bound into its container; its data is on
