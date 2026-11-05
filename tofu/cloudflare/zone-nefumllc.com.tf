@@ -47,7 +47,7 @@ resource "cloudflare_dns_record" "nefumllc_com_txt_spf" {
   name    = cloudflare_zone.nefumllc_com.name
   zone_id = cloudflare_zone.nefumllc_com.id
   type    = "TXT"
-  content = "\"v=spf1 mx -all\""
+  content = "\"v=spf1 mx include:rp.oracleemaildelivery.com -all\""
   ttl     = 1 # Automatic
 
   # The following exists as an artifact of import from the imperative setup.
@@ -73,13 +73,21 @@ resource "cloudflare_dns_record" "nefumllc_com_mail_domainkey_txt" {
   name    = "mail._domainkey.${cloudflare_zone.nefumllc_com.name}"
   zone_id = cloudflare_zone.nefumllc_com.id
   type    = "TXT"
-  content = "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAilO8aBltj55SgPKV9cQk+S6f8rVFIwHDfiO30NbQA/7SPfkOYm5yaV2xaVht2SMkQDzNTqT/2hyZuedN/DlzktIzsy93eeRvPf/ko8/Dt3INcGtKDV0rS3aPLKDy+7s4YFZxZKDas7wt7ilYcCy3L6UUWJPi0iTR3WiZtSi7JxqqQyg8c1SsIxBou6+B6ibsS\" \"DznPScLfsUBQjA+CinpqOdY/GeAHCn5zK7qNvlThbxFVCSKEz2EHYEVPHCw06NJDDwv4HT7VGeUH4gkluoJ5HYYpEiwz77eT4jLtSZcODkMbdv1M20EbQbeFNCHYzxEsgsipAFPRxsuoc2SHcv97QIDAQAB\""
+  content = "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApVj/pHNnnP0eXbgGKll1bO9RcNnY0Ajic+4PgOy3tjU1ZTCKlvdNThyT9LApdVqfXRjkGyG7NuqaJ02QiTuO2Hl1I6L50plOxubQOvrSF1GhCqBRBoGaYGAi1Pe0o+pt5mEuLtvfqjKIDZv5demsaSjUVfDv7hdJrTaDymBcv2RJR35oG5EZKjAzQZ9W+Xn96\" \"wcWDwhBCoie2vkKHQ6KvlB6zm/C6kAk/XoOwEInsY11h/lt61nFKAAq9etx/dHlG8EN71xN7jMU2i8LNtGLTI5Xc53Y1Z6+NOObJ0hTtZsKjCBZLOHdnRGEwLCjWygp8/21YPSao/YEXhVMgwKy3wIDAQAB\""
   ttl     = 1 # Automatic
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
   }
+}
+
+resource "cloudflare_dns_record" "nefumllc_com_email_dkim_cname" {
+  name    = trimsuffix(data.terraform_remote_state.oracle.outputs.email_dkim[cloudflare_zone.nefumllc_com.name].name, ".")
+  zone_id = cloudflare_zone.nefumllc_com.id
+  type    = "CNAME"
+  content = data.terraform_remote_state.oracle.outputs.email_dkim[cloudflare_zone.nefumllc_com.name].target
+  ttl     = 1 # Automatic
 }
 
 resource "cloudflare_dns_record" "nefumllc_com_www_cname" {

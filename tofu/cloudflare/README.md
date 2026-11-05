@@ -25,8 +25,8 @@ its value is labelled for its role (`regulad_xyz_email_dkim_cname`). A `ttl` of 
 Cloudflare's automatic TTL.
 
 Names are built from their zone's name, and a record pointing at a host declared here
-references that record. The OCI instances' A and AAAA records and the Email Delivery DKIM
-record read their values from `tofu/oracle`'s outputs, so no GUA is written here. After an
+references that record. The OCI instances' A and AAAA records and each zone's Email Delivery
+DKIM record read their values from `tofu/oracle`'s outputs, so no GUA is written here. After an
 apply to `tofu/oracle` changes one, apply this root for its records to follow.
 
 `regulad.xyz` declares only the settings in which it differs from a new zone, as

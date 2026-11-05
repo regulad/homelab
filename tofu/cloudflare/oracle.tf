@@ -1,6 +1,6 @@
-# tofu/oracle's outputs: the OCI instances' public addresses, and the Email
-# Delivery DKIM record, for the records that name them. state.tf decrypts its
-# state with tofu/oracle's passphrase.
+# tofu/oracle's outputs: the OCI instances' public addresses, and each Email
+# Delivery domain's DKIM record, for the records that name them. state.tf
+# decrypts its state with tofu/oracle's passphrase.
 
 # The same bucket and options as the backend in state.tf, under tofu/oracle's key.
 data "terraform_remote_state" "oracle" {

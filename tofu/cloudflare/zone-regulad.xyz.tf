@@ -906,10 +906,10 @@ resource "cloudflare_dns_record" "regulad_xyz_pterodactyl_cname" {
 }
 
 resource "cloudflare_dns_record" "regulad_xyz_email_dkim_cname" {
-  name    = trimsuffix(data.terraform_remote_state.oracle.outputs.email_dkim.name, ".")
+  name    = trimsuffix(data.terraform_remote_state.oracle.outputs.email_dkim[cloudflare_zone.regulad_xyz.name].name, ".")
   zone_id = cloudflare_zone.regulad_xyz.id
   type    = "CNAME"
-  content = data.terraform_remote_state.oracle.outputs.email_dkim.target
+  content = data.terraform_remote_state.oracle.outputs.email_dkim[cloudflare_zone.regulad_xyz.name].target
   ttl     = 1 # Automatic
 
   # The following exists as an artifact of import from the imperative setup.
