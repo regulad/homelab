@@ -63,6 +63,11 @@ PASSWD = {{ forgejo_secrets.mailer_passwd }}
 REGISTER_EMAIL_CONFIRM = true
 ENABLE_NOTIFY_MAIL = true
 DISABLE_REGISTRATION = false
+; Only addresses at regulad.xyz may register or be added to an account, by any
+; route but an admin's; REGISTER_EMAIL_CONFIRM makes a self-registrant prove
+; the address. With federation on, Forgejo also allows git.regulad.xyz, the
+; domain of its federated users' placeholder addresses.
+EMAIL_DOMAIN_ALLOWLIST = regulad.xyz
 ALLOW_ONLY_EXTERNAL_REGISTRATION = false
 ENABLE_CAPTCHA = true
 REQUIRE_SIGNIN_VIEW = false
