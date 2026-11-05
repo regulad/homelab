@@ -217,6 +217,27 @@
     - host_files_packages | length > 0
     - "'rhel' in group_names"
 
+# Purged on Debian and Ubuntu, where a removal leaves the package's
+# configuration files behind, as config-files, until a purge; one left so
+# before is purged too. rpm removes them, keeping a changed one as .rpmsave.
+# Each package's own scripts stop and disable its services.
+- name: Host packages removed (APT)
+  ansible.builtin.apt:
+    name: "{{ host_files_removed_packages }}"
+    state: absent
+    purge: true
+  when:
+    - host_files_removed_packages | length > 0
+    - "'rhel' not in group_names"
+
+- name: Host packages removed (dnf)
+  ansible.builtin.dnf:
+    name: "{{ host_files_removed_packages }}"
+    state: absent
+  when:
+    - host_files_removed_packages | length > 0
+    - "'rhel' in group_names"
+
 # Python applications no distribution package provides, through pipx's
 # global install (/opt/pipx, commands in /usr/local/bin), each pinned.
 - name: Host pipx applications
