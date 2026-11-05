@@ -70,9 +70,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   block superfluous traffic
 - [x] Proxmox firewalls for the guests created before AGENTS.md required one of
   every new guest: firewall options and rules for each, as a new guest gets.
-  Every guest below VMID 200 has its own, apart from aboriginal, dodo, arawi,
-  tailscalerouter and tvheadend, which bypass the firewall as softether does
-  - [ ] git, authentik and matrix (VMIDs 200 to 202), which have none yet
+  Every guest has its own, apart from aboriginal, dodo, arawi, softether and
+  tailscalerouter, which bypass the firewall
 - [ ] Egress firewalls everywhere, to contain a compromise such as a botnet's spam
   attempts should one occur
 
