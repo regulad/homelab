@@ -180,8 +180,16 @@ SYSTEMD_UNITS = "/etc/systemd/system"
 UNIT_SUFFIXES = (".service", ".socket", ".target", ".timer", ".mount", ".automount",
                  ".swap", ".path", ".slice", ".scope", ".device")
 # The links enabling a unit makes, by the [Install] settings naming them: a
-# link in each target's directory of this suffix, and one of each Alias= name.
+# link in each target's directory of this suffix, and one of each Alias= name;
+# systemctl enables each unit its Also= names with it.
 INSTALL_LINKS = {"WantedBy": ".wants", "RequiredBy": ".requires", "UpheldBy": ".upholds"}
+# Where systemd looks for the system's unit files that systemctl enables, in
+# its order of precedence (systemd.unit(5)), past its runtime and generated
+# units, which it does not enable.
+UNIT_PATHS = (SYSTEMD_UNITS, "/run/systemd/system", "/usr/local/lib/systemd/system",
+              "/usr/lib/systemd/system", "/lib/systemd/system")
+# An instance's name, and its template's: foo@bar.service and foo@.service.
+UNIT_INSTANCE = re.compile(r"^([^@/]+@)[^@/]+(\.[^.@/]+)$")
 # update-rc.d's links to an init script, in each runlevel's directory.
 SYSV_LINK = re.compile(r"^/etc/rc([0-6S])\.d/([SK])\d\d([^/]+)$")
 # deb-systemd-helper's record of the links it made: a file per unit listing
@@ -454,10 +462,8 @@ def rebuilds_same(path, command, scratch):
             pass
 
 
-def install_links(unit_file):
-    """The links in /etc/systemd/system that enabling a unit makes, from its
-    file's [Install] section."""
-    name = os.path.basename(unit_file)
+def install_settings(unit_file):
+    """A unit file's [Install] settings, each with the list of its values."""
     settings = {}
     section = None
     try:
@@ -470,7 +476,16 @@ def install_links(unit_file):
                     key, _, value = line.partition("=")
                     settings.setdefault(key.strip(), []).extend(value.split())
     except OSError:
-        return set()
+        return {}
+    return settings
+
+
+def install_links(unit_file, name=None):
+    """The links in /etc/systemd/system that enabling a unit makes, from its
+    file's [Install] section; name is the unit's, where the file is the
+    template of the instance enabled."""
+    name = name or os.path.basename(unit_file)
+    settings = install_settings(unit_file)
     links = {"%s/%s%s/%s" % (SYSTEMD_UNITS, target, suffix, name)
              for key, suffix in INSTALL_LINKS.items() for target in settings.get(key, [])}
     return links | {"%s/%s" % (SYSTEMD_UNITS, alias) for alias in settings.get("Alias", [])}
@@ -1021,20 +1036,51 @@ def baseline(settings):
     return 0
 
 
+def unit_file(unit):
+    """The file systemctl enables a unit from, with its links followed: the
+    first of the unit's name along systemd's search path that is no mask, or
+    for an instance with none of its own, its template's; or None."""
+    instance = UNIT_INSTANCE.match(unit)
+    for name in [unit] + (["%s%s" % instance.groups()] if instance else []):
+        for directory in UNIT_PATHS:
+            path = os.path.join(directory, name)
+            # A mask links to /dev/null, which is no file.
+            if os.path.isfile(path):
+                return os.path.realpath(path)
+    return None
+
+
 def unit_links(units):
     """AIDE's expressions for the links of these units in /etc/systemd/system,
     there now or at the baseline: the unit's own name there, a mask or a link,
-    and its name in a .wants, .requires or .upholds directory; with each such
-    directory that holds one now, which enabling it may have made. A link of
-    another name, from an Alias=, is not among them."""
+    and its name in a .wants, .requires or .upholds directory; and the links
+    its file's [Install] names, its Alias= names among them; with each such
+    directory that holds one now, which enabling it may have made. A unit an
+    Also= names, which systemctl enables and disables with the one naming it,
+    gets the same."""
     patterns = []
-    for unit in sorted(set(units)):
-        if not unit.endswith(UNIT_SUFFIXES):
-            unit += ".service"
+    pending = [unit if unit.endswith(UNIT_SUFFIXES) else unit + ".service" for unit in units]
+    seen = set()
+    while pending:
+        unit = pending.pop()
+        if unit in seen:
+            continue
+        seen.add(unit)
         patterns.append("%s/([^/]+\\.(wants|requires|upholds)/)?%s" % (regex(SYSTEMD_UNITS), regex(unit)))
         for kind in ("wants", "requires", "upholds"):
             for link in glob.glob("%s/*.%s/%s" % (glob.escape(SYSTEMD_UNITS), kind, glob.escape(unit))):
                 patterns.append(regex(os.path.dirname(link)))
+        source = unit_file(unit)
+        if source is None:
+            continue
+        # An instance's links are named for it, an alias's for the unit it names.
+        instance = UNIT_INSTANCE.match(unit)
+        name = unit if instance and os.path.basename(source) == "%s%s" % instance.groups() else None
+        for link in install_links(source, name):
+            patterns.append(regex(link))
+            if os.path.dirname(link) != SYSTEMD_UNITS and os.path.lexists(link):
+                patterns.append(regex(os.path.dirname(link)))
+        pending.extend(install_settings(source).get("Also", []))
     return patterns
 
 
