@@ -12,6 +12,7 @@ subdirectories into a module, so its files are grouped by name prefix instead.
 | `email.tf` | Email Delivery: the `regulad.xyz` domain, its DKIM key and senders, and the `svc-mail` policy (5 resources) |
 | `state-bucket.tf`, `state-identity.tf` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
 | `main.tf` | The availability-domain lookup and the `tofu/shared` module call |
+| `outputs.tf` | The instances' public addresses and the DKIM key's CNAME record, which `tofu/cloudflare` reads for its DNS records |
 | `locals.tf` | Values several files share |
 | `moved.tf` | Every past address of each resource |
 | `providers.tf`, `versions.tf` | Shared OCI authentication, region and pinned tool/provider versions |
@@ -171,6 +172,8 @@ remote state, so restoring one needs `tofu state push -force`.
   that changes, requiring review of primary-VNIC selection.
 - Public IPv4 addresses are ephemeral. Instance VNIC configuration preserves
   allocation behavior; it does not promise the same address after recreation.
+  `tofu/cloudflare`'s records read each address from `outputs.tf`, so after an
+  apply here changes one, apply `tofu/cloudflare` for its records to follow.
 - The SearchDomain DHCP option omits `server_type`, which does not apply to that
   option type.
 
