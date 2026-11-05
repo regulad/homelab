@@ -64,7 +64,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [ ] `mail`: docker-mailserver 15, authenticating against FreeIPA on wako
   - [x] The miner and its tunnel removed, as on tailscalerouter
   - [x] docker-mailserver as a Quadlet, in place of the compose project Podman ran, with its env file and config overrides declared and their secrets in SOPS
-  - [ ] Certificate renewal: certbot renews by Cloudflare's DNS-01, but nothing reloads Postfix and Dovecot after one: docker-mailserver's change detector runs only with `ACCOUNT_PROVISIONER=FILE`, so the container takes a renewed certificate only when it is next created
+  - [x] Certificate renewal: certbot renews by Cloudflare's DNS-01, and its deploy hook restarts Postfix and Dovecot in the container, as docker-mailserver's change detector runs only with `ACCOUNT_PROVISIONER=FILE`
   - [x] Backups: the mail store on a block volume of its own, under the bronze backup policy, and the DKIM keys and the SRS secret in SOPS; no restic
   - [x] `/var/log/messages` at 7.9 GB, from setroubleshoot: setroubleshoot is gone, logrotate compresses, and SELinux enforces, with nothing bound from `/root`
   - [ ] Bounces after acceptance: Postfix accepts the LDAP `mail` addresses that Dovecot's `uid` lookup rejects
