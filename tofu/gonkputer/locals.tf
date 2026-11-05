@@ -34,6 +34,12 @@ locals {
     ipv6 = join(",", [local.dual_stack_lan_cidrs.ipv6, var.lan_ipv6_cidr, var.pubsub_ipv6_cidr, module.shared.tailscale_cidrs.ipv6])
   }
 
+  # ingress's reserved IPv4 address, arawi's DHCP static mapping for it. Guests
+  # that admit only ingress name it, and ingress's Caddy reaches them over IPv4
+  # alone: over IPv6 it connects from its EUI-64 GUA, which rotates with the
+  # delegated prefix.
+  ingress_ipv4 = "10.23.2.31"
+
   # Guest tags, by name. A guest lists the ones it carries in Proxmox's sorted
   # order; every guest carries `terraform`, marking it as managed by OpenTofu.
   tags = {

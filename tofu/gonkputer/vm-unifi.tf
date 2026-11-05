@@ -1,4 +1,4 @@
-# unifi: VM 102 and its HA resource.
+# unifi: VM 102, its HA resource and its firewall.
 
 resource "proxmox_virtual_environment_vm" "unifi" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -104,4 +104,122 @@ resource "proxmox_haresource" "unifi" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# In: SSH and UniFi OS Server's web UI, device inform, STUN and discovery, from
+# the homelab's own ranges. Not its optional services, the mobile speed
+# test (6789), Identity Hub (9543), remote syslog (5514) and hotspot
+# portals (8444, 8880 to 8882), nor its 5671 and 28082.
+resource "proxmox_virtual_environment_firewall_rules" "unifi" {
+  node_name = proxmox_virtual_environment_vm.unifi.node_name
+  vm_id     = proxmox_virtual_environment_vm.unifi.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      macro  = "SSH"
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = "11443" # UniFi OS Server's web UI
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = "8080" # Device inform
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "udp"
+      dport  = "3478" # STUN
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "udp"
+      dport  = "10001" # Device discovery
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "udp"
+      dport  = "10003" # Adoption discovery
+    }
+  }
+
+  # mDNS, which systemd-resolved resolves and answers here (its vendor file).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "unifi" {
+  node_name     = proxmox_virtual_environment_vm.unifi.node_name
+  vm_id         = proxmox_virtual_environment_vm.unifi.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.unifi]
 }

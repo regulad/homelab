@@ -1,4 +1,4 @@
-# urbackup: VM 111 and its HA resource.
+# urbackup: VM 111, its HA resource and its firewall.
 
 resource "proxmox_virtual_environment_vm" "urbackup" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
@@ -116,4 +116,95 @@ resource "proxmox_haresource" "urbackup" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# In: SSH, UrBackup's web UI and its internet clients from the homelab's own
+# ranges, and its LAN clients' answers to its discovery broadcasts, which
+# conntrack does not match to the broadcast. Not FastCGI (55413), which no
+# web server fronts.
+resource "proxmox_virtual_environment_firewall_rules" "urbackup" {
+  node_name = proxmox_virtual_environment_vm.urbackup.node_name
+  vm_id     = proxmox_virtual_environment_vm.urbackup.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      macro  = "SSH"
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = "55414" # Web UI
+    }
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = "55415" # Internet clients
+    }
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    source = local.dual_stack_lan_cidrs.ipv4
+    proto  = "udp"
+    dport  = "35623" # Discovery answers
+  }
+
+  # Its discovery socket is bound on each address, link-local included.
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    source = "${local.dual_stack_lan_cidrs.ipv6},${var.lan_ipv6_cidr},fe80::/10"
+    proto  = "udp"
+    dport  = "35623" # Discovery answers
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "urbackup" {
+  node_name     = proxmox_virtual_environment_vm.urbackup.node_name
+  vm_id         = proxmox_virtual_environment_vm.urbackup.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.urbackup]
 }

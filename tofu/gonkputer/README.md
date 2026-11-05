@@ -7,7 +7,7 @@ Fixes follow as separate, reviewed changes. `gonkputer` has one node, `prodingus
 
 | Location | Configuration |
 |---|---|
-| `vm-<name>.tf`, `lxc-<name>.tf` | One file per guest: the VM or container, then its HA resource and firewall options where present |
+| `vm-<name>.tf`, `lxc-<name>.tf` | One file per guest: the VM or container, then its HA resource and firewall where present |
 | `cluster.tf` | Datacenter options and the custom CPU model `RYZEN-Vermeer-v3` |
 | `firewall.tf` | Cluster-wide firewall options |
 | `ha.tf` | HA rules; each HA resource lives with its guest |

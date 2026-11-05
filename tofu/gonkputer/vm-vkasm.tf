@@ -1,4 +1,4 @@
-# vkasm: VM 129 and its Ansible host.
+# vkasm: VM 129, its firewall and its Ansible host.
 
 resource "proxmox_virtual_environment_vm" "vkasm" {
   name       = "vkasm"
@@ -9,6 +9,7 @@ resource "proxmox_virtual_environment_vm" "vkasm" {
   tags          = [local.tags.terraform]
 
   network_device {
+    firewall    = true
     mac_address = "BC:24:11:01:36:F9"
     model       = "vmxnet3"
     vlan_id     = 1
@@ -37,6 +38,65 @@ resource "proxmox_virtual_environment_vm" "vkasm" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# In: Kasm's web UI from ingress alone (kasm.regulad.xyz), and SSH, through
+# which Ansible reaches it, from the homelab's own ranges. Not Kasm's RDP
+# gateway (3389).
+resource "proxmox_virtual_environment_firewall_rules" "vkasm" {
+  node_name = proxmox_virtual_environment_vm.vkasm.node_name
+  vm_id     = proxmox_virtual_environment_vm.vkasm.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    source = local.ingress_ipv4
+    macro  = "HTTPS"
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      macro  = "SSH"
+    }
+  }
+
+  # mDNS, which systemd-resolved resolves and answers here (resolved role).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "vkasm" {
+  node_name     = proxmox_virtual_environment_vm.vkasm.node_name
+  vm_id         = proxmox_virtual_environment_vm.vkasm.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.vkasm]
 }
 
 # No HA resource, so listed in the Ansible inventory while it starts on boot.

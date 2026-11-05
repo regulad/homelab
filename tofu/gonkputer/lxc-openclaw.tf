@@ -1,4 +1,4 @@
-# openclaw: container 103, its HA resource and its Ansible host.
+# openclaw: container 103, its HA resource, its firewall and its Ansible host.
 
 resource "proxmox_virtual_environment_container" "openclaw" {
   node_name     = "prodingus"
@@ -69,6 +69,53 @@ resource "proxmox_haresource" "openclaw" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# In: OpenClaw's gateway from ingress alone, whose Caddy requires a client
+# certificate in front of it (openclaw.regulad.xyz).
+resource "proxmox_virtual_environment_firewall_rules" "openclaw" {
+  node_name    = proxmox_virtual_environment_container.openclaw.node_name
+  container_id = proxmox_virtual_environment_container.openclaw.vm_id
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    macro  = "Ping"
+  }
+
+  rule {
+    type   = "in"
+    action = "ACCEPT"
+    source = local.ingress_ipv4
+    proto  = "tcp"
+    dport  = "18789" # OpenClaw's gateway
+  }
+
+  # mDNS, which systemd-resolved resolves and answers here (resolved role).
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+  }
+}
+
+# Enabled after its rules exist, so the guest is never cut off. Proxmox applies
+# its DHCP rules unless dhcp is 0, although its schema calls 0 the default; the
+# guest takes its addresses by DHCP and SLAAC, which ndp's router advertisements
+# carry.
+resource "proxmox_virtual_environment_firewall_options" "openclaw" {
+  node_name     = proxmox_virtual_environment_container.openclaw.node_name
+  container_id  = proxmox_virtual_environment_container.openclaw.vm_id
+  enabled       = true
+  dhcp          = true
+  input_policy  = "DROP"
+  ipfilter      = false
+  log_level_in  = "nolog"
+  log_level_out = "nolog"
+  macfilter     = true
+  ndp           = true
+  output_policy = "ACCEPT"
+  radv          = false
+
+  depends_on = [proxmox_virtual_environment_firewall_rules.openclaw]
 }
 
 # Listed in the Ansible inventory while its HA resource is requested.
