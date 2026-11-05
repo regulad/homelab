@@ -73,9 +73,9 @@ resource "proxmox_haresource" "tsexit" {
   }
 }
 
-# In: nothing beyond Ping and mDNS. tailscaled masquerades what it forwards as
-# an exit node, so the answers return as replies, and its own UDP ports
-# pass as replies to its probes.
+# In: Ping, and UDP from anywhere, for tailscaled's NAT traversal. tailscaled
+# masquerades what it forwards as an exit node, so the answers return as
+# replies.
 resource "proxmox_virtual_environment_firewall_rules" "tsexit" {
   node_name    = proxmox_virtual_environment_container.tsexit.node_name
   container_id = proxmox_virtual_environment_container.tsexit.vm_id
@@ -86,9 +86,10 @@ resource "proxmox_virtual_environment_firewall_rules" "tsexit" {
     macro  = "Ping"
   }
 
-  # mDNS, which systemd-resolved resolves and answers here (resolved role).
+  # UDP, for tailscaled's NAT traversal, and mDNS, which systemd-resolved
+  # resolves and answers here (resolved role).
   rule {
-    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.udp.name
   }
 }
 

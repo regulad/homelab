@@ -76,10 +76,9 @@ resource "proxmox_haresource" "ncsusplitt" {
   }
 }
 
-# Nothing else is admitted. tailscaled's UDP ports are random, and the tailnet's
-# traffic, its DNS queries included, arrives inside WireGuard as replies to
-# tailscaled's own probes, as through NAT. Ansible reaches the container through
-# pct, not SSH.
+# In: Ping, DNS, and UDP from anywhere, for tailscaled's NAT traversal; no other
+# TCP. The tailnet's traffic, its DNS queries included, arrives inside
+# WireGuard. Ansible reaches the container through pct, not SSH.
 resource "proxmox_virtual_environment_firewall_rules" "ncsusplitt" {
   node_name    = proxmox_virtual_environment_container.ncsusplitt.node_name
   container_id = proxmox_virtual_environment_container.ncsusplitt.vm_id
@@ -97,9 +96,10 @@ resource "proxmox_virtual_environment_firewall_rules" "ncsusplitt" {
     macro  = "DNS"
   }
 
-  # mDNS, which systemd-resolved answers here (resolved role).
+  # UDP, for tailscaled's NAT traversal, and mDNS, which systemd-resolved
+  # answers here (resolved role).
   rule {
-    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.udp.name
   }
 }
 

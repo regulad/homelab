@@ -74,8 +74,8 @@ resource "proxmox_haresource" "uptime" {
   }
 }
 
-# In: Uptime Kuma from ingress alone (uptime.regulad.xyz). tailscaled needs no
-# rule: its UDP ports pass as replies to its own probes.
+# In: Uptime Kuma from ingress alone (uptime.regulad.xyz), and UDP from
+# anywhere, for tailscaled's NAT traversal.
 resource "proxmox_virtual_environment_firewall_rules" "uptime" {
   node_name    = proxmox_virtual_environment_container.uptime.node_name
   container_id = proxmox_virtual_environment_container.uptime.vm_id
@@ -94,9 +94,10 @@ resource "proxmox_virtual_environment_firewall_rules" "uptime" {
     dport  = "3001" # Uptime Kuma
   }
 
-  # mDNS, which systemd-resolved resolves and answers here (resolved role).
+  # UDP, for tailscaled's NAT traversal, and mDNS, which systemd-resolved
+  # resolves and answers here (resolved role).
   rule {
-    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.udp.name
   }
 }
 

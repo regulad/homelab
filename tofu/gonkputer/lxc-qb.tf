@@ -87,9 +87,8 @@ resource "proxmox_haresource" "qb" {
   state       = "started"
 }
 
-# In: the torrent port from anywhere, and the CR1000B's UPnP answers, which map
-# it on IPv4. The firewall sees eth0 alone, so the web UI, served on
-# tailscale0, needs no rule.
+# In: the torrent port over TCP, and UDP, from anywhere. The firewall sees eth0
+# alone, so the web UI, served on tailscale0, needs no rule.
 resource "proxmox_virtual_environment_firewall_rules" "qb" {
   node_name    = proxmox_virtual_environment_container.qb.node_name
   container_id = proxmox_virtual_environment_container.qb.vm_id
@@ -101,26 +100,13 @@ resource "proxmox_virtual_environment_firewall_rules" "qb" {
     dport  = local.qb_torrent_port # BitTorrent
   }
 
+  # UDP, for tailscaled's NAT traversal. It covers uTP and DHT on the torrent
+  # port; the CR1000B's UPnP answers, which map that port on IPv4 and come from
+  # its own address, which conntrack does not match to qBittorrent's multicast
+  # question; and mDNS, which systemd-resolved resolves and answers here
+  # (resolved role).
   rule {
-    type   = "in"
-    action = "ACCEPT"
-    proto  = "udp"
-    dport  = local.qb_torrent_port # uTP and DHT
-  }
-
-  # qBittorrent's UPnP asks the multicast group, and the CR1000B answers from
-  # its own address, which conntrack does not match to the question.
-  rule {
-    type   = "in"
-    action = "ACCEPT"
-    source = "10.23.0.1" # The CR1000B
-    proto  = "udp"
-    sport  = "1900" # SSDP
-  }
-
-  # mDNS, which systemd-resolved resolves and answers here (resolved role).
-  rule {
-    security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.udp.name
   }
 }
 
