@@ -175,6 +175,23 @@ host_files_list:
     group: "114"
     mode: "0644"
     restarts: [mailserver]
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.net.private.txt"
+    content: "{{ mailserver_dkim_private_keys['regulad.net'] }}"
+    secret: true
+    owner: "111"
+    group: "114"
+    mode: "0600"
+    restarts: [mailserver]
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.net.public.txt"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+    restarts: [mailserver]
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.net.public.dns.txt"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/override.d/arc.conf"
     mode: "0644"
     restarts: [mailserver]

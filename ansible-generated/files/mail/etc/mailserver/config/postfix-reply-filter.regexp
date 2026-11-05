@@ -1,1 +1,1 @@
-/^535 Authorization failed: Envelope From address <[^>]+@regulad\.xyz> not authorized$/  451 4.7.0 OCI sender authorization pending
+/^535 Authorization failed: Envelope From address <[^>]+@(regulad\.xyz|nefumllc\.com|regulad\.net)> not authorized$/  451 4.7.0 OCI sender authorization pending
