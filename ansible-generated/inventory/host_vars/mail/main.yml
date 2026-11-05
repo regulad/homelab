@@ -107,8 +107,8 @@ certbot_certificates:
     domains: [mail.regulad.xyz]
 certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 
-# docker-mailserver's configuration, bind-mounted into its container, and in
-# old/ the copy of its data from before the data moved to /mnt/mailserver.
+# docker-mailserver's configuration, bind-mounted into its container; its data
+# is on /mnt/mailserver.
 mail_dms_dir: /root/mailserver/docker-data/dms
 
 # ClamAV's on-access scanner, over the baseline directories alone, and its
@@ -122,7 +122,7 @@ clamav_exclude_paths: ["{{ mail_dms_dir }}"]
 # noexec, and so not checked by AIDE.
 noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
 
-# Not checked by AIDE: the old copy of docker-mailserver's data, and the noexec
-# paths. Its configuration stays watched; its data on /mnt/mailserver, another
-# filesystem, AIDE does not walk.
-aide_exclude_paths_host: "{{ [mail_dms_dir ~ '/old'] + noexec_paths_host }}"
+# Not checked by AIDE: the noexec paths. docker-mailserver's configuration
+# stays watched; its data on /mnt/mailserver, another filesystem, AIDE does not
+# walk.
+aide_exclude_paths_host: "{{ noexec_paths_host }}"
