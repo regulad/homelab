@@ -70,8 +70,8 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] Bounces after acceptance: the alias map gives each address one recipient, its owner's `<uid>@regulad.xyz`, which Dovecot's `uid` lookup finds
   - [x] DKIM signing and DMARC `p=reject` for `nefumllc.com` and `regulad.net`, mail from them keeping its own envelope sender past SRS, and Email Delivery's fallback for both
   - [x] MTA-STS for all three domains, served by a Cloudflare Worker, in place of regulad.xyz's malformed record
-  - [ ] MTA-STS from `mode: testing` to `enforce`
-  - [ ] DANE: a TLSA record for `mail.regulad.xyz`, which certbot's new key at each renewal would have to follow
+  - [x] MTA-STS from `mode: testing` to `enforce`, with TLS-RPT reports to `postmaster@regulad.xyz`
+  - [x] DANE: a TLSA record, `3 1 1`, for `mail.regulad.xyz`, whose key certbot keeps at renewal
   - [x] webhookd: pinned at upstream's release, its TLS key readable by its own user alone
 - [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
