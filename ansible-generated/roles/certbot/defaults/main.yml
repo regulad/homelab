@@ -1,11 +1,14 @@
 ---
 # Certificates this host keeps, each a certbot certificate name and the
-# domains it covers. certbot issues one only when it has no renewal file yet;
-# afterwards certbot.timer renews it, and the role keeps only its challenge
-# settings. The certificate files and the ACME account stay certbot's.
+# domains it covers, and optionally reuse_key: true, which keeps the same key
+# at each renewal, as a DANE TLSA record that pins it needs. certbot issues one
+# only when it has no renewal file yet; afterwards certbot.timer renews it,
+# and the role keeps only its challenge and key settings. The certificate
+# files and the ACME account stay certbot's.
 certbot_certificates: []
 #  - name: host.regulad.xyz
 #    domains: [host.regulad.xyz]
+#    reuse_key: true
 
 # A Cloudflare API token that can edit the zones' DNS records, from the host's
 # secrets.sops.yml, and the root-only file certbot reads it from.
