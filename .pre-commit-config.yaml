@@ -80,6 +80,13 @@ repos:
         files: ^tofu/(cloudflare|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-azure
+        name: tofu validate (azure)
+        language: unsupported
+        entry: tofu -chdir=tofu/azure validate -no-color
+        files: ^tofu/(azure|shared)/
+        pass_filenames: false
+
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
       # resolves the config file per module directory. Recursing from tofu/ keeps the
       # ignored docs/snapshot/ drafts out of the lint.

@@ -1,6 +1,7 @@
 {
   "tf": {
     "tofu/aws": {},
+    "tofu/azure": {},
     "tofu/backblaze": {},
     "tofu/cloudflare": {},
     "tofu/gcp": {},
