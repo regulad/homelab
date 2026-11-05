@@ -12,6 +12,11 @@ quadlet_services:
     ports: ["8000:8000/tcp"]
     volumes: ["vaultwarden_data:/data"]
     environment:
+      # /admin's token, kept only as its Argon2id hash: Vaultwarden's bitwarden
+      # preset (m=65540, t=3, p=4), a 16-byte random salt and a 32-byte hash.
+      # Hashed 2026-11-05 with OpenSSL's Argon2id; `vaultwarden hash` makes a
+      # new one.
+      ADMIN_TOKEN: $argon2id$v=19$m=65540,t=3,p=4$rnrj0cPsi8whMXkC3bri/w$1D2PMhADKQ2JYmeqx/YrKBkTNH1iDqyDvWPgIIyxh/I
       DOMAIN: https://vw.regulad.xyz
       ROCKET_PORT: "8000"
       SIGNUPS_DOMAINS_WHITELIST: regulad.xyz
@@ -26,7 +31,7 @@ quadlet_services:
       SMTP_USERNAME: svc-vaultwarden
       IP_HEADER: X-Forwarded-For
       IP_HEADER_TRUSTED_PROXIES: 10.23.0.0/20,fd83:b84c:aa57:1::0/64
-    # ADMIN_TOKEN, PUSH_INSTALLATION_KEY and SMTP_PASSWORD, from secrets.sops.yml.
+    # PUSH_INSTALLATION_KEY and SMTP_PASSWORD, from secrets.sops.yml.
     env_file: true
     restart: always
     wanted_by: [multi-user.target, default.target]
