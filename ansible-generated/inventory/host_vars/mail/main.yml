@@ -3,6 +3,8 @@
 # image sets it: /var/mail by its vmail user (5000), /var/mail-state by root,
 # and /var/log/mail by its syslog user (113).
 host_files_directories:
+  - path: /etc/systemd/system/podman-restart.service.d
+    mode: "0755"
   - path: /mnt/mailserver/mail
     owner: "5000"
     group: "5000"
@@ -70,6 +72,17 @@ host_files_list:
 
       [Install]
       WantedBy=remote-fs.target
+  # podman-restart.service starts docker-mailserver at boot, which binds its
+  # directories on the volume, so it starts after the mount: without it, the
+  # container would fail to find them. A change applies at the next boot, as
+  # the unit is not restarted for it.
+  # FIXME: in place of the Quadlet's own RequiresMountsFor. Revisit at its
+  # cutover.
+  - path: /etc/systemd/system/podman-restart.service.d/mounts.conf
+    mode: "0644"
+    content: |
+      [Unit]
+      RequiresMountsFor=/mnt/mailserver
 
 # Mounted now and at each boot.
 host_files_units: [mnt-mailserver.mount]
