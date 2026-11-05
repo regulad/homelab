@@ -1,0 +1,16 @@
+non_smtpd_milters = $rspamd_milter
+myorigin = regulad.xyz
+
+maximal_queue_lifetime = 1d
+bounce_queue_lifetime = 1d
+
+smtp_address_preference = ipv6
+smtp_connect_timeout = 10s
+smtp_fallback_relay = [smtp.email.us-ashburn-1.oci.oraclecloud.com]:587 [smtp.gmail.com]:587
+
+smtp_tls_security_level = dane
+smtp_dns_support_level = dnssec
+smtp_tls_policy_maps = texthash:/tmp/docker-mailserver/postfix-tls-policy.cf
+
+smtp_generic_maps = regexp:/tmp/docker-mailserver/postfix-generic.regexp
+smtp_reply_filter = regexp:/tmp/docker-mailserver/postfix-reply-filter.regexp

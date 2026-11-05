@@ -5,6 +5,25 @@
 host_files_directories:
   - path: /etc/systemd/system/podman-restart.service.d
     mode: "0755"
+  # docker-mailserver's compose project and its configuration.
+  - path: /root/mailserver
+    mode: "0755"
+  - path: /root/mailserver/docker-data
+    mode: "0755"
+  - path: "{{ mail_dms_dir }}"
+    mode: "0755"
+  - path: "{{ mail_dms_dir }}/config"
+    mode: "0755"
+  - path: "{{ mail_dms_dir }}/config/rspamd"
+    mode: "0755"
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim"
+    owner: "111"
+    group: "114"
+    mode: "0755"
+  - path: "{{ mail_dms_dir }}/config/rspamd/override.d"
+    mode: "0755"
+  - path: "{{ mail_dms_dir }}/rspamd-dqs"
+    mode: "0755"
   - path: /mnt/mailserver/mail
     owner: "5000"
     group: "5000"
@@ -83,6 +102,85 @@ host_files_list:
     content: |
       [Unit]
       RequiresMountsFor=/mnt/mailserver
+  # docker-mailserver's own configuration, each file as it was imported, at the
+  # paths its compose project binds. A change applies when the container next
+  # starts; nothing restarts it. The files that hold secrets are templates or
+  # content, their secrets from secrets.sops.yml.
+  - path: /root/mailserver/mailserver.env
+    template: true
+    secret: true
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/fail2ban-fail2ban.cf"
+    mode: "0644"
+  # Its own subnet's /64 from the instance's address in OpenTofu's state.
+  - path: "{{ mail_dms_dir }}/config/fail2ban-jail.cf"
+    template: true
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/postfix-generic.regexp"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/postfix-main.cf"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/postfix-relaymap.cf"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/postfix-reply-filter.regexp"
+    mode: "0644"
+  # The relays' logins: OCI Email Delivery and Gmail.
+  - path: "{{ mail_dms_dir }}/config/postfix-sasl-password.cf"
+    content: "{{ mailserver_postfix_sasl_password }}"
+    secret: true
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/postfix-tls-policy.cf"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/postfix-virtual.cf"
+    mode: "0644"
+  # Rspamd's DKIM keys, owned by its user in the container (111:114).
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
+    content: "{{ mailserver_dkim_private_keys['regulad.xyz'] }}"
+    secret: true
+    owner: "111"
+    group: "114"
+    mode: "0600"
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.private.txt"
+    content: "{{ mailserver_dkim_private_keys['nefumllc.com'] }}"
+    secret: true
+    owner: "111"
+    group: "114"
+    mode: "0600"
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.txt"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.dns.txt"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/rspamd/override.d/arc.conf"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/rspamd/override.d/dkim_signing.conf"
+    owner: "111"
+    group: "114"
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/config/rspamd/override.d/settings.conf"
+    mode: "0644"
+  # Run by docker-mailserver at each start: trusts the old HOME.ARPA CA, which
+  # the compose project binds from /root/ipa-ca.crt.
+  - path: "{{ mail_dms_dir }}/config/user-patches.sh"
+    mode: "0755"
+  # Spamhaus's DQS lists, its key from secrets.sops.yml.
+  - path: "{{ mail_dms_dir }}/rspamd-dqs/rbl.conf"
+    template: true
+    secret: true
+    mode: "0644"
+  - path: "{{ mail_dms_dir }}/rspamd-dqs/rbl_group.conf"
+    mode: "0644"
 
 # Mounted now and at each boot.
 host_files_units: [mnt-mailserver.mount]

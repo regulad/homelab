@@ -1,0 +1,2 @@
+[smtp.email.us-ashburn-1.oci.oraclecloud.com]:587    encrypt
+[smtp.gmail.com]:587	encrypt

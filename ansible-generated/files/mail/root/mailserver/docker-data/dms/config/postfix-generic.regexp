@@ -1,0 +1,2 @@
+/^root@(localhost|.*\.localdomain|mail\.regulad\.xyz)$/    noreply@regulad.xyz
+/^[^@]+@(localhost|localhost\.localdomain)$/               noreply@regulad.xyz
