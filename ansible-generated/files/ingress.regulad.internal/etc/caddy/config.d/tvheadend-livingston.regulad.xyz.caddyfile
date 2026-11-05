@@ -3,6 +3,11 @@ tvheadend-livingston.regulad.xyz {
 	import common
 	import cache
 	
-	reverse_proxy tvheadend.regulad.internal:9981 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a tvheadend.regulad.internal 9981 {
+			versions ipv4
+		}
 	}
 }

@@ -3,6 +3,11 @@ matrix.regulad.xyz {
 	import common
 	import cache
 
-	reverse_proxy matrix.regulad.internal:80 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a matrix.regulad.internal 80 {
+			versions ipv4
+		}
 	}
 }

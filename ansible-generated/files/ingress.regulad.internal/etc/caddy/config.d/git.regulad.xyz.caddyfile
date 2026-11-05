@@ -3,6 +3,11 @@ git.regulad.xyz {
 	import common
 	import cache
 
-	reverse_proxy git.regulad.internal:3000 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a git.regulad.internal 3000 {
+			versions ipv4
+		}
 	}
 }
