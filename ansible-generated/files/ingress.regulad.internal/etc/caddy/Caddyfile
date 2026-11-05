@@ -11,6 +11,13 @@
 	# its TTL, unless this default applies.
 	cache {
 		default_cache_control no-store
+		# Souin gives every request it handles, cached or not, a deadline of its
+		# backend timeout, 10s by default, and cuts the response there: streams,
+		# uploads and long polls alike. It has no setting to turn that off, and 0
+		# means the default, so a year stands in for none.
+		timeout {
+			backend 8760h
+		}
 	}
 	
 	# WebSockets-over-h3 is broken in Chrome from Caddy, somehow
