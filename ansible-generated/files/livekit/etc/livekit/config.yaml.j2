@@ -33,5 +33,5 @@ turn:
   udp_port: 3478
   cert_file: /etc/letsencrypt/live/livekit.regulad.xyz/fullchain.pem
   key_file: /etc/letsencrypt/live/livekit.regulad.xyz/privkey.pem
-  relay_range_start: 30000
-  relay_range_end: 40000
+  relay_range_start: {{ livekit_relay_ports.start }}
+  relay_range_end: {{ livekit_relay_ports.end }}

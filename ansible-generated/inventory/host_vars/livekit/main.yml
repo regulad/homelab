@@ -5,14 +5,32 @@
 # Matrix users and creates rooms only for regulad.xyz's. Both read LiveKit's
 # one API key pair, in secrets.sops.yml.
 
+# The TURN relay's UDP ports, which the NSG admits too. LiveKit's TURN server
+# relays to any address a client names, so the livekit-relay policy rejects
+# what these ports send to internal addresses, and the kernel gives no other
+# socket one of them.
+livekit_relay_ports: {start: 30000, end: 40000}
+
 # What the NSG admits besides SSH: nginx's HTTP and HTTPS, LiveKit's ICE over
 # TCP (7881), TURN over TLS (5349) and UDP (3478), the TURN relay range and the
 # media range.
 firewalld_zones:
   public:
     services: [ssh, dhcpv6-client, http, https]
-    ports: [7881/tcp, 5349/tcp, 3478/udp, 30000-40000/udp, 50000-60000/udp]
+    ports:
+      - 7881/tcp
+      - 5349/tcp
+      - 3478/udp
+      - "{{ livekit_relay_ports.start }}-{{ livekit_relay_ports.end }}/udp"
+      - 50000-60000/udp
     forward: true
+
+# The relay's ports kept out of the kernel's ephemeral range, 32768-60999,
+# which they overlap: a socket numbered there, such as a DNS query's to the
+# VCN's resolver, would otherwise meet the livekit-relay policy.
+kernel_params_sysctl_files:
+  90-livekit-relay:
+    net.ipv4.ip_local_reserved_ports: "{{ livekit_relay_ports.start }}-{{ livekit_relay_ports.end }}"
 
 # The Unified Monitoring Agent's sockets (oci group): bound over themselves
 # noexec, and so not checked by AIDE.
@@ -71,6 +89,11 @@ host_files_list:
   # The package's, with certbot's twice-daily renewal.
   - path: /etc/crontab
     mode: "0644"
+  # The TURN relay kept from internal addresses (livekit_relay_ports).
+  - path: /etc/firewalld/policies/livekit-relay.xml
+    template: true
+    mode: "0644"
+    reloads: [firewalld]
   # Oracle's passthroughs for the instance's own services, shared by the OCI
   # instances.
   - path: /etc/firewalld/direct.xml

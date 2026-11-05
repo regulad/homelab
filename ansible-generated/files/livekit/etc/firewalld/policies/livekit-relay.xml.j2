@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LiveKit's TURN server relays to any address a client names, so what its relay
+  ports send to private (RFC 1918), shared (RFC 6598, the tailnet's),
+  link-local and "this network" addresses is rejected: no caller reaches the
+  VCN, the homelab behind tailscalerouter or the instance metadata service
+  through it. Only the relay's sockets hold those ports, since the kernel
+  numbers no other socket among them (ip_local_reserved_ports).
+
+  For a packet the host sends, rejecting and dropping alike fail the relay's
+  send at once; rejecting is what firewalld's zones do. IPv4 only, as pion/turn
+  opens every relay socket as udp4. Loopback is not listed: firewalld accepts
+  it before any policy, so the relay still reaches the host's own addresses.
+-->
+<policy target="CONTINUE">
+{% for address in ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '169.254.0.0/16', '172.16.0.0/12', '192.168.0.0/16'] %}
+  <rule family="ipv4">
+    <destination address="{{ address }}"/>
+    <source-port port="{{ livekit_relay_ports.start }}-{{ livekit_relay_ports.end }}" protocol="udp"/>
+    <reject/>
+  </rule>
+{% endfor %}
+  <ingress-zone name="HOST"/>
+  <egress-zone name="ANY"/>
+</policy>
