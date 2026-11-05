@@ -403,40 +403,6 @@ resource "cloudflare_dns_record" "regulad_xyz_authentik_cname" {
   }
 }
 
-resource "cloudflare_dns_record" "regulad_xyz_autodiscover_tcp_srv" {
-  name     = "_autodiscover._tcp.${cloudflare_zone.regulad_xyz.name}"
-  zone_id  = cloudflare_zone.regulad_xyz.id
-  type     = "SRV"
-  priority = 10
-  ttl      = 1 # Automatic
-
-  data = {
-    priority = 10
-    weight   = 10
-    port     = 443
-    target   = cloudflare_dns_record.regulad_xyz_mail_a.name
-  }
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "cloudflare_dns_record" "regulad_xyz_autodiscover_cname" {
-  name    = "autodiscover.${cloudflare_zone.regulad_xyz.name}"
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "CNAME"
-  content = cloudflare_dns_record.regulad_xyz_mail_a.name
-  ttl     = 1 # Automatic
-  comment = "Microsoft/Outlook"
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 resource "cloudflare_dns_record" "regulad_xyz_ci_cname" {
   name    = "ci.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id
