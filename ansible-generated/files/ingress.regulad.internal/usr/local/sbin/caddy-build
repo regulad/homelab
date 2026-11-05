@@ -1,0 +1,32 @@
+#!/bin/sh
+# Builds Caddy with its plugins, each held to its release line, and puts the
+# build in place of the running one, restarting Caddy, only when it differs and
+# validates the configuration. A failed build or validation leaves the running
+# Caddy as it is. caddy-build.timer runs it weekly.
+#
+# Each version is a comparison, the newest release below the bound: xcaddy
+# rejects a prefix such as v0.17, which is not a full semantic version, but
+# passes a comparison to go get unchanged. A v0 module may break at any minor
+# release, so its minor is held.
+set -eu
+
+running=/usr/local/bin/caddy
+new=/usr/local/bin/caddy.new
+
+/usr/bin/xcaddy build "<v3.0.0" \
+    --with "github.com/caddyserver/cache-handler@<v0.18.0" \
+    --with "github.com/caddy-dns/cloudflare@<v0.3.0" \
+    --with "github.com/mholt/caddy-l4@<v0.2.0" \
+    --with "github.com/corazawaf/coraza-caddy/v2@<v3.0.0" \
+    --output "$new"
+
+if [ -x "$running" ] && [ "$("$new" build-info)" = "$("$running" build-info)" ]; then
+    rm -f "$new"
+    echo "Caddy is already this build."
+    exit 0
+fi
+
+"$new" validate --adapter caddyfile --config /etc/caddy/Caddyfile
+mv "$new" "$running"
+"$running" build-info
+systemctl restart caddy.service

@@ -4,21 +4,9 @@ After=network-online.target
 
 [Service]
 EnvironmentFile=/etc/caddy/cloudflare.env
-Environment=GOPATH=/var/lib/caddy/go
-Environment=GOMODCACHE=/var/cache/caddy/go/pkg/mod
-Environment=GOCACHE=/var/cache/caddy/go/cache
-ExecStartPre=/usr/bin/xcaddy build \
-    --with github.com/caddyserver/cache-handler \
-    --with github.com/caddy-dns/cloudflare \
-    --with github.com/mholt/caddy-l4 \
-    --with github.com/corazawaf/coraza-caddy/v2 \
-    --output /usr/local/bin/caddy
+# Built by caddy-build.service, which restarts this unit on a new build.
 ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
 ExecReload=/usr/local/bin/caddy reload --force --config /etc/caddy/Caddyfile
-# The build runs at every start. After Go or a plugin changes, its cache is
-# cold and it takes longer than systemd's default 90 s: on Ubuntu 26.04's Go,
-# the first start timed out, and the second built in 47 s on a warmer cache.
-TimeoutStartSec=30min
 TimeoutStopSec=5s
 Restart=on-failure
 

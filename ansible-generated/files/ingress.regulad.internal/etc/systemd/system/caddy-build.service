@@ -1,0 +1,17 @@
+[Unit]
+Description=Build Caddy with its plugins, and restart Caddy on a new build
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# The DNS provider's token, which validating the configuration needs.
+EnvironmentFile=/etc/caddy/cloudflare.env
+Environment=GOPATH=/var/lib/caddy/go
+Environment=GOMODCACHE=/var/cache/caddy/go/pkg/mod
+Environment=GOCACHE=/var/cache/caddy/go/cache
+ExecStart=/usr/local/sbin/caddy-build
+# After Go or a plugin changes, the build cache is cold and the build takes
+# longer than systemd's default 90 s: on Ubuntu 26.04's Go, the first build
+# timed out, and the second took 47 s on a warmer cache.
+TimeoutStartSec=30min

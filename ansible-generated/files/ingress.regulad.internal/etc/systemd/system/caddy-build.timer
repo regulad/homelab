@@ -1,0 +1,14 @@
+[Unit]
+Description=Start caddy-build.service weekly
+
+[Timer]
+# Once a week, at a delay of up to a week from its start that systemd derives
+# from the host's machine ID and this timer's name and keeps.
+OnCalendar=weekly
+RandomizedDelaySec=1w
+FixedRandomDelay=true
+# A run missed while the host was down starts once it is up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
