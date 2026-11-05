@@ -93,6 +93,14 @@ resource "cloudflare_dns_record" "nefumllc_com_mta_sts_txt" {
   depends_on = [cloudflare_workers_custom_domain.mta_sts]
 }
 
+resource "cloudflare_dns_record" "nefumllc_com_smtp_tls_txt" {
+  name    = "_smtp._tls.${cloudflare_zone.nefumllc_com.name}"
+  zone_id = cloudflare_zone.nefumllc_com.id
+  type    = "TXT"
+  content = "\"v=TLSRPTv1; rua=mailto:${local.tls_rpt_address}\""
+  ttl     = 1 # Automatic
+}
+
 resource "cloudflare_dns_record" "nefumllc_com_email_dkim_cname" {
   name    = trimsuffix(data.terraform_remote_state.oracle.outputs.email_dkim[cloudflare_zone.nefumllc_com.name].name, ".")
   zone_id = cloudflare_zone.nefumllc_com.id

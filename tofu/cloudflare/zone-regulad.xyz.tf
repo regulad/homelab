@@ -830,6 +830,14 @@ resource "cloudflare_dns_record" "regulad_xyz_mta_sts_txt" {
   }
 }
 
+resource "cloudflare_dns_record" "regulad_xyz_smtp_tls_txt" {
+  name    = "_smtp._tls.${cloudflare_zone.regulad_xyz.name}"
+  zone_id = cloudflare_zone.regulad_xyz.id
+  type    = "TXT"
+  content = "\"v=TLSRPTv1; rua=mailto:${local.tls_rpt_address}\""
+  ttl     = 1 # Automatic
+}
+
 resource "cloudflare_dns_record" "regulad_xyz_nextcloud_cname" {
   name    = "nextcloud.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id

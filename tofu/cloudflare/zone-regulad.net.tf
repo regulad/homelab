@@ -53,6 +53,14 @@ resource "cloudflare_dns_record" "regulad_net_mta_sts_txt" {
   depends_on = [cloudflare_workers_custom_domain.mta_sts]
 }
 
+resource "cloudflare_dns_record" "regulad_net_smtp_tls_txt" {
+  name    = "_smtp._tls.${cloudflare_zone.regulad_net.name}"
+  zone_id = cloudflare_zone.regulad_net.id
+  type    = "TXT"
+  content = "\"v=TLSRPTv1; rua=mailto:${local.tls_rpt_address}\""
+  ttl     = 1 # Automatic
+}
+
 resource "cloudflare_dns_record" "regulad_net_mail_domainkey_txt" {
   name    = "mail._domainkey.${cloudflare_zone.regulad_net.name}"
   zone_id = cloudflare_zone.regulad_net.id

@@ -12,7 +12,7 @@ settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and it
 | `worker-mta--sts.tf` | The `mta-sts` Worker, which serves the MTA-STS policy at `mta-sts.` in each zone mail receives for |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
-| `locals.tf` | The account ID, and the MTA-STS policy with its id |
+| `locals.tf` | The account ID, the MTA-STS policy with its id, and the TLS-RPT reporting address |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption with its passphrase input, and `tofu/oracle`'s passphrase for reading its state |
 
