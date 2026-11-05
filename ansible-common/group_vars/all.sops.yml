@@ -7,9 +7,6 @@ rgw_keys:
     appflowy:
         - access_key: ENC[AES256_GCM,data:jCm8b3PyO/0+9RenNMyQ/QNuvhQ=,iv:hPrO7R7jOiGbZl5tiaOwWUyLDapadKjly6kS+nYaNAw=,tag:LdjOGwln18lCfOLUIPjj5Q==,type:str]
           secret_key: ENC[AES256_GCM,data:/4S+DKozJJuJyA3+3mXqWR/Gs4o3uLpsenD5W2QUkQ5lssySjZLUtw==,iv:6aioR7VV/Do6K4ycgtyWFlEYZLXxqpXe25RHcdFAU8A=,tag:h/+yH0lZV5SeeDwzRhJXlg==,type:str]
-    mastodon:
-        - access_key: ENC[AES256_GCM,data:DwJ9t2hEsP1D67Ifwl7/eqL9Og4=,iv:t8PhOX8gS4uxq41oDQao4byiJXYl6ngpCeUq0QMegmI=,tag:tbiaqS+4ezE0YRhCT8yjcA==,type:str]
-          secret_key: ENC[AES256_GCM,data:8TK1mPS85WpzHMEqS2+GEGYtcM+Db6DvMGGlOji3I2RJdQATFnacTw==,iv:J84qEf9UPIsAP6kcb9U0jm8oUwLx+4/84nvTJJmQqco=,tag:mnWVc1h7rCua6pJ/JtXwpg==,type:str]
     regulad:
         - access_key: ENC[AES256_GCM,data:kiJmGIx8x5X+obUTv/X93EJ6oXg=,iv:FlY8CgfTyvfdhIqlDZWGy22hGJWYYolhL1AfdxIAPec=,tag:wczceLcb9h9buCuBRICMfg==,type:str]
           secret_key: ENC[AES256_GCM,data:orOdE5uPIFrHOF7QGveJxK4x+DWgjqPRzYl+hWemhGo0+bVZy4LuBA==,iv:kQWSeUGEXSbcGcGTuCarHfzJFKaknHfVXIzoPy5jnks=,tag:2zR4Tt1k1xV8c3kNjtM6kA==,type:str]
@@ -34,7 +31,7 @@ sops:
             cGtoz53CEG19w7pT3oh40kviLNwrFTdKp84PQ40x+Yyn/vSwEBTfrA==
             -----END AGE ENCRYPTED FILE-----
           recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-10-26T04:30:05Z"
-    mac: ENC[AES256_GCM,data:/JO0aZ+PCLFp4MdjFdihVorG3rj2947+r61J28qu3F/HrAblQY3qVnBnlhNJ+XOZXm11ApZDVCFM1w1dDJGzH2C9TAiQKt2miNENXRJLpslq4vzchF2GrtxPdK7HbAcYWK9pjg35xh4eSzqogI9E/qU24kXLn2FXpDDop4oR48g=,iv:/4Z/2mHS86Gk7M9cBbsQl6VtYf+FuQMlXeb1MV8nr88=,tag:U0ZMIJ3A3lxKPeLGffNmEg==,type:str]
+    lastmodified: "2026-11-05T04:45:47Z"
+    mac: ENC[AES256_GCM,data:fBfk/gVlhzrWg7nYlevj5sr88CSk7x8B+Qm/TkM6ikYmanLoPsD+K8sSlkI6rA5ojUZ5pNqS/YU32BUVXuhZ+9IQhh+UnF+RhXLXtuBPpZnXCH00XRhO+T06VhkUSJoW+X4RisnUYmKBZIN48iLajlljbfhWa4zcw34BU5oFpn4=,iv:cX2I3Y9RWDA5mEr8qniwWDEka/R/42GlSgHc6/PTxJw=,tag:k8DjmsquFipchpHhwj482Q==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3

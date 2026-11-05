@@ -111,8 +111,6 @@ ceph_rgw_users:
     display_name: regulad
   - uid: synapse
     display_name: Matrix Synapse
-  - uid: mastodon
-    display_name: Mastodon
   - uid: appflowy
     display_name: AppFlowy
   # aboriginal's rgw backup, which reads every bucket and writes none.
@@ -141,26 +139,6 @@ ceph_rgw_buckets:
           Resource:
             - arn:aws:s3:::synapse-media
             - arn:aws:s3:::synapse-media/*
-  - name: mastodon-media
-    owner: regulad
-    acl: public-read
-    policy:
-      Version: "2012-10-17"
-      Statement:
-        - Effect: Allow
-          Principal:
-            AWS: arn:aws:iam:::user/mastodon
-          Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket, s3:GetBucketLocation]
-          Resource:
-            - arn:aws:s3:::mastodon-media
-            - arn:aws:s3:::mastodon-media/*
-        - Effect: Allow
-          Principal:
-            AWS: arn:aws:iam:::user/svc-aboriginal
-          Action: [s3:GetObject, s3:ListBucket, s3:GetBucketLocation]
-          Resource:
-            - arn:aws:s3:::mastodon-media
-            - arn:aws:s3:::mastodon-media/*
 
 # webhookd for Uptime Kuma's webhook notifications, which post to
 # https://prodingus.regulad.internal:8108/<hook> with a basic-auth header. The
