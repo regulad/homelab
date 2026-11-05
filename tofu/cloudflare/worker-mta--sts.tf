@@ -1,15 +1,6 @@
 # mta-sts: the Worker that serves the MTA-STS policy at each mail zone's
 # mta-sts host, whose certificate Cloudflare issues with the custom domain.
 
-locals {
-  # The zones mail receives for, by name.
-  mta_sts_zones = {
-    (cloudflare_zone.regulad_xyz.name)  = cloudflare_zone.regulad_xyz.id
-    (cloudflare_zone.nefumllc_com.name) = cloudflare_zone.nefumllc_com.id
-    (cloudflare_zone.regulad_net.name)  = cloudflare_zone.regulad_net.id
-  }
-}
-
 resource "cloudflare_workers_script" "mta_sts" {
   account_id         = local.account_id
   script_name        = "mta-sts"
@@ -31,7 +22,7 @@ resource "cloudflare_workers_script" "mta_sts" {
 }
 
 resource "cloudflare_workers_custom_domain" "mta_sts" {
-  for_each = local.mta_sts_zones
+  for_each = local.mail_zones
 
   account_id = local.account_id
   zone_id    = each.value

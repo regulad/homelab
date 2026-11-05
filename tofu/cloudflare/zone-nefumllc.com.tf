@@ -121,3 +121,50 @@ resource "cloudflare_dns_record" "nefumllc_com_www_cname" {
     prevent_destroy = true
   }
 }
+
+# RFC 6186/8314: where mail clients find IMAP and submission, each over TLS,
+# on mail's host.
+resource "cloudflare_dns_record" "nefumllc_com_imaps_tcp_srv" {
+  name     = "_imaps._tcp.${cloudflare_zone.nefumllc_com.name}"
+  zone_id  = cloudflare_zone.nefumllc_com.id
+  type     = "SRV"
+  priority = 10
+  ttl      = 1 # Automatic
+
+  data = {
+    priority = 10
+    weight   = 10
+    port     = 993 # IMAP over implicit TLS
+    target   = cloudflare_dns_record.regulad_xyz_mail_a.name
+  }
+}
+
+resource "cloudflare_dns_record" "nefumllc_com_submissions_tcp_srv" {
+  name     = "_submissions._tcp.${cloudflare_zone.nefumllc_com.name}"
+  zone_id  = cloudflare_zone.nefumllc_com.id
+  type     = "SRV"
+  priority = 10
+  ttl      = 1 # Automatic
+
+  data = {
+    priority = 10
+    weight   = 10
+    port     = 465 # submission over implicit TLS
+    target   = cloudflare_dns_record.regulad_xyz_mail_a.name
+  }
+}
+
+resource "cloudflare_dns_record" "nefumllc_com_submission_tcp_srv" {
+  name     = "_submission._tcp.${cloudflare_zone.nefumllc_com.name}"
+  zone_id  = cloudflare_zone.nefumllc_com.id
+  type     = "SRV"
+  priority = 10
+  ttl      = 1 # Automatic
+
+  data = {
+    priority = 10
+    weight   = 10
+    port     = 587 # submission with STARTTLS
+    target   = cloudflare_dns_record.regulad_xyz_mail_a.name
+  }
+}

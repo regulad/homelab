@@ -3,16 +3,17 @@
 The `.tf` files are the source of truth for the Cloudflare account `regulad`: its five zones
 and their DNS records, the DNSSEC of `regulad.xyz`, `nefumllc.com` and `regulad.net`, the
 settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and its routes, the
-`mta-sts` Worker, and the account's API tokens.
+`mta-sts` and `autoconfig` Workers, and the account's API tokens.
 
 | Location | Configuration |
 |---|---|
 | `zone-<zone>.tf` | Each zone, its DNSSEC where it is signed, and its DNS records; `zone-regulad.xyz.tf` also holds its settings |
 | `tunnel-git.tf` | The `git` tunnel, which cloudflared on `git.regulad.internal` runs, and its routes |
 | `worker-mta--sts.tf` | The `mta-sts` Worker, which serves the MTA-STS policy at `mta-sts.` in each zone mail receives for |
+| `worker-autoconfig.tf` | The `autoconfig` Worker, which serves Mozilla's autoconfig file, mail's IMAP and SMTP settings, at `autoconfig.` in each zone mail receives for |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
-| `locals.tf` | The account ID, the MTA-STS policy with its id, and the TLS-RPT reporting address |
+| `locals.tf` | The account ID, the zones mail receives for, the MTA-STS policy with its id, and the TLS-RPT reporting address |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption with its passphrase input, and `tofu/oracle`'s passphrase for reading its state |
 
