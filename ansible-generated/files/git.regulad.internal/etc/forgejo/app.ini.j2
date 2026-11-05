@@ -77,7 +77,9 @@ DEFAULT_ENABLE_TIMETRACKING = true
 
 [openid]
 ENABLE_OPENID_SIGNIN = true
-ENABLE_OPENID_SIGNUP = true
+; Accounts are registered through the sign-up form alone; an existing account
+; can still sign in with OpenID.
+ENABLE_OPENID_SIGNUP = false
 
 [cron.update_checker]
 ENABLED = true
