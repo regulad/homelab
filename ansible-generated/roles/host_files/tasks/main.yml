@@ -267,6 +267,10 @@
     label: "{{ item.path }}"
   register: host_files_restorecon
   changed_when: host_files_restorecon.stdout | length > 0
+  # In a check run, a directory the role would create is not there yet.
+  failed_when:
+    - host_files_restorecon.rc != 0
+    - not (ansible_check_mode and 'No such file or directory' in host_files_restorecon.stderr)
   check_mode: false
 
 # After the labels, so that an enforcing switch finds them right.
