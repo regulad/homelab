@@ -110,6 +110,40 @@ resource "oci_core_volume_backup_policy_assignment" "mail" {
   }
 }
 
+# docker-mailserver's mailboxes, state and logs, /mnt/mailserver, on a volume of
+# their own: Oracle's smallest block volume, for well under 1 GB today.
+resource "oci_core_volume" "mail_data" {
+  display_name         = "mail (Data)"
+  compartment_id       = var.tenancy_ocid
+  availability_domain  = local.availability_domains.ad_1
+  is_auto_tune_enabled = false
+  size_in_gbs          = "50"
+  vpus_per_gb          = "10" # Balanced
+
+  # It holds the mail store, which a replacement would lose.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Paravirtualized at Oracle's consistent device path, a name on the host that
+# stays the same across reboots and reattachment.
+resource "oci_core_volume_attachment" "mail_data" {
+  display_name                        = "mail (Data)"
+  instance_id                         = oci_core_instance.mail.id
+  volume_id                           = oci_core_volume.mail_data.id
+  attachment_type                     = "paravirtualized"
+  device                              = "/dev/oracleoci/oraclevdb"
+  is_pv_encryption_in_transit_enabled = true
+  is_read_only                        = false
+  is_shareable                        = false
+}
+
+resource "oci_core_volume_backup_policy_assignment" "mail_data" {
+  asset_id  = oci_core_volume.mail_data.id
+  policy_id = local.backup_policy_ids.bronze
+}
+
 # This instance has one attached VNIC. one() fails if that changes.
 data "oci_core_vnic_attachments" "mail" {
   compartment_id = var.tenancy_ocid
