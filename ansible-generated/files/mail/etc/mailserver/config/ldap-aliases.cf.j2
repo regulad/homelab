@@ -1,0 +1,20 @@
+# Postfix's virtual alias map, in place of the one docker-mailserver generates:
+# each address of a directory entry, a mail or a mailAlternateAddress, maps to
+# the one address its owner logs in with and LMTP delivers to,
+# <uid>@{{ mailserver_mailbox_domain }}. The generated map returned every mail
+# value of the entry, and Dovecot, which looks users up by uid, rejected each
+# one that was not that address, bouncing it after Postfix had accepted it.
+#
+# docker-mailserver copies this file over its own and fills the lines its
+# LDAP_ settings in mailserver.env name, left empty here, the bind password
+# among them, as it sets up a new container.
+server_host =
+start_tls =
+version = 3
+bind = yes
+bind_dn =
+bind_pw =
+search_base =
+query_filter =
+result_attribute = uid
+result_format = %s@{{ mailserver_mailbox_domain }}

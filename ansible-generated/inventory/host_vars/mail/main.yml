@@ -106,6 +106,11 @@ host_files_list:
   - path: "{{ mailserver_dir }}/config/fail2ban-fail2ban.cf"
     mode: "0644"
     restarts: [mailserver]
+  # The alias map, which maps each address to its owner's mailbox.
+  - path: "{{ mailserver_dir }}/config/ldap-aliases.cf"
+    template: true
+    mode: "0644"
+    restarts: [mailserver]
   # Its own subnet's /64 from the instance's address in OpenTofu's state.
   - path: "{{ mailserver_dir }}/config/fail2ban-jail.cf"
     template: true
@@ -228,6 +233,9 @@ mailserver_dir: /etc/mailserver
 # The suffix of wako's directory, where docker-mailserver looks up and
 # authenticates its users, binding as svc-mail.
 mailserver_ldap_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
+# The domain of the address each user logs in with, <uid>@ it, and which LMTP
+# delivers each of their addresses to: Dovecot keeps the mailbox under it.
+mailserver_mailbox_domain: regulad.xyz
 
 # ClamAV's on-access scanner, over the baseline directories alone. Neither it
 # nor the weekly scan reaches /mnt/mailserver, another filesystem, unlisted:
