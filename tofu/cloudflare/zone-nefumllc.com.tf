@@ -60,7 +60,7 @@ resource "cloudflare_dns_record" "nefumllc_com_dmarc_txt" {
   name    = "_dmarc.${cloudflare_zone.nefumllc_com.name}"
   zone_id = cloudflare_zone.nefumllc_com.id
   type    = "TXT"
-  content = "\"v=DMARC1; p=none; rua=mailto:394ae14f9ebd41ac83232b8ef521789d@dmarc-reports.cloudflare.net\""
+  content = "\"v=DMARC1; p=reject; rua=mailto:394ae14f9ebd41ac83232b8ef521789d@dmarc-reports.cloudflare.net\""
   ttl     = 1 # Automatic
 
   # The following exists as an artifact of import from the imperative setup.
