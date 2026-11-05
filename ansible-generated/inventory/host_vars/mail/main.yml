@@ -225,6 +225,9 @@ certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 # docker-mailserver's configuration, bound into its container; its data is on
 # /mnt/mailserver.
 mailserver_dir: /etc/mailserver
+# The suffix of wako's directory, where docker-mailserver looks up and
+# authenticates its users, binding as svc-mail.
+mailserver_ldap_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
 
 # ClamAV's on-access scanner, over the baseline directories alone. Neither it
 # nor the weekly scan reaches /mnt/mailserver, another filesystem, unlisted:
