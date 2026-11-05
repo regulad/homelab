@@ -14,6 +14,18 @@ host_files_directories:
     group: "0"
     mode: "0755"
 
+# The data volume labelled for containers, which docker-mailserver's
+# directories are bound into: a rule, which a relabel keeps, rather than
+# Podman's :Z, which a relabel undoes.
+host_files_selinux_fcontexts:
+  - target: /mnt/mailserver(/.*)?
+    setype: container_file_t
+    path: /mnt/mailserver
+# FIXME: permissive, not the oci group's enforcing: docker-mailserver still
+# writes to bind mounts under /root, labelled admin_home_t, which containers may
+# not write. Revisit at its Quadlet cutover to /mnt/mailserver.
+host_files_selinux_state: permissive
+
 # firewalld as the image and later hand edits left it. The default zone admits
 # SSH, DHCPv6, HTTP, on which nothing listens today, and webhookd; the image's
 # cockpit service is gone from it. Netavark adds the Podman networks to the
