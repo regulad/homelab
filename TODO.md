@@ -67,8 +67,11 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] Certificate renewal: certbot renews by Cloudflare's DNS-01, and its deploy hook restarts Postfix and Dovecot in the container, as docker-mailserver's change detector runs only with `ACCOUNT_PROVISIONER=FILE`
   - [x] Backups: the mail store on a block volume of its own, under the bronze backup policy, and the DKIM keys and the SRS secret in SOPS; no restic
   - [x] `/var/log/messages` at 7.9 GB, from setroubleshoot: setroubleshoot is gone, logrotate compresses, and SELinux enforces, with nothing bound from `/root`
-  - [ ] Bounces after acceptance: Postfix accepts the LDAP `mail` addresses that Dovecot's `uid` lookup rejects
-  - [ ] DKIM signing for `nefumllc.com`, and the malformed MTA-STS record
+  - [x] Bounces after acceptance: the alias map gives each address one recipient, its owner's `<uid>@regulad.xyz`, which Dovecot's `uid` lookup finds
+  - [x] DKIM signing and DMARC `p=reject` for `nefumllc.com` and `regulad.net`, mail from them keeping its own envelope sender past SRS, and Email Delivery's fallback for both
+  - [x] MTA-STS for all three domains, served by a Cloudflare Worker, in place of regulad.xyz's malformed record
+  - [ ] MTA-STS from `mode: testing` to `enforce`
+  - [ ] DANE: a TLSA record for `mail.regulad.xyz`, which certbot's new key at each renewal would have to follow
   - [x] webhookd: pinned at upstream's release, its TLS key readable by its own user alone
 - [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
