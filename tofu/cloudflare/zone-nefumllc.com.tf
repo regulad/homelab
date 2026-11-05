@@ -82,6 +82,17 @@ resource "cloudflare_dns_record" "nefumllc_com_mail_domainkey_txt" {
   }
 }
 
+# The policy the mta-sts Worker serves at mta-sts.nefumllc.com, by its id.
+resource "cloudflare_dns_record" "nefumllc_com_mta_sts_txt" {
+  name    = "_mta-sts.${cloudflare_zone.nefumllc_com.name}"
+  zone_id = cloudflare_zone.nefumllc_com.id
+  type    = "TXT"
+  content = "\"v=STSv1; id=${local.mta_sts_policy_id}\""
+  ttl     = 1 # Automatic
+
+  depends_on = [cloudflare_workers_custom_domain.mta_sts]
+}
+
 resource "cloudflare_dns_record" "nefumllc_com_email_dkim_cname" {
   name    = trimsuffix(data.terraform_remote_state.oracle.outputs.email_dkim[cloudflare_zone.nefumllc_com.name].name, ".")
   zone_id = cloudflare_zone.nefumllc_com.id
