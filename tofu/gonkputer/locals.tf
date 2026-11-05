@@ -20,6 +20,20 @@ locals {
     ipv6 = "fd83:b84c:aa57:1::/64"
   }
 
+  # OCI's pubsub subnet, in tofu/oracle's wahlecloud VCN. Its instances reach the
+  # LAN through the tailnet from their own addresses; its GUA /64 is
+  # var.pubsub_ipv6_cidr.
+  pubsub_ipv4_cidr = "10.131.80.0/24"
+
+  # The ranges the homelab's own hosts connect from, by IP family, as guest
+  # firewall sources: the LAN, OCI's pubsub subnet and the tailnet. The OCI
+  # router itself, and any device reaching the LAN over the tailnet, comes from
+  # its tailnet address; the tailnet's policy decides which devices those are.
+  dual_stack_internal_sources = {
+    ipv4 = join(",", [local.dual_stack_lan_cidrs.ipv4, local.pubsub_ipv4_cidr, module.shared.tailscale_cidrs.ipv4])
+    ipv6 = join(",", [local.dual_stack_lan_cidrs.ipv6, var.lan_ipv6_cidr, var.pubsub_ipv6_cidr, module.shared.tailscale_cidrs.ipv6])
+  }
+
   # Guest tags, by name. A guest lists the ones it carries in Proxmox's sorted
   # order; every guest carries `terraform`, marking it as managed by OpenTofu.
   tags = {

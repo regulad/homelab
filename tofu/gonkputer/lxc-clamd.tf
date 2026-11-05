@@ -7,10 +7,6 @@ locals {
   # The port clamd listens on for its clients; Ansible writes it into clamd's
   # configuration from the Ansible host. The image's health check pings 3310.
   clamd_port = "3310"
-  # OCI's pubsub subnet, in tofu/oracle's wahlecloud VCN. Its instances reach the
-  # LAN through the tailnet from their own addresses; its GUA /64 is
-  # var.pubsub_ipv6_cidr.
-  pubsub_ipv4_cidr = "10.131.80.0/24"
 }
 
 resource "proxmox_virtual_environment_container" "clamd" {
@@ -81,9 +77,7 @@ resource "proxmox_haresource" "clamd" {
   state       = "started"
 }
 
-# In: clamd from the homelab, OCI's pubsub subnet and the tailnet. The OCI
-# router itself, and any device reaching the LAN over the tailnet, comes from
-# its tailnet address; the tailnet's policy decides which devices those are.
+# In: clamd from the homelab, OCI's pubsub subnet and the tailnet.
 resource "proxmox_virtual_environment_firewall_rules" "clamd" {
   node_name    = proxmox_virtual_environment_container.clamd.node_name
   container_id = proxmox_virtual_environment_container.clamd.vm_id
@@ -96,20 +90,17 @@ resource "proxmox_virtual_environment_firewall_rules" "clamd" {
 
   # clamd neither authenticates nor encrypts: any client can scan, reload or
   # shut it down, so only these ranges reach it.
-  rule {
-    type   = "in"
-    action = "ACCEPT"
-    source = "${local.dual_stack_lan_cidrs.ipv4},${local.pubsub_ipv4_cidr},${module.shared.tailscale_cidrs.ipv4}"
-    proto  = "tcp"
-    dport  = local.clamd_port # clamd
-  }
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
 
-  rule {
-    type   = "in"
-    action = "ACCEPT"
-    source = "${local.dual_stack_lan_cidrs.ipv6},${var.lan_ipv6_cidr},${var.pubsub_ipv6_cidr},${module.shared.tailscale_cidrs.ipv6}"
-    proto  = "tcp"
-    dport  = local.clamd_port # clamd
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = local.clamd_port # clamd
+    }
   }
 
   # mDNS, which systemd-resolved resolves and answers here (resolved role).
