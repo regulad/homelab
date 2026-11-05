@@ -1,0 +1,7 @@
+[Network]
+{% if item.ipv6 | default(false) %}
+IPv6=true
+{% endif %}
+{% for subnet in item.subnets | default([]) %}
+Subnet={{ subnet }}
+{% endfor %}

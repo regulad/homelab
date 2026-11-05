@@ -16,11 +16,22 @@
 #   (Network, such as host), ports (PublishPort), volumes (Volume), tmpfs
 #   (Tmpfs), ulimits (Ulimit, as name=soft:hard), exec (Exec, the arguments
 #   after the image's entrypoint)
+#   hostname (HostName), add_capabilities (AddCapability), stop_timeout
+#   (StopTimeout, in seconds), health_cmd, health_interval, health_timeout,
+#   health_retries (HealthCmd and the others; a string command runs in a shell)
 #   environment     Environment entries, in order
 #   env_file        true to write quadlet_env_files[name], from the host's
 #                   secrets.sops.yml, to /etc/containers/systemd/<name>.env
+#   environment_files  EnvironmentFile entries, paths of env files something
+#                   else writes, such as a host_files template
 #   restart         [Service] Restart
 #   wanted_by       [Install] WantedBy
 quadlet_services: []
 quadlet_env_files: {}
+# This host's Podman networks, each one .network unit in /etc/containers/systemd/,
+# which a service joins with network: <name>.network. Each has a name and
+# optionally ipv6 (IPv6) and subnets (Subnet, in order). Podman creates a
+# network once; a changed setting applies only after the network is removed,
+# with every container on it.
+quadlet_networks: []
 quadlet_dir: /etc/containers/systemd

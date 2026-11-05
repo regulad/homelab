@@ -15,6 +15,9 @@ ContainerName={{ item.container_name }}
 {% if item.user is defined %}
 User={{ item.user }}
 {% endif %}
+{% if item.hostname is defined %}
+HostName={{ item.hostname }}
+{% endif %}
 {% if item.auto_update is defined %}
 AutoUpdate={{ item.auto_update }}
 {% endif %}
@@ -23,6 +26,9 @@ ReadOnly=true
 {% endif %}
 {% for capability in item.drop_capabilities | default([]) %}
 DropCapability={{ capability }}
+{% endfor %}
+{% for capability in item.add_capabilities | default([]) %}
+AddCapability={{ capability }}
 {% endfor %}
 {% if item.no_new_privileges | default(false) %}
 NoNewPrivileges=true
@@ -45,6 +51,15 @@ Ulimit={{ ulimit }}
 {% if item.exec is defined %}
 Exec={{ item.exec }}
 {% endif %}
+{% if item.stop_timeout is defined %}
+StopTimeout={{ item.stop_timeout }}
+{% endif %}
+{% if item.health_cmd is defined %}
+HealthCmd={{ item.health_cmd }}
+{% endif %}
+{% for setting in ['interval', 'timeout', 'retries'] if item['health_' ~ setting] is defined %}
+Health{{ setting | capitalize }}={{ item['health_' ~ setting] }}
+{% endfor %}
 {% if item.environment | default({}) %}
 
 {% for name, value in item.environment.items() %}
@@ -54,6 +69,12 @@ Environment={{ name }}={{ value }}
 {% if item.env_file | default(false) %}
 
 EnvironmentFile={{ quadlet_dir }}/{{ item.name }}.env
+{% endif %}
+{% if item.environment_files | default([]) %}
+
+{% for path in item.environment_files %}
+EnvironmentFile={{ path }}
+{% endfor %}
 {% endif %}
 
 [Service]

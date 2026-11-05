@@ -1,13 +1,28 @@
 ---
-# Template each service's .container unit into /etc/containers/systemd/, with
-# its secret env file, and keep it running; state: absent removes both. Runs on
-# generated hosts in podman_hosts (Phase 4).
+# Template each network's .network unit and each service's .container unit,
+# with its secret env file, into /etc/containers/systemd/, and keep each
+# service running; a service's state: absent removes its unit and env file.
+# Runs on generated hosts in podman_hosts (Phase 4).
 - name: Split services into present and absent
   ansible.builtin.set_fact:
     quadlet_present: >-
       {{ quadlet_services | rejectattr('state', 'defined') | list
          + quadlet_services | selectattr('state', 'defined') | selectattr('state', 'eq', 'present') | list }}
     quadlet_absent: "{{ quadlet_services | selectattr('state', 'defined') | selectattr('state', 'eq', 'absent') | list }}"
+
+# Before the services that join them, which require their network's service.
+- name: Quadlet networks
+  ansible.builtin.template:
+    src: network.network.j2
+    dest: "{{ quadlet_dir }}/{{ item.name }}.network"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ quadlet_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: quadlet_network_units
+  notify: Reload systemd
 
 - name: Quadlet units
   ansible.builtin.template:
@@ -61,7 +76,7 @@
   ansible.builtin.systemd_service:
     name: "{{ item.name }}.service"
     state: started
-    daemon_reload: "{{ quadlet_units is changed }}"
+    daemon_reload: "{{ quadlet_units is changed or quadlet_network_units is changed }}"
   loop: "{{ quadlet_present }}"
   loop_control:
     label: "{{ item.name }}"
