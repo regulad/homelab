@@ -13,6 +13,7 @@ settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and it
 | `worker-autoconfig.tf` | The `autoconfig` Worker, which serves Mozilla's autoconfig file, mail's IMAP and SMTP settings, at `autoconfig.` in each zone mail receives for |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
+| `moved.tf` | Every past address move, so old states and backups still plan cleanly |
 | `locals.tf` | The account ID, the zones mail receives for, the MTA-STS policy with its id, and the TLS-RPT reporting address |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption with its passphrase input, and `tofu/oracle`'s passphrase for reading its state |

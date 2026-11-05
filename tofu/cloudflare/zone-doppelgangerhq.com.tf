@@ -36,7 +36,7 @@ resource "cloudflare_dns_record" "doppelgangerhq_com_aaaa" {
   }
 }
 
-resource "cloudflare_dns_record" "doppelgangerhq_com_txt" {
+resource "cloudflare_dns_record" "doppelgangerhq_com_txt_hibp" {
   name    = cloudflare_zone.doppelgangerhq_com.name
   zone_id = cloudflare_zone.doppelgangerhq_com.id
   type    = "TXT"
@@ -48,4 +48,52 @@ resource "cloudflare_dns_record" "doppelgangerhq_com_txt" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The zone sends and receives no mail, as M3AAWG's practice for parked domains
+# has it: RFC 7505's null MX, an SPF policy that authorizes no host, no DKIM
+# key, and a DMARC policy that rejects. Nothing can pass SPF or DKIM for the
+# zone, so receivers that apply DMARC reject all mail from it. The wildcards
+# give every other name under the zone the same MX and SPF.
+resource "cloudflare_dns_record" "doppelgangerhq_com_mx" {
+  name     = cloudflare_zone.doppelgangerhq_com.name
+  zone_id  = cloudflare_zone.doppelgangerhq_com.id
+  type     = "MX"
+  content  = "." # Null MX: accepts no mail
+  priority = 0
+  ttl      = 1 # Automatic
+}
+
+resource "cloudflare_dns_record" "doppelgangerhq_com_txt_spf" {
+  name    = cloudflare_zone.doppelgangerhq_com.name
+  zone_id = cloudflare_zone.doppelgangerhq_com.id
+  type    = "TXT"
+  content = "\"v=spf1 -all\""
+  ttl     = 1 # Automatic
+}
+
+# No rua: aggregate reports would only count mail that is rejected anyway.
+resource "cloudflare_dns_record" "doppelgangerhq_com_dmarc_txt" {
+  name    = "_dmarc.${cloudflare_zone.doppelgangerhq_com.name}"
+  zone_id = cloudflare_zone.doppelgangerhq_com.id
+  type    = "TXT"
+  content = "\"v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s\""
+  ttl     = 1 # Automatic
+}
+
+resource "cloudflare_dns_record" "doppelgangerhq_com_wildcard_mx" {
+  name     = "*.${cloudflare_zone.doppelgangerhq_com.name}"
+  zone_id  = cloudflare_zone.doppelgangerhq_com.id
+  type     = "MX"
+  content  = "." # Null MX: accepts no mail
+  priority = 0
+  ttl      = 1 # Automatic
+}
+
+resource "cloudflare_dns_record" "doppelgangerhq_com_wildcard_txt" {
+  name    = "*.${cloudflare_zone.doppelgangerhq_com.name}"
+  zone_id = cloudflare_zone.doppelgangerhq_com.id
+  type    = "TXT"
+  content = "\"v=spf1 -all\""
+  ttl     = 1 # Automatic
 }

@@ -35,3 +35,51 @@ resource "cloudflare_dns_record" "aporia_blue_vercel_txt" {
     prevent_destroy = true
   }
 }
+
+# The zone sends and receives no mail, as M3AAWG's practice for parked domains
+# has it: RFC 7505's null MX, an SPF policy that authorizes no host, no DKIM
+# key, and a DMARC policy that rejects. Nothing can pass SPF or DKIM for the
+# zone, so receivers that apply DMARC reject all mail from it. The wildcards
+# give every other name under the zone the same MX and SPF.
+resource "cloudflare_dns_record" "aporia_blue_mx" {
+  name     = cloudflare_zone.aporia_blue.name
+  zone_id  = cloudflare_zone.aporia_blue.id
+  type     = "MX"
+  content  = "." # Null MX: accepts no mail
+  priority = 0
+  ttl      = 1 # Automatic
+}
+
+resource "cloudflare_dns_record" "aporia_blue_txt_spf" {
+  name    = cloudflare_zone.aporia_blue.name
+  zone_id = cloudflare_zone.aporia_blue.id
+  type    = "TXT"
+  content = "\"v=spf1 -all\""
+  ttl     = 1 # Automatic
+}
+
+# No rua: aggregate reports would only count mail that is rejected anyway.
+resource "cloudflare_dns_record" "aporia_blue_dmarc_txt" {
+  name    = "_dmarc.${cloudflare_zone.aporia_blue.name}"
+  zone_id = cloudflare_zone.aporia_blue.id
+  type    = "TXT"
+  content = "\"v=DMARC1; p=reject; sp=reject; adkim=s; aspf=s\""
+  ttl     = 1 # Automatic
+}
+
+resource "cloudflare_dns_record" "aporia_blue_wildcard_mx" {
+  name     = "*.${cloudflare_zone.aporia_blue.name}"
+  zone_id  = cloudflare_zone.aporia_blue.id
+  type     = "MX"
+  content  = "." # Null MX: accepts no mail
+  priority = 0
+  ttl      = 1 # Automatic
+}
+
+resource "cloudflare_dns_record" "aporia_blue_wildcard_txt" {
+  name    = "*.${cloudflare_zone.aporia_blue.name}"
+  zone_id = cloudflare_zone.aporia_blue.id
+  type    = "TXT"
+  content = "\"v=spf1 -all\""
+  ttl     = 1 # Automatic
+}
