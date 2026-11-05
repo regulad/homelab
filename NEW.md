@@ -89,7 +89,10 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   API offers no key pair. Its five zones and their records, `regulad.xyz`'s DNSSEC and
   settings, the `git` tunnel and two hosts' API tokens are adopted; the OCI hosts'
   records read their addresses from `tofu/oracle`'s outputs
-- [ ] Azure
+- [x] Azure: `tofu/azure`, signed in as the Entra ID application `homelab-tofu` with a
+  certificate whose key is in SOPS. The subscription holds no resources and was never
+  billed; the two filefly.ai apps were deleted, and `regulad rclone` and `homelab-tofu`
+  are adopted with the subscription's Owner grants
 
 ## Additional declarative configuration of services
 
