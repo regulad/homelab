@@ -18,5 +18,13 @@ quadlet_services:
       NODE_ENV: production
       # Its log files would repeat what the journal already has from stdout.
       NO_LOGFILES: "true"
+    # ACCESS_KEY, below.
+    env_file: true
     restart: always
     wanted_by: [multi-user.target, default.target]
+
+# The access key, from secrets.sops.yml. RSSHub then serves a route, /healthz
+# included, only to a query carrying key=<the key> or code=<the MD5 of the
+# route's path followed by the key>.
+quadlet_env_files:
+  rsshub: "ACCESS_KEY={{ rsshub_access_key }}"
