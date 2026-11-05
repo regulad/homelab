@@ -227,6 +227,19 @@ host_files_list:
     template: true
     mode: "0644"
     restarts: [podman-compose@nextcloud.service]
+  # The system settings this repository owns, which Nextcloud merges over the
+  # config.php in its config volume, as it does every *.config.php there.
+  - path: /opt/nextcloud/homelab.config.php
+    mode: "0644"
+    content: |
+      <?php
+      $CONFIG = [
+        // News fetches its RSSHub feeds from rsshub.regulad.xyz, which on the
+        // LAN resolves to ingress's private address. Only a signed-in user can
+        // have Nextcloud fetch a URL.
+        'allow_local_remote_servers' => true,
+      ];
+    restarts: [podman-compose@nextcloud.service]
   # Its MariaDB passwords, which the images read only to set up empty volumes.
   - path: /opt/nextcloud/nextcloud.env
     mode: "0600"
