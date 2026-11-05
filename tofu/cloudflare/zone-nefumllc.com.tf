@@ -1,4 +1,4 @@
-# nefumllc.com: the zone and its DNS records, on a new zone's settings.
+# nefumllc.com: the zone, its DNSSEC and its DNS records, on a new zone's settings.
 
 resource "cloudflare_zone" "nefumllc_com" {
   name    = "nefumllc.com"
@@ -8,6 +8,12 @@ resource "cloudflare_zone" "nefumllc_com" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Cloudflare Registrar, the domain's registrar, publishes the DS record.
+resource "cloudflare_zone_dnssec" "nefumllc_com" {
+  zone_id = cloudflare_zone.nefumllc_com.id
+  status  = "active"
 }
 
 resource "cloudflare_dns_record" "nefumllc_com_mx" {

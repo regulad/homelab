@@ -1,12 +1,13 @@
 # cloudflare (Cloudflare)
 
 The `.tf` files are the source of truth for the Cloudflare account `regulad`: its five zones
-and their DNS records, the settings in which `regulad.xyz` differs from a new zone, its DNSSEC,
-the `git` tunnel and its routes, and the account's API tokens.
+and their DNS records, the DNSSEC of `regulad.xyz`, `nefumllc.com` and `regulad.net`, the
+settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and its routes, and
+the account's API tokens.
 
 | Location | Configuration |
 |---|---|
-| `zone-<zone>.tf` | Each zone and its DNS records; `zone-regulad.xyz.tf` also holds its DNSSEC and settings |
+| `zone-<zone>.tf` | Each zone, its DNSSEC where it is signed, and its DNS records; `zone-regulad.xyz.tf` also holds its settings |
 | `tunnel-git.tf` | The `git` tunnel, which cloudflared on `git.regulad.internal` runs, and its routes |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
