@@ -2,6 +2,8 @@ locals {
   email_senders = [
     "noreply@regulad.xyz",
     "regulad@regulad.xyz",
+    "pw@nefumllc.com",
+    "pw@regulad.net",
   ]
 }
 
