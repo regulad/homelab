@@ -90,37 +90,51 @@ host_files_list:
 
       [Install]
       WantedBy=remote-fs.target
-  # docker-mailserver's own configuration, each file as it was imported. A
-  # change applies when the container next starts; nothing restarts it. The
+  # docker-mailserver's own configuration, each file as it was imported. The
   # files that hold secrets are templates or content, their secrets from
-  # secrets.sops.yml.
+  # secrets.sops.yml. docker-mailserver applies its configuration and runs
+  # user-patches.sh only when its container is created: start-mailserver.sh
+  # skips its setup when the same container restarts (its /CONTAINER_START
+  # marker), so podman restart applies none of a change. A start of
+  # mailserver.service creates the container anew, as the Quadlet runs it with
+  # --rm and --replace, so each file restarts the service.
   - path: "{{ mailserver_dir }}/mailserver.env"
     template: true
     secret: true
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/fail2ban-fail2ban.cf"
     mode: "0644"
+    restarts: [mailserver]
   # Its own subnet's /64 from the instance's address in OpenTofu's state.
   - path: "{{ mailserver_dir }}/config/fail2ban-jail.cf"
     template: true
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-generic.regexp"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-main.cf"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-relaymap.cf"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-reply-filter.regexp"
     mode: "0644"
+    restarts: [mailserver]
   # The relays' logins: OCI Email Delivery and Gmail.
   - path: "{{ mailserver_dir }}/config/postfix-sasl-password.cf"
     content: "{{ mailserver_postfix_sasl_password }}"
     secret: true
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-tls-policy.cf"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-virtual.cf"
     mode: "0644"
+    restarts: [mailserver]
   # Rspamd's DKIM keys, owned by its user in the container (111:114).
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
     content: "{{ mailserver_dkim_private_keys['regulad.xyz'] }}"
@@ -128,47 +142,59 @@ host_files_list:
     owner: "111"
     group: "114"
     mode: "0600"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
     owner: "111"
     group: "114"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
     owner: "111"
     group: "114"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.private.txt"
     content: "{{ mailserver_dkim_private_keys['nefumllc.com'] }}"
     secret: true
     owner: "111"
     group: "114"
     mode: "0600"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.txt"
     owner: "111"
     group: "114"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.dns.txt"
     owner: "111"
     group: "114"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/override.d/arc.conf"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/override.d/dkim_signing.conf"
     owner: "111"
     group: "114"
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/override.d/settings.conf"
     mode: "0644"
-  # Run by docker-mailserver at each start: trusts the old HOME.ARPA CA, which
-  # its Quadlet binds from ca_trust's anchors.
+    restarts: [mailserver]
+  # Run by docker-mailserver as it sets up a new container: completes the
+  # host's trust store, which the Quadlet binds over the image's.
   - path: "{{ mailserver_dir }}/config/user-patches.sh"
     mode: "0755"
+    restarts: [mailserver]
   # Spamhaus's DQS lists, its key from secrets.sops.yml.
   - path: "{{ mailserver_dir }}/rspamd-dqs/rbl.conf"
     template: true
     secret: true
     mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf"
     mode: "0644"
+    restarts: [mailserver]
   # webhookd's hook, which its sudo rule lets it run as root.
   - path: /usr/local/sbin/restart-mailserver.sh
     mode: "0755"

@@ -6,6 +6,10 @@ quadlet_networks:
     ipv6: true
     subnets: [10.89.0.0/24, "fd8a:ced2:727b:8489::/64"]
 
+# docker-mailserver applies its configuration and user-patches.sh only to a new
+# container, and skips them when the same container restarts. Each start of
+# mailserver.service creates a new one, as Quadlet runs it with --rm and
+# --replace: restart the service to apply a change, never podman restart.
 quadlet_services:
   - name: mailserver
     description: docker-mailserver
@@ -44,9 +48,13 @@ quadlet_services:
       - "{{ mailserver_dir }}/config:/tmp/docker-mailserver"
       - /etc/letsencrypt:/etc/letsencrypt
       - /etc/localtime:/etc/localtime:ro
-      # The old HOME.ARPA CA, which user-patches.sh trusts, as the ca_trust role
-      # installs it (ca_trust_rhel_anchor_dir, a default of that role alone).
-      - /etc/pki/ca-trust/source/anchors/freeipa-home.arpa.crt:/tmp/docker-mailserver/ipa-ca.crt:ro
+      # The host's trust store, which ca_trust builds, in place of the image's:
+      # update-ca-trust's PEM directory at its own path, and its hashed
+      # directory as /etc/ssl/certs, which user-patches.sh completes. Both are
+      # directories, which update-ca-trust keeps as it replaces their files, so
+      # the container sees each update.
+      - /etc/pki/ca-trust/extracted/pem:/etc/pki/ca-trust/extracted/pem:ro
+      - /etc/pki/ca-trust/extracted/pem/directory-hash:/etc/ssl/certs:ro
       - "{{ mailserver_dir }}/rspamd-dqs/rbl.conf:/etc/rspamd/local.d/rbl.conf:ro"
       - "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf:/etc/rspamd/local.d/rbl_group.conf:ro"
     environment_files: ["{{ mailserver_dir }}/mailserver.env"]
