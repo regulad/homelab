@@ -9,6 +9,11 @@ pterodactyl.regulad.xyz {
 	}
 #	respond @needs_cert "Client certificate required" 495	
 
-	reverse_proxy pterodactyl.regulad.internal:80 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a pterodactyl.regulad.internal 80 {
+			versions ipv4
+		}
 	}
 }

@@ -3,8 +3,14 @@ kasm.regulad.xyz {
 	import cache
 	import hsts
 
-	reverse_proxy https://vkasm.regulad.internal:443 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a vkasm.regulad.internal 443 {
+			versions ipv4
+		}
 		transport http {
+			tls
 			tls_insecure_skip_verify
 			read_timeout 0
 			write_timeout 0

@@ -4,6 +4,11 @@ immich.regulad.xyz {
 	import cache
 	import mtls
 
-	reverse_proxy immich.regulad.internal:2283 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a immich.regulad.internal 2283 {
+			versions ipv4
+		}
 	}
 }

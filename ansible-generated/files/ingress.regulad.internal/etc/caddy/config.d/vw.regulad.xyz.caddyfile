@@ -3,6 +3,11 @@ vw.regulad.xyz {
 	import common
 	import cache
 
-	reverse_proxy vaultwarden.regulad.internal:8000 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a vaultwarden.regulad.internal 8000 {
+			versions ipv4
+		}
 	}
 }

@@ -4,6 +4,11 @@ openclaw.regulad.xyz {
 	import common	
 	import cache
 	
-	reverse_proxy openclaw.regulad.internal:18789 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a openclaw.regulad.internal 18789 {
+			versions ipv4
+		}
 	}
 }

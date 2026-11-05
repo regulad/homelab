@@ -3,6 +3,11 @@ ai.regulad.xyz {
 	import common
 	import cache
 	
-	reverse_proxy openwebui.regulad.internal:8080 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a openwebui.regulad.internal 8080 {
+			versions ipv4
+		}
 	}
 }

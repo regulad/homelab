@@ -2,6 +2,11 @@ uptime.regulad.xyz {
 	import common
 	import cache
 
-	reverse_proxy uptime.regulad.internal:3001 {
+	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
+	# alone, as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a uptime.regulad.internal 3001 {
+			versions ipv4
+		}
 	}
 }
