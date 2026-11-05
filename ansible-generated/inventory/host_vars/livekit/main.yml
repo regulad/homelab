@@ -2,8 +2,8 @@
 # LiveKit's SFU and TURN server for MatrixRTC (Element Call) at
 # livekit.regulad.xyz, behind nginx with a Let's Encrypt certificate kept by
 # certbot's nginx plugin, and lk-jwt-service, which issues LiveKit tokens to
-# matrix.regulad.xyz's users. Both read LiveKit's one API key pair, in
-# secrets.sops.yml.
+# Matrix users and creates rooms only for regulad.xyz's. Both read LiveKit's
+# one API key pair, in secrets.sops.yml.
 
 # What the NSG admits besides SSH: nginx's HTTP and HTTPS, LiveKit's ICE over
 # TCP (7881), TURN over TLS (5349) and UDP (3478), the TURN relay range and the

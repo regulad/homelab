@@ -9,6 +9,11 @@ rtc:
   port_range_end: 60000
   use_external_ip: true
 
+# Rooms are created only by lk-jwt-service, for the users of the homeservers it
+# gives full access; a token alone joins only a room that exists.
+room:
+  auto_create: false
+
 # API key/secret pairs for JWT authentication
 keys:
   {{ livekit_api_key }}: {{ livekit_api_secret }}

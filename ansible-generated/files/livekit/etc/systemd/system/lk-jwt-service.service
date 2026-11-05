@@ -12,7 +12,9 @@ Environment="LIVEKIT_URL=wss://livekit.regulad.xyz"
 Environment="LIVEKIT_KEY_FROM_FILE=/etc/lk-jwt-service/key"
 Environment="LIVEKIT_SECRET_FROM_FILE=/etc/lk-jwt-service/secret"
 Environment="LIVEKIT_JWT_BIND=localhost:8080"
-Environment="LIVEKIT_FULL_ACCESS_HOMESERVERS=matrix.regulad.xyz"
+# The homeservers, by server_name, whose users may create rooms: regulad.xyz is
+# matrix.regulad.internal's. Other homeservers' users only join rooms that exist.
+Environment="LIVEKIT_FULL_ACCESS_HOMESERVERS=regulad.xyz"
 
 ExecStart=/usr/bin/lk-jwt-service
 
