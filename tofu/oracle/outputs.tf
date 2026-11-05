@@ -15,9 +15,16 @@ output "public_addresses" {
 }
 
 output "email_dkim" {
-  description = "The Email Delivery DKIM key's CNAME record: its name, and the target Oracle serves the key at."
+  description = "Each Email Delivery domain's DKIM CNAME record, by domain: its name, and the target Oracle serves the key at."
   value = {
-    name   = oci_email_dkim.primary.dns_subdomain_name
-    target = oci_email_dkim.primary.cname_record_value
+    for domain, dkim in {
+      (oci_email_email_domain.primary.name)      = oci_email_dkim.primary
+      (oci_email_email_domain.nefumllc_com.name) = oci_email_dkim.nefumllc_com
+      (oci_email_email_domain.regulad_net.name)  = oci_email_dkim.regulad_net
+    } :
+    domain => {
+      name   = dkim.dns_subdomain_name
+      target = dkim.cname_record_value
+    }
   }
 }

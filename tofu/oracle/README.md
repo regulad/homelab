@@ -9,7 +9,7 @@ subdirectories into a module, so its files are grouped by name prefix instead.
 |---|---|
 | `network-legacy.tf`, `subnet-subnet--20230331--2242.tf`, `instance-web.tf` | The legacy VCN and its networking, and the web instance with its boot and data volumes, their backup-policy assignments, the data volume's attachment, and its IPv6 assignment (13 resources) |
 | `network-wahlecloud.tf`, `subnet-public.tf`, `instance-{bailout,livekit,mail,router}.tf` | The wahlecloud VCN and its networking, and the bailout, livekit, mail and router hosts with their volumes, mail's data volume with its attachment and backup-policy assignment, IPv6 assignments and NSGs (64 resources) |
-| `email.tf` | Email Delivery: the `regulad.xyz` domain, its DKIM key and senders, and the `svc-mail` policy (5 resources) |
+| `email.tf` | Email Delivery: the `regulad.xyz`, `nefumllc.com` and `regulad.net` domains, their DKIM keys and senders, and the `svc-mail` policy |
 | `state-bucket.tf`, `state-identity.tf` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
 | `main.tf` | The availability-domain lookup and the `tofu/shared` module call |
 | `outputs.tf` | The instances' public addresses and the DKIM key's CNAME record, which `tofu/cloudflare` reads for its DNS records |
