@@ -1,7 +1,5 @@
 ---
 host_files_directories:
-  - path: /etc/systemd/system/podman-restart.service.d
-    mode: "0755"
   # docker-mailserver's configuration, which its Quadlet binds. Only root may
   # enter it: mailserver.env and other files in it hold secrets, and the
   # container binds what it reads directly, past this directory.
@@ -96,17 +94,6 @@ host_files_list:
 
       [Install]
       WantedBy=remote-fs.target
-  # podman-restart.service starts docker-mailserver at boot, which binds its
-  # directories on the volume, so it starts after the mount: without it, the
-  # container would fail to find them. A change applies at the next boot, as
-  # the unit is not restarted for it.
-  # FIXME: in place of the Quadlet's own RequiresMountsFor. Revisit at its
-  # cutover.
-  - path: /etc/systemd/system/podman-restart.service.d/mounts.conf
-    mode: "0644"
-    content: |
-      [Unit]
-      RequiresMountsFor=/mnt/mailserver
   # docker-mailserver's own configuration, each file as it was imported. A
   # change applies when the container next starts; nothing restarts it. The
   # files that hold secrets are templates or content, their secrets from
@@ -186,6 +173,9 @@ host_files_list:
     mode: "0644"
   - path: "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf"
     mode: "0644"
+  # webhookd's hook, which its sudo rule lets it run as root.
+  - path: /usr/local/sbin/restart-mailserver.sh
+    mode: "0755"
 
 # Mounted now and at each boot.
 host_files_units: [mnt-mailserver.mount]

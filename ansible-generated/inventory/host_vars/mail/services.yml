@@ -1,0 +1,56 @@
+---
+# docker-mailserver's network, with the subnets its compose project's had:
+# IPv6 too, so that it takes and sends mail over IPv6.
+quadlet_networks:
+  - name: mailserver
+    ipv6: true
+    subnets: [10.89.0.0/24, "fd8a:ced2:727b:8489::/64"]
+
+quadlet_services:
+  - name: mailserver
+    description: docker-mailserver
+    after: [network-online.target]
+    wants: [network-online.target]
+    # 15, its major version; 16 moves to a new Debian release and breaks.
+    image: ghcr.io/docker-mailserver/docker-mailserver:15
+    container_name: mailserver
+    auto_update: registry
+    hostname: mail.regulad.xyz
+    # It writes all over its own root, where its services keep their runtime
+    # files.
+    read_only: false
+    # fail2ban bans in the container's own nftables.
+    add_capabilities: [NET_ADMIN]
+    network: mailserver.network
+    # On the instance's own addresses alone: the host's Postfix, the mail
+    # relay, holds port 25 on loopback.
+    ports:
+      - "{{ create_vnic_details[0].private_ip }}:25:25"  # SMTP
+      - "{{ create_vnic_details[0].private_ip }}:143:143"  # IMAP
+      - "{{ create_vnic_details[0].private_ip }}:465:465"  # SMTP submission, implicit TLS
+      - "{{ create_vnic_details[0].private_ip }}:587:587"  # SMTP submission, STARTTLS
+      - "{{ create_vnic_details[0].private_ip }}:993:993"  # IMAP, implicit TLS
+      - "{{ create_vnic_details[0].private_ip }}:4190:4190"  # ManageSieve
+      - "[{{ ipv6_address }}]:25:25"  # SMTP
+      - "[{{ ipv6_address }}]:143:143"  # IMAP
+      - "[{{ ipv6_address }}]:465:465"  # SMTP submission, implicit TLS
+      - "[{{ ipv6_address }}]:587:587"  # SMTP submission, STARTTLS
+      - "[{{ ipv6_address }}]:993:993"  # IMAP, implicit TLS
+      - "[{{ ipv6_address }}]:4190:4190"  # ManageSieve
+    volumes:
+      - /mnt/mailserver/mail:/var/mail
+      - /mnt/mailserver/state:/var/mail-state
+      - /mnt/mailserver/log:/var/log/mail
+      - "{{ mailserver_dir }}/config:/tmp/docker-mailserver"
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /etc/localtime:/etc/localtime:ro
+      # The old HOME.ARPA CA, which user-patches.sh trusts, as the ca_trust role
+      # installs it (ca_trust_rhel_anchor_dir, a default of that role alone).
+      - /etc/pki/ca-trust/source/anchors/freeipa-home.arpa.crt:/tmp/docker-mailserver/ipa-ca.crt:ro
+      - "{{ mailserver_dir }}/rspamd-dqs/rbl.conf:/etc/rspamd/local.d/rbl.conf:ro"
+      - "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf:/etc/rspamd/local.d/rbl_group.conf:ro"
+    environment_files: ["{{ mailserver_dir }}/mailserver.env"]
+    stop_timeout: 60
+    health_cmd: "ss --listening --ipv4 --tcp | grep --silent ':smtp' || exit 1"
+    health_timeout: 3s
+    restart: always
