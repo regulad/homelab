@@ -47,7 +47,11 @@ resource "proxmox_virtual_environment_container" "tvheadend" {
   }
 
   network_interface {
-    firewall    = true
+    # Bypasses the firewall: no firewall bridge for this NIC. Its HDHomeRun
+    # tuner sends each stream to a UDP port tvheadend picks at random, and
+    # answers its discovery broadcasts from its own address, neither of which
+    # conntrack matches to anything tvheadend sent.
+    firewall    = false
     mac_address = "BC:24:11:83:46:4B"
     name        = "eth0"
     vlan_id     = 1

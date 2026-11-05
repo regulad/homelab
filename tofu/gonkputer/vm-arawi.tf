@@ -18,18 +18,27 @@ resource "proxmox_virtual_environment_vm" "arawi" {
   network_device {
     mac_address = "BC:24:11:AF:E1:CF"
     mtu         = 9000
+    # Bypasses the firewall: no firewall bridge for this NIC, nor the others.
+    # pfSense filters what arawi routes; a guest firewall would filter it as
+    # arawi's own traffic, drop its router advertisements unless radv were on,
+    # and admit no DHCP requests to its server.
+    firewall = false
   }
 
   network_device {
     mac_address = "BC:24:11:42:3A:8E"
     mtu         = 9000
     vlan_id     = 4093
+    # Bypasses the firewall, as net0's comment says.
+    firewall = false
   }
 
   network_device {
     mac_address = "BC:24:11:08:E4:E8"
     mtu         = 9000
     vlan_id     = 1
+    # Bypasses the firewall, as net0's comment says.
+    firewall = false
   }
 
   agent {

@@ -47,6 +47,11 @@ resource "proxmox_virtual_environment_container" "tailscalerouter" {
   }
 
   network_interface {
+    # Bypasses the firewall: no firewall bridge for this NIC. A guest firewall
+    # would filter what it routes between the LAN and the tailnet, which keeps
+    # its own addresses with SNAT off, as the container's own traffic, and drop
+    # radvd's router advertisements unless radv were on.
+    firewall    = false
     mac_address = "BC:24:11:53:2C:15"
     name        = "eth0"
     vlan_id     = 1
