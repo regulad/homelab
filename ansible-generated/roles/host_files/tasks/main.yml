@@ -256,10 +256,12 @@
     label: "{{ item.target }}"
 
 # Labels that differ from the rules, such as files written before a rule
-# existed, relabelled; with -n in a check run, which only lists them.
+# existed, relabelled; with -n in a check run, which only lists them. -F resets
+# the whole context: without it, restorecon leaves files of a customizable type
+# such as container_file_t as they are and reports them at every run.
 - name: Host SELinux labels restored
   ansible.builtin.command:
-    argv: "{{ ['restorecon', '-R', '-v'] + (['-n'] if ansible_check_mode else []) + [item.path] }}"
+    argv: "{{ ['restorecon', '-R', '-v', '-F'] + (['-n'] if ansible_check_mode else []) + [item.path] }}"
   loop: "{{ host_files_selinux_fcontexts }}"
   loop_control:
     label: "{{ item.path }}"
