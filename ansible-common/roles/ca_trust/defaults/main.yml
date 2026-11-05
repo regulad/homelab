@@ -31,6 +31,8 @@ ca_trust_distrusted:
 #   freeipa-regulad.internal is wako's FreeIPA CA, and freeipa-home.arpa the
 #   old FreeIPA server's, which signs the certificate the freeipa stand-in
 #   still presents; pve-root-ca is the gonkputer cluster's.
+# ingress's Caddy trusts regulad.internal's anchor, and no other root, for
+# client certificates: its Caddyfile's mtls snippet.
 ca_trust_trusted:
   - internal-ca
   - regulad.internal

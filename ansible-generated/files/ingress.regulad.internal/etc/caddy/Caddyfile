@@ -58,11 +58,17 @@
 	}
 }
 
+# Client certificates from arawi's regulad.internal CA alone, which issues the
+# client certificates (dotfiles, uptime): the system bundle would admit one
+# from any public CA, and the homelab's other roots sign server certificates.
+# Its anchor is the one the ca_trust role installs on Ubuntu.
 (mtls) {
 	tls {
 		client_auth {
 			mode require_and_verify
-			trusted_ca_cert_file /etc/ssl/certs/ca-certificates.crt
+			trust_pool file {
+				pem_file /usr/local/share/ca-certificates/regulad.internal.crt
+			}
 		}
 	}
 }
