@@ -71,8 +71,8 @@ resource "proxmox_haresource" "cordpepperer" {
   }
 }
 
-# In: nothing beyond Ping and mDNS. Not peppercord's 8080, which Podman
-# publishes on every address and ingress does not proxy.
+# In: peppercord's 8080 from the homelab's own ranges, for Uptime Kuma's check
+# of its /health, whose failures restart the container.
 resource "proxmox_virtual_environment_firewall_rules" "cordpepperer" {
   node_name    = proxmox_virtual_environment_container.cordpepperer.node_name
   container_id = proxmox_virtual_environment_container.cordpepperer.vm_id
@@ -81,6 +81,19 @@ resource "proxmox_virtual_environment_firewall_rules" "cordpepperer" {
     type   = "in"
     action = "ACCEPT"
     macro  = "Ping"
+  }
+
+  dynamic "rule" {
+    for_each = local.dual_stack_internal_sources
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      proto  = "tcp"
+      dport  = "8080" # peppercord
+    }
   }
 
   # mDNS, which Avahi reflects between the LAN and the Podman containers here (avahi role).
