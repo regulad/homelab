@@ -18,7 +18,6 @@ locals {
     immich          = { id = proxmox_haresource.immich.resource_id, tags = proxmox_virtual_environment_container.immich.tags }
     ingress         = { id = proxmox_haresource.ingress.resource_id, tags = proxmox_virtual_environment_container.ingress.tags }
     jenkins         = { id = proxmox_haresource.jenkins.resource_id, tags = proxmox_virtual_environment_container.jenkins.tags }
-    mastodon        = { id = proxmox_haresource.mastodon.resource_id, tags = proxmox_virtual_environment_container.mastodon.tags }
     matrix          = { id = proxmox_haresource.matrix.resource_id, tags = proxmox_virtual_environment_container.matrix.tags }
     ncsusplitt      = { id = proxmox_haresource.ncsusplitt.resource_id, tags = proxmox_virtual_environment_container.ncsusplitt.tags }
     nexus           = { id = proxmox_haresource.nexus.resource_id, tags = proxmox_virtual_environment_container.nexus.tags }
