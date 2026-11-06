@@ -4,15 +4,19 @@ quadlet_services:
     description: Forgejo
     after: [network-online.target]
     wants: [network-online.target]
-    image: codeberg.org/forgejo/forgejo:12-rootless
+    # A long-term support major, the only kind maintenance.yml's
+    # forgejo-upgrade moves to.
+    image: codeberg.org/forgejo/forgejo:15-rootless
     container_name: forgejo
     auto_update: registry
     # Web UI on 3000 and the built-in SSH server on 2222, both reached through
     # the Cloudflare tunnel on localhost.
     network: host
+    # app.ini at the image's own path, in the data volume, which is the only
+    # one it reads from 15 on.
     volumes:
       - forgejo_data:/var/lib/gitea
-      - /etc/forgejo/app.ini:/etc/gitea/app.ini:ro
+      - /etc/forgejo/app.ini:/var/lib/gitea/custom/conf/app.ini:ro
     restart: always
     wanted_by: [multi-user.target, default.target]
 
