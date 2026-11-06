@@ -2268,6 +2268,461 @@
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
 
+# Upgrade docker-mailserver to the major release services.yml declares: bump
+# its image's tag there, with the changes its changelog asks of the
+# configuration under mailserver_dir, then run this play rather than site.yml,
+# with --limit <host> so alock locks that host alone. docker-mailserver migrates
+# nothing of its own, so a jump across majors needs only each skipped major's
+# changes made too; but a major can move to a new Debian release, and with it
+# Dovecot, Postfix and Redis, whose files the old release may not read back.
+# So, with webhookd stopped, which would restart the service on Uptime Kuma's
+# report of the outage, and docker-mailserver stopped, it copies the data
+# directories the Quadlet binds, its configuration and its unit, in full: a
+# reflink copy would leave the live files' blocks shared, each copied at its
+# next write. It then writes the declared configuration and unit and starts the
+# new release, which it counts up once its setup has finished, every daemon
+# supervisord started runs, the unit's health check passes, and Dovecot finds
+# the postmaster's same home and INBOX through its user database. It refuses a
+# downgrade, and does nothing where the declared major already runs. If
+# anything fails after the copy, it puts the copy back, mail the new release
+# accepted meanwhile included, starts the old release again, then fails:
+# revert services.yml and the configuration before the next site.yml.
+- name: Docker Mailserver upgrade to its declared major release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [mailserver-upgrade]
+  # Shared with the cleanup play below.
+  vars: &mailserver_upgrade_vars
+    mailserver_upgrade_service: "{{ quadlet_services | selectattr('name', 'eq', 'mailserver') | first | default({}) }}"
+    mailserver_upgrade_major: "{{ mailserver_upgrade_service.image | default('') | split(':') | last }}"
+    mailserver_upgrade_unit: /etc/containers/systemd/mailserver.container
+    # The data volume, where mnt-mailserver.mount mounts it, and the
+    # directories on it the Quadlet binds.
+    mailserver_upgrade_volume: /mnt/mailserver
+    mailserver_upgrade_data: >-
+      {{ mailserver_upgrade_service.volumes | default([]) | map('split', ':') | map('first')
+         | select('match', (mailserver_upgrade_volume ~ '/') | regex_escape) | list }}
+    # What is copied, each to its own name in the copy: the data, and the
+    # configuration, which holds docker-mailserver's secrets.
+    mailserver_upgrade_sources: "{{ mailserver_upgrade_data + [mailserver_dir] }}"
+    mailserver_upgrade_backup: "{{ mailserver_upgrade_volume }}/upgrade-backup"
+    # docker-mailserver's configuration, as host_files declares it, and where
+    # its sources are.
+    mailserver_upgrade_files_dir: "{{ inventory_dir | dirname }}/files/{{ inventory_hostname }}"
+    mailserver_upgrade_files: >-
+      {{ host_files_list | selectattr('path', 'match', (mailserver_dir ~ '/') | regex_escape) | list }}
+    # Seconds each start has to finish its setup and start its daemons.
+    mailserver_upgrade_timeout: 600
+  tasks:
+    - name: Only where docker-mailserver is declared
+      ansible.builtin.meta: end_host
+      when: not mailserver_upgrade_service
+
+    # The image's tag is the major, which podman-auto-update then follows
+    # through its minor and patch releases; a fuller version named here would
+    # stop it there.
+    - name: The declared release is a major one
+      ansible.builtin.assert:
+        that: mailserver_upgrade_major is match('^[0-9]+$')
+        fail_msg: >-
+          services.yml declares {{ mailserver_upgrade_service.image }}; declare a major release's tag, so
+          podman-auto-update brings in its minor and patch releases.
+        quiet: true
+
+    - name: Docker Mailserver's newest release
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/docker-mailserver/docker-mailserver/releases/latest
+      register: mailserver_upgrade_newest
+      check_mode: false
+
+    - name: Report the newest release
+      ansible.builtin.debug:
+        msg: >-
+          Newest release: {{ mailserver_upgrade_newest.json.tag_name | regex_replace('^v', '') }}.
+          services.yml declares {{ mailserver_upgrade_major }}.
+
+    # Its labels alone: the rest of the container's configuration holds the
+    # secrets from mailserver.env.
+    - name: The running container's labels
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}json .Config.Labels{{ '}}' }}", mailserver]
+      register: mailserver_upgrade_container
+      changed_when: false
+      check_mode: false
+
+    - name: The running release
+      ansible.builtin.set_fact:
+        mailserver_upgrade_running: >-
+          {{ (mailserver_upgrade_container.stdout | from_json)['org.opencontainers.image.version'] | regex_replace('^v', '') }}
+
+    - name: No downgrade, whose daemons may not read the newer files back
+      ansible.builtin.assert:
+        that: mailserver_upgrade_major | int >= mailserver_upgrade_running.split('.') | first | int
+        fail_msg: services.yml declares {{ mailserver_upgrade_major }}, older than the running {{ mailserver_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared major already runs
+      ansible.builtin.meta: end_host
+      when: mailserver_upgrade_major | int == mailserver_upgrade_running.split('.') | first | int
+
+    # Compared with the same on the new release: a major's changes to
+    # Dovecot's configuration could find the postmaster elsewhere, or not at
+    # all.
+    - name: The postmaster's address
+      ansible.builtin.command:
+        argv: [podman, exec, mailserver, printenv, POSTMASTER_ADDRESS]
+      register: mailserver_upgrade_postmaster
+      changed_when: false
+      check_mode: false
+
+    - name: Their home and INBOX on the running release
+      ansible.builtin.command:
+        argv: "{{ item }}"
+      loop:
+        - [podman, exec, mailserver, doveadm, user, -f, home, "{{ mailserver_upgrade_postmaster.stdout }}"]
+        - [podman, exec, mailserver, doveadm, mailbox, status, -u, "{{ mailserver_upgrade_postmaster.stdout }}", guid uidvalidity, INBOX]
+      register: mailserver_upgrade_mailbox
+      changed_when: false
+      check_mode: false
+
+    # The home, and the INBOX's GUID and UIDVALIDITY in whichever order doveadm
+    # prints them.
+    - name: As compared on the new release
+      ansible.builtin.set_fact:
+        mailserver_upgrade_identity: >-
+          {{ [mailserver_upgrade_mailbox.results[0].stdout | trim]
+             + mailserver_upgrade_mailbox.results[1].stdout | regex_findall('(?:guid|uidvalidity)=\S+') | sort }}
+
+    - name: The declared major, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ mailserver_upgrade_service.image }}"]
+      changed_when: true
+
+    - name: The pulled image's labels
+      ansible.builtin.command:
+        argv: [podman, image, inspect, --format, "{{ '{{' }}json .Labels{{ '}}' }}", "{{ mailserver_upgrade_service.image }}"]
+      register: mailserver_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The release to upgrade to
+      ansible.builtin.set_fact:
+        mailserver_upgrade_target: >-
+          {{ (mailserver_upgrade_pulled.stdout | from_json)['org.opencontainers.image.version'] | regex_replace('^v', '')
+             if mailserver_upgrade_pulled.rc == 0 else mailserver_upgrade_major ~ '.0.0' }}
+
+    - name: The pulled image is the declared major
+      ansible.builtin.assert:
+        that: mailserver_upgrade_target.startswith(mailserver_upgrade_major ~ '.')
+        fail_msg: "{{ mailserver_upgrade_service.image }} is release {{ mailserver_upgrade_target }}."
+        quiet: true
+
+    - name: Directory for the copy, which holds docker-mailserver's secrets
+      ansible.builtin.file:
+        path: "{{ mailserver_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: Webhookd stopped, so that the outage restarts nothing
+          ansible.builtin.systemd_service:
+            name: webhookd
+            state: stopped
+
+        - name: Docker Mailserver stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: mailserver
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ mailserver_upgrade_backup }}/{{ item }}"
+            state: absent
+          loop: "{{ mailserver_upgrade_sources | map('basename') | list + ['mailserver.container'] }}"
+
+        # In full, its blocks its own, so the live files share none.
+        - name: Copy of its data and configuration
+          ansible.builtin.command:
+            argv: [cp, -a, --reflink=never, "{{ item }}", "{{ mailserver_upgrade_backup }}/{{ item | basename }}"]
+          loop: "{{ mailserver_upgrade_sources }}"
+          changed_when: true
+
+        - name: Copy of the Quadlet unit
+          ansible.builtin.copy:
+            src: "{{ mailserver_upgrade_unit }}"
+            dest: "{{ mailserver_upgrade_backup }}/mailserver.container"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        # A check run copies nothing.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            mailserver_upgrade_copied: true
+          when: not ansible_check_mode
+
+        # As host_files writes them, but restarting nothing.
+        - name: Its configuration's files as declared
+          ansible.builtin.copy:
+            dest: "{{ item.path }}"
+            src: "{{ omit if item.content is defined else mailserver_upgrade_files_dir ~ (item.src | default(item.path)) }}"
+            content: "{{ item.content | default(omit) }}"
+            owner: "{{ item.owner | default('root') }}"
+            group: "{{ item.group | default('root') }}"
+            mode: "{{ item.mode }}"
+          loop: "{{ mailserver_upgrade_files | rejectattr('template', 'defined') | list }}"
+          loop_control:
+            label: "{{ item.path }}"
+          no_log: "{{ item.secret | default(false) }}"
+          diff: "{{ not (item.secret | default(false)) }}"
+
+        - name: Its configuration's templates as declared
+          ansible.builtin.template:
+            dest: "{{ item.path }}"
+            src: "{{ mailserver_upgrade_files_dir }}{{ item.src | default(item.path ~ '.j2') }}"
+            owner: "{{ item.owner | default('root') }}"
+            group: "{{ item.group | default('root') }}"
+            mode: "{{ item.mode }}"
+          loop: "{{ mailserver_upgrade_files | selectattr('template', 'defined') | selectattr('template') | list }}"
+          loop_control:
+            label: "{{ item.path }}"
+          no_log: "{{ item.secret | default(false) }}"
+          diff: "{{ not (item.secret | default(false)) }}"
+
+        - name: The unit with the declared major
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../roles/quadlet/templates/service.container.j2"
+            dest: "{{ mailserver_upgrade_unit }}"
+            owner: root
+            group: root
+            mode: "0644"
+          vars:
+            quadlet_dir: "{{ mailserver_upgrade_unit | dirname }}"
+          loop: "{{ [mailserver_upgrade_service] }}"
+          loop_control:
+            label: "{{ item.name }}"
+
+        - name: Docker Mailserver started on the declared major
+          ansible.builtin.systemd_service:
+            name: mailserver
+            state: started
+            daemon_reload: true
+
+        # Each start creates the container anew, as the Quadlet runs it with
+        # --rm, so its log is this start's; it is missing while a failed
+        # start is restarted.
+        - name: Wait for its setup to finish
+          ansible.builtin.command:
+            argv: [podman, logs, mailserver]
+          register: mailserver_upgrade_log
+          until: (mailserver_upgrade_log.stdout ~ mailserver_upgrade_log.stderr) is search(' is up and running')
+          retries: "{{ [(mailserver_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          changed_when: false
+          failed_when: false
+          when: not ansible_check_mode
+
+        # supervisorctl exits nonzero while any program is stopped, as those
+        # of features turned off always are.
+        - name: Wait for every daemon supervisord started to run
+          ansible.builtin.command:
+            argv: [podman, exec, mailserver, supervisorctl, status]
+          register: mailserver_upgrade_daemons
+          until: >-
+            mailserver_upgrade_daemons.stdout_lines | reject('search', 'Not started$')
+            | map('regex_replace', '^\S+\s+(\S+).*$', '\\1') | unique | list == ['RUNNING']
+          retries: "{{ [(mailserver_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          changed_when: false
+          failed_when: false
+          when: not ansible_check_mode
+
+        - name: Its health check passes
+          ansible.builtin.command:
+            argv: [podman, healthcheck, run, mailserver]
+          register: mailserver_upgrade_health
+          until: mailserver_upgrade_health.rc == 0
+          retries: 6
+          delay: 10
+          changed_when: false
+          when: not ansible_check_mode and mailserver_upgrade_service.health_cmd is defined
+
+        - name: The running container's labels
+          ansible.builtin.command:
+            argv: [podman, container, inspect, --format, "{{ '{{' }}json .Config.Labels{{ '}}' }}", mailserver]
+          register: mailserver_upgrade_started
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: The declared release is the one running
+          ansible.builtin.assert:
+            that: >-
+              (mailserver_upgrade_started.stdout | from_json)['org.opencontainers.image.version']
+              | regex_replace('^v', '') == mailserver_upgrade_target
+            fail_msg: docker-mailserver does not run {{ mailserver_upgrade_target }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: The postmaster's home and INBOX on the new release
+          ansible.builtin.command:
+            argv: "{{ item.item }}"
+          loop: "{{ mailserver_upgrade_mailbox.results }}"
+          loop_control:
+            label: "{{ item.item[3:5] | join(' ') }}"
+          register: mailserver_upgrade_mailbox_after
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: The same as on the old release
+          ansible.builtin.assert:
+            that: mailserver_upgrade_identity_after == mailserver_upgrade_identity
+            fail_msg: >-
+              Dovecot finds {{ mailserver_upgrade_postmaster.stdout }} as {{ mailserver_upgrade_identity_after }}
+              on {{ mailserver_upgrade_target }}, not {{ mailserver_upgrade_identity }}.
+            quiet: true
+          vars:
+            mailserver_upgrade_identity_after: >-
+              {{ [mailserver_upgrade_mailbox_after.results[0].stdout | trim]
+                 + mailserver_upgrade_mailbox_after.results[1].stdout | regex_findall('(?:guid|uidvalidity)=\S+') | sort }}
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              docker-mailserver runs {{ mailserver_upgrade_target }}, from {{ mailserver_upgrade_running }}. The copy
+              to return to is in {{ mailserver_upgrade_backup }}. Run mailserver-upgrade-cleanup once it has
+              proven itself.
+
+      rescue:
+        - name: Docker Mailserver stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: mailserver
+            state: stopped
+
+        # -H keeps the hard links Dovecot makes as it copies a message.
+        - name: Its data and configuration put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -aH, --delete, "{{ mailserver_upgrade_backup }}/{{ item | basename }}/", "{{ item }}/"]
+          loop: "{{ mailserver_upgrade_sources }}"
+          changed_when: true
+          when: mailserver_upgrade_copied | default(false)
+
+        - name: The old unit put back
+          ansible.builtin.copy:
+            src: "{{ mailserver_upgrade_backup }}/mailserver.container"
+            dest: "{{ mailserver_upgrade_unit }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: mailserver_upgrade_copied | default(false)
+
+        - name: Docker Mailserver started on the old release
+          ansible.builtin.systemd_service:
+            name: mailserver
+            state: started
+            daemon_reload: true
+
+        - name: Wait for the old release's setup
+          ansible.builtin.command:
+            argv: [podman, logs, mailserver]
+          register: mailserver_upgrade_rolled_back
+          until: (mailserver_upgrade_rolled_back.stdout ~ mailserver_upgrade_rolled_back.stderr) is search(' is up and running')
+          retries: "{{ [(mailserver_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          changed_when: false
+          failed_when: false
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to docker-mailserver {{ mailserver_upgrade_major }} failed, and it runs
+              {{ mailserver_upgrade_running }} again{{ ' from the copy' if mailserver_upgrade_copied | default(false) else '' }};
+              the new release's log is in the journal. Revert services.yml's image to
+              {{ mailserver_upgrade_running.split('.') | first }}, and the configuration with it, before the
+              next site.yml.
+
+      always:
+        - name: Webhookd started again
+          ansible.builtin.systemd_service:
+            name: webhookd
+            state: started
+
+# Remove what mailserver-upgrade leaves behind, once the new major has proven
+# itself: the copy of its data, configuration and unit to roll back to, and
+# the images of other releases. It refuses while docker-mailserver does not
+# run, healthy, the major services.yml declares, as the copy is then still the
+# way back. Run it with --limit <host>, as the upgrade.
+- name: Docker Mailserver upgrade's leftovers removed
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [mailserver-upgrade-cleanup]
+  vars: *mailserver_upgrade_vars
+  tasks:
+    - name: Only where docker-mailserver is declared
+      ansible.builtin.meta: end_host
+      when: not mailserver_upgrade_service
+
+    - name: The running container's labels
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}json .Config.Labels{{ '}}' }}", mailserver]
+      register: mailserver_cleanup_container
+      changed_when: false
+      check_mode: false
+
+    - name: The declared major runs
+      ansible.builtin.assert:
+        that: mailserver_cleanup_running.split('.') | first == mailserver_upgrade_major
+        fail_msg: >-
+          docker-mailserver runs {{ mailserver_cleanup_running }}, not major {{ mailserver_upgrade_major }},
+          so its copy may still be needed.
+        quiet: true
+      vars:
+        mailserver_cleanup_running: >-
+          {{ (mailserver_cleanup_container.stdout | from_json)['org.opencontainers.image.version'] | regex_replace('^v', '') }}
+
+    - name: Its health check passes
+      ansible.builtin.command:
+        argv: [podman, healthcheck, run, mailserver]
+      changed_when: false
+      check_mode: false
+      when: mailserver_upgrade_service.health_cmd is defined
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ mailserver_upgrade_backup }}"
+        state: absent
+
+    - name: Docker Mailserver's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ mailserver_upgrade_service.image.rsplit(':', 1) | first }}"]
+      register: mailserver_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    # The declared image stays, by any of its names; podman refuses to remove
+    # an image a container uses.
+    - name: The images of other releases removed
+      ansible.builtin.command:
+        argv: [podman, image, rm, "{{ item.Id }}"]
+      loop: >-
+        {{ mailserver_cleanup_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', mailserver_upgrade_service.image) | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Remove what the move from python-matter-server to matterjs-server leaves
 # behind, once matterjs-server has migrated the fabric: the copy of the Python
 # server's volume, made by hand before matterjs-server first started on it, the
