@@ -9,8 +9,10 @@ host_files_directories:
     mode: "0755"
   - path: "{{ mailserver_dir }}/config/rspamd"
     mode: "0755"
+  # Rspamd's, as docker-mailserver's setup leaves it: its _rspamd user in the
+  # container, 112:114 from 16 (111 was its user in 15, and is redis's now).
   - path: "{{ mailserver_dir }}/config/rspamd/dkim"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0755"
   - path: "{{ mailserver_dir }}/config/rspamd/override.d"
@@ -140,55 +142,55 @@ host_files_list:
   - path: "{{ mailserver_dir }}/config/postfix-virtual.cf"
     mode: "0644"
     restarts: [mailserver]
-  # Rspamd's DKIM keys, owned by its user in the container (111:114).
+  # Rspamd's DKIM keys, owned by its user in the container (112:114).
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
     content: "{{ mailserver_dkim_private_keys['regulad.xyz'] }}"
     secret: true
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0600"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.private.txt"
     content: "{{ mailserver_dkim_private_keys['nefumllc.com'] }}"
     secret: true
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0600"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.txt"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-nefumllc.com.public.dns.txt"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.net.private.txt"
     content: "{{ mailserver_dkim_private_keys['regulad.net'] }}"
     secret: true
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0600"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.net.public.txt"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.net.public.dns.txt"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
@@ -196,7 +198,7 @@ host_files_list:
     mode: "0644"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/override.d/dkim_signing.conf"
-    owner: "111"
+    owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
