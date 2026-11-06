@@ -1496,13 +1496,15 @@
       check_mode: false
 
     # The declared image stays, by any of its names; podman refuses to remove
-    # an image a container uses.
+    # an image a container uses. Each goes by its names, once: podman removes
+    # an image with several by its ID only with --force, which removes its
+    # containers too.
     - name: The images of other major releases removed
       ansible.builtin.command:
-        argv: [podman, image, rm, "{{ item.Id }}"]
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
       loop: >-
         {{ jellyfin_cleanup_images.stdout | from_json | selectattr('Names')
-           | rejectattr('Names', 'contains', jellyfin_upgrade_image) | list }}
+           | rejectattr('Names', 'contains', jellyfin_upgrade_image) | unique(attribute='Id') | list }}
       loop_control:
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
@@ -1819,13 +1821,15 @@
       check_mode: false
 
     # The declared image stays, by any of its names; podman refuses to remove
-    # an image a container uses.
+    # an image a container uses. Each goes by its names, once: podman removes
+    # an image with several by its ID only with --force, which removes its
+    # containers too.
     - name: The images of other releases removed
       ansible.builtin.command:
-        argv: [podman, image, rm, "{{ item.Id }}"]
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
       loop: >-
         {{ homeassistant_cleanup_images.stdout | from_json | selectattr('Names')
-           | rejectattr('Names', 'contains', homeassistant_upgrade_image) | list }}
+           | rejectattr('Names', 'contains', homeassistant_upgrade_image) | unique(attribute='Id') | list }}
       loop_control:
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
@@ -2257,13 +2261,15 @@
       check_mode: false
 
     # The declared image stays, by any of its names; podman refuses to remove
-    # an image a container uses.
+    # an image a container uses. Each goes by its names, once: podman removes
+    # an image with several by its ID only with --force, which removes its
+    # containers too.
     - name: The images of other releases removed
       ansible.builtin.command:
-        argv: [podman, image, rm, "{{ item.Id }}"]
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
       loop: >-
         {{ nextcloud_cleanup_images.stdout | from_json | selectattr('Names')
-           | rejectattr('Names', 'contains', nextcloud_upgrade_image) | list }}
+           | rejectattr('Names', 'contains', nextcloud_upgrade_image) | unique(attribute='Id') | list }}
       loop_control:
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
@@ -2727,13 +2733,15 @@
       check_mode: false
 
     # The declared image stays, by any of its names; podman refuses to remove
-    # an image a container uses.
+    # an image a container uses. Each goes by its names, once: podman removes
+    # an image with several by its ID only with --force, which removes its
+    # containers too.
     - name: The images of other releases removed
       ansible.builtin.command:
-        argv: [podman, image, rm, "{{ item.Id }}"]
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
       loop: >-
         {{ mailserver_cleanup_images.stdout | from_json | selectattr('Names')
-           | rejectattr('Names', 'contains', mailserver_upgrade_service.image) | list }}
+           | rejectattr('Names', 'contains', mailserver_upgrade_service.image) | unique(attribute='Id') | list }}
       loop_control:
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
@@ -2852,9 +2860,12 @@
       changed_when: false
       check_mode: false
 
+    # By their names, or by ID where they have none: podman removes an image
+    # with several names by its ID only with --force, which removes its
+    # containers too.
     - name: The Python server's images removed
       ansible.builtin.command:
-        argv: [podman, image, rm, "{{ item.Id }}"]
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
       loop: >-
         {{ matter_server_cleanup_images.results | map(attribute='stdout') | map('from_json') | flatten
            | unique(attribute='Id') | list }}
