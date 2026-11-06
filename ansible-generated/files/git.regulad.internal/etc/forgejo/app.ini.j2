@@ -76,9 +76,9 @@ DEFAULT_ALLOW_CREATE_ORGANIZATION = true
 DEFAULT_ENABLE_TIMETRACKING = true
 
 [openid]
-ENABLE_OPENID_SIGNIN = true
-; Accounts are registered through the sign-up form alone; an existing account
-; can still sign in with OpenID.
+; OpenID is off: accounts are registered through the sign-up form alone and
+; sign in with their own credentials. None had an OpenID linked.
+ENABLE_OPENID_SIGNIN = false
 ENABLE_OPENID_SIGNUP = false
 
 [cron.update_checker]
