@@ -89,7 +89,8 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `cordpepperer` (118): a mirror of `peppercord`
 - [x] `immich` (116)
 - [x] `git` (200): Forgejo, served by Caddy on ingress, with its Cloudflare tunnel for SSH; moved from the git VM (110)
-  - [ ] Forgejo 15, a long-term support release, from 12, which no longer gets fixes: by `maintenance.yml`'s `forgejo-upgrade`, which moves only between long-term support releases and keeps a copy to roll back to, and `forgejo-upgrade-cleanup`
+  - [x] Forgejo 15, a long-term support release, from 12, which no longer gets fixes: by `maintenance.yml`'s `forgejo-upgrade`, which moves only between long-term support releases and keeps a copy to roll back to, and `forgejo-upgrade-cleanup`
+  - [ ] Forgejo's LDAP login source, `freeipa`, points at the retired `freeipa.home.arpa`: removed, or pointed at wako
 - [x] `ingress` (121)
   - [x] Inbound IPv6: Matrix's federation tester passes over both families since the CR1000B's firewall was changed on 2026-10-27
   - [ ] From OCI over IPv6: bailout's connections to ingress's GUA time out. tailscalerouter's router advertisements route OCI's /64 through the tailnet, so ingress's replies take another path than the requests
