@@ -7,11 +7,14 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 ## Security hardening
 
 - [x] AIDE on every Linux host, containers included: aide-report checks the
-  host's files daily, at a time of each host's own, against a baseline held
-  until `maintenance.yml --tags aide-accept` moves it, and mails root, through
-  the host's mail relay, the changes its packages do not explain (`rpm
-  --verify`, or dpkg's checksums). Each `site.yml` run moves the baseline for
-  the files it wrote. Not yet on turk, which was unreachable
+  host's files daily, at a time of each host's own, against the accepted
+  baseline, and mails root, through the host's mail relay, the changes its
+  packages do not explain (`rpm --verify`, or dpkg's checksums). Once the mail
+  is sent, the files as that check found them become the baseline, so each
+  change is mailed once; each mail names the previous one, so a lost mail
+  leaves a gap. Each `site.yml` run moves the baseline for the files it wrote,
+  and `maintenance.yml --tags aide-accept` moves it by hand. Not yet on turk,
+  which was unreachable
 - [x] auditd on every Linux host with its own kernel, to instrument an
   intrusion should one occur: its rules record what happened for the
   investigation. Containers cannot run it, and prodingus's records their
