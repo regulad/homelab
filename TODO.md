@@ -61,7 +61,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [ ] `logrotate`, which Ubuntu Minimal leaves out: installed since 2026-10-30 only as a dependency of the ClamAV packages, and declared nowhere
   - [x] IPv6: the legacy VCN routes and admits it, and Caddy serves both families
 - [x] `livekit`: LiveKit, lk-jwt-service, nginx and certbot
-- [ ] `mail`: docker-mailserver 15, authenticating against FreeIPA on wako
+- [ ] `mail`: docker-mailserver 16, authenticating against FreeIPA on wako
   - [x] The miner and its tunnel removed, as on tailscalerouter
   - [x] docker-mailserver as a Quadlet, in place of the compose project Podman ran, with its env file and config overrides declared and their secrets in SOPS
   - [x] Certificate renewal: certbot renews by Cloudflare's DNS-01, and its deploy hook restarts Postfix and Dovecot in the container, as docker-mailserver's change detector runs only with `ACCOUNT_PROVISIONER=FILE`
@@ -73,7 +73,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] MTA-STS from `mode: testing` to `enforce`, with TLS-RPT reports to `postmaster@regulad.xyz`
   - [x] DANE: a TLSA record, `3 1 1`, for `mail.regulad.xyz`, whose key certbot keeps at renewal
   - [x] webhookd: pinned at upstream's release, its TLS key readable by its own user alone
-  - [ ] docker-mailserver 16, by `maintenance.yml`'s `mailserver-upgrade`, which keeps a copy to roll back to, and `mailserver-upgrade-cleanup`: Dovecot 2.4's `%{user | username}` in the LDAP filters and home, and `dms-healthcheck`
+  - [x] docker-mailserver 16, by `maintenance.yml`'s `mailserver-upgrade`, which keeps a copy to roll back to, and `mailserver-upgrade-cleanup`: Dovecot 2.4's `%{user | username}` in the LDAP filters and home, the login name kept in the password database, and `dms-healthcheck`
 - [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
 
