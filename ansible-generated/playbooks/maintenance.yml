@@ -1427,13 +1427,15 @@
       check_mode: false
 
     # The declared image stays, by any of its names; podman refuses to remove
-    # an image a container uses.
+    # an image a container uses. Each goes by its names, once: podman removes
+    # an image with several by its ID only with --force, which removes its
+    # containers too.
     - name: The images of other releases removed
       ansible.builtin.command:
-        argv: [podman, image, rm, "{{ item.Id }}"]
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
       loop: >-
         {{ forgejo_cleanup_images.stdout | from_json | selectattr('Names')
-           | rejectattr('Names', 'contains', forgejo_upgrade_service.image) | list }}
+           | rejectattr('Names', 'contains', forgejo_upgrade_service.image) | unique(attribute='Id') | list }}
       loop_control:
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
