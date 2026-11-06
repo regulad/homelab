@@ -2282,7 +2282,8 @@
 # next write. It then writes the declared configuration and unit and starts the
 # new release, which it counts up once its setup has finished, every daemon
 # supervisord started runs, the unit's health check passes, and Dovecot finds
-# the postmaster's same home and INBOX through its user database. It refuses a
+# the postmaster's same home and INBOX through its user database, and them
+# under their own name through its password database. It refuses a
 # downgrade, and does nothing where the declared major already runs. If
 # anything fails after the copy, it puts the copy back, mail the new release
 # accepted meanwhile included, starts the old release again, then fails:
@@ -2593,6 +2594,20 @@
             mailserver_upgrade_identity_after: >-
               {{ [mailserver_upgrade_mailbox_after.results[0].stdout | trim]
                  + mailserver_upgrade_mailbox_after.results[1].stdout | regex_findall('(?:guid|uidvalidity)=\S+') | sort }}
+          when: not ansible_check_mode
+
+        # A lookup without a password expands the password database's fields
+        # as a login does, and fails where a login would: 16's default took the
+        # user from an attribute FreeIPA's entries lack.
+        - name: Dovecot's password database finds the postmaster under their own name
+          ansible.builtin.command:
+            argv: [podman, exec, mailserver, doveadm, auth, lookup, "{{ mailserver_upgrade_postmaster.stdout }}"]
+          register: mailserver_upgrade_passdb
+          changed_when: false
+          failed_when: >-
+            mailserver_upgrade_passdb.rc != 0
+            or mailserver_upgrade_passdb.stdout is not search(
+              '^\s*user\s*:\s*' ~ (mailserver_upgrade_postmaster.stdout | regex_escape) ~ '\s*$', multiline=True)
           when: not ansible_check_mode
 
         - name: Report the upgrade
