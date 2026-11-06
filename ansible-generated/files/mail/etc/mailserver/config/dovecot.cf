@@ -1,0 +1,30 @@
+# Dovecot settings over docker-mailserver's own: it copies this file to
+# /etc/dovecot/local.conf as it sets up a new container, and dovecot.conf
+# includes that after conf.d.
+
+# The Sieve extensions users' own scripts may require, those uploaded through
+# ManageSieve: only those they use, copy and imap4flags. A space-separated
+# list replaces the whole list, both Pigeonhole's default and the extensions
+# docker-mailserver's 90-sieve.conf adds to it. ManageSieve advertises this
+# list.
+sieve_extensions = copy imap4flags
+
+# The extensions only global scripts may require, on top of those above:
+# those docker-mailserver's own scripts use beyond them. Its spam-learning
+# scripts, which IMAPSieve runs as administrator scripts as mail moves into and
+# out of Junk, require vnd.dovecot.pipe and imapsieve; MOVE_SPAM_TO_JUNK's
+# script requires fileinto and special-use. The IMAPSieve plugin enables
+# imapsieve, vnd.dovecot.imapsieve and environment whatever the lists say, and
+# naming them here keeps them to global scripts. vnd.dovecot.filter, which no
+# script uses, is in neither list. A block adds to docker-mailserver's own
+# entries, such as the editheader its SPAM_SUBJECT turns on. A
+# docker-mailserver feature turned on later with a script of its own may need
+# more here: MARK_SPAM_AS_READ's requires mailbox, SPAM_SUBJECT's variables.
+sieve_global_extensions {
+  environment = yes
+  fileinto = yes
+  imapsieve = yes
+  special-use = yes
+  vnd.dovecot.imapsieve = yes
+  vnd.dovecot.pipe = yes
+}

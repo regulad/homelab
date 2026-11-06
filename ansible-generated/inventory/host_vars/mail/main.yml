@@ -105,6 +105,11 @@ host_files_list:
     secret: true
     mode: "0644"
     restarts: [mailserver]
+  # Dovecot's settings over docker-mailserver's: the Sieve extensions users'
+  # scripts and its own global scripts may require.
+  - path: "{{ mailserver_dir }}/config/dovecot.cf"
+    mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/fail2ban-fail2ban.cf"
     mode: "0644"
     restarts: [mailserver]
