@@ -1016,22 +1016,33 @@ def check_files(settings):
     return "%d changes" % total, lines, 0
 
 
+def package_manifest(packages):
+    """What a baseline's manifest records of the host's packages: each
+    package-owned path's owner, the packages installed, and dpkg's diversions."""
+    recorded = {"owner": packages.owner, "installed": sorted(packages.installed)}
+    current = None if packages.rpm else diversions()
+    if current is not None:
+        recorded["diversions"] = sorted(current)
+    return recorded
+
+
+def accept(settings, manifest):
+    """Makes the database AIDE wrote last the baseline, with the manifest
+    beside it, whose mtime is when the baseline was accepted."""
+    os.makedirs(settings["state"], mode=0o700, exist_ok=True)
+    with gzip.open(settings["manifest"] + ".tmp", "wt") as handle:
+        json.dump(manifest, handle)
+    os.replace(settings["database_new"], settings["database"])
+    os.replace(settings["manifest"] + ".tmp", settings["manifest"])
+
+
 def baseline(settings):
     result = aide(settings, "--init")
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         sys.stderr.write("aide --init exited %d\n" % result.returncode)
         return 1
-    packages = Packages()
-    os.makedirs(settings["state"], mode=0o700, exist_ok=True)
-    manifest = settings["manifest"]
-    with gzip.open(manifest + ".tmp", "wt") as handle:
-        recorded = {"owner": packages.owner, "installed": sorted(packages.installed)}
-        if not packages.rpm and diversions() is not None:
-            recorded["diversions"] = sorted(diversions())
-        json.dump(recorded, handle)
-    os.replace(settings["database_new"], settings["database"])
-    os.replace(manifest + ".tmp", manifest)
+    accept(settings, package_manifest(Packages()))
     print("Accepted the files as they are: %s" % settings["database"])
     return 0
 
