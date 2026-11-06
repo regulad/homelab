@@ -1058,6 +1058,386 @@
               Revert the image in services.yml to
               {{ (nexus_upgrade_container.stdout | from_json)[0].ImageName }} before the next site.yml.
 
+# Upgrade Forgejo to the long-term support major services.yml declares: bump
+# its image's tag there, with whatever its release notes ask of the unit, then
+# run this play rather than site.yml, with --limit <host> so alock locks that
+# host alone. Forgejo migrates its database from any older release in one
+# start, and its upgrade guide goes straight to the newest, so the play takes
+# any later major; but only a long-term support one, as Forgejo's release
+# schedule names them, moving from one to the next. It refuses a downgrade,
+# which Forgejo itself refuses once it has migrated the database, and does
+# nothing where the declared major already runs. Forgejo is to pass its
+# doctor's checks before it starts. Then, as the guide asks, it flushes
+# Forgejo's queues, and with Forgejo stopped copies its data volume, in full,
+# and its unit; it starts the new release from the quadlet role's template,
+# and counts it up once it reports itself healthy as the declared release and
+# passes its doctor's checks again. If anything fails after the copy, it puts
+# the copy and the old unit back, starts the old release again, then fails:
+# revert services.yml before the next site.yml.
+- name: Forgejo upgrade to its declared long-term support release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [forgejo-upgrade]
+  # Shared with the cleanup play below.
+  vars: &forgejo_upgrade_vars
+    forgejo_upgrade_service: "{{ quadlet_services | selectattr('name', 'eq', 'forgejo') | first | default({}) }}"
+    forgejo_upgrade_tag: "{{ forgejo_upgrade_service.image | default('') | split(':') | last }}"
+    # The tag's major, without its variant suffix, such as -rootless.
+    forgejo_upgrade_major: "{{ forgejo_upgrade_tag | regex_replace('-.*$', '') }}"
+    forgejo_upgrade_unit: /etc/containers/systemd/forgejo.container
+    # The named volume the unit mounts, and the app.ini it binds.
+    forgejo_upgrade_volume: >-
+      {{ forgejo_upgrade_service.volumes | default([]) | reject('match', '/') | first | default('') | split(':') | first }}
+    forgejo_upgrade_ini: >-
+      {{ forgejo_upgrade_service.volumes | default([]) | select('search', '/app[.]ini:') | first | default('') | split(':') | first }}
+    forgejo_upgrade_backup: /var/backups/forgejo-upgrade
+    forgejo_upgrade_url: http://127.0.0.1:3000
+    forgejo_upgrade_schedule: https://codeberg.org/forgejo/docs/raw/branch/next/release-schedule.json
+    # Seconds the new release has to migrate its database and report itself
+    # healthy.
+    forgejo_upgrade_timeout: 1800
+  tasks:
+    - name: Only where Forgejo is declared
+      ansible.builtin.meta: end_host
+      when: not forgejo_upgrade_service
+
+    # The image's tag is the major, which podman-auto-update then follows
+    # through its minor and patch releases; a fuller version named here would
+    # stop it there.
+    - name: The declared release is a major one
+      ansible.builtin.assert:
+        that: forgejo_upgrade_tag is match('^[0-9]+(-rootless)?$')
+        fail_msg: >-
+          services.yml declares {{ forgejo_upgrade_service.image }}; declare a major release's tag, so
+          podman-auto-update brings in its minor and patch releases.
+        quiet: true
+
+    # Served as plain text.
+    - name: Forgejo's release schedule
+      ansible.builtin.uri:
+        url: "{{ forgejo_upgrade_schedule }}"
+        return_content: true
+      register: forgejo_upgrade_releases
+      check_mode: false
+
+    - name: Its long-term support releases out so far
+      ansible.builtin.set_fact:
+        forgejo_upgrade_lts: >-
+          {{ forgejo_upgrade_releases.content | from_json | selectattr('lts')
+             | selectattr('release', '<=', now(utc=true).strftime('%Y-%m-%d'))
+             | map(attribute='major') | map('int') | sort | list }}
+
+    - name: Report the newest
+      ansible.builtin.debug:
+        msg: >-
+          Newest long-term support release: {{ forgejo_upgrade_lts | last }}.
+          services.yml declares {{ forgejo_upgrade_major }}.
+
+    - name: The declared major is a long-term support one
+      ansible.builtin.assert:
+        that: forgejo_upgrade_major | int in forgejo_upgrade_lts
+        fail_msg: >-
+          Forgejo {{ forgejo_upgrade_major }} is not a long-term support release out yet; these are:
+          {{ forgejo_upgrade_lts | join(', ') }}.
+        quiet: true
+
+    - name: The running container's labels
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}json .Config.Labels{{ '}}' }}", forgejo]
+      register: forgejo_upgrade_container
+      changed_when: false
+      check_mode: false
+
+    - name: The running release
+      ansible.builtin.set_fact:
+        forgejo_upgrade_running: "{{ (forgejo_upgrade_container.stdout | from_json)['org.opencontainers.image.version'] }}"
+
+    - name: No downgrade, which Forgejo refuses on a migrated database
+      ansible.builtin.assert:
+        that: forgejo_upgrade_major | int >= forgejo_upgrade_running.split('.') | first | int
+        fail_msg: services.yml declares {{ forgejo_upgrade_major }}, older than the running {{ forgejo_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared major already runs
+      ansible.builtin.meta: end_host
+      when: forgejo_upgrade_major | int == forgejo_upgrade_running.split('.') | first | int
+
+    # Where the running container reads app.ini, which its command line is to
+    # be told: before 15, its environment names a path it does not read.
+    - name: The running container's mounts
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}json .Mounts{{ '}}' }}", forgejo]
+      register: forgejo_upgrade_mounts
+      changed_when: false
+      check_mode: false
+
+    - name: Its app.ini
+      ansible.builtin.set_fact:
+        forgejo_upgrade_config: >-
+          {{ (forgejo_upgrade_mounts.stdout | from_json | selectattr('Source', 'eq', forgejo_upgrade_ini) | first).Destination }}
+
+    # Only from a sound state: the same checks are to pass on the new release.
+    - name: Forgejo passes its doctor's checks
+      ansible.builtin.command:
+        argv: [podman, exec, forgejo, forgejo, doctor, check, --all, "--config={{ forgejo_upgrade_config }}"]
+      changed_when: false
+      check_mode: false
+
+    - name: The declared major, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ forgejo_upgrade_service.image }}"]
+      changed_when: true
+
+    - name: The pulled image's labels
+      ansible.builtin.command:
+        argv: [podman, image, inspect, --format, "{{ '{{' }}json .Labels{{ '}}' }}", "{{ forgejo_upgrade_service.image }}"]
+      register: forgejo_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The release to upgrade to
+      ansible.builtin.set_fact:
+        forgejo_upgrade_target: >-
+          {{ (forgejo_upgrade_pulled.stdout | from_json)['org.opencontainers.image.version']
+             if forgejo_upgrade_pulled.rc == 0 else forgejo_upgrade_major ~ '.0.0' }}
+
+    - name: The pulled image is the declared major
+      ansible.builtin.assert:
+        that: forgejo_upgrade_target.startswith(forgejo_upgrade_major ~ '.')
+        fail_msg: "{{ forgejo_upgrade_service.image }} is release {{ forgejo_upgrade_target }}."
+        quiet: true
+
+    - name: The data volume's mountpoint
+      ansible.builtin.command:
+        argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "{{ forgejo_upgrade_volume }}"]
+      register: forgejo_upgrade_mountpoint
+      changed_when: false
+      check_mode: false
+
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ forgejo_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        # Their contents are not kept compatible from one release to the next.
+        - name: Forgejo's queues flushed
+          ansible.builtin.command:
+            argv: [podman, exec, forgejo, forgejo, manager, flush-queues, "--config={{ forgejo_upgrade_config }}"]
+          changed_when: true
+
+        - name: Forgejo stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: forgejo
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ forgejo_upgrade_backup }}/{{ item }}"
+            state: absent
+          loop: [data, forgejo.container]
+
+        # In full, its blocks its own, so the live files share none.
+        - name: Copy of the data volume
+          ansible.builtin.command:
+            argv: [cp, -a, --reflink=never, "{{ forgejo_upgrade_mountpoint.stdout }}", "{{ forgejo_upgrade_backup }}/data"]
+          changed_when: true
+
+        - name: Copy of the Quadlet unit
+          ansible.builtin.copy:
+            src: "{{ forgejo_upgrade_unit }}"
+            dest: "{{ forgejo_upgrade_backup }}/forgejo.container"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        # A check run copies nothing.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            forgejo_upgrade_copied: true
+          when: not ansible_check_mode
+
+        - name: The unit with the declared major
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../roles/quadlet/templates/service.container.j2"
+            dest: "{{ forgejo_upgrade_unit }}"
+            owner: root
+            group: root
+            mode: "0644"
+          vars:
+            quadlet_dir: "{{ forgejo_upgrade_unit | dirname }}"
+          loop: "{{ [forgejo_upgrade_service] }}"
+          loop_control:
+            label: "{{ item.name }}"
+
+        - name: Forgejo started on the declared major, to migrate
+          ansible.builtin.systemd_service:
+            name: forgejo
+            state: started
+            daemon_reload: true
+
+        - name: Wait for the migration and startup
+          ansible.builtin.uri:
+            url: "{{ forgejo_upgrade_url }}/api/healthz"
+          register: forgejo_upgrade_health
+          until: forgejo_upgrade_health.status | default(0) == 200 and (forgejo_upgrade_health.json | default({})).status | default('') == 'pass'
+          retries: "{{ [(forgejo_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: The release it reports
+          ansible.builtin.uri:
+            url: "{{ forgejo_upgrade_url }}/api/v1/version"
+          register: forgejo_upgrade_version
+          when: not ansible_check_mode
+
+        - name: The declared release is the one serving
+          ansible.builtin.assert:
+            that: forgejo_upgrade_version.json.version.split('+') | first == forgejo_upgrade_target
+            fail_msg: Forgejo reports {{ forgejo_upgrade_version.json.version }}, not {{ forgejo_upgrade_target }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: The new container's mounts
+          ansible.builtin.command:
+            argv: [podman, container, inspect, --format, "{{ '{{' }}json .Mounts{{ '}}' }}", forgejo]
+          register: forgejo_upgrade_mounts_after
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: It passes its doctor's checks
+          ansible.builtin.command:
+            argv: [podman, exec, forgejo, forgejo, doctor, check, --all, "--config={{ forgejo_upgrade_config_after }}"]
+          vars:
+            forgejo_upgrade_config_after: >-
+              {{ (forgejo_upgrade_mounts_after.stdout | from_json | selectattr('Source', 'eq', forgejo_upgrade_ini)
+                  | first).Destination }}
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              Forgejo runs {{ forgejo_upgrade_target }}, from {{ forgejo_upgrade_running }}. The copy to return to
+              is in {{ forgejo_upgrade_backup }}. Run forgejo-upgrade-cleanup once it has proven itself.
+
+      rescue:
+        - name: Forgejo stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: forgejo
+            state: stopped
+
+        - name: The data volume put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -aH, --delete, "{{ forgejo_upgrade_backup }}/data/", "{{ forgejo_upgrade_mountpoint.stdout }}/"]
+          changed_when: true
+          when: forgejo_upgrade_copied | default(false)
+
+        - name: The old unit put back
+          ansible.builtin.copy:
+            src: "{{ forgejo_upgrade_backup }}/forgejo.container"
+            dest: "{{ forgejo_upgrade_unit }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: forgejo_upgrade_copied | default(false)
+
+        - name: Forgejo started on the old release
+          ansible.builtin.systemd_service:
+            name: forgejo
+            state: started
+            daemon_reload: true
+
+        - name: Wait for the old release
+          ansible.builtin.uri:
+            url: "{{ forgejo_upgrade_url }}/api/healthz"
+          register: forgejo_upgrade_rolled_back
+          until: forgejo_upgrade_rolled_back.status | default(0) == 200
+          retries: 60
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to Forgejo {{ forgejo_upgrade_major }} failed, and it runs {{ forgejo_upgrade_running }}
+              again{{ ' from the copy' if forgejo_upgrade_copied | default(false) else '' }}. Revert services.yml's
+              image to {{ forgejo_upgrade_running.split('.') | first }}, with the unit as it was, before the next
+              site.yml.
+
+# Remove what forgejo-upgrade leaves behind, once the new major has proven
+# itself: the copy of its data volume and unit to roll back to, and the images
+# of other releases. It refuses while Forgejo does not run, and report itself
+# healthy, on the major services.yml declares, as the copy is then still the
+# way back. Run it with --limit <host>, as the upgrade.
+- name: Forgejo upgrade's leftovers removed
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [forgejo-upgrade-cleanup]
+  vars: *forgejo_upgrade_vars
+  tasks:
+    - name: Only where Forgejo is declared
+      ansible.builtin.meta: end_host
+      when: not forgejo_upgrade_service
+
+    - name: The running container's labels
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}json .Config.Labels{{ '}}' }}", forgejo]
+      register: forgejo_cleanup_container
+      changed_when: false
+      check_mode: false
+
+    - name: The declared major runs
+      ansible.builtin.assert:
+        that: forgejo_cleanup_running.split('.') | first == forgejo_upgrade_major
+        fail_msg: Forgejo runs {{ forgejo_cleanup_running }}, not major {{ forgejo_upgrade_major }}, so its copy may still be needed.
+        quiet: true
+      vars:
+        forgejo_cleanup_running: "{{ (forgejo_cleanup_container.stdout | from_json)['org.opencontainers.image.version'] }}"
+
+    - name: It reports itself healthy
+      ansible.builtin.uri:
+        url: "{{ forgejo_upgrade_url }}/api/healthz"
+      register: forgejo_cleanup_health
+      failed_when: (forgejo_cleanup_health.json | default({})).status | default('') != 'pass'
+      check_mode: false
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ forgejo_upgrade_backup }}"
+        state: absent
+
+    - name: Forgejo's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ forgejo_upgrade_service.image.rsplit(':', 1) | first }}"]
+      register: forgejo_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    # The declared image stays, by any of its names; podman refuses to remove
+    # an image a container uses.
+    - name: The images of other releases removed
+      ansible.builtin.command:
+        argv: [podman, image, rm, "{{ item.Id }}"]
+      loop: >-
+        {{ forgejo_cleanup_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', forgejo_upgrade_service.image) | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Upgrade Jellyfin to the major release jellyfin_major declares: bump it, then
 # run this play rather than site.yml, with --limit <host> so alock locks that
 # host alone. A major release migrates the database in a way only a full
