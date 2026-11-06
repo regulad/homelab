@@ -166,7 +166,7 @@
         tasks_from: scan
 
 # AIDE's daily report of the file changes the host's packages do not explain,
-# against a baseline held until accepted, on every Linux host, containers
+# against a baseline each mailed report moves, on every Linux host, containers
 # included.
 - name: File integrity
   hosts: debian:ubuntu:rhel

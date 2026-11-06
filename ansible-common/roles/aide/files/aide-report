@@ -4,7 +4,13 @@
 Managed by Ansible (aide).
 
 aide-report: checks the host's files against the accepted baseline, leaves out
-the changes its package manager vouches for, and mails root what remains. Each
+the changes its package manager vouches for, and mails root what remains. Once
+the mail is sent, the files as that check found them become the baseline, so
+each change is mailed once. AIDE's --update compares the files and writes their
+new database in the same walk, and only that database is accepted, so a change
+made after the walk stays for the next report. A mail accepts nothing where
+there is no baseline, the check failed, the report is too long for one mail, or
+the mail is only of container images, which are reported until repaired. Each
 mail begins with when the previous one was sent, and its subject, so that a
 mail lost or held back on the way leaves a gap the next one shows.
 aide-report --baseline: accepts the files as they are: a new database, and the
@@ -983,37 +989,75 @@ def save_kept(settings, kept, explained):
 
 
 def check(settings):
-    subject, lines, status = check_files(settings)
-    # AIDE does not walk the engines' image stores: each checks its own.
-    images = podman_check(settings) + docker_check()
-    if images:
-        subject = ", ".join(part for part in (subject, "container images") if part)
-        lines = lines + ([""] if lines else []) + images
-    if subject:
-        mail(settings, subject, lines)
-    return status
+    """Mails root what the check found, AIDE's and the container engines',
+    and once a mail of the files' changes is sent, accepts the files as that
+    check found them."""
+    try:
+        subject, lines, status, manifest = check_files(settings)
+        # AIDE does not walk the engines' image stores: each checks its own.
+        images = podman_check(settings) + docker_check()
+        if images:
+            subject = ", ".join(part for part in (subject, "container images") if part)
+            lines = lines + ([""] if lines else []) + images
+        if subject:
+            mail(settings, subject, lines)
+            # Only after the mail, and its record: if this fails, the next
+            # mail lists the same changes again.
+            if manifest is not None:
+                accept(settings, manifest)
+        return status
+    finally:
+        # The database of the check's walk, where no mail accepted it.
+        try:
+            os.remove(settings["database_new"])
+        except FileNotFoundError:
+            pass
+
+
+def acceptance(settings, head, body, manifest):
+    """A mail's lines, the report's head and body with what the mail does to
+    the baseline between them, and the manifest to accept the files with once
+    it is sent: none where the mail cannot hold the whole report, so that
+    nothing the report holds is accepted without being mailed."""
+    lines = head + ["Once this mail is sent, the baseline moves to the files as this check found them,",
+                    "and no later report lists these changes again."] + body
+    if len(lines) <= MAIL_LINES:
+        return lines, manifest
+    return head + ["This mail cannot hold the whole report, so the baseline stays where it was. Once each",
+                   "change is accounted for, accept the files as they are with:",
+                   "  " + settings["accept"]] + body, None
 
 
 def check_files(settings):
-    """AIDE's report: a mail's subject, or none, its lines, and the exit status."""
+    """AIDE's report: a mail's subject, or none, its lines, the exit status,
+    and the manifest to accept the files with as this check found them once
+    the mail is sent, or none. AIDE's --update compares the files and writes
+    their new database in the same walk, so a change made after it stays for
+    the next report."""
     # A database without the manifest beside it is not one aide-report accepted.
     if not os.path.exists(settings["database"]) or not os.path.exists(settings["manifest"]):
         return "no baseline", ["There is no accepted baseline at %s, so nothing was checked." % settings["database"],
-                               "Create one with: " + settings["accept"]], 1
-    result = aide(settings, "--check")
+                               "Create one with: " + settings["accept"]], 1, None
+    result = aide(settings, "--update")
     if result.returncode >= 14 or result.returncode < 0:
-        return "the check failed", ["aide exited %d." % result.returncode, ""] + result.stderr.splitlines()[-40:], 1
+        return ("the check failed", ["aide exited %d." % result.returncode, ""] + result.stderr.splitlines()[-40:],
+                1, None)
     if result.returncode == 0:
         save_kept(settings, {"added": {}, "removed": {}, "changed": {}}, 0)
-        return None, [], 0
+        return None, [], 0, None
+    # The packages as the walk left them: what they explain, and the manifest
+    # a mail accepts the walk's database with.
+    packages = Packages()
+    new_manifest = package_manifest(packages)
     try:
         report = json.loads(result.stdout)
     except ValueError as error:
         # AIDE escapes only backslashes, so a path with a quote or a newline in it
         # breaks the JSON: send the report as it is, unfiltered.
-        return ("changes, unfiltered",
-                ["AIDE's report is not valid JSON (%s), so nothing was left out." % error, ""]
-                + result.stdout.splitlines(), 0)
+        lines, accepted_manifest = acceptance(
+            settings, ["AIDE's report is not valid JSON (%s), so nothing was left out." % error],
+            [""] + result.stdout.splitlines(), new_manifest)
+        return "changes, unfiltered", lines, 0, accepted_manifest
     os.makedirs(settings["state"], mode=0o700, exist_ok=True)
     with open(os.path.join(settings["state"], "report.json"), "w") as handle:
         json.dump(report, handle)
@@ -1021,28 +1065,27 @@ def check_files(settings):
     if os.path.exists(settings["manifest"]):
         with gzip.open(settings["manifest"], "rt") as handle:
             manifest = json.load(handle)
-    # Only --baseline writes the manifest; a refresh rewrites the database too.
+    # Only an acceptance writes the manifest, --baseline's or a mail's; a
+    # refresh rewrites the database too.
     accepted_at = os.path.getmtime(settings["manifest"])
-    kept, explained = explain(report, Packages(), manifest, excluded_paths(settings),
+    kept, explained = explain(report, packages, manifest, excluded_paths(settings),
                               os.path.dirname(settings["exclusions"]), accepted_at)
     save_kept(settings, kept, explained)
     total = sum(len(items) for items in kept.values())
     if total == 0:
-        return None, [], 0
+        return None, [], 0, None
     accepted = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(accepted_at))
-    lines = ["%d changes since the baseline accepted %s that the host's packages do not explain;"
-             % (total, accepted), "%d others, which they do or which left a file as it was, were left out."
-             % explained, ""]
+    head = ["%d changes since the baseline accepted %s that the host's packages do not explain;" % (total, accepted),
+            "%d others, which they do or which left a file as it was, were left out." % explained,
+            "The full report is %s, and what it mailed %s." % (
+                os.path.join(settings["state"], "report.json"), os.path.join(settings["state"], "kept.json"))]
+    body = []
     for section in ("added", "removed", "changed"):
         if kept[section]:
-            lines.append("%s (%d):" % (section.capitalize(), len(kept[section])))
-            lines.extend(describe(report, path, summary) for path, summary in sorted(kept[section].items()))
-            lines.append("")
-    lines += ["The full report is %s, and what it mailed %s." % (
-                  os.path.join(settings["state"], "report.json"), os.path.join(settings["state"], "kept.json")),
-              "Once each change is accounted for, accept the files as they are with:",
-              "  " + settings["accept"]]
-    return "%d changes" % total, lines, 0
+            body += ["", "%s (%d):" % (section.capitalize(), len(kept[section]))]
+            body.extend(describe(report, path, summary) for path, summary in sorted(kept[section].items()))
+    lines, accepted_manifest = acceptance(settings, head, body, new_manifest)
+    return "%d changes" % total, lines, 0, accepted_manifest
 
 
 def package_manifest(packages):

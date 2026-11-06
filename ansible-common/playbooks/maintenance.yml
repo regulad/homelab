@@ -59,7 +59,8 @@
         tasks_from: remove_account
 
 # Move AIDE's baseline to the files as they are, on the hosts given with
-# --limit, once each change their reports listed is accounted for.
+# --limit, where no mailed report has, such as one too long for a mail, once
+# each change is accounted for.
 - name: AIDE baseline accepted
   hosts: debian:ubuntu:rhel
   gather_facts: false
