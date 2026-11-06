@@ -15,8 +15,8 @@ quadlet_services:
     description: docker-mailserver
     after: [network-online.target]
     wants: [network-online.target]
-    # 15, its major version; 16 moves to a new Debian release and breaks.
-    image: ghcr.io/docker-mailserver/docker-mailserver:15
+    # Its major release, which maintenance.yml's mailserver-upgrade moves.
+    image: ghcr.io/docker-mailserver/docker-mailserver:16
     container_name: mailserver
     auto_update: registry
     hostname: mail.regulad.xyz
@@ -59,6 +59,7 @@ quadlet_services:
       - "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf:/etc/rspamd/local.d/rbl_group.conf:ro"
     environment_files: ["{{ mailserver_dir }}/mailserver.env"]
     stop_timeout: 60
-    health_cmd: "ss --listening --ipv4 --tcp | grep --silent ':smtp' || exit 1"
-    health_timeout: 3s
+    # docker-mailserver's own check, from 16: every daemon its settings enable
+    # runs. Its image's HEALTHCHECK, outside the OCI spec, is only an example.
+    health_cmd: dms-healthcheck
     restart: always

@@ -73,6 +73,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] MTA-STS from `mode: testing` to `enforce`, with TLS-RPT reports to `postmaster@regulad.xyz`
   - [x] DANE: a TLSA record, `3 1 1`, for `mail.regulad.xyz`, whose key certbot keeps at renewal
   - [x] webhookd: pinned at upstream's release, its TLS key readable by its own user alone
+  - [ ] docker-mailserver 16, by `maintenance.yml`'s `mailserver-upgrade`, which keeps a copy to roll back to, and `mailserver-upgrade-cleanup`: Dovecot 2.4's `%{user | username}` in the LDAP filters and home, and `dms-healthcheck`
 - [x] `tailscalerouter`: subnet router, peer relay and the VCN's Unbound resolver, with arawi's split-horizon RPZ
 - [ ] bailout and tailscalerouter off the 1 GiB E2.1.Micro shape: kdump's 448 MiB reservation succeeds or fails from boot to boot
 
