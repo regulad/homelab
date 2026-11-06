@@ -15,3 +15,8 @@ host_files_list:
 
 quadlet_env_files:
   cloudflared: "TUNNEL_TOKEN={{ cloudflared_tunnel_token }}"
+
+# Forgejo's local administrator, which maintenance.yml's forgejo-upgrade logs
+# in as through the API; its password, forgejo_admin_password, is in
+# secrets.sops.yml. Created by hand with forgejo admin user create.
+forgejo_admin_user: svc-ansible
