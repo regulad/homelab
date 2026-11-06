@@ -24,7 +24,8 @@ host_files_selinux_state: "{{ 'enforcing' if 'rhel' in group_names else '' }}"
 
 # No NFS client: the images ship one, nfs-utils on Oracle Linux and nfs-common
 # on Ubuntu, each with rpcbind, which listens on port 111 on every address, but
-# no instance mounts or exports NFS. A host that needs NFS sets its own
+# no instance mounts or exports NFS. Oracle Linux's also brings gssproxy, which
+# serves only the NFS client's Kerberos. A host that needs NFS sets its own
 # host_files_removed_packages in its host_vars, without them.
 host_files_removed_packages: >-
-  {{ ['nfs-utils', 'rpcbind'] if 'rhel' in group_names else ['nfs-common', 'rpcbind'] }}
+  {{ ['nfs-utils', 'rpcbind', 'gssproxy'] if 'rhel' in group_names else ['nfs-common', 'rpcbind'] }}
