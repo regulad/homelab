@@ -1067,13 +1067,15 @@
 # schedule names them, moving from one to the next. It refuses a downgrade,
 # which Forgejo itself refuses once it has migrated the database, and does
 # nothing where the declared major already runs. Forgejo is to pass its
-# doctor's checks before it starts. Then, as the guide asks, it flushes
-# Forgejo's queues, and with Forgejo stopped copies its data volume, in full,
-# and its unit; it starts the new release from the quadlet role's template,
-# and counts it up once it reports itself healthy as the declared release and
-# passes its doctor's checks again. If anything fails after the copy, it puts
-# the copy and the old unit back, starts the old release again, then fails:
-# revert services.yml before the next site.yml.
+# doctor's checks, and its administrator to log in, before it starts. Then, as
+# the guide asks, it flushes Forgejo's queues as far as they empty, and with
+# Forgejo stopped copies its data volume, in full, and its unit, and discards
+# what the queues still hold; it starts the new release from the quadlet
+# role's template, and counts it up once it reports itself healthy as the
+# declared release, its administrator logs in, and it passes its doctor's
+# checks again. If anything fails after the copy, it puts the copy and the old
+# unit back, starts the old release again, then fails: revert services.yml
+# before the next site.yml.
 - name: Forgejo upgrade to its declared long-term support release
   hosts: podman_hosts
   gather_facts: false
@@ -1092,7 +1094,12 @@
     forgejo_upgrade_ini: >-
       {{ forgejo_upgrade_service.volumes | default([]) | select('search', '/app[.]ini:') | first | default('') | split(':') | first }}
     forgejo_upgrade_backup: /var/backups/forgejo-upgrade
+    # Forgejo's queue store, LevelDB at its default under APP_DATA_PATH, in the
+    # data volume.
+    forgejo_upgrade_queues: data/queues
     forgejo_upgrade_url: http://127.0.0.1:3000
+    # Seconds the flush gives each queue to empty.
+    forgejo_upgrade_flush_timeout: 60
     forgejo_upgrade_schedule: https://codeberg.org/forgejo/docs/raw/branch/next/release-schedule.json
     # Seconds the new release has to migrate its database and report itself
     # healthy.
@@ -1177,6 +1184,27 @@
         forgejo_upgrade_config: >-
           {{ (forgejo_upgrade_mounts.stdout | from_json | selectattr('Source', 'eq', forgejo_upgrade_ini) | first).Destination }}
 
+    # A password login through the API, checked again on the new release.
+    - name: Forgejo's administrator logs in
+      ansible.builtin.uri:
+        url: "{{ forgejo_upgrade_url }}/api/v1/user"
+        url_username: "{{ forgejo_admin_user }}"
+        url_password: "{{ forgejo_admin_password }}"
+        force_basic_auth: true
+      register: forgejo_upgrade_admin
+      failed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: As an administrator
+      ansible.builtin.assert:
+        that:
+          - forgejo_upgrade_admin.status == 200
+          - forgejo_upgrade_admin.json.login == forgejo_admin_user
+          - forgejo_upgrade_admin.json.is_admin
+        fail_msg: "{{ forgejo_admin_user }} does not log in to Forgejo as an administrator: HTTP {{ forgejo_upgrade_admin.status }}."
+        quiet: true
+
     # Only from a sound state: the same checks are to pass on the new release.
     - name: Forgejo passes its doctor's checks
       ansible.builtin.command:
@@ -1228,10 +1256,22 @@
     - name: Upgrade, or roll back
       block:
         # Their contents are not kept compatible from one release to the next.
-        - name: Forgejo's queues flushed
+        # What does not empty within the timeout is discarded below: on 12, the
+        # mirror queue had stopped taking any request at all.
+        - name: Forgejo's queues flushed, as far as they empty
           ansible.builtin.command:
-            argv: [podman, exec, forgejo, forgejo, manager, flush-queues, "--config={{ forgejo_upgrade_config }}"]
+            argv:
+              - podman
+              - exec
+              - forgejo
+              - forgejo
+              - manager
+              - flush-queues
+              - --timeout={{ forgejo_upgrade_flush_timeout }}s
+              - --config={{ forgejo_upgrade_config }}
+          register: forgejo_upgrade_flush
           changed_when: true
+          failed_when: false
 
         - name: Forgejo stopped, for a consistent copy
           ansible.builtin.systemd_service:
@@ -1266,6 +1306,13 @@
           ansible.builtin.set_fact:
             forgejo_upgrade_copied: true
           when: not ansible_check_mode
+
+        # Forgejo makes the store again as it starts, so the new release reads
+        # none of the old one's items; the copy keeps them, for a rollback.
+        - name: What the queues still hold, discarded with their store
+          ansible.builtin.file:
+            path: "{{ forgejo_upgrade_mountpoint.stdout }}/{{ forgejo_upgrade_queues }}"
+            state: absent
 
         - name: The unit with the declared major
           ansible.builtin.template:
@@ -1308,6 +1355,29 @@
             quiet: true
           when: not ansible_check_mode
 
+        - name: Its administrator logs in
+          ansible.builtin.uri:
+            url: "{{ forgejo_upgrade_url }}/api/v1/user"
+            url_username: "{{ forgejo_admin_user }}"
+            url_password: "{{ forgejo_admin_password }}"
+            force_basic_auth: true
+          register: forgejo_upgrade_admin_after
+          failed_when: false
+          no_log: true
+          when: not ansible_check_mode
+
+        - name: As an administrator
+          ansible.builtin.assert:
+            that:
+              - forgejo_upgrade_admin_after.status == 200
+              - forgejo_upgrade_admin_after.json.login == forgejo_admin_user
+              - forgejo_upgrade_admin_after.json.is_admin
+            fail_msg: >-
+              {{ forgejo_admin_user }} does not log in to Forgejo {{ forgejo_upgrade_target }} as an administrator:
+              HTTP {{ forgejo_upgrade_admin_after.status }}.
+            quiet: true
+          when: not ansible_check_mode
+
         - name: The new container's mounts
           ansible.builtin.command:
             argv: [podman, container, inspect, --format, "{{ '{{' }}json .Mounts{{ '}}' }}", forgejo]
@@ -1328,8 +1398,9 @@
         - name: Report the upgrade
           ansible.builtin.debug:
             msg: >-
-              Forgejo runs {{ forgejo_upgrade_target }}, from {{ forgejo_upgrade_running }}. The copy to return to
-              is in {{ forgejo_upgrade_backup }}. Run forgejo-upgrade-cleanup once it has proven itself.
+              Forgejo runs {{ forgejo_upgrade_target }}, from {{ forgejo_upgrade_running }}.
+              {{ '' if forgejo_upgrade_flush.rc | default(0) == 0 else 'Its queues did not all empty in the flush; what they held was discarded. ' }}The
+              copy to return to is in {{ forgejo_upgrade_backup }}. Run forgejo-upgrade-cleanup once it has proven itself.
 
       rescue:
         - name: Forgejo stopped, for the rollback
