@@ -4,7 +4,9 @@
 Managed by Ansible (aide).
 
 aide-report: checks the host's files against the accepted baseline, leaves out
-the changes its package manager vouches for, and mails root what remains.
+the changes its package manager vouches for, and mails root what remains. Each
+mail begins with when the previous one was sent, and its subject, so that a
+mail lost or held back on the way leaves a gap the next one shows.
 aide-report --baseline: accepts the files as they are: a new database, and the
 list of package-owned paths beside it, which later reports use to tell a path
 an upgrade removed from one removed by hand.
@@ -94,6 +96,7 @@ Settings come from a JSON file, by default /etc/aide-report/settings.json.
 """
 
 import argparse
+import datetime
 import fcntl
 import glob
 import gzip
@@ -926,11 +929,37 @@ def docker_check():
             + ["Once each is accounted for, remove the image and pull it again.", ""])
 
 
-def mail(subject, lines):
+def previous_mail(settings):
+    """The line each mail begins with: when the previous mail aide-report sent
+    from the host was, and its subject, by which to find it in a mailbox."""
+    record = os.path.join(settings["state"], "mailed.json")
+    try:
+        previous = load(record)
+        return "The previous mail from aide-report here was sent %s, with the subject: %s" % (
+            previous["time"], previous["subject"])
+    except FileNotFoundError:
+        return "No earlier mail from aide-report here is recorded."
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return "The record of the previous mail from aide-report here, %s, cannot be read: %s" % (record, error)
+
+
+def mail(settings, subject, lines):
+    """Mails root the report's lines, after a line naming the previous mail,
+    and records this one as sent: its subject, and the time it was handed to
+    mail, in ISO 8601 with its UTC offset. Sent means the local MTA has it:
+    both mail clients, Debian's bsd-mailx and s-nail, wait for the MTA's
+    sendmail and fail with it. A mail that fails raises, and is not recorded."""
     if len(lines) > MAIL_LINES:
         lines = lines[:MAIL_LINES] + ["", "... and %d more lines." % (len(lines) - MAIL_LINES)]
-    subprocess.run(["mail", "-s", "AIDE on %s: %s" % (socket.getfqdn(), subject), "root"],
-                   input="\n".join(lines) + "\n", text=True, check=True)
+    subject = "AIDE on %s: %s" % (socket.getfqdn(), subject)
+    lines = [previous_mail(settings), ""] + lines
+    sent = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+    subprocess.run(["mail", "-s", subject, "root"], input="\n".join(lines) + "\n", text=True, check=True)
+    os.makedirs(settings["state"], mode=0o700, exist_ok=True)
+    record = os.path.join(settings["state"], "mailed.json")
+    with open(record + ".tmp", "w") as handle:
+        json.dump({"time": sent, "subject": subject}, handle)
+    os.replace(record + ".tmp", record)
 
 
 def describe(report, path, summary):
@@ -961,7 +990,7 @@ def check(settings):
         subject = ", ".join(part for part in (subject, "container images") if part)
         lines = lines + ([""] if lines else []) + images
     if subject:
-        mail(subject, lines)
+        mail(settings, subject, lines)
     return status
 
 
