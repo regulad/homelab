@@ -9,7 +9,7 @@ Fixes follow as separate, reviewed changes. `gonkputer` has one node, `prodingus
 |---|---|
 | `vm-<name>.tf`, `lxc-<name>.tf` | One file per guest: the VM or container, then its HA resource and firewall where present |
 | `cluster.tf` | Datacenter options and the custom CPU model `RYZEN-Vermeer-v3` |
-| `firewall.tf` | Cluster-wide firewall options |
+| `firewall.tf` | Cluster-wide firewall options, and the security groups guests share: `mdns`, `udp` and `internet-only` |
 | `ha.tf` | HA rules; each HA resource lives with its guest |
 | `ceph.tf` | The Ceph pools `rbd_ssd` and `rbd_cmr`, the CephFS `cephfs`, and the MDS daemons `prodingus`, `prodingus1` and `prodingus2` |
 | `storage.tf` | The storages: `local` and `local-lvm` on the node, and `rbd`, `rbd_cmr` and `cephfs` on Ceph |
@@ -57,6 +57,12 @@ A `-` inside a guest name is written as `--` (`vm-resolute--template.tf`).
 - **Firewall bypass:** VMs 100, 101 and 108 and the containers softether and tailscalerouter
   have `firewall = false` on their NICs, so their traffic never passes a firewall bridge.
   VM 100's firewall options, adopted with it, stay disabled.
+- **Internet-only guests:** peppercord and cordpepperer run public Discord bots that
+  connect wherever their users ask, so their rules list the `internet-only` security
+  group: new connections reach the internet, and of internal addresses only arawi's DNS,
+  mail's submission port and clamd's port. Over IPv6 it rejects the ULAs and OCI's
+  pubsub subnet, and leaves the LAN's GUAs to the firewalls of the hosts holding them.
+  The bots' own Podman networks are IPv4-only, so the bots reach no IPv6 address at all.
 
 ## Running it
 

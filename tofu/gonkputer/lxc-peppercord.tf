@@ -72,7 +72,9 @@ resource "proxmox_haresource" "peppercord" {
 }
 
 # In: peppercord's 8080 from the homelab's own ranges, for Uptime Kuma's check
-# of its /health, whose failures restart the container.
+# of its /health, whose failures restart the container. Out: the internet-only
+# group, since anyone on Discord chooses where the bot's downloads and lookups
+# connect.
 resource "proxmox_virtual_environment_firewall_rules" "peppercord" {
   node_name    = proxmox_virtual_environment_container.peppercord.node_name
   container_id = proxmox_virtual_environment_container.peppercord.vm_id
@@ -99,6 +101,10 @@ resource "proxmox_virtual_environment_firewall_rules" "peppercord" {
   # mDNS, which Avahi reflects between the LAN and the Podman containers here (avahi role).
   rule {
     security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
+  }
+
+  rule {
+    security_group = proxmox_virtual_environment_cluster_firewall_security_group.internet_only.name
   }
 }
 

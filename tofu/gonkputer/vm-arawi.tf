@@ -1,5 +1,15 @@
 # arawi: VM 108, its HA resource and its Ansible host.
 
+locals {
+  # arawi's own addresses on VLAN 1, by IP family, as its pfSense configuration
+  # fixes them: the LAN interface's IPv4 and LAN2's ULA, whose suffix is net2's
+  # MAC as an EUI-64. The LAN's hosts resolve through both.
+  dual_stack_arawi_lan_addresses = {
+    ipv4 = cidrhost(local.dual_stack_lan_cidrs.ipv4, 254)
+    ipv6 = cidrhost(local.dual_stack_lan_cidrs.ipv6, parseint("be2411fffe08e4e8", 16))
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "arawi" {
   # The snippet IDs below are written out; this keeps the files ahead of the guest.
   depends_on = [proxmox_virtual_environment_file.block_mac_108]
