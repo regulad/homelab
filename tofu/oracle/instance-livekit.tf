@@ -57,7 +57,7 @@ resource "oci_core_instance" "livekit" {
 
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
-    memory_in_gbs             = 6
+    memory_in_gbs             = 2
     ocpus                     = 1
   }
 
