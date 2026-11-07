@@ -80,6 +80,11 @@ server:
     local-zone: "ipa-ca.regulad.internal." redirect
     local-data: "ipa-ca.regulad.internal. 3600 IN CNAME wako.regulad.internal."
     #
+    # riko, wako's replica in OCI, at its VCN addresses from OpenTofu state.
+    # tailscalerouter's Unbound answers for it too, while this one is down.
+    local-data: "riko.regulad.internal. 3600 IN A {{ hostvars['riko'].create_vnic_details[0].private_ip }}"
+    local-data: "riko.regulad.internal. 3600 IN AAAA {{ hostvars['riko'].ipv6_address }}"
+    #
     private-domain: "regulad-verizon-livingston.internal."
     domain-insecure: "regulad-verizon-livingston.internal."
     #
