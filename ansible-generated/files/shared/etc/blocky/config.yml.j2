@@ -19,6 +19,19 @@
      'arawi': {'v6': arawi_v6, 'v4': arawi_v4},
      'tailscalerouter': {'v6': router_v6, 'v4': router_v4},
    }[blocky_upstream] %}
+{# Each zone's resolver in the conditional mapping below. pihole sends each
+   zone straight to its owner: arawi's zones to arawi, the tailnet's to
+   MagicDNS, the VCN's to tailscalerouter. pihole2 sends them all to
+   tailscalerouter, its upstream, whose Unbound forwards each to the same
+   owner. #}
+{% if blocky_upstream == 'arawi' %}
+{% set homelab = {'v6': arawi_v6, 'v4': arawi_v4} %}
+{% set tailnet = {'v6': magicdns_v6, 'v4': magicdns_v4} %}
+{% else %}
+{% set homelab = upstream %}
+{% set tailnet = upstream %}
+{% endif %}
+{% set vcn = {'v6': router_v6, 'v4': router_v4} %}
 # blocky on {{ inventory_hostname | split('.') | first }}: the tailnet's DNS resolver, with ad blocking. Rendered by
 # Ansible from arawi's and tailscalerouter's declared addresses.
 ports:
@@ -31,11 +44,9 @@ upstreams:
       - "{{ upstream.v6 }}"
       - {{ upstream.v4 }}
 
-{# pihole's host resolves through its own blocky, and pihole sends each zone
-   straight to the resolver that owns it. pihole2 needs neither: its host
-   resolves through tailscalerouter, as the VCN's DHCP options give every
-   instance, and tailscalerouter's Unbound already forwards each of these
-   zones to the same owner. #}
+{# pihole's host resolves through its own blocky. pihole2's resolves through
+   tailscalerouter, as the VCN's DHCP options give every instance, so blocky
+   there needs no bootstrap resolver of its own. #}
 {% if blocky_upstream == 'arawi' %}
 # blocky's own lookups, such as list downloads, through arawi: the host
 # resolves through blocky itself, which is not listening yet at startup.
@@ -43,20 +54,24 @@ bootstrapDns:
   - upstream: "{{ arawi_v6 }}"
   - upstream: {{ arawi_v4 }}
 
-# Zones, and their reverse zones, to the resolvers that own them.
+{% endif %}
+{# Every host maps the same zones: without a mapping, blocky answers
+   private-use names such as .internal and the reverse zones of private
+   addresses, such as 10.in-addr.arpa, with NXDOMAIN (RFC 6761 and RFC 6762,
+   appendix G). #}
+# Zones, and their reverse zones, to the resolvers that own them{{ '' if blocky_upstream == 'arawi' else ', through ' ~ blocky_upstream }}.
 conditional:
   mapping:
-    {{ arawi.pfsense_setup.domain }}: "{{ arawi_v6 }},{{ arawi_v4 }}"
-    {{ (arawi_lan2.ipv6_address ~ '/' ~ arawi_lan2.ipv6_prefixlen) | reverse_zone }}: "{{ arawi_v6 }}"
-    {{ (arawi_v4 ~ '/16') | reverse_zone }}: {{ arawi_v4 }}
-    tail11540.ts.net: "{{ magicdns_v6 }},{{ magicdns_v4 }}"
-    {{ 'fd7a:115c:a1e0::/48' | reverse_zone }}: "{{ magicdns_v6 }}"
-    {{ '100.64.0.0/8' | reverse_zone }}: {{ magicdns_v4 }}
+    {{ arawi.pfsense_setup.domain }}: "{{ homelab.v6 }},{{ homelab.v4 }}"
+    {{ (arawi_lan2.ipv6_address ~ '/' ~ arawi_lan2.ipv6_prefixlen) | reverse_zone }}: "{{ homelab.v6 }}"
+    {{ (arawi_v4 ~ '/16') | reverse_zone }}: {{ homelab.v4 }}
+    tail11540.ts.net: "{{ tailnet.v6 }},{{ tailnet.v4 }}"
+    {{ 'fd7a:115c:a1e0::/48' | reverse_zone }}: "{{ tailnet.v6 }}"
+    {{ '100.64.0.0/8' | reverse_zone }}: {{ tailnet.v4 }}
     # The OCI VCN resolver behind tailscalerouter has IPv4 PTR records only.
-    {{ router_domain }}: "{{ router_v6 }},{{ router_v4 }}"
-    {{ (router_v4 ~ '/24') | reverse_zone }}: {{ router_v4 }}
+    {{ router_domain }}: "{{ vcn.v6 }},{{ vcn.v4 }}"
+    {{ (router_v4 ~ '/24') | reverse_zone }}: {{ vcn.v4 }}
 
-{% endif %}
 # Firefox's DoH canary and iCloud Private Relay get an empty answer, which
 # turns both off on this network.
 customDNS:
