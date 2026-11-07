@@ -44,7 +44,9 @@
 - name: Host templates
   ansible.builtin.template:
     dest: "{{ item.path }}"
-    src: "{{ host_files_dir ~ (item.src | default(item.path ~ '.j2')) }}"
+    src: >-
+      {{ host_files_shared_dir ~ '/' ~ item.shared_src if item.shared_src is defined
+         else host_files_dir ~ (item.src | default(item.path ~ '.j2')) }}
     validate: "{{ item.validate | default(omit) }}"
     owner: "{{ item.owner | default('root') }}"
     group: "{{ item.group | default('root') }}"

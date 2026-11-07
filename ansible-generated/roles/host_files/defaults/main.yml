@@ -60,7 +60,8 @@ host_files_list: []
 host_files_trees: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 # Files several hosts share, for an item's shared_src (relative to this
-# directory), such as those a group's group_vars place.
+# directory), such as those a group's group_vars place; with template: true,
+# shared_src is the template, rendered with each host's own variables.
 host_files_shared_dir: "{{ inventory_dir }}/../files/shared"
 
 # systemd units kept enabled and running, such as ones host_files installs.
