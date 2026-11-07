@@ -1,0 +1,40 @@
+---
+# blocky's configuration, which its Quadlet mounts read-only: pihole's, with
+# tailscalerouter's Unbound as the upstream resolver here, as pihole has
+# arawi's.
+blocky_upstream: tailscalerouter
+host_files_directories:
+  - path: /etc/blocky
+    mode: "0755"
+host_files_list:
+  - path: /etc/blocky/config.yml
+    shared_src: etc/blocky/config.yml.j2
+    mode: "0644"
+    template: true
+    # blocky's own validator, in its image: a config blocky rejects never
+    # replaces a working one. Skipped until Podman has the image. The new file
+    # waits in Ansible's temporary directory, which SELinux keeps from
+    # containers, so the check runs unconfined.
+    validate: >-
+      sh -c 'command -v podman >/dev/null && podman image exists ghcr.io/0xerr0r/blocky:latest || exit 0;
+      exec podman run --rm --user 0 --security-opt label=disable
+      -v "$1":/app/config.yml:ro ghcr.io/0xerr0r/blocky:latest validate --config /app/config.yml' validate %s
+    restarts: [blocky.service]
+  # Oracle's passthroughs for the instance's own services, shared by the OCI
+  # instances.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    shared_src: oci/direct.xml
+    reloads: [firewalld]
+
+# blocky's configuration labelled for containers, which its Quadlet binds: a
+# rule, which a relabel keeps, rather than Podman's :Z, which a relabel undoes.
+host_files_selinux_fcontexts:
+  - target: /etc/blocky(/.*)?
+    setype: container_file_t
+    path: /etc/blocky
+
+# DNS for the tailnet, which reaches it through tailscalerouter's subnet routes.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client, dns]

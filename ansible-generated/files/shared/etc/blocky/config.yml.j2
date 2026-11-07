@@ -1,6 +1,8 @@
 {# blocky's configuration, from the hosts that own each value: arawi's
    declared interfaces and domain, and tailscalerouter's addresses from
-   OpenTofu state. #}
+   OpenTofu state. Each host using it names its upstream resolver in
+   blocky_upstream: arawi for pihole, at home, and tailscalerouter for
+   pihole2, in OCI. #}
 {% set arawi = hostvars['arawi.regulad.internal'] %}
 {% set arawi_lan = arawi.pfsense_interfaces | selectattr('descr', 'eq', 'LAN') | first %}
 {% set arawi_lan2 = arawi.pfsense_interfaces | selectattr('descr', 'eq', 'LAN2') | first %}
@@ -13,7 +15,11 @@
 {# Tailscale's fixed MagicDNS resolver and address ranges. #}
 {% set magicdns_v6 = '[fd7a:115c:a1e0::53]' %}
 {% set magicdns_v4 = '100.100.100.100' %}
-# blocky on pihole: the tailnet's DNS resolver, with ad blocking. Rendered by
+{% set upstream = {
+     'arawi': {'v6': arawi_v6, 'v4': arawi_v4},
+     'tailscalerouter': {'v6': router_v6, 'v4': router_v4},
+   }[blocky_upstream] %}
+# blocky on {{ inventory_hostname | split('.') | first }}: the tailnet's DNS resolver, with ad blocking. Rendered by
 # Ansible from arawi's and tailscalerouter's declared addresses.
 ports:
   dns: 53
@@ -21,10 +27,16 @@ ports:
 upstreams:
   groups:
     default:
-      # arawi
-      - "{{ arawi_v6 }}"
-      - {{ arawi_v4 }}
+      # {{ blocky_upstream }}
+      - "{{ upstream.v6 }}"
+      - {{ upstream.v4 }}
 
+{# pihole's host resolves through its own blocky, and pihole sends each zone
+   straight to the resolver that owns it. pihole2 needs neither: its host
+   resolves through tailscalerouter, as the VCN's DHCP options give every
+   instance, and tailscalerouter's Unbound already forwards each of these
+   zones to the same owner. #}
+{% if blocky_upstream == 'arawi' %}
 # blocky's own lookups, such as list downloads, through arawi: the host
 # resolves through blocky itself, which is not listening yet at startup.
 bootstrapDns:
@@ -44,6 +56,7 @@ conditional:
     {{ router_domain }}: "{{ router_v6 }},{{ router_v4 }}"
     {{ (router_v4 ~ '/24') | reverse_zone }}: {{ router_v4 }}
 
+{% endif %}
 # Firefox's DoH canary and iCloud Private Relay get an empty answer, which
 # turns both off on this network.
 customDNS:

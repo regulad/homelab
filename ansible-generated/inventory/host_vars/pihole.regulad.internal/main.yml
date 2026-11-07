@@ -1,10 +1,13 @@
 ---
-# blocky's configuration, which its Quadlet mounts read-only.
+# blocky's configuration, which its Quadlet mounts read-only: pihole2's too,
+# with arawi as the upstream resolver here.
+blocky_upstream: arawi
 host_files_directories:
   - path: /etc/blocky
     mode: "0755"
 host_files_list:
   - path: /etc/blocky/config.yml
+    shared_src: etc/blocky/config.yml.j2
     mode: "0644"
     template: true
     # blocky's own validator, in its image: a config blocky rejects never
