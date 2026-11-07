@@ -7,6 +7,11 @@ freeipa_server_hostname: "{{ inventory_hostname }}.{{ freeipa_server.domain }}"
 freeipa_server_replica_of: "{{ freeipa_server.fqdn }}"
 freeipa_server_admin_password: "{{ hostvars[freeipa_server.fqdn].freeipa_server_admin_password }}"
 
+# FreeIPA keeps the NFS client the other OCI instances remove: ipa-server
+# requires gssproxy, and ipa-client nfs-utils, which requires rpcbind. firewalld
+# admits nothing to rpcbind's port 111.
+host_files_removed_packages: []
+
 host_files_list:
   # FreeIPA needs the host to keep its name in the domain, which OCI would set
   # back to riko.pubsub.wahlecloud.oraclevcn.com at each boot, rewriting
