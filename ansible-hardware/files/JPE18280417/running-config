@@ -18,6 +18,13 @@ ip name-server vrf default 8.8.4.4
 ip name-server vrf default 8.8.8.8
 !
 spanning-tree mode rstp
+! The LAN's root bridge, ahead of the Verizon router on Ethernet49 (priority
+! 32767). Every bridge takes the root's timers; these are the shortest that
+! 802.1D allows, as prodingus's Linux bridges speak it and hold a guest's new
+! port for two forward delays before it forwards.
+spanning-tree max-age 6
+spanning-tree forward-time 4
+spanning-tree priority 4096
 !
 service unsupported-transceiver EMC 677096c7
 !
