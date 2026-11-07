@@ -35,6 +35,11 @@ forward-zone:
     forward-addr: {{ lan_arawi.ipv6 }}
     forward-addr: {{ lan_arawi.ipv4 }}
 
+forward-zone:
+    name: "{{ (lan_arawi.ipv6 ~ '/64') | reverse_zone }}."
+    forward-addr: {{ lan_arawi.ipv6 }}
+    forward-addr: {{ lan_arawi.ipv4 }}
+
 # The Verizon router's names and the reverse records it answers, straight from
 # it, as arawi forwards them too; it has no routable IPv6 address.
 forward-zone:
