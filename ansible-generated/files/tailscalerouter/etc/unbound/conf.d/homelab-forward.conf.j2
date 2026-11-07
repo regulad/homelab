@@ -30,6 +30,15 @@ forward-zone:
     forward-addr: {{ lan_arawi.ipv6 }}
     forward-addr: {{ lan_arawi.ipv4 }}
 
+# riko, wako's FreeIPA replica in this VCN, answered here as arawi answers it,
+# at its addresses from OpenTofu state, so that its name resolves while the
+# homelab is down. A transparent zone sends every other name in it on to
+# arawi.
+server:
+    local-zone: "regulad.internal." transparent
+    local-data: "riko.regulad.internal. 3600 IN A {{ hostvars['riko'].create_vnic_details[0].private_ip }}"
+    local-data: "riko.regulad.internal. 3600 IN AAAA {{ hostvars['riko'].ipv6_address }}"
+
 forward-zone:
     name: "23.10.in-addr.arpa."
     forward-addr: {{ lan_arawi.ipv6 }}
