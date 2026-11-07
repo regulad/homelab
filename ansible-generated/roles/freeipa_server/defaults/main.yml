@@ -4,9 +4,17 @@
 # own address rather than loopback.
 freeipa_server_domain: ""
 freeipa_server_realm: "{{ freeipa_server_domain | upper }}"
+# The server's name in the domain, where its inventory name is not.
+freeipa_server_hostname: "{{ inventory_hostname }}"
+
+# An existing server to replicate, by name: the host joins the deployment as a
+# replica of it, with no CA of its own, instead of installing a new one. Empty
+# installs the first server.
+freeipa_server_replica_of: ""
 
 # The Directory Manager's and admin's passwords, from the host's
-# secrets.sops.yml.
+# secrets.sops.yml. A replica joins as admin and needs no Directory Manager
+# password.
 freeipa_server_ds_password: ""
 freeipa_server_admin_password: ""
 

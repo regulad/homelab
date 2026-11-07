@@ -1,16 +1,19 @@
 ---
 # Install a FreeIPA server once, with its own CA and no integrated DNS, which
-# arawi's unbound serves, then converge its directory's anonymous access and
-# migration mode. Runs on the generated hosts in freeipa_servers (Phase 4). In
-# a container time comes from the Proxmox node, which the container cannot
-# set, so the server runs no NTP client.
+# arawi's unbound serves, or join one as a replica, then converge its
+# directory's anonymous access and migration mode. Runs on the generated hosts
+# in freeipa_servers (Phase 4). FreeIPA configures no NTP client: in a
+# container time comes from the Proxmox node, which the container cannot set,
+# and an OCI instance's chrony already follows OCI's own time source.
 - name: Check the passwords are set
   ansible.builtin.assert:
     that:
       - freeipa_server_domain | length > 0
-      - freeipa_server_ds_password | length > 0
+      - freeipa_server_replica_of | length > 0 or freeipa_server_ds_password | length > 0
       - freeipa_server_admin_password | length > 0
-    fail_msg: Set the domain, and both FreeIPA passwords in the host's secrets.sops.yml.
+    fail_msg: >-
+      Set the domain and the admin password, and for a first server the
+      Directory Manager's, in the host's secrets.sops.yml.
     quiet: true
   no_log: true
 
@@ -26,12 +29,32 @@
       - --unattended
       - --domain={{ freeipa_server_domain }}
       - --realm={{ freeipa_server_realm }}
-      - --hostname={{ inventory_hostname }}
+      - --hostname={{ freeipa_server_hostname }}
       - --ds-password={{ freeipa_server_ds_password }}
       - --admin-password={{ freeipa_server_admin_password }}
       - --no-ntp
     creates: /etc/ipa/default.conf
   register: freeipa_server_installed
+  when: freeipa_server_replica_of | length == 0
+  no_log: true
+
+# A replica enrols itself as admin and joins in one step. Without --setup-ca it
+# keeps no CA: the first server's issues its certificates.
+- name: Set up the replica
+  ansible.builtin.command:
+    argv:
+      - ipa-replica-install
+      - --unattended
+      - --domain={{ freeipa_server_domain }}
+      - --realm={{ freeipa_server_realm }}
+      - --server={{ freeipa_server_replica_of }}
+      - --hostname={{ freeipa_server_hostname }}
+      - --principal=admin
+      - --admin-password={{ freeipa_server_admin_password }}
+      - --no-ntp
+    creates: /etc/ipa/default.conf
+  register: freeipa_server_replicated
+  when: freeipa_server_replica_of | length > 0
   no_log: true
 
 # A check run cannot reach the directory an install still pending would create.
@@ -48,4 +71,4 @@
       attributes: {ipaMigrationEnabled: "{{ 'TRUE' if freeipa_server_migration_enabled else 'FALSE' }}"}
   loop_control:
     label: "{{ item.dn }}"
-  when: not (ansible_check_mode and freeipa_server_installed is changed)
+  when: not (ansible_check_mode and (freeipa_server_installed is changed or freeipa_server_replicated is changed))
