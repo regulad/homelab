@@ -54,8 +54,10 @@ resource "oci_core_instance" "riko" {
     are_legacy_imds_endpoints_disabled = true
   }
 
+  # FreeIPA's replica installer wants 1.2 GB available, which 2 GB left it
+  # short of.
   shape_config {
-    memory_in_gbs = 2
+    memory_in_gbs = 4
     ocpus         = 1
   }
 
