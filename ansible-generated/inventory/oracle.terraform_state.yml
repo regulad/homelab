@@ -57,3 +57,5 @@ groups:
   certbot: display_name == 'mail'
   # docker-mailserver and pihole2's blocky, as Quadlets.
   podman_hosts: display_name in ['mail', 'pihole2']
+  # wako's FreeIPA replica.
+  freeipa_servers: display_name == 'riko'

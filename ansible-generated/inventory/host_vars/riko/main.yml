@@ -1,0 +1,35 @@
+---
+# FreeIPA for regulad.internal: a replica of wako, so that the directory still
+# answers from OCI while the homelab is down. It joins as admin, with the
+# admin password wako's secrets hold, and keeps no CA of its own.
+freeipa_server_domain: "{{ freeipa_server.domain }}"
+freeipa_server_hostname: "{{ inventory_hostname }}.{{ freeipa_server.domain }}"
+freeipa_server_replica_of: "{{ freeipa_server.fqdn }}"
+freeipa_server_admin_password: "{{ hostvars[freeipa_server.fqdn].freeipa_server_admin_password }}"
+
+host_files_list:
+  # FreeIPA needs the host to keep its name in the domain, which OCI would set
+  # back to riko.pubsub.wahlecloud.oraclevcn.com at each boot, rewriting
+  # /etc/hosts with it. PRESERVE_HOSTINFO=2, as Oracle's guide to changing an
+  # instance's host name sets it, keeps the hostname and leaves /etc/hosts
+  # alone; the package's file otherwise.
+  - path: /etc/oci-hostname.conf
+    mode: "0644"
+  - path: /etc/hostname
+    mode: "0644"
+    content: "{{ freeipa_server_hostname }}\n"
+  - path: /etc/hosts
+    template: true
+    mode: "0644"
+  # Oracle's passthroughs for the instance's own services, shared by the OCI
+  # instances.
+  - path: /etc/firewalld/direct.xml
+    mode: "0644"
+    shared_src: oci/direct.xml
+    reloads: [firewalld]
+
+# FreeIPA's services, for wako's replication and the directory's clients, who
+# reach it through the VCN's security lists and riko's NSG.
+firewalld_zones:
+  public:
+    services: [ssh, dhcpv6-client, freeipa-4]
