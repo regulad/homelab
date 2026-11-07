@@ -1,0 +1,20 @@
+# IPv6 through the upstream router, which forwards ingress's ports, and
+# through arawi only while the upstream router is unreachable, as dodo routes.
+[IPv6AcceptRA]
+UseGateway=no
+
+# Below 512: arawi's router advertisements on LAN2 also carry ::/0 as a
+# high-preference route option, which UseGateway= does not cover, and which
+# networkd from 256 on routes at 512, where 255 ignored it. Ahead of the
+# upstream router, it sent replies to the connections that router forwards
+# through arawi, which drops them as spoofed, arriving on LAN2 from the LAN's
+# prefix.
+[Route]
+Destination=::/0
+Gateway={{ lan_upstream_router.ipv6_link_local }}
+Metric=256
+
+[Route]
+Destination=::/0
+Gateway={{ lan_arawi.ipv6_link_local }}
+Metric=2048

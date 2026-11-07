@@ -76,6 +76,12 @@ host_files_list:
   - path: /etc/systemd/system/cydia-sync.timer
     mode: "0644"
     restarts: [cydia-sync.timer]
+  # eth0's IPv6 default routes, the upstream router's first; networkd
+  # reconfigures eth0 when it reloads.
+  - path: /etc/systemd/network/eth0.network.d/ra.conf
+    mode: "0644"
+    template: true
+    reloads: [systemd-networkd.service]
 # xcaddy builds Caddy with Go; cydia-sync signs with gpg and draws the icon
 # with ImageMagick.
 # Each site's Caddyfile, which the Caddyfile imports, checked whole with
