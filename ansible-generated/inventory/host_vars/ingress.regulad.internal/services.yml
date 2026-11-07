@@ -15,7 +15,12 @@ quadlet_services:
     environment:
       DOMAINS: ingress.regulad.xyz
       PROXIED: "false"
-      IPV6_PROVIDER: cloudflare.trace
+      # ingress's own address, the one it sends from towards Cloudflare, not
+      # the one Cloudflare sees: arawi's outbound NAT rewrites the LAN's IPv6
+      # TCP that leaves through arawi to arawi's own address.
+      IP6_PROVIDER: local
+      # Never its ULA, which local would choose were its GUA gone.
+      IP6_DETECTION_FILTER: "!addr-in(fc00::/7)"
       # Keep the record across restarts and auto-updates.
       DELETE_ON_STOP: "false"
       DELETE_ON_FAILURE: "true"
