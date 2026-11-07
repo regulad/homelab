@@ -29,8 +29,6 @@ services:
       - html:/var/www/html
       - apps:/var/www/html/custom_apps
       - config:/var/www/html/config
-      # The settings host_files writes, merged over config.php.
-      - /opt/nextcloud/homelab.config.php:/var/www/html/config/homelab.config.php:ro
       - data:/var/www/html/data
       - /mnt/nextcloud:/mnt/nas/nextcloud
       - /mnt/media_nextcloud:/mnt/media
