@@ -1,6 +1,6 @@
 # OCI infrastructure
 
-The `.tf` files in this directory are the source of truth. They describe 88
+The `.tf` files in this directory are the source of truth. They describe 107
 managed resources, ordinary configuration values, nested blocks, and direct
 resource references. The root is one flat module: OpenTofu loads no
 subdirectories into a module, so its files are grouped by name prefix instead.
@@ -8,7 +8,7 @@ subdirectories into a module, so its files are grouped by name prefix instead.
 | Files | Configuration |
 |---|---|
 | `network-legacy.tf`, `subnet-subnet--20230331--2242.tf`, `instance-web.tf` | The legacy VCN and its networking, and the web instance with its boot and data volumes, their backup-policy assignments, the data volume's attachment, and its IPv6 assignment (13 resources) |
-| `network-wahlecloud.tf`, `subnet-public.tf`, `instance-{bailout,livekit,mail,router}.tf` | The wahlecloud VCN and its networking, and the bailout, livekit, mail and router hosts with their volumes, mail's data volume with its attachment and backup-policy assignment, IPv6 assignments and NSGs (64 resources) |
+| `network-wahlecloud.tf`, `subnet-public.tf`, `instance-{bailout,livekit,mail,pihole2,riko,router}.tf` | The wahlecloud VCN and its networking, and the bailout, livekit, mail, pihole2, riko and router hosts with their volumes, mail's data volume with its attachment and backup-policy assignment, IPv6 assignments and NSGs (77 resources) |
 | `email.tf` | Email Delivery: the `regulad.xyz`, `nefumllc.com` and `regulad.net` domains, their DKIM keys and senders, and the `svc-mail` policy |
 | `state-bucket.tf`, `state-identity.tf` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
 | `main.tf` | The availability-domain lookup and the `tofu/shared` module call |
@@ -22,8 +22,11 @@ Each host has an `instance-<name>.tf` file containing, in order, any host-local
 constants, its instance, boot volume, backup-policy assignment, each data
 volume with its attachment and backup-policy assignment, VNIC lookup, IPv6
 assignment, and dedicated firewall resources. These files are
-`instance-web.tf` and `instance-{bailout,livekit,mail,router}.tf`. Web's own
-agent plugin policy is at the top of its file.
+`instance-web.tf` and `instance-{bailout,livekit,mail,pihole2,riko,router}.tf`.
+Web's own agent plugin policy is at the top of its file. pihole2 and riko,
+which OpenTofu created rather than adopted, take their boot volume and IPv6
+address at launch, so they have no boot-volume, VNIC-lookup or IPv6 resources
+of their own; their backup-policy assignments name the instance's boot volume.
 
 Web's data volume, for the devices' data in `/opt/doppelganger`, and mail's,
 for docker-mailserver's mailboxes, state and logs in `/mnt/mailserver`, are each
@@ -117,7 +120,7 @@ Values that are not ours, or not secret, stay out of SOPS:
   `locals.tf`'s `backup_policy_ids` map. Its realm-wide OCID belongs to no
   compartment.
 - Each instance's SSH public key is plaintext in its `metadata`. Web and bailout
-  share one key.
+  share one key; pihole2 and riko carry the key GitHub publishes for regulad.
 - Availability-domain names carry a tenancy-specific prefix, so `main.tf` looks
   them up from the tenancy, keyed `ad_<number>`, and marks them sensitive so
   plans redact them.

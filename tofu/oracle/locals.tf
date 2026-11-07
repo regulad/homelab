@@ -35,6 +35,7 @@ locals {
   # shared across tenancies.
   platform_image_ids = {
     "Canonical-Ubuntu-24.04-Minimal-aarch64-2025.09.22-0" = "ocid1.image.oc1.iad.aaaaaaaaoxcb6yp3brpepe726ar3bsadhbs3mqrn6cyaeq2dneo75opgfija"
+    "Oracle-Linux-10.2-aarch64-2026.10.16-0"              = "ocid1.image.oc1.iad.aaaaaaaadh2iaku6mofmnlu3n42f236bvgcmblsppgtj7hnqvwayo5drug5a"
     "Oracle-Linux-9.6-2025.11.20-0"                       = "ocid1.image.oc1.iad.aaaaaaaaglxne5nh73mxqppl3fkzkqdlda3k22y6oyxcvy6gcaxxsym54mca"
     "Oracle-Linux-9.6-aarch64-2025.11.20-0"               = "ocid1.image.oc1.iad.aaaaaaaaa53zducgjvcstvpe76ctctt6ddw5bloq2wvhvboggfs5usyd47za"
     "Oracle-Linux-9.6-aarch64-2025.11.20-1"               = "ocid1.image.oc1.iad.aaaaaaaaz3iia6dyo7qkwbkp4crbk6unkjkwg572v553l3rsf4dvsp2teugq"
