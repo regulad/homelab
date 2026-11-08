@@ -80,7 +80,9 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
 
 ## Resilience
 
-- [ ] Cross-site replication of services such as uptime
+- [x] Cross-site replication of the services the tailnet and mail cannot do without, into
+  OCI: pihole2, a second global DNS resolver beside pihole, and riko, a FreeIPA replica of
+  wako, which mail reads its users from
 
 ## Additional cloud providers
 
