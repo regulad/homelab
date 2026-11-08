@@ -148,40 +148,8 @@ resource "oci_core_security_list" "legacy_default" {
     stateless   = false
   }
 
-  # web's website, over both families.
-  dynamic "ingress_security_rules" {
-    for_each = local.dual_stack_internet_cidrs
-    iterator = cidr
-    content {
-      description = "HTTP"
-      protocol    = "6" # TCP
-      source      = cidr.value
-      source_type = "CIDR_BLOCK"
-      stateless   = false
-
-      tcp_options {
-        max = 80
-        min = 80
-      }
-    }
-  }
-
-  dynamic "ingress_security_rules" {
-    for_each = local.dual_stack_internet_cidrs
-    iterator = cidr
-    content {
-      description = "HTTPS"
-      protocol    = "6" # TCP
-      source      = cidr.value
-      source_type = "CIDR_BLOCK"
-      stateless   = false
-
-      tcp_options {
-        max = 443
-        min = 443
-      }
-    }
-  }
+  # web's website, HTTP and HTTPS, is closed to the internet over both families
+  # until further notice, while the site's software awaits its update.
 
   ingress_security_rules {
     description = "Tailscale IPv4 Direct Connections"
