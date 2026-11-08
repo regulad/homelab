@@ -257,8 +257,10 @@ certbot_cloudflare_api_token: "{{ cloudflare_api_token }}"
 # docker-mailserver's configuration, bound into its container; its data is on
 # /mnt/mailserver.
 mailserver_dir: /etc/mailserver
-# The suffix of wako's directory, where docker-mailserver looks up and
-# authenticates its users, binding as svc-mail.
+# The FreeIPA directory, where docker-mailserver looks up and authenticates
+# its users, binding as svc-mail: on riko, wako's replica in this VCN, so that
+# mail keeps its users while the homelab is down.
+mailserver_ldap_server: "{{ hostvars['riko'].freeipa_server_hostname }}"
 mailserver_ldap_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
 # The domain of the address each user logs in with, <uid>@ it, and which LMTP
 # delivers each of their addresses to: Dovecot keeps the mailbox under it.
