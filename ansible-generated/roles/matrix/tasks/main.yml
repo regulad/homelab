@@ -6,8 +6,11 @@
     that:
       - matrix_synapse_suite | length > 0
       - matrix_compressor_version | length > 0
-      - matrix_compressor_database_url | length > 0
-    fail_msg: Set matrix_synapse_suite and matrix_compressor_version, and matrix_compressor_database_url through SOPS.
+      - matrix_compressor_user | length > 0
+      - matrix_compressor_database | length > 0
+    fail_msg: >-
+      Set matrix_synapse_suite, matrix_compressor_version, matrix_compressor_user
+      and matrix_compressor_database.
 
 - name: Signing key for matrix.org's repository
   ansible.builtin.copy:
@@ -95,11 +98,20 @@
   environment:
     OPENSSL_NO_VENDOR: "1"
 
+- name: State compressor user
+  ansible.builtin.user:
+    name: "{{ matrix_compressor_user }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+    system: true
+
+# Everything the compressor writes, its log on stderr included, goes to the
+# journal, so cron mails nothing.
 - name: State compressor schedule
   ansible.builtin.copy:
     content: |
       # Compresses Synapse's state groups nightly, keeping its database from growing unchecked.
-      {{ matrix_compressor_schedule }} root {{ matrix_compressor_command }} | systemd-cat -t synapse_auto_compressor
+      {{ matrix_compressor_schedule }} {{ matrix_compressor_user }} {{ matrix_compressor_command }} 2>&1 | systemd-cat -t synapse_auto_compressor
     dest: /etc/cron.d/synapse-auto-compressor
     owner: root
     group: root
@@ -107,5 +119,4 @@
   vars:
     matrix_compressor_command: >-
       /opt/synapse-compress-state/{{ matrix_compressor_version }}/bin/synapse_auto_compressor
-      -p "{{ matrix_compressor_database_url }}" -c 50 -n 100
-  no_log: true
+      -p "{{ matrix_compressor_database }}" -c 50 -n 100

@@ -21,7 +21,10 @@ matrix_bridge_users:
   - {name: mautrix-telegram, home: /opt/mautrix-telegram}
   - {name: mautrix-whatsapp, home: /opt/mautrix-whatsapp}
 matrix_compressor_version: "0.1.4"
-matrix_compressor_database_url: "postgresql://synapse_user:{{ synapse_secrets.database_password }}@localhost/synapse"
+# Synapse's database role, which the compressor runs as and connects as over
+# the local socket.
+matrix_compressor_user: synapse_user
+matrix_compressor_database: "host=/var/run/postgresql user={{ matrix_compressor_user }} dbname=synapse"
 
 # Synapse sends mail through mail.regulad.xyz as svc-synapse, the FreeIPA
 # account it also binds to LDAP as, with the same password.
@@ -73,6 +76,7 @@ host_files_list:
     group: matrix-synapse
     mode: "0640"
     template: true
+    secret: true
     restarts: [matrix-synapse.service]
   - path: /etc/matrix-synapse/log.yaml
     mode: "0644"
