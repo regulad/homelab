@@ -135,3 +135,15 @@ repos:
         entry: '(?i)(?<![0-9a-f:])(?!(?:2606:4700:4700::1111|2606:4700:4700::1001|2620:fe::fe|2001:4860:4860::8888|2001:4860:4860::8844)(?![0-9a-f:]))[23][0-9a-f]{3}:[0-9a-f]{1,4}:|(?:[0-9a-f]\.){7,}[23]\.ip6\.arpa'
         types: [text]
         exclude: \.sops\.
+
+  # --- Tests (tests/README.md) -----------------------------------------------
+  - repo: local
+    hooks:
+      # Under Python 3.9, the oldest a host runs aide-report with, from uv's
+      # own Pythons (uv python install 3.9); uv downloads none itself here.
+      - id: tests
+        name: tests (Python 3.9)
+        language: unsupported
+        entry: uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest discover -s tests
+        pass_filenames: false
+        files: ^(ansible-(common|generated|hardware)/|tests/)
