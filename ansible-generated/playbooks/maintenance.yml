@@ -1058,6 +1058,159 @@
               Revert the image in services.yml to
               {{ (nexus_upgrade_container.stdout | from_json)[0].ImageName }} before the next site.yml.
 
+# Move Nexus's existing secrets and API keys to the keys its secrets file
+# (nexus_secrets_file) names, by Sonatype's re-encryption procedure, once
+# site.yml has delivered the file and Nexus has restarted on it. Until then the
+# secrets still decrypt with the default key, but the API keys' principals do
+# not, so API keys fail to authenticate in between. The secrets move while
+# Nexus's "Re-encryption required" check fails; their task skips those already
+# moved. The principals' task decrypts every row with previousFixedEncryption,
+# or Nexus's defaults without it, and cannot tell a row it has already moved,
+# which a wrong key can occasionally decrypt to garbage and overwrite; so it
+# runs only while a marker on the data volume, restored with the database,
+# names another fixedEncryption. A later change of fixedEncryption lists the
+# old one as previousFixedEncryption until this has run. Both tasks are hidden
+# from the tasks API: the secrets' end shows in the health check, and the
+# principals' in nexus.log, with a count of failed rows that must be 0. If the
+# wait for that line times out, read nexus.log before running this again.
+- name: Nexus re-encryption
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-reencrypt]
+  vars:
+    nexus_reencrypt_log: /mnt/nexus/data/log/nexus.log
+    nexus_reencrypt_marker: /mnt/nexus/data/etc/fixed-encryption.sha256
+    nexus_reencrypt_fixed: "{{ nexus_secrets_file.fixedEncryption | to_json(sort_keys=true) | hash('sha256') }}"
+    nexus_reencrypt_done: The re-encryption principals has been completed.
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  tasks:
+    # Such as right after site.yml's restart.
+    - name: Wait for Nexus to accept writes
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/writable"
+      register: nexus_reencrypt_writable
+      until: nexus_reencrypt_writable.status == 200
+      retries: 60
+      delay: 10
+      check_mode: false
+
+    - name: Nexus's health checks
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/check"
+      register: nexus_reencrypt_checks
+      check_mode: false
+
+    # Healthy as "Nexus was configured to use <active key id> to encrypt secrets."
+    - name: Nexus runs on its secrets file
+      ansible.builtin.assert:
+        that: >-
+          nexus_reencrypt_checks.json['Default Secret Encryption Key'].message
+          is search('use ' ~ (nexus_secrets_file.active | regex_escape) ~ ' to encrypt')
+        fail_msg: >-
+          Nexus does not use the key {{ nexus_secrets_file.active }}; apply site.yml --tags host_files,quadlet to it
+          first.
+        quiet: true
+
+    - name: Re-encrypt the secrets with the active key
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/secrets/encryption/re-encrypt"
+        method: PUT
+        body_format: json
+        body:
+          secretKeyId: "{{ nexus_secrets_file.active }}"
+        status_code: 202
+      changed_when: true
+      when: not nexus_reencrypt_checks.json['Re-encryption required'].healthy
+
+    - name: Wait for the secrets' re-encryption
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/check"
+      register: nexus_reencrypt_secrets
+      until: nexus_reencrypt_secrets.json['Re-encryption required'].message is not search('in progress')
+      retries: 120
+      delay: 5
+      failed_when: not nexus_reencrypt_secrets.json['Re-encryption required'].healthy
+      when:
+        - not nexus_reencrypt_checks.json['Re-encryption required'].healthy
+        - not ansible_check_mode
+
+    - name: The fixedEncryption the principals last moved to
+      ansible.builtin.command:
+        argv: [cat, "{{ nexus_reencrypt_marker }}"]
+      register: nexus_reencrypt_moved
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: The principals' move
+      when: nexus_reencrypt_moved.stdout | trim != nexus_reencrypt_fixed
+      block:
+        - name: Where nexus.log ends before it
+          ansible.builtin.command:
+            argv: [wc, -l, "{{ nexus_reencrypt_log }}"]
+          register: nexus_reencrypt_log_lines
+          changed_when: false
+          check_mode: false
+
+        - name: Re-encrypt the API keys' principals with fixedEncryption
+          ansible.builtin.uri:
+            url: "{{ nexus_url }}/service/rest/v1/apikeys/encryption/re-encrypt"
+            method: PUT
+            body_format: json
+            body: {}
+            status_code: 202
+          changed_when: true
+
+        - name: Wait for the principals' re-encryption
+          ansible.builtin.command:
+            argv:
+              - tail
+              - -n
+              - "+{{ (nexus_reencrypt_log_lines.stdout.split() | first | int) + 1 }}"
+              - "{{ nexus_reencrypt_log }}"
+          register: nexus_reencrypt_principals
+          until: nexus_reencrypt_principals.stdout is search(nexus_reencrypt_done | regex_escape)
+          retries: 120
+          delay: 5
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: No principal failed
+          ansible.builtin.assert:
+            that: >-
+              nexus_reencrypt_principals.stdout | regex_findall('Failed principals ([0-9]+)') | last == '0'
+            fail_msg: Some API keys' principals failed to re-encrypt; nexus.log names their users.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: Record the fixedEncryption they moved to
+          ansible.builtin.copy:
+            dest: "{{ nexus_reencrypt_marker }}"
+            content: "{{ nexus_reencrypt_fixed }}\n"
+            owner: root
+            group: root
+            mode: "0644"
+
+    - name: Nexus's health checks, afterwards
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/status/check"
+      register: nexus_reencrypt_after
+      check_mode: false
+
+    - name: Neither check fails
+      ansible.builtin.assert:
+        that:
+          - >-
+            nexus_reencrypt_after.json['Default Secret Encryption Key'].message
+            is search('use ' ~ (nexus_secrets_file.active | regex_escape) ~ ' to encrypt')
+          - nexus_reencrypt_after.json['Re-encryption required'].healthy
+        quiet: true
+      when: not ansible_check_mode
+
 # Upgrade Forgejo to the long-term support major services.yml declares: bump
 # its image's tag there, with whatever its release notes ask of the unit, then
 # run this play rather than site.yml, with --limit <host> so alock locks that

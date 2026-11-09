@@ -4,6 +4,22 @@
 nexus_url: https://repo.regulad.xyz
 nexus_api_user: svc-ansible
 
+# Nexus's secrets file, as Sonatype's runtime configuration documents it, in
+# place of the encryption defaults every Nexus shares: active names the key that
+# encrypts the secrets table (the LDAP bind password, proxy logins, API keys'
+# secrets), and fixedEncryption, with its own key id so that a new active key
+# leaves it as it is, encrypts the API keys' principals. The host's files
+# deliver it (host_vars main.yml), and Nexus reads it at start; existing data
+# moves to it through maintenance.yml's nexus-reencrypt. It sits beside the
+# database on the container's root disk, so each weekly backup holds both.
+nexus_secrets_file:
+  active: "2026-11-09"
+  keys: "{{ nexus_secrets_keys | dict2items(key_name='id', value_name='key') }}"
+  fixedEncryption:
+    keyId: "2026-11-09"
+    salt: "{{ nexus_fixed_encryption_salt }}"
+    iv: "{{ nexus_fixed_encryption_iv }}"
+
 # Nexus's own roles and users that the nexus_security role converges; the
 # others, such as nx-aaoracled, are left as they are. svc-doppelganger, with
 # which doppelgangerhq.com's Docker pulls from cr.regulad.xyz, may read and

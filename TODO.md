@@ -129,6 +129,7 @@ cloud-init.
       - [x] From OrientDB to H2, with 3.70.5's database migrator: `maintenance.yml`'s `nexus-h2`
       - [x] A pinned release, 3.97.3, upgraded by `maintenance.yml`'s `nexus-upgrade`, which keeps a copy to roll back to
       - [x] The OrientDB files left in `db/`, which Nexus warned about at each start, and the migration's `h2-migration` directory, removed
+      - [ ] Its own secrets file, in place of the encryption defaults every Nexus shares, and its secrets and API keys re-encrypted with it: `maintenance.yml`'s `nexus-reencrypt`
     - [x] I2P: the `i2p` container (208), i2pd from upstream's image on its release channel, SAM for the LAN only
       - [x] qBittorrent's I2P through `i2p.regulad.internal`, in place of qb-clearnet's `172.0.0.1`
       - [x] The old I2P's Docker volumes and the tunnel's dead `i2p` route, with its DNS record, removed from aboriginal

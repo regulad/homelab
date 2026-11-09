@@ -9,6 +9,20 @@ host_files_directories:
     owner: "200"
     group: "200"
     mode: "0755"
+  - path: /etc/nexus
+    mode: "0755"
+
+# Nexus's secrets file (group_vars/nexus_servers.yml), outside the data volume
+# that maintenance.yml's nexus-upgrade copies, mounted read-only into its
+# container and readable by the image's nexus group, 200. Nexus reads it only at
+# start.
+host_files_list:
+  - path: /etc/nexus/nexus.secrets.json
+    mode: "0440"
+    group: "200"
+    content: "{{ nexus_secrets_file | to_nice_json }}\n"
+    secret: true
+    restarts: [nexus.service]
 
 # ClamAV's weekly scan also reads the container's data disk, its RBD mount
 # point (tofu/gonkputer's lxc-nexus.tf).

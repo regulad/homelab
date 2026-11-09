@@ -16,5 +16,9 @@ quadlet_services:
     network: host
     volumes:
       - /mnt/nexus/data:/nexus-data
+      # Its secrets file (main.yml).
+      - /etc/nexus/nexus.secrets.json:/etc/nexus/nexus.secrets.json:ro
+    environment:
+      NEXUS_SECRETS_KEY_FILE: /etc/nexus/nexus.secrets.json
     restart: always
     wanted_by: [multi-user.target, default.target]
