@@ -165,10 +165,10 @@ class Declarations(unittest.TestCase):
                 self.assertTrue(entry.startswith("/"), where)
                 self.assertNotIn("{{", entry, where)
 
-    def test_gap_firewalld_declares_its_zones_without_their_backups(self):
-        for path, number, line in self.declarations():
-            if path.startswith("ansible-common/roles/firewalld/"):
-                self.assertEqual(line, "aide_writes: [/etc/firewalld/zones/*.xml]", "%s:%d" % (path, number))
+    def test_firewalld_declares_its_zones_and_their_backups(self):
+        # firewalld keeps each zone's previous file beside it as it saves one.
+        firewalld = [line for path, _, line in self.declarations() if path.startswith("ansible-common/roles/firewalld/")]
+        self.assertEqual(firewalld, ["aide_writes: [/etc/firewalld/zones/*.xml, /etc/firewalld/zones/*.xml.old]"] * 3)
 
 
 if __name__ == "__main__":

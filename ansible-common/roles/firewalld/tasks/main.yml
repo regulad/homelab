@@ -84,9 +84,10 @@
                    (trusted.interfaces | default([]) + firewalld_trusted_interfaces) | unique})}) }}
 
         # firewalld writes each permanent change into the zone's file in
-        # /etc/firewalld/zones, which the module does not name: declared for
-        # AIDE's refresh at the end of the run (aide_written callback), as
-        # every zone's file, since a task's declaration takes no item.
+        # /etc/firewalld/zones, keeping the one it replaces beside it as
+        # .xml.old, neither of which the module names: declared for AIDE's
+        # refresh at the end of the run (aide_written callback), as every
+        # zone's, since a task's declaration takes no item.
         - name: Declared zones
           ansible.posix.firewalld:
             zone: "{{ item }}"
@@ -95,7 +96,7 @@
           loop: "{{ firewalld_managed_zones.keys() | list }}"
           register: firewalld_declared
           vars:
-            aide_writes: [/etc/firewalld/zones/*.xml]
+            aide_writes: [/etc/firewalld/zones/*.xml, /etc/firewalld/zones/*.xml.old]
 
         # A new zone takes entries only once firewalld has loaded it. Not a
         # handler: handlers cannot be flushed inside this conditional block.
@@ -120,7 +121,7 @@
             label: "{{ item.key }}"
           notify: Reload firewalld
           vars:
-            aide_writes: [/etc/firewalld/zones/*.xml]
+            aide_writes: [/etc/firewalld/zones/*.xml, /etc/firewalld/zones/*.xml.old]
 
         - name: Gather the zones' entries
           ansible.builtin.set_fact:
@@ -159,4 +160,4 @@
           loop_control:
             label: "{{ item.zone }} {{ item.kind }} {{ item.value }}{{ ' removed' if item.state == 'disabled' else '' }}"
           vars:
-            aide_writes: [/etc/firewalld/zones/*.xml]
+            aide_writes: [/etc/firewalld/zones/*.xml, /etc/firewalld/zones/*.xml.old]
