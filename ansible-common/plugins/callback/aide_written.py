@@ -28,11 +28,18 @@ description:
     those absolute paths, the files a command rewrites without naming them,
     such as update-grub's /boot/grub/grub.cfg; a * in one stands for any part
     of one name, as grubby's /boot/loader/entries/*.conf.
-  - Results delegated to another host, and results hidden by no_log, are not
-    recorded, as neither says, or may say, which of the host's files changed.
+  - A result hidden by no_log reaches callbacks without its module's arguments
+    or return values; its task keeps the arguments it ran with, templated for
+    each loop item, which are read in their place. Only paths and unit names
+    are read from them.
+  - Results delegated to another host are not recorded, as they do not say
+    which of the host's files changed. A task's delegate_to marks them, as a
+    result hidden by no_log loses its own mark of delegation.
 requirements:
   - enabled in callbacks_enabled
   - inject_invocation, so that results carry their modules' arguments
+  - ansible-core 2.19 or later, whose results name their task, host and values
+    without a leading underscore
 """
 
 # Modules that write a file, or one directory entry, at the path they are given.
@@ -57,24 +64,27 @@ class CallbackModule(CallbackBase):
         os.environ["AIDE_WRITTEN_DIR"] = self.directory
 
     def _record(self, result):
-        values = result._result
-        if not values.get("changed") or values.get("_ansible_no_log"):
+        values = result.result
+        task = result.task
+        if not values.get("changed"):
             return
-        if values.get("_ansible_delegated_vars"):
+        if values.get("_ansible_delegated_vars") or getattr(task, "delegate_to", None):
             return
+        host = result.host.get_name()
         # What a task declares it writes, which its module does not name.
-        declared = (getattr(result._task, "vars", None) or {}).get("aide_writes") or []
+        declared = (getattr(task, "vars", None) or {}).get("aide_writes") or []
         declared = [path for path in declared if isinstance(path, str) and path.startswith("/")]
         if declared:
-            with open(os.path.join(self.directory, result._host.get_name()), "a") as handle:
+            with open(os.path.join(self.directory, host), "a") as handle:
                 handle.writelines(path + "\n" for path in declared)
-        action = result._task.action.rsplit(".", 1)[-1]
-        arguments = values.get("invocation", {}).get("module_args", {})
+        action = task.action.rsplit(".", 1)[-1]
+        # A result hidden by no_log has no invocation: its task's own arguments.
+        arguments = values.get("invocation", {}).get("module_args") or dict(getattr(task, "args", None) or {})
         if action in UNIT_MODULES:
             unit = values.get("name") or arguments.get("name")
             if (arguments.get("enabled") is not None or arguments.get("masked") is not None) \
                     and isinstance(unit, str) and unit and "/" not in unit:
-                with open(os.path.join(self.directory, result._host.get_name() + ".units"), "a") as handle:
+                with open(os.path.join(self.directory, host + ".units"), "a") as handle:
                     handle.write(unit + "\n")
             return
         if action not in MODULES:
@@ -82,11 +92,11 @@ class CallbackModule(CallbackBase):
         path = values.get("dest") or arguments.get("dest") or arguments.get("path") or values.get("path")
         if not isinstance(path, str) or not path.startswith("/"):
             return
-        with open(os.path.join(self.directory, result._host.get_name()), "a") as handle:
+        with open(os.path.join(self.directory, host), "a") as handle:
             handle.write(path + "\n")
 
     def v2_runner_on_ok(self, result):
-        if "results" not in result._result:
+        if "results" not in result.result:
             self._record(result)
 
     def v2_runner_item_on_ok(self, result):

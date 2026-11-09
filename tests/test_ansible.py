@@ -85,6 +85,7 @@ class CheckRun(unittest.TestCase):
     def test_the_refresh_reads_back_the_changed_results_paths_and_declarations(self):
         self.assertEqual(self.facts()["aide_written"], [
             self.out + "/copied",
+            self.out + "/hidden",
             self.out + "/one",
             self.out + "/two",
             self.out + "/directory",
@@ -105,9 +106,10 @@ class CheckRun(unittest.TestCase):
         written = self.facts()["aide_written"]
         self.assertNotIn(self.out + "/unchanged", written)
         self.assertNotIn(self.out + "/delegated", written)
+        self.assertNotIn(self.out + "/delegated-hidden", written)
 
-    def test_gap_not_a_result_hidden_by_no_log(self):
-        self.assertNotIn(self.out + "/hidden", self.facts()["aide_written"])
+    def test_a_result_hidden_by_no_log(self):
+        self.assertIn(self.out + "/hidden", self.facts()["aide_written"])
 
     def test_the_refresh_itself_is_skipped_in_check_mode(self):
         (record,) = self.records_of("AIDE's baseline for them")
@@ -136,6 +138,16 @@ class CheckRun(unittest.TestCase):
     def test_a_delegated_result_says_so(self):
         (record,) = self.records_of("A delegated copy", "ok")
         self.assertIn("_ansible_delegated_vars", record["result"])
+        self.assertEqual(record["delegate_to"], "localhost")
+
+    def test_a_delegated_result_under_no_log_says_so_only_by_its_task(self):
+        (record,) = self.records_of("A delegated copy under no_log", "ok")
+        self.assertNotIn("_ansible_delegated_vars", record["result"])
+        self.assertEqual(record["delegate_to"], "localhost")
+
+    def test_an_undelegated_task_names_no_host(self):
+        (record,) = self.records_of("A copy", "ok")
+        self.assertIsNone(record["delegate_to"])
 
 
 if __name__ == "__main__":

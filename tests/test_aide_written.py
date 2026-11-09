@@ -3,7 +3,10 @@
 It runs here with a stand-in for ansible-core's CallbackBase, on results
 shaped as ansible-core 2.21 hands them to callbacks; test_ansible runs it in
 ansible-core itself. Tests named for a gap record what it does today where
-the triage of 2026-11-08 found it wanting; a fix changes them on purpose."""
+the triage of 2026-11-08 found it wanting; a fix changes them on purpose.
+
+A result hidden by no_log reaches callbacks with only a few keys of its own,
+CENSORED's; its task keeps the arguments it ran with."""
 
 import os
 import unittest
@@ -12,6 +15,8 @@ from unittest import mock
 import support
 
 aw = support.load_callback()
+
+CENSORED = {"changed": True, "_ansible_no_log": True, "censored": "hidden"}
 
 
 class Host:
@@ -23,17 +28,20 @@ class Host:
 
 
 class Task:
-    def __init__(self, action, args=None, variables=None):
+    def __init__(self, action, args=None, variables=None, delegate_to=None):
         self.action = action
         self.args = args or {}
         self.vars = variables or {}
+        self.delegate_to = delegate_to
 
 
 class Result:
-    def __init__(self, action, result, args=None, variables=None, host="host.example"):
-        self._host = Host(host)
-        self._task = Task(action, args, variables)
-        self._result = result
+    """A result as ansible-core 2.19 and later hands it to callbacks."""
+
+    def __init__(self, action, result, args=None, variables=None, host="host.example", delegate_to=None):
+        self.host = Host(host)
+        self.task = Task(action, args, variables, delegate_to)
+        self.result = result
 
 
 def invoked(**arguments):
@@ -116,20 +124,31 @@ class FileModules(CallbackTestCase):
                                                 "_ansible_delegated_vars": {"ansible_host": "other"}}))
         self.assertEqual(self.recorded(), [])
 
-    def test_gap_not_a_result_hidden_by_no_log(self):
-        # ansible-core 2.21 hands callbacks a no_log result with only these
-        # keys; the path is in the task's own arguments.
-        censored = {"changed": True, "_ansible_no_log": True, "censored": "hidden"}
-        self.ok(Result("ansible.builtin.copy", censored, args={"dest": "/etc/secret.env"}))
-        self.assertEqual(self.recorded(), [])
+    def test_a_result_hidden_by_no_log_by_its_tasks_arguments(self):
+        self.ok(Result("ansible.builtin.copy", CENSORED, args={"dest": "/etc/secret.env", "content": "secret"}),
+                Result("ansible.builtin.lineinfile", CENSORED, args={"path": "/etc/secret.conf", "line": "secret"}))
+        self.assertEqual(self.recorded(), ["/etc/secret.env", "/etc/secret.conf"])
 
-    def test_gap_not_a_result_marked_no_log_that_kept_its_path(self):
+    def test_a_result_marked_no_log_that_kept_its_path(self):
         self.ok(Result("ansible.builtin.copy", {"changed": True, "_ansible_no_log": True, "dest": "/etc/secret.env"}))
+        self.assertEqual(self.recorded(), ["/etc/secret.env"])
+
+    def test_what_a_task_under_no_log_declares(self):
+        self.ok(Result("ansible.builtin.command", CENSORED, variables={"aide_writes": ["/etc/ipa/default.conf"]}))
+        self.assertEqual(self.recorded(), ["/etc/ipa/default.conf"])
+
+    def test_not_an_unchanged_result_under_no_log(self):
+        self.ok(Result("ansible.builtin.copy", {"changed": False, "_ansible_no_log": True, "censored": "hidden"},
+                       args={"dest": "/etc/secret.env"}))
         self.assertEqual(self.recorded(), [])
 
-    def test_gap_not_what_a_task_under_no_log_declares(self):
-        censored = {"changed": True, "_ansible_no_log": True, "censored": "hidden"}
-        self.ok(Result("ansible.builtin.command", censored, variables={"aide_writes": ["/etc/ipa/default.conf"]}))
+    def test_not_a_result_under_no_log_delegated_to_another_host(self):
+        # Its result lost the mark of delegation with the rest; its task keeps it.
+        self.ok(Result("ansible.builtin.copy", CENSORED, args={"dest": "/srv/secret"}, delegate_to="localhost"))
+        self.assertEqual(self.recorded(), [])
+
+    def test_not_a_task_delegated_to_another_host(self):
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/srv/x"}, delegate_to="localhost"))
         self.assertEqual(self.recorded(), [])
 
     def test_gap_not_a_module_that_does_not_take_its_path(self):
@@ -151,7 +170,12 @@ class Loops(CallbackTestCase):
         items = [Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/%d" % n}) for n in (1, 2)]
         for item in items:
             self.callback.v2_runner_item_on_ok(item)
-        self.ok(Result("ansible.builtin.copy", {"changed": True, "results": [item._result for item in items]}))
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "results": [item.result for item in items]}))
+        self.assertEqual(self.recorded(), ["/etc/1", "/etc/2"])
+
+    def test_each_item_hidden_by_no_log_by_its_own_arguments(self):
+        for n in (1, 2):
+            self.callback.v2_runner_item_on_ok(Result("ansible.builtin.template", CENSORED, args={"dest": "/etc/%d" % n}))
         self.assertEqual(self.recorded(), ["/etc/1", "/etc/2"])
 
 
@@ -201,10 +225,9 @@ class Units(CallbackTestCase):
                        variables={"aide_writes": ["/etc/x"]}))
         self.assertEqual((self.recorded(), self.recorded(suffix=".units")), (["/etc/x"], ["a.service"]))
 
-    def test_gap_not_a_unit_changed_under_no_log(self):
-        censored = {"changed": True, "_ansible_no_log": True, "censored": "hidden"}
-        self.ok(Result("ansible.builtin.systemd_service", censored, args={"name": "a.service", "enabled": True}))
-        self.assertEqual(self.recorded(suffix=".units"), [])
+    def test_a_unit_changed_under_no_log(self):
+        self.ok(Result("ansible.builtin.systemd_service", CENSORED, args={"name": "a.service", "enabled": True}))
+        self.assertEqual(self.recorded(suffix=".units"), ["a.service"])
 
 
 if __name__ == "__main__":

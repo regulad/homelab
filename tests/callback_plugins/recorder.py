@@ -1,6 +1,6 @@
 """Records each result as callbacks see it, for test_ansible: the task's name,
-action, arguments and variables, and the result, a JSON line each to the file
-$RECORDER_OUT names."""
+action, arguments, variables and delegation, and the result, a JSON line each
+to the file $RECORDER_OUT names."""
 
 import json
 import os
@@ -15,14 +15,15 @@ class CallbackModule(CallbackBase):
     CALLBACK_NEEDS_ENABLED = True
 
     def _record(self, event, result):
-        task = result._task
+        task = result.task
         record = {
             "event": event,
             "task": task.get_name(),
             "action": task.action,
             "args": dict(task.args),
             "vars": dict(task.vars or {}),
-            "result": result._result,
+            "delegate_to": task.delegate_to,
+            "result": result.result,
         }
         with open(os.environ["RECORDER_OUT"], "a") as handle:
             handle.write(json.dumps(record, default=str) + "\n")

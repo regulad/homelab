@@ -60,6 +60,14 @@
         mode: "0644"
       delegate_to: localhost
 
+    - name: A delegated copy under no_log
+      ansible.builtin.copy:
+        content: "f\n"
+        dest: "{{ out }}/delegated-hidden"
+        mode: "0600"
+      delegate_to: localhost
+      no_log: true
+
     - name: A command declaring its writes
       ansible.builtin.command:
         argv: ["true"]
