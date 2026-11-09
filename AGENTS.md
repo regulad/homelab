@@ -50,6 +50,7 @@ homelab/
 ├── docs/
 │   ├── snapshot/                # local-only discovery output (gitignored)
 │   └── runbooks/                # move-a-service, rotate-keys, restore-state
+├── tests/                       # unittest tests of AIDE's acceptance system, under Python 3.9; pre-commit's tests hook runs them
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
 │   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze, aws, gcp, cloudflare, azure)
@@ -123,6 +124,7 @@ Several agents may work on this repository at once. The [alock](https://github.c
 
 ```bash
 pre-commit run --all-files
+uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest discover -s tests   # tests/README.md; pre-commit's tests hook
 tofu -chdir=tofu/<root> fmt -check -recursive
 tofu -chdir=tofu/<root> validate
 tofu -chdir=tofu/<root> plan -detailed-exitcode
