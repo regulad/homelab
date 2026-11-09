@@ -70,7 +70,7 @@ Roles for hosts outside those three OS groups, such as pfSense and the switches,
 ## Checking a role
 
 - **The tests:** `tests/README.md`. They cover the callback, aide-report's rules, the refresh tasks in check mode, and the playbooks' wiring. A change to any of those comes with tests that fail first.
-- **After an apply:** the run's "AIDE's baseline for them" task lists every path it refreshed. A write of the role's that isn't there will be in the next day's mail. `--check` records nothing, so only an apply shows this.
+- **After an apply:** run with `-v`, and the "AIDE's baseline for them" task shows its command, which lists every path it refreshed. A write of the role's that isn't there will be in the next day's mail. `--check` records nothing, so only an apply shows this.
 - **Records waiting between runs:** `~/.cache/ansible/aide_written/<host>` holds records a refresh hasn't consumed yet, such as those of a run that failed.
 
 ## Where the pieces are
