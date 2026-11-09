@@ -405,14 +405,22 @@ class RemovedWith(support.TreeTestCase):
         self.assertEqual(kept_paths(explain(entries, FakePackages(installed={"bar=1"}), self.manifest)[0]),
                          {"removed": [self.link_path]})
 
-    def test_gap_kept_the_directory_a_removal_emptied(self):
-        # The NFS removal on the OCI instances: the link explained, its
-        # directory, which systemctl removed once empty, kept.
+    def test_the_directory_a_removal_emptied(self):
+        # The NFS removal on the OCI instances: the link, and its directory,
+        # which systemctl removed once empty.
         wants = self.units + "/remote-fs.target.wants"
         manifest = {"owner": {"/lib/systemd/system/nfs-client.target": "nfs-utils-2.5.4"}, "installed": ["nfs-utils-2.5.4"]}
         entries = report(removed={wants: REMOVED_DIRECTORY, wants + "/nfs-client.target": REMOVED_LINK})
         kept, explained = explain(entries, FakePackages(installed=set(), rpm=True), manifest)
-        self.assertEqual((kept_paths(kept), explained), ({"removed": [wants]}, 1))
+        self.assertEqual((kept_paths(kept), explained), ({}, 2))
+
+    def test_kept_a_removed_directory_holding_a_kept_removal(self):
+        wants = self.units + "/remote-fs.target.wants"
+        manifest = {"owner": {"/lib/systemd/system/nfs-client.target": "nfs-utils-2.5.4"}, "installed": ["nfs-utils-2.5.4"]}
+        entries = report(removed={wants: REMOVED_DIRECTORY, wants + "/nfs-client.target": REMOVED_LINK,
+                                  wants + "/stray.mount": REMOVED_LINK})
+        kept, explained = explain(entries, FakePackages(installed=set(), rpm=True), manifest)
+        self.assertEqual((kept_paths(kept), explained), ({"removed": sorted([wants, wants + "/stray.mount"])}, 1))
 
 
 class Removed(unittest.TestCase):
@@ -494,12 +502,38 @@ class FileTriggers(unittest.TestCase):
 
 
 class AddedDirectories(support.TreeTestCase):
-    def test_gap_kept_a_new_directory_no_package_owns_holding_only_package_files(self):
+    def test_a_new_directory_no_package_owns_holding_only_package_files(self):
         # rpm made /usr/libexec/dirsrv on riko as a parent no package owns.
         directory, owned = "/usr/libexec/dirsrv", "/usr/libexec/dirsrv/ds_systemd_ask_password_acl"
         packages = FakePackages(owner={owned: "389-ds-base-2"}, rpm=True)
         kept, explained = explain(report(added={directory: ADDED_DIRECTORY, owned: ADDED_FILE}), packages)
-        self.assertEqual((kept_paths(kept), explained), ({"added": [directory]}, 1))
+        self.assertEqual((kept_paths(kept), explained), ({}, 2))
+
+    def test_new_directories_within_each_other(self):
+        top, middle, owned = "/usr/share/tomcat", "/usr/share/tomcat/bin", "/usr/share/tomcat/bin/bootstrap.jar"
+        packages = FakePackages(owner={owned: "tomcat-9"}, rpm=True)
+        entries = report(added={top: ADDED_DIRECTORY, middle: ADDED_DIRECTORY, owned: ADDED_FILE})
+        self.assertEqual(explain(entries, packages), ({"added": {}, "removed": {}, "changed": {}}, 3))
+
+    def test_kept_a_new_directory_holding_nothing_the_report_lists(self):
+        self.assertEqual(kept_paths(explain(report(added={"/usr/libexec/empty": ADDED_DIRECTORY}))[0]),
+                         {"added": ["/usr/libexec/empty"]})
+
+    def test_kept_a_removed_directory_that_held_nothing(self):
+        self.assertEqual(kept_paths(explain(report(removed={"/etc/empty": REMOVED_DIRECTORY}))[0]),
+                         {"removed": ["/etc/empty"]})
+
+    def test_kept_a_new_directory_holding_a_kept_entry_and_its_parents(self):
+        top, middle = "/opt/new", "/opt/new/bin"
+        packages = FakePackages(owner={"/opt/new/bin/owned": "x=1"})
+        entries = report(added={top: ADDED_DIRECTORY, middle: ADDED_DIRECTORY, middle + "/owned": ADDED_FILE,
+                                middle + "/stray": ADDED_FILE})
+        self.assertEqual(kept_paths(explain(entries, packages)[0]), {"added": sorted([top, middle, middle + "/stray"])})
+
+    def test_kept_a_directory_a_sibling_of_a_kept_entry_shares_a_prefix_with(self):
+        packages = FakePackages(owner={"/opt/a/owned": "x=1"})
+        entries = report(added={"/opt/a": ADDED_DIRECTORY, "/opt/a/owned": ADDED_FILE, "/opt/ab": ADDED_FILE})
+        self.assertEqual(kept_paths(explain(entries, packages)[0]), {"added": ["/opt/ab"]})
 
     def test_kept_a_new_units_directory_holding_a_kept_entry(self):
         units = self.path("etc/systemd/system")

@@ -110,23 +110,24 @@ class UnitLinks(UnitTree):
             ar.regex(self.units + "/multi-user.target.wants/foo.service"),
             ar.regex(self.units + "/timers.target.wants/foo.service"),
             ar.regex(self.units + "/bar.service"),
-            # The directory of a link that exists, once more for its [Install] name.
+            # The directory of each link its [Install] names, there now or not.
             ar.regex(self.units + "/multi-user.target.wants"),
+            ar.regex(self.units + "/timers.target.wants"),
         ])
 
-    def test_no_directory_for_a_link_gone_with_its_directory(self):
-        # A disable that empties a .wants directory removes it with the link;
-        # the expressions name the link but not the directory.
+    def test_the_directory_of_a_link_gone_with_it(self):
+        # A disable that empties a .wants directory removes it with the link.
         self.unit("foo.service", "WantedBy=remote-fs.target\n")
         patterns = ar.unit_links(["foo.service"])
         self.assertIn(ar.regex(self.units + "/remote-fs.target.wants/foo.service"), patterns)
-        self.assertNotIn(ar.regex(self.units + "/remote-fs.target.wants"), patterns)
+        self.assertIn(ar.regex(self.units + "/remote-fs.target.wants"), patterns)
 
     def test_an_instance_of_a_template(self):
         self.unit("getty@.service", "WantedBy=getty.target\n")
         self.assertCountEqual(ar.unit_links(["getty@tty1.service"]), [
             self.any_directory("getty@tty1.service"),
             ar.regex(self.units + "/getty.target.wants/getty@tty1.service"),
+            ar.regex(self.units + "/getty.target.wants"),
         ])
 
     def test_an_alias_file_is_named_for_the_unit_it_names(self):

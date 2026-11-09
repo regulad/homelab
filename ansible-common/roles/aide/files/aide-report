@@ -44,8 +44,12 @@ A change is left out when:
   baseline made, or what its removal took away, following from a file of the
   package that vouches for it: a unit's links by its unit file's [Install]
   (systemctl enable or preset, or deb-systemd-helper, and its record of them),
-  and update-rc.d's links by the init script's LSB runlevels; or a new
-  directory under /etc/systemd/system holding only such links;
+  and update-rc.d's links by the init script's LSB runlevels;
+- the path is a directory added or removed with what it held: the report
+  lists an entry below it in the same section, and leaves out every entry
+  below it, as a .wants a package's install made for its links, or that
+  disabling the last of them removed, or a directory rpm made for a
+  package's files without any package owning it;
 - the path is dpkg's diversions, or its copy of them, and every diversion
   added or removed since the baseline is a package's that was installed,
   upgraded or removed since;
@@ -816,14 +820,14 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             explained += 1
         else:
             kept["removed"][path] = summary
-    # A directory a package's install made for links it explains, such as a
-    # target's .wants, holding nothing it does not.
-    for path, summary in list(kept["added"].items()):
-        if (summary[:1] == "d" and path.startswith((SYSTEMD_UNITS + "/", DSH_STATE + "/"))
-                and any(p.startswith(path + "/") for p in added)
-                and not any(p.startswith(path + "/") for section in kept.values() for p in section)):
-            del kept["added"][path]
-            explained += 1
+    # A directory added or removed with what it held, everything below it
+    # explained: the deepest first, so that one holding another follows it.
+    for section, items in (("added", added), ("removed", removed)):
+        for path, summary in sorted(kept[section].items(), key=lambda item: -item[0].count("/")):
+            if (summary[:1] == "d" and any(p.startswith(path + "/") for p in items)
+                    and not any(p.startswith(path + "/") for listed in kept.values() for p in listed)):
+                del kept[section][path]
+                explained += 1
     return kept, explained
 
 
@@ -1137,10 +1141,11 @@ def unit_links(units):
     """AIDE's expressions for the links of these units in /etc/systemd/system,
     there now or at the baseline: the unit's own name there, a mask or a link,
     and its name in a .wants, .requires or .upholds directory; and the links
-    its file's [Install] names, its Alias= names among them; with each such
-    directory that holds one now, which enabling it may have made. A unit an
-    Also= names, which systemctl enables and disables with the one naming it,
-    gets the same."""
+    its file's [Install] names, its Alias= names among them; with the
+    directory of each, there now or at the baseline, which enabling it may
+    have made, or disabling the last link in it removed. A unit an Also=
+    names, which systemctl enables and disables with the one naming it, gets
+    the same."""
     patterns = []
     pending = [unit if unit.endswith(UNIT_SUFFIXES) else unit + ".service" for unit in units]
     seen = set()
@@ -1161,7 +1166,7 @@ def unit_links(units):
         name = unit if instance and os.path.basename(source) == "%s%s" % instance.groups() else None
         for link in install_links(source, name):
             patterns.append(regex(link))
-            if os.path.dirname(link) != SYSTEMD_UNITS and os.path.lexists(link):
+            if os.path.dirname(link) != SYSTEMD_UNITS:
                 patterns.append(regex(os.path.dirname(link)))
         pending.extend(install_settings(source).get("Also", []))
     return patterns
