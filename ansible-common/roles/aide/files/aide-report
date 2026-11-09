@@ -52,6 +52,10 @@ A change is left out when:
   below it, as a .wants a package's install made for its links, or that
   disabling the last of them removed, or a directory rpm made for a
   package's files without any package owning it;
+- the path is one of update-alternatives': a link in /etc/alternatives that
+  a group's record names, or the generic name the record gives it, pointing
+  there, that resolves to a file of a package that vouches for it; or the
+  record itself, while its master link does;
 - the path is dpkg's diversions, or its copy of them, and every diversion
   added or removed since the baseline is a package's that was installed,
   upgraded or removed since;
@@ -218,6 +222,12 @@ DPKG_DIVERSIONS_OLD = "/var/lib/dpkg/diversions-old"
 # interest-noawait. The records are /var/lib/dpkg/info/<package>.triggers.
 DPKG_FILE_TRIGGERS = "/var/lib/dpkg/triggers/File"
 DPKG_TRIGGER_RECORDS = "/var/lib/dpkg/info/*.triggers"
+# update-alternatives' links, a generic name pointing at its link here, which
+# points at the alternative chosen; and its records of each group, dpkg's and
+# Enterprise Linux's alike: the group's status, its master link, a name and a
+# link for each follower, a blank line, then the alternatives.
+ALTERNATIVES = "/etc/alternatives"
+ALTERNATIVES_RECORDS = ("/var/lib/dpkg/alternatives", "/var/lib/alternatives")
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
 
@@ -562,6 +572,32 @@ def declared_file_triggers():
     return declared
 
 
+def alternatives():
+    """update-alternatives' generic names, each with the name of its link in
+    /etc/alternatives, and its records, each with its group's master link."""
+    generic, records = {}, {}
+    for directory in ALTERNATIVES_RECORDS:
+        try:
+            names = sorted(os.listdir(directory))
+        except OSError:
+            continue
+        for name in names:
+            record = os.path.join(directory, name)
+            try:
+                with open(record, errors="replace") as handle:
+                    lines = handle.read().split("\n")
+            except OSError:
+                continue
+            header = lines[:lines.index("")] if "" in lines else lines
+            if len(header) < 2 or not header[1].startswith("/"):
+                continue
+            records[record] = header[1]
+            generic[header[1]] = name
+            for follower, link in zip(header[2::2], header[3::2]):
+                generic[link] = follower
+    return generic, records
+
+
 def boot_time():
     """When the running kernel booted, from /proc/stat; None without it."""
     try:
@@ -612,9 +648,32 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             unit = os.path.basename(path)
             unit = unit[:-len(".dsh-also")] if unit.endswith(".dsh-also") else unit
             sources[path] = packages.canonical("/lib/systemd/system/" + unit)
+    # update-alternatives' links and records, by the file each resolves to.
+    generic, records = alternatives()
+    alternative_names = set(generic.values())
+
+    def alternative_target(path):
+        name = generic.get(path)
+        try:
+            if name is not None:
+                if os.readlink(path) != os.path.join(ALTERNATIVES, name):
+                    return None
+            elif os.path.dirname(path) != ALTERNATIVES or os.path.basename(path) not in alternative_names:
+                return None
+        except OSError:
+            return None
+        return packages.canonical(os.path.realpath(path))
+
+    chosen = {}
+    for path, summary in list(added.items()) + list(changed.items()):
+        target = alternative_target(records[path] if path in records else path) if (
+            path in records or summary[:1] == "l") else None
+        if target is not None:
+            chosen[path] = target
     unverified = packages.unverified(candidates + [t for t in targets.values() if t in packages.owner]
                                      + [t for t in copies.values() if t in packages.owner]
-                                     + [t for t in sources.values() if t in packages.owner])
+                                     + [t for t in sources.values() if t in packages.owner]
+                                     + [t for t in chosen.values() if t in packages.owner])
     kept = {"added": {}, "removed": {}, "changed": {}}
     explained = 0
 
@@ -798,6 +857,12 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             elif kind == "l" and symlink_vouched(path) and not attributes - INCIDENTAL - {"link_name", "size", "block_count"}:
                 explained += 1
             elif copy_vouched(path, summary):
+                explained += 1
+            elif (kind == "l" and path not in records and path in chosen and verified(chosen[path])
+                  and not attributes - INCIDENTAL - {"link_name", "size", "block_count"}):
+                explained += 1
+            elif (path in records and path in chosen and verified(chosen[path])
+                  and not attributes - CONTENT - INCIDENTAL):
                 explained += 1
             elif section == "changed" and cache_rebuilt(path, summary):
                 explained += 1

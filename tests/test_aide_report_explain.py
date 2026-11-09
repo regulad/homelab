@@ -544,6 +544,92 @@ class AddedDirectories(support.TreeTestCase):
                                                              units + "/x.target.wants/stray.service"])})
 
 
+class Alternatives(support.TreeTestCase):
+    """update-alternatives' links: a generic name pointing at its link in
+    /etc/alternatives, which points at the alternative chosen."""
+
+    def setUp(self):
+        super().setUp()
+        self.links = self.path("etc/alternatives")
+        self.records = self.path("var/lib/alternatives")
+        self.dpkg_records = self.path("var/lib/dpkg/alternatives")
+        for name, value in (("ALTERNATIVES", self.links), ("ALTERNATIVES_RECORDS", (self.dpkg_records, self.records))):
+            patcher = mock.patch.object(ar, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.java = self.write("usr/lib/jvm/java-17/bin/java")
+        self.man = self.write("usr/lib/jvm/java-17/man/java.1.gz")
+        self.generic = self.link("usr/bin/java", self.links + "/java")
+        self.chosen = self.link("etc/alternatives/java", self.java)
+        self.man_generic = self.link("usr/share/man/man1/java.1.gz", self.links + "/java.1.gz")
+        self.man_chosen = self.link("etc/alternatives/java.1.gz", self.man)
+        self.record = self.write("var/lib/alternatives/java", "auto\n%s\njava.1.gz\n%s\n\n%s\n1700\n%s\n"
+                                 % (self.generic, self.man_generic, self.java, self.man))
+        self.owner = {self.java: "java-17-openjdk-headless-17", self.man: "java-17-openjdk-headless-17"}
+
+    def entries(self, *paths):
+        return report(added={path: (ADDED_FILE if path == self.record else ADDED_LINK) for path in paths})
+
+    def every(self):
+        return (self.generic, self.chosen, self.man_generic, self.man_chosen, self.record)
+
+    def test_reads_each_records_generic_links(self):
+        self.assertEqual(ar.alternatives(), ({self.generic: "java", self.man_generic: "java.1.gz"},
+                                             {self.record: self.generic}))
+
+    def test_a_new_group_its_links_and_its_record(self):
+        packages = FakePackages(owner=self.owner, rpm=True)
+        self.assertEqual(explain(self.entries(*self.every()), packages), ({"added": {}, "removed": {}, "changed": {}}, 5))
+
+    def test_dpkgs_records_too(self):
+        os.makedirs(self.dpkg_records)
+        os.rename(self.record, self.dpkg_records + "/java")
+        self.record = self.dpkg_records + "/java"
+        packages = FakePackages(owner=self.owner)
+        self.assertEqual(explain(self.entries(*self.every()), packages)[1], 5)
+
+    def test_a_changed_choice(self):
+        other = self.write("usr/lib/jvm/java-21/bin/java")
+        os.remove(self.chosen)
+        os.symlink(other, self.chosen)
+        packages = FakePackages(owner=dict(self.owner, **{other: "java-21-openjdk-headless-21"}), rpm=True)
+        entries = report(changed={self.chosen: CHANGED_LINK}, details={self.chosen: attributes("link_name", "change_time")})
+        self.assertEqual(explain(entries, packages)[1], 1)
+
+    def test_kept_links_to_a_file_no_package_owns(self):
+        packages = FakePackages(owner={self.man: "java-17-openjdk-headless-17"}, rpm=True)
+        kept, explained = explain(self.entries(*self.every()), packages)
+        self.assertEqual((kept_paths(kept), explained), ({"added": sorted([self.generic, self.chosen, self.record])}, 2))
+
+    def test_kept_links_to_a_file_its_package_does_not_vouch_for(self):
+        packages = FakePackages(owner=self.owner, rpm=True, unverified={self.java})
+        kept, explained = explain(self.entries(*self.every()), packages)
+        self.assertEqual((kept_paths(kept), explained), ({"added": sorted([self.generic, self.chosen, self.record])}, 2))
+
+    def test_kept_a_generic_name_pointing_past_etc_alternatives(self):
+        os.remove(self.generic)
+        os.symlink(self.java, self.generic)
+        packages = FakePackages(owner=self.owner, rpm=True)
+        self.assertEqual(kept_paths(explain(self.entries(self.generic), packages)[0]), {"added": [self.generic]})
+
+    def test_kept_a_link_in_etc_alternatives_no_record_names(self):
+        stray = self.link("etc/alternatives/stray", self.java)
+        packages = FakePackages(owner=self.owner, rpm=True)
+        self.assertEqual(kept_paths(explain(self.entries(stray), packages)[0]), {"added": [stray]})
+
+    def test_kept_a_choice_that_changed_more_than_its_target(self):
+        packages = FakePackages(owner=self.owner, rpm=True)
+        entries = report(changed={self.chosen: CHANGED_LINK}, details={self.chosen: attributes("link_name", "uid")})
+        self.assertEqual(kept_paths(explain(entries, packages)[0]), {"changed": [self.chosen]})
+
+    def test_no_records_no_alternatives(self):
+        os.remove(self.record)
+        self.assertEqual(ar.alternatives(), ({}, {}))
+        packages = FakePackages(owner=self.owner, rpm=True)
+        self.assertEqual(kept_paths(explain(self.entries(self.generic, self.chosen), packages)[0]),
+                         {"added": sorted([self.generic, self.chosen])})
+
+
 class Unverified(unittest.TestCase):
     def test_one_question_for_every_candidate_target_copy_and_source(self):
         packages = FakePackages(owner={"/usr/bin/a": "a=1", "/usr/bin/b": "b=1"})
