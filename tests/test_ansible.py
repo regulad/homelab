@@ -27,6 +27,8 @@ class PlaybookRun(unittest.TestCase):
     playbook = None
     inventory = ["-i", "localhost,", "-c", "local"]
     environment = {}
+    # Whether the host has an accepted baseline: a database and its manifest.
+    accepted = True
 
     @classmethod
     def setUpClass(cls):
@@ -41,6 +43,12 @@ class PlaybookRun(unittest.TestCase):
         os.chmod(unchanged, 0o644)
         cls.database = os.path.join(cls.root, "aide.db")
         open(cls.database, "w").close()
+        cls.manifest = os.path.join(cls.root, "packages.json.gz")
+        if cls.accepted:
+            open(cls.manifest, "w").close()
+        cls.units = os.path.join(cls.root, "units")
+        os.makedirs(cls.units)
+        open(os.path.join(cls.units, "aide-baseline.service"), "w").close()
         recorded = os.path.join(cls.root, "recorded.jsonl")
         environment = {name: value for name, value in os.environ.items() if not name.startswith("ANSIBLE_")}
         environment.update({
@@ -63,7 +71,8 @@ class PlaybookRun(unittest.TestCase):
         environment.update(cls.environment)
         variables = os.path.join(cls.root, "variables.json")
         with open(variables, "w") as handle:
-            json.dump({"out": cls.out, "aide_database": cls.database}, handle)
+            json.dump({"out": cls.out, "aide_database": cls.database, "aide_manifest": cls.manifest,
+                       "aide_unit_dir": cls.units}, handle)
         cls.completed = subprocess.run(
             [playbook, "--check"] + cls.inventory + [os.path.join(PLAYBOOKS, cls.playbook), "-e", "@" + variables],
             cwd=cls.root, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -107,8 +116,31 @@ class NothingRecorded(PlaybookRun):
         self.assertEqual(self.find("AIDE's baseline for them"), [])
 
 
+class FirstBaseline(PlaybookRun):
+    """The run that set a host up, before it has a baseline: the first one
+    starts at its end, which check mode alone holds back here."""
+
+    playbook = "refresh.yml"
+    accepted = False
+
+    def test_the_run_succeeds(self):
+        self.assertEqual(self.completed.returncode, 0, self.completed.stdout[-3000:])
+
+    def test_the_first_baseline_starts_but_for_check_mode(self):
+        (record,) = self.records_of("First baseline", "skipped")
+        self.assertEqual(record["result"]["false_condition"], "not ansible_check_mode")
+
+    def test_nothing_is_refreshed_without_an_accepted_baseline(self):
+        (record,) = self.records_of("AIDE's baseline for them", "skipped")
+        self.assertIn("aide_baseline_manifest.stat.exists", record["result"]["false_condition"])
+
+
 class CheckRun(PlaybookRun):
     playbook = "refresh.yml"
+
+    def test_no_first_baseline_where_one_was_accepted(self):
+        (record,) = self.records_of("First baseline", "skipped")
+        self.assertEqual(record["result"]["false_condition"], "not aide_baseline_manifest.stat.exists")
 
     def facts(self):
         (record,) = self.records_of("Files this run wrote", "ok")

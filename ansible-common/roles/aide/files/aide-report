@@ -15,7 +15,9 @@ mail begins with when the previous one was sent, and its subject, so that a
 mail lost or held back on the way leaves a gap the next one shows.
 aide-report --baseline: accepts the files as they are: a new database, and the
 list of package-owned paths beside it, which later reports use to tell a path
-an upgrade removed from one removed by hand.
+an upgrade removed from one removed by hand. The list is the packages' before
+the walk, so that one a package manager changes while AIDE walks counts as
+changed since the baseline.
 aide-report --refresh PATH... [--units UNIT...]: moves the baseline for those
 paths alone, the files an Ansible run wrote, in which a * stands for any part
 of one name, and for the links in /etc/systemd/system of the units it enabled,
@@ -1113,12 +1115,15 @@ def accept(settings, manifest):
 
 
 def baseline(settings):
+    # The packages before the walk: one installed or removed while it walks
+    # then counts as changed since the baseline, which explains its files.
+    manifest = package_manifest(Packages())
     result = aide(settings, "--init")
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         sys.stderr.write("aide --init exited %d\n" % result.returncode)
         return 1
-    accept(settings, package_manifest(Packages()))
+    accept(settings, manifest)
     print("Accepted the files as they are: %s" % settings["database"])
     return 0
 

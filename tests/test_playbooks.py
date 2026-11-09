@@ -88,15 +88,24 @@ class SitePlaybooks(unittest.TestCase):
             stage_playbook = path.split("/")[0] in STAGES and path.endswith(("/site.yml", "/maintenance.yml"))
             self.assertEqual(imports, 1 if stage_playbook else 0, path)
 
-    def test_gap_the_first_baseline_starts_with_the_shared_plays(self):
-        # The aide play is the last of the shared plays, which each stage runs
-        # before its own; its role starts the first baseline in the background.
-        last = plays(read("ansible-common/playbooks/site.yml"))[-1]
-        self.assertIn("tags: [aide]", last)
-        self.assertRegex(last, r"roles:\s+- aide")
+    def test_the_first_baseline_starts_from_the_refresh_once_the_run_has_written_everything(self):
         main = read("ansible-common/roles/aide/tasks/main.yml")
-        self.assertRegex(main, r"- name: First baseline\s+ansible\.builtin\.systemd_service:\s+name: aide-baseline\.service"
-                               r"\s+state: started\s+no_block: true")
+        # The role installs the unit, and starts it nowhere.
+        self.assertIn("loop: [aide-report.service, aide-baseline.service, aide-report.timer]", main)
+        self.assertNotIn("name: aide-baseline.service", main)
+        self.assertNotIn("First baseline", main)
+        refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
+        self.assertRegex(refresh, r"- name: First baseline\s+ansible\.builtin\.systemd_service:\s+"
+                                  r"name: aide-baseline\.service\s+state: started\s+no_block: true\s+daemon_reload: true")
+        order = [refresh.index(name) for name in ("- name: Nothing to refresh", "- name: First baseline",
+                                                  "- name: AIDE's baseline for them")]
+        self.assertEqual(order, sorted(order))
+
+    def test_the_units_directory_is_one_setting(self):
+        defaults = read("ansible-common/roles/aide/defaults/main.yml")
+        self.assertRegex(defaults, r"(?m)^aide_unit_dir: /usr/local/lib/systemd/system$")
+        for path in ("ansible-common/roles/aide/tasks/main.yml", "ansible-common/roles/aide/tasks/refresh.yml"):
+            self.assertNotIn("/usr/local/lib/systemd/system", read(path), path)
 
 
 class RefreshTasks(unittest.TestCase):

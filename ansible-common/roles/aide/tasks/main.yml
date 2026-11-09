@@ -1,8 +1,9 @@
 ---
 # Converge AIDE's daily report, aide-report, on every Linux host: hardware
 # (Phase 2) and generated (Phase 4), containers included. A host with no
-# baseline yet gets its first one in the background; each report mailed moves
-# it after, as maintenance.yml --tags aide-accept does by hand.
+# baseline yet gets its first one in the background, from the refresh at the
+# end of the run (tasks/refresh.yml); each report mailed moves it after, as
+# maintenance.yml --tags aide-accept does by hand.
 - name: AIDE's daily report
   when: aide_enabled
   block:
@@ -18,7 +19,6 @@
       ansible.builtin.package:
         name: aide
         state: present
-      register: aide_installed
 
     # aide-report runs Podman's own check of its image stores, which AIDE does
     # not walk. Podman has one from 5.2; before it, containers-storage, from
@@ -66,7 +66,7 @@
       loop:
         - {path: "{{ aide_settings_dir }}", mode: "0755"}
         - {path: "{{ aide_state_dir }}", mode: "0700"}
-        - {path: /usr/local/lib/systemd/system, mode: "0755"}
+        - {path: "{{ aide_unit_dir }}", mode: "0755"}
 
     # Ansible's scratch files lie in the home of the user it connects as.
     - name: Read the connecting user's home
@@ -104,7 +104,7 @@
     - name: Units
       ansible.builtin.copy:
         src: "{{ item }}"
-        dest: /usr/local/lib/systemd/system/{{ item }}
+        dest: "{{ aide_unit_dir }}/{{ item }}"
         owner: root
         group: root
         mode: "0644"
@@ -144,23 +144,3 @@
         path: /var/cache/apparmor
         state: absent
       when: aide_apparmor_parser.stat.exists
-
-    # A baseline aide-report accepted has its manifest beside it; a database
-    # alone may be the package's own, made when it was installed.
-    - name: Read the baseline's manifest
-      ansible.builtin.stat:
-        path: "{{ aide_manifest }}"
-        get_checksum: false
-      register: aide_baseline
-
-    # Walking and hashing the files takes minutes, so the first baseline is built
-    # in the background; the daily report mails that there is none until then.
-    - name: First baseline
-      ansible.builtin.systemd_service:
-        name: aide-baseline.service
-        state: started
-        no_block: true
-        daemon_reload: true
-      when:
-        - not aide_baseline.stat.exists
-        - not (ansible_check_mode and (aide_units is changed or aide_installed is changed))

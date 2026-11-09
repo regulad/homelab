@@ -277,7 +277,7 @@ class Accept(RunTestCase):
 
 
 class Baseline(RunTestCase):
-    def test_walks_with_aide_init_then_records_the_packages(self):
+    def test_records_the_packages_then_walks_with_aide_init(self):
         order = []
         real_aide = ar.aide
 
@@ -290,8 +290,9 @@ class Baseline(RunTestCase):
             return FakePackages(owner={"/a": "a=1"})
         with mock.patch.object(ar, "aide", walk), mock.patch.object(ar, "Packages", packages), mock.patch("sys.stdout"):
             self.assertEqual(ar.baseline(self.settings), 0)
-        # The manifest is of the packages after the walk.
-        self.assertEqual(order, ["--init", "packages"])
+        # The manifest is of the packages before the walk, so that a package
+        # installed or removed while it walks counts as changed since.
+        self.assertEqual(order, ["packages", "--init"])
         self.assertTrue(self.database().startswith("written by aide --config"))
         self.assertEqual(support.read_gzip_json(self.settings["manifest"])["installed"], ["a=1"])
 

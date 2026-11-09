@@ -122,6 +122,9 @@ aide_database_new: "{{ '/var/lib/aide/aide.db.new.gz' if 'rhel' in group_names e
 
 aide_settings_dir: /etc/aide-report
 aide_state_dir: /var/lib/aide-report
+# Where the role installs aide-report's units, which the refresh starts the
+# first baseline from.
+aide_unit_dir: /usr/local/lib/systemd/system
 # The package-owned paths at the accepted baseline, which aide-report writes
 # with each baseline: a database without it is not one aide-report accepted,
 # such as one the distribution's package made when it was installed.

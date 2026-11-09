@@ -5,8 +5,9 @@
 # list Ansible's own changes to the files it manages. A file Ansible restored
 # after tampering is recorded as the repository declares it; every other
 # change stays in the report. A host the run recorded nothing for ends here,
-# before anything connects to it; without the callback, or before a host has
-# a baseline, there is nothing to do.
+# before anything connects to it; without the callback there is nothing to
+# do. A host without an accepted baseline gets its first one here, at the end
+# of the run that set it up, so that the baseline holds what the run wrote.
 - name: Files this run wrote
   ansible.builtin.set_fact:
     aide_written: >-
@@ -30,10 +31,40 @@
     get_checksum: false
   register: aide_baseline
 
+# A baseline aide-report accepted has its manifest beside it; a database
+# alone may be the package's own, made when it was installed.
+- name: Read the baseline's manifest
+  ansible.builtin.stat:
+    path: "{{ aide_manifest }}"
+    get_checksum: false
+  register: aide_baseline_manifest
+
+- name: Read the baseline's unit
+  ansible.builtin.stat:
+    path: "{{ aide_unit_dir }}/aide-baseline.service"
+    get_checksum: false
+  register: aide_baseline_unit
+
+# Walking and hashing the files takes minutes, so the first baseline is built
+# in the background; the daily report mails that there is none until then.
+- name: First baseline
+  ansible.builtin.systemd_service:
+    name: aide-baseline.service
+    state: started
+    no_block: true
+    daemon_reload: true
+  when:
+    - aide_enabled
+    - not aide_baseline_manifest.stat.exists
+    - aide_baseline_unit.stat.exists
+    - not ansible_check_mode
+
 - name: AIDE's baseline for them
   ansible.builtin.command:
     argv: >-
       {{ ['/usr/local/bin/aide-report', '--refresh'] + aide_written
          + (['--units'] + aide_written_units if aide_written_units else []) }}
   changed_when: true
-  when: aide_baseline.stat.exists
+  when:
+    - aide_baseline.stat.exists
+    - aide_baseline_manifest.stat.exists
