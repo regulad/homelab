@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 import support
@@ -29,8 +30,12 @@ class PlaybookRun(unittest.TestCase):
     # An inventory file's text, written for the run, in place of inventory.
     inventory_file = None
     environment = {}
-    # Whether the host has an accepted baseline: a database and its manifest.
+    # Whether the host has an accepted baseline: a database and its manifest,
+    # accepted a minute before the run.
     accepted = True
+    # Records earlier runs left, by host: each a path, and its time against
+    # the baseline's acceptance, in seconds.
+    earlier_records = {}
 
     @classmethod
     def setUpClass(cls):
@@ -46,8 +51,15 @@ class PlaybookRun(unittest.TestCase):
         cls.database = os.path.join(cls.root, "aide.db")
         open(cls.database, "w").close()
         cls.manifest = os.path.join(cls.root, "packages.json.gz")
+        accepted_at = time.time() - 60
         if cls.accepted:
             open(cls.manifest, "w").close()
+            os.utime(cls.manifest, (accepted_at, accepted_at))
+        cls.written = os.path.join(cls.root, "written")
+        os.makedirs(cls.written)
+        for host, records in cls.earlier_records.items():
+            with open(os.path.join(cls.written, host), "w") as handle:
+                handle.writelines("%f\t%s\n" % (accepted_at + offset, path) for offset, path in records)
         cls.units = os.path.join(cls.root, "units")
         os.makedirs(cls.units)
         open(os.path.join(cls.units, "aide-baseline.service"), "w").close()
@@ -69,6 +81,7 @@ class PlaybookRun(unittest.TestCase):
             # ansible-core writes no bytecode beside the callbacks it loads.
             "PYTHONDONTWRITEBYTECODE": "1",
             "RECORDER_OUT": recorded,
+            "AIDE_WRITTEN_DIR": cls.written,
         })
         environment.update(cls.environment)
         variables = os.path.join(cls.root, "variables.json")
@@ -117,8 +130,8 @@ class NothingRecorded(PlaybookRun):
         self.assertNotIn("UNREACHABLE", self.completed.stdout)
 
     def test_the_host_ends_before_reading_its_baseline(self):
-        self.assertEqual(self.records_of("Files this run wrote", "ok")[0]["result"]["ansible_facts"],
-                         {"aide_written": [], "aide_written_units": []})
+        self.assertEqual(self.records_of("Files the runs recorded", "ok")[0]["result"]["ansible_facts"],
+                         {"aide_written_records": [], "aide_written_unit_records": []})
         self.assertEqual(self.find("Read the baseline"), [])
         self.assertEqual(self.find("AIDE's baseline for them"), [])
 
@@ -161,13 +174,14 @@ class FirstBaseline(PlaybookRun):
 
 class CheckRun(PlaybookRun):
     playbook = "refresh.yml"
+    earlier_records = {"localhost": [(-30, "/stale/before-the-baseline"), (30, "/earlier/run-that-failed")]}
 
     def test_no_first_baseline_where_one_was_accepted(self):
         (record,) = self.records_of("First baseline", "skipped")
         self.assertEqual(record["result"]["false_condition"], "not aide_baseline_manifest.stat.exists")
 
     def facts(self):
-        (record,) = self.records_of("Files this run wrote", "ok")
+        (record,) = self.records_of("Files written since the baseline was accepted", "ok")
         return record["result"]["ansible_facts"]
 
     def test_the_run_succeeds(self):
@@ -175,6 +189,8 @@ class CheckRun(PlaybookRun):
 
     def test_the_refresh_reads_back_the_changed_results_paths_and_declarations(self):
         self.assertEqual(self.facts()["aide_written"], [
+            # Left by an earlier run that never reached its refresh.
+            "/earlier/run-that-failed",
             self.out + "/copied",
             self.out + "/hidden",
             self.out + "/one",
@@ -184,10 +200,28 @@ class CheckRun(PlaybookRun):
             "/declared/literal",
             "/declared/{{ out }}",
             self.out + "/declaring",
-            "/etc/passwd", "/etc/passwd-", "/etc/shadow", "/etc/shadow-", "/etc/group", "/etc/group-",
-            "/etc/gshadow", "/etc/gshadow-", "/etc/subuid", "/etc/subuid-", "/etc/subgid", "/etc/subgid-",
-            "/etc/.pwd.lock",
         ])
+
+    def test_not_what_was_recorded_before_the_baseline_was_accepted(self):
+        self.assertNotIn("/stale/before-the-baseline", self.facts()["aide_written"])
+
+    def test_not_what_a_task_did_in_check_mode(self):
+        (record,) = self.records_of("A system user", "ok")
+        self.assertTrue(record["check_mode"])
+        self.assertNotIn("/etc/passwd", self.facts()["aide_written"])
+
+    def test_the_records_stay_for_a_run_outside_check_mode_to_consume(self):
+        (record,) = self.records_of("The records consumed", "skipped")
+        # A loop's condition, for each of its items.
+        self.assertEqual({item["false_condition"] for item in record["result"]["results"]}, {"not ansible_check_mode"})
+        with open(os.path.join(self.written, "localhost")) as handle:
+            paths = [line.rstrip("\n").split("\t", 1)[1] for line in handle]
+        self.assertEqual(paths[:2], ["/stale/before-the-baseline", "/earlier/run-that-failed"])
+        self.assertIn(self.out + "/copied", paths)
+
+    def test_callbacks_see_each_tasks_check_mode(self):
+        self.assertFalse(self.records_of("A copy", "ok")[0]["check_mode"])
+        self.assertTrue(self.records_of("A system user", "ok")[0]["check_mode"])
         self.assertEqual(self.facts()["aide_written_units"], [])
 
     def test_not_what_a_skipped_task_declares(self):

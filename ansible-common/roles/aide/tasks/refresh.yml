@@ -1,29 +1,32 @@
 ---
-# Move AIDE's baseline for the files this run wrote on the host, and for the
+# Move AIDE's baseline for the files Ansible wrote on the host, and for the
 # links in /etc/systemd/system of the units it enabled, disabled or masked, as
 # the aide_written callback recorded them, so that the next report does not
 # list Ansible's own changes to the files it manages. A file Ansible restored
 # after tampering is recorded as the repository declares it; every other
-# change stays in the report. A host the run recorded nothing for ends here,
-# before anything connects to it; without the callback there is nothing to
-# do. A host without an accepted baseline gets its first one here, at the end
-# of the run that set it up, so that the baseline holds what the run wrote.
-- name: Files this run wrote
+# change stays in the report.
+#
+# The records are this run's, and those of earlier runs that never reached
+# their refresh, as one that failed: each record says when it was made, and
+# one from before the baseline was last accepted is left out, as that
+# baseline holds its change. A host with no records ends here, before
+# anything connects to it; without the callback there is nothing to do. A
+# host without an accepted baseline gets its first one here, at the end of
+# the run that set it up, so that the baseline holds what the run wrote. Once
+# the refresh is done, its records are removed; a check run keeps them.
+- name: Files the runs recorded
   ansible.builtin.set_fact:
-    aide_written: >-
-      {{ (lookup('ansible.builtin.file',
-                 lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname,
-                 errors='ignore') or '').splitlines()
-         | select | unique | list }}
-    aide_written_units: >-
-      {{ (lookup('ansible.builtin.file',
-                 lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname ~ '.units',
-                 errors='ignore') or '').splitlines()
-         | select | unique | list }}
+    aide_written_records: >-
+      {{ (lookup('ansible.builtin.file', aide_written_file, errors='ignore') or '').splitlines() | select | list }}
+    aide_written_unit_records: >-
+      {{ (lookup('ansible.builtin.file', aide_written_file ~ '.units', errors='ignore') or '').splitlines()
+         | select | list }}
+  vars:
+    aide_written_file: "{{ lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname }}"
 
 - name: Nothing to refresh
   ansible.builtin.meta: end_host
-  when: (aide_written + aide_written_units) | length == 0
+  when: (aide_written_records + aide_written_unit_records) | length == 0
 
 - name: Read the baseline
   ansible.builtin.stat:
@@ -31,8 +34,9 @@
     get_checksum: false
   register: aide_baseline
 
-# A baseline aide-report accepted has its manifest beside it; a database
-# alone may be the package's own, made when it was installed.
+# A baseline aide-report accepted has its manifest beside it, whose mtime is
+# when it was accepted; a database alone may be the package's own, made when
+# it was installed.
 - name: Read the baseline's manifest
   ansible.builtin.stat:
     path: "{{ aide_manifest }}"
@@ -44,6 +48,30 @@
     path: "{{ aide_unit_dir }}/aide-baseline.service"
     get_checksum: false
   register: aide_baseline_unit
+
+# Each record is the time it was made, a tab, and a path or a unit.
+- name: Files written since the baseline was accepted
+  ansible.builtin.set_fact:
+    aide_written: >-
+      {%- set kept = [] -%}
+      {%- for record in aide_written_records -%}
+      {%- set fields = record.split('\t', 1) -%}
+      {%- if fields | length == 2 and fields[0] | float > aide_written_since -%}
+      {%- set _ = kept.append(fields[1]) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ kept | unique | list }}
+    aide_written_units: >-
+      {%- set kept = [] -%}
+      {%- for record in aide_written_unit_records -%}
+      {%- set fields = record.split('\t', 1) -%}
+      {%- if fields | length == 2 and fields[0] | float > aide_written_since -%}
+      {%- set _ = kept.append(fields[1]) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ kept | unique | list }}
+  vars:
+    aide_written_since: "{{ aide_baseline_manifest.stat.mtime | default(0) }}"
 
 # Walking and hashing the files takes minutes, so the first baseline is built
 # in the background; the daily report mails that there is none until then.
@@ -68,3 +96,17 @@
   when:
     - aide_baseline.stat.exists
     - aide_baseline_manifest.stat.exists
+    - (aide_written + aide_written_units) | length > 0
+
+# On the controller, where the callback keeps them. A refresh that failed
+# leaves them for the next.
+- name: The records consumed
+  ansible.builtin.file:
+    path: "{{ lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname ~ item }}"
+    state: absent
+  loop: ["", .units]
+  delegate_to: localhost
+  become: false
+  vars:
+    ansible_become: false
+  when: not ansible_check_mode

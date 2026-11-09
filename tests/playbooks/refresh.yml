@@ -1,7 +1,9 @@
 ---
-# Run by test_ansible.py in check mode on localhost, so nothing is written:
-# the writes the aide_written callback records, then the aide role's refresh
-# tasks reading them back. "out" is a scratch directory the test names.
+# Run by test_ansible.py in check mode on localhost: the writes the
+# aide_written callback records, then the aide role's refresh tasks reading
+# them back. The callback records nothing a task did in check mode, so the
+# tasks that write run outside it, into "out", a scratch directory the test
+# names; nothing else is written.
 - name: Writes the callback records
   hosts: localhost
   gather_facts: false
@@ -11,12 +13,14 @@
         content: "a\n"
         dest: "{{ out }}/copied"
         mode: "0644"
+      check_mode: false
 
     - name: A copy already as declared
       ansible.builtin.copy:
         content: ""
         dest: "{{ out }}/unchanged"
         mode: "0644"
+      check_mode: false
 
     - name: A copy under no_log
       ansible.builtin.copy:
@@ -24,6 +28,7 @@
         dest: "{{ out }}/hidden"
         mode: "0600"
       no_log: true
+      check_mode: false
 
     - name: A loop of copies
       ansible.builtin.copy:
@@ -31,12 +36,14 @@
         dest: "{{ out }}/{{ item }}"
         mode: "0644"
       loop: [one, two]
+      check_mode: false
 
     - name: A directory
       ansible.builtin.file:
         path: "{{ out }}/directory"
         state: directory
         mode: "0755"
+      check_mode: false
 
     - name: A line
       ansible.builtin.lineinfile:
@@ -44,6 +51,7 @@
         line: x
         create: true
         mode: "0644"
+      check_mode: false
 
     - name: A copy declaring other writes
       ansible.builtin.copy:
@@ -52,6 +60,7 @@
         mode: "0644"
       vars:
         aide_writes: [/declared/literal, relative/path, "/declared/{{ out }}"]
+      check_mode: false
 
     - name: A system user
       ansible.builtin.user:
@@ -66,6 +75,7 @@
         dest: "{{ out }}/delegated"
         mode: "0644"
       delegate_to: localhost
+      check_mode: false
 
     - name: A delegated copy under no_log
       ansible.builtin.copy:
@@ -74,6 +84,7 @@
         mode: "0600"
       delegate_to: localhost
       no_log: true
+      check_mode: false
 
     - name: A command declaring its writes
       ansible.builtin.command:

@@ -1,13 +1,13 @@
 """Record the files each host's tasks wrote, for AIDE's baseline refresh.
 
-The aide role's refresh play, the last in each stage's site.yml, reads the
-list back and moves AIDE's baseline for exactly those paths, so that a change
-Ansible made to a file it manages is not reported as one nobody explained.
+The aide role's refresh play, the last in each stage's site.yml and
+maintenance.yml, reads the list back and moves AIDE's baseline for exactly
+those paths, so that a change Ansible made to a file it manages is not
+reported as one nobody explained.
 """
 
 import os
-import shutil
-import tempfile
+import time
 
 from ansible.plugins.callback import CallbackBase
 
@@ -17,9 +17,15 @@ type: aggregate
 short_description: record the files each host's tasks wrote, for AIDE's baseline refresh
 description:
   - For each changed result of a module that writes a file at a path it is given,
-    appends that path to a file named for the host, in a directory created for
-    the run and named by the AIDE_WRITTEN_DIR environment variable, which the
-    run's workers inherit. The directory is removed when the run ends.
+    appends that path to a file named for the host, with the time it was
+    recorded before it and a tab between, in the directory the
+    AIDE_WRITTEN_DIR environment variable names, ~/.cache/ansible/aide_written
+    unless it is set. The callback sets it for the run, for the refresh to read.
+  - The records stay until a refresh consumes them, so that what a run wrote
+    before it failed, or was interrupted, is refreshed by the next run to reach
+    the host. The refresh leaves out a record from before the host's baseline
+    was last accepted, whose change that baseline holds.
+  - Nothing a task did in check mode is recorded, as it wrote nothing.
   - For each changed result of a module that writes files it is not given,
     such as user's /etc/passwd, appends the files its code writes, from
     MODULE_FILES; and for selinux, the configuration file it is given or its
@@ -48,6 +54,8 @@ requirements:
     without a leading underscore
 """
 
+# The directory of the records, unless AIDE_WRITTEN_DIR names another.
+DIRECTORY = os.path.join("~", ".cache", "ansible", "aide_written")
 # Modules that write a file, or one directory entry, at the path they are given.
 MODULES = {
     "copy", "template", "file", "lineinfile", "blockinfile", "replace",
@@ -87,13 +95,20 @@ class CallbackModule(CallbackBase):
 
     def __init__(self):
         super().__init__()
-        self.directory = tempfile.mkdtemp(prefix="aide-written-")
+        self.directory = os.environ.get("AIDE_WRITTEN_DIR") or os.path.expanduser(DIRECTORY)
+        os.makedirs(self.directory, mode=0o700, exist_ok=True)
         os.environ["AIDE_WRITTEN_DIR"] = self.directory
+
+    def _write(self, name, entries):
+        """Appends entries to a host's records, each with when it was recorded."""
+        recorded = "%f" % time.time()
+        with open(os.path.join(self.directory, name), "a") as handle:
+            handle.writelines("%s\t%s\n" % (recorded, entry) for entry in entries)
 
     def _record(self, result):
         values = result.result
         task = result.task
-        if not values.get("changed"):
+        if not values.get("changed") or getattr(task, "check_mode", False):
             return
         if values.get("_ansible_delegated_vars") or getattr(task, "delegate_to", None):
             return
@@ -102,8 +117,7 @@ class CallbackModule(CallbackBase):
         declared = (getattr(task, "vars", None) or {}).get("aide_writes") or []
         declared = [path for path in declared if isinstance(path, str) and path.startswith("/")]
         if declared:
-            with open(os.path.join(self.directory, host), "a") as handle:
-                handle.writelines(path + "\n" for path in declared)
+            self._write(host, declared)
         action = task.action.rsplit(".", 1)[-1]
         # A result hidden by no_log has no invocation: its task's own arguments.
         arguments = values.get("invocation", {}).get("module_args") or dict(getattr(task, "args", None) or {})
@@ -111,12 +125,10 @@ class CallbackModule(CallbackBase):
             unit = values.get("name") or arguments.get("name")
             if (arguments.get("enabled") is not None or arguments.get("masked") is not None) \
                     and isinstance(unit, str) and unit and "/" not in unit:
-                with open(os.path.join(self.directory, host + ".units"), "a") as handle:
-                    handle.write(unit + "\n")
+                self._write(host + ".units", [unit])
             return
         if action in MODULE_FILES:
-            with open(os.path.join(self.directory, host), "a") as handle:
-                handle.writelines(path + "\n" for path in MODULE_FILES[action])
+            self._write(host, MODULE_FILES[action])
             return
         if action in PATH_ARGUMENTS:
             argument, default = PATH_ARGUMENTS[action]
@@ -127,8 +139,7 @@ class CallbackModule(CallbackBase):
             return
         if not isinstance(path, str) or not path.startswith("/"):
             return
-        with open(os.path.join(self.directory, host), "a") as handle:
-            handle.write(path + "\n")
+        self._write(host, [path])
 
     def v2_runner_on_ok(self, result):
         if "results" not in result.result:
@@ -138,4 +149,5 @@ class CallbackModule(CallbackBase):
         self._record(result)
 
     def v2_playbook_on_stats(self, stats):
-        shutil.rmtree(self.directory, ignore_errors=True)
+        # The records stay for the refresh of this run or a later one.
+        pass

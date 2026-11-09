@@ -9,6 +9,9 @@ A result hidden by no_log reaches callbacks with only a few keys of its own,
 CENSORED's; its task keeps the arguments it ran with."""
 
 import os
+import shutil
+import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -28,19 +31,21 @@ class Host:
 
 
 class Task:
-    def __init__(self, action, args=None, variables=None, delegate_to=None):
+    def __init__(self, action, args=None, variables=None, delegate_to=None, check_mode=False):
         self.action = action
         self.args = args or {}
         self.vars = variables or {}
         self.delegate_to = delegate_to
+        self.check_mode = check_mode
 
 
 class Result:
     """A result as ansible-core 2.19 and later hands it to callbacks."""
 
-    def __init__(self, action, result, args=None, variables=None, host="host.example", delegate_to=None):
+    def __init__(self, action, result, args=None, variables=None, host="host.example", delegate_to=None,
+                 check_mode=False):
         self.host = Host(host)
-        self.task = Task(action, args, variables, delegate_to)
+        self.task = Task(action, args, variables, delegate_to, check_mode)
         self.result = result
 
 
@@ -53,31 +58,76 @@ class CallbackTestCase(unittest.TestCase):
         environment = mock.patch.dict(os.environ)
         environment.start()
         self.addCleanup(environment.stop)
+        self.written = tempfile.mkdtemp(prefix="aide-tests-written-")
+        self.addCleanup(shutil.rmtree, self.written, True)
+        os.environ["AIDE_WRITTEN_DIR"] = self.written
         self.callback = aw.CallbackModule()
-        self.addCleanup(self.callback.v2_playbook_on_stats, None)
 
     def ok(self, *results):
         for result in results:
             self.callback.v2_runner_on_ok(result)
 
-    def recorded(self, host="host.example", suffix=""):
-        path = os.path.join(self.callback.directory, host + suffix)
+    def records(self, host="host.example", suffix=""):
+        """Each record: when it was recorded, and what."""
+        path = os.path.join(self.written, host + suffix)
         if not os.path.exists(path):
             return []
         with open(path) as handle:
-            return handle.read().splitlines()
+            return [line.split("\t", 1) for line in handle.read().splitlines()]
+
+    def recorded(self, host="host.example", suffix=""):
+        return [what for _, what in self.records(host, suffix)]
 
 
 class Directory(CallbackTestCase):
-    def test_a_directory_for_the_run_named_in_the_environment(self):
-        self.assertTrue(os.path.isdir(self.callback.directory))
-        self.assertEqual(os.environ["AIDE_WRITTEN_DIR"], self.callback.directory)
-        self.assertEqual(os.stat(self.callback.directory).st_mode & 0o777, 0o700)
+    def test_the_directory_the_environment_names(self):
+        self.assertEqual(self.callback.directory, self.written)
+        self.assertEqual(os.environ["AIDE_WRITTEN_DIR"], self.written)
 
-    def test_removed_when_the_run_ends(self):
-        directory = self.callback.directory
+    def test_by_default_one_in_the_operators_cache(self):
+        home = tempfile.mkdtemp(prefix="aide-tests-home-")
+        self.addCleanup(shutil.rmtree, home, True)
+        with mock.patch.dict(os.environ, {"HOME": home}):
+            del os.environ["AIDE_WRITTEN_DIR"]
+            callback = aw.CallbackModule()
+            expected = os.path.join(home, ".cache", "ansible", "aide_written")
+            self.assertEqual(callback.directory, expected)
+            self.assertEqual(os.environ["AIDE_WRITTEN_DIR"], expected)
+            self.assertEqual(os.stat(expected).st_mode & 0o777, 0o700)
+
+    def test_kept_when_the_run_ends(self):
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/a"}))
         self.callback.v2_playbook_on_stats(None)
-        self.assertFalse(os.path.exists(directory))
+        self.assertEqual(self.recorded(), ["/etc/a"])
+
+    def test_a_later_runs_records_follow_an_earlier_runs(self):
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/a"}))
+        self.callback.v2_playbook_on_stats(None)
+        aw.CallbackModule().v2_runner_on_ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/b"}))
+        self.assertEqual(self.recorded(), ["/etc/a", "/etc/b"])
+
+    def test_each_record_says_when_it_was_recorded(self):
+        before = time.time()
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/a"}),
+                Result("ansible.builtin.systemd_service", dict(changed=True, name="a.service", **invoked(enabled=True))))
+        after = time.time()
+        for when, _ in self.records() + self.records(suffix=".units"):
+            self.assertTrue(before <= float(when) <= after, when)
+
+
+class CheckMode(CallbackTestCase):
+    def test_nothing_a_task_did_in_check_mode(self):
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/a"}, check_mode=True),
+                Result("ansible.builtin.user", {"changed": True, "name": "x"}, check_mode=True),
+                Result("ansible.builtin.command", {"changed": True}, variables={"aide_writes": ["/etc/b"]},
+                       check_mode=True),
+                Result("ansible.builtin.systemd_service", dict(changed=True, name="a.service", **invoked(enabled=True)),
+                       check_mode=True))
+        self.assertEqual((self.recorded(), self.recorded(suffix=".units")), ([], []))
+
+    def test_what_a_task_run_outside_check_mode_did_in_a_check_run(self):
+        self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/a"}, check_mode=False))
+        self.assertEqual(self.recorded(), ["/etc/a"])
 
     def test_needs_enabling(self):
         self.assertTrue(aw.CallbackModule.CALLBACK_NEEDS_ENABLED)

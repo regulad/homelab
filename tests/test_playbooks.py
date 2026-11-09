@@ -122,8 +122,23 @@ class RefreshTasks(unittest.TestCase):
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
         self.assertIn("{{ ['/usr/local/bin/aide-report', '--refresh'] + aide_written\n"
                       "         + (['--units'] + aide_written_units if aide_written_units else []) }}", refresh)
-        self.assertIn("lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname,", refresh)
-        self.assertIn("lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname ~ '.units',", refresh)
+        self.assertIn("aide_written_file: \"{{ lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname }}\"",
+                      refresh)
+        self.assertIn("lookup('ansible.builtin.file', aide_written_file ~ '.units', errors='ignore')", refresh)
+
+
+class RecordsConsumed(unittest.TestCase):
+    def test_removes_the_two_files_of_records_on_the_controller_outside_check_mode(self):
+        refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
+        self.assertRegex(refresh, r"- name: The records consumed\s+ansible\.builtin\.file:\s+"
+                                  r"path: \"\{\{ lookup\('ansible\.builtin\.env', 'AIDE_WRITTEN_DIR'\) ~ '/' ~ "
+                                  r"inventory_hostname ~ item \}\}\"\s+state: absent\s+loop: \[\"\", \.units\]\s+"
+                                  r"delegate_to: localhost\s+become: false\s+vars:\s+ansible_become: false\s+"
+                                  r"when: not ansible_check_mode\s*$")
+
+    def test_after_the_refresh(self):
+        refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
+        self.assertLess(refresh.index("- name: AIDE's baseline for them"), refresh.index("- name: The records consumed"))
 
 
 class Declarations(unittest.TestCase):
