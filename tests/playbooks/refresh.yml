@@ -1,0 +1,77 @@
+---
+# Run by test_ansible.py in check mode on localhost, so nothing is written:
+# the writes the aide_written callback records, then the aide role's refresh
+# tasks reading them back. "out" is a scratch directory the test names.
+- name: Writes the callback records
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: A copy
+      ansible.builtin.copy:
+        content: "a\n"
+        dest: "{{ out }}/copied"
+        mode: "0644"
+
+    - name: A copy already as declared
+      ansible.builtin.copy:
+        content: ""
+        dest: "{{ out }}/unchanged"
+        mode: "0644"
+
+    - name: A copy under no_log
+      ansible.builtin.copy:
+        content: "not a secret, but hidden\n"
+        dest: "{{ out }}/hidden"
+        mode: "0600"
+      no_log: true
+
+    - name: A loop of copies
+      ansible.builtin.copy:
+        content: "{{ item }}\n"
+        dest: "{{ out }}/{{ item }}"
+        mode: "0644"
+      loop: [one, two]
+
+    - name: A directory
+      ansible.builtin.file:
+        path: "{{ out }}/directory"
+        state: directory
+        mode: "0755"
+
+    - name: A line
+      ansible.builtin.lineinfile:
+        path: "{{ out }}/lines"
+        line: x
+        create: true
+        mode: "0644"
+
+    - name: A copy declaring other writes
+      ansible.builtin.copy:
+        content: "d\n"
+        dest: "{{ out }}/declaring"
+        mode: "0644"
+      vars:
+        aide_writes: [/declared/literal, relative/path, "/declared/{{ out }}"]
+
+    - name: A delegated copy
+      ansible.builtin.copy:
+        content: "e\n"
+        dest: "{{ out }}/delegated"
+        mode: "0644"
+      delegate_to: localhost
+
+    - name: A command declaring its writes
+      ansible.builtin.command:
+        argv: ["true"]
+      changed_when: true
+      vars:
+        aide_writes: [/declared/by-command]
+
+- name: The refresh reads them back
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: AIDE's baseline for the files this run wrote
+      ansible.builtin.import_role:
+        name: aide
+        tasks_from: refresh

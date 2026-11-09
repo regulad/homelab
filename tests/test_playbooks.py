@@ -1,0 +1,123 @@
+"""How the playbooks and each stage's ansible.cfg wire the acceptance system
+together, read from their text: the callback enabled, the refresh last, and
+every declaration of written paths literal.
+
+Tests named for a gap record what the repository does today where the triage
+of 2026-11-08 found it wanting; a fix changes them on purpose."""
+
+import configparser
+import os
+import re
+import unittest
+
+import support
+
+STAGES = ("ansible-generated", "ansible-hardware")
+ANSIBLE_DIRECTORIES = ("ansible-common", "ansible-generated", "ansible-hardware")
+
+
+def read(relative):
+    with open(os.path.join(support.REPOSITORY, relative)) as handle:
+        return handle.read()
+
+
+def plays(text):
+    """A playbook's plays, as the text of each top-level list item."""
+    return [chunk for chunk in re.split(r"(?m)^(?=- )", text) if chunk.startswith("- ")]
+
+
+def yaml_files():
+    for directory in ANSIBLE_DIRECTORIES:
+        for root, directories, files in os.walk(os.path.join(support.REPOSITORY, directory)):
+            directories[:] = [d for d in directories if d not in ("collections", "__pycache__")]
+            for name in files:
+                if name.endswith((".yml", ".yaml")):
+                    yield os.path.join(root, name)
+
+
+class Configuration(unittest.TestCase):
+    def test_each_stage_enables_the_callback_with_its_modules_arguments(self):
+        for stage in STAGES:
+            parser = configparser.ConfigParser(interpolation=None)
+            parser.read_string(read(stage + "/ansible.cfg"))
+            defaults = parser["defaults"]
+            self.assertEqual(defaults["callback_plugins"], "../ansible-common/plugins/callback", stage)
+            self.assertIn("aide_written", [name.strip() for name in defaults["callbacks_enabled"].split(",")], stage)
+            self.assertEqual(defaults["inject_invocation"], "true", stage)
+
+
+class SitePlaybooks(unittest.TestCase):
+    def test_each_stage_imports_the_shared_plays_first(self):
+        for stage in STAGES:
+            first = plays(read(stage + "/playbooks/site.yml"))[0]
+            self.assertIn("ansible.builtin.import_playbook: ../../ansible-common/playbooks/site.yml", first, stage)
+
+    def test_each_stage_ends_with_the_refresh(self):
+        for stage in STAGES:
+            last = plays(read(stage + "/playbooks/site.yml"))[-1]
+            self.assertIn("hosts: debian:ubuntu:rhel", last, stage)
+            self.assertIn("become: true", last, stage)
+            self.assertIn("tags: [always, aide, aide_refresh]", last, stage)
+            self.assertRegex(last, r"import_role:\s+name: aide\s+tasks_from: refresh", stage)
+
+    def test_the_refresh_once_per_stage(self):
+        for stage in STAGES:
+            self.assertEqual(read(stage + "/playbooks/site.yml").count("tasks_from: refresh"), 1, stage)
+        self.assertNotIn("tasks_from: refresh", read("ansible-common/playbooks/site.yml"))
+
+    def test_gap_no_refresh_after_maintenance(self):
+        for playbook in ("ansible-common/playbooks/maintenance.yml",) + tuple(s + "/playbooks/maintenance.yml" for s in STAGES):
+            self.assertNotIn("tasks_from: refresh", read(playbook), playbook)
+
+    def test_gap_the_first_baseline_starts_with_the_shared_plays(self):
+        # The aide play is the last of the shared plays, which each stage runs
+        # before its own; its role starts the first baseline in the background.
+        last = plays(read("ansible-common/playbooks/site.yml"))[-1]
+        self.assertIn("tags: [aide]", last)
+        self.assertRegex(last, r"roles:\s+- aide")
+        main = read("ansible-common/roles/aide/tasks/main.yml")
+        self.assertRegex(main, r"- name: First baseline\s+ansible\.builtin\.systemd_service:\s+name: aide-baseline\.service"
+                               r"\s+state: started\s+no_block: true")
+
+
+class RefreshTasks(unittest.TestCase):
+    def test_runs_aide_report_with_the_paths_then_the_units(self):
+        refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
+        self.assertIn("{{ ['/usr/local/bin/aide-report', '--refresh'] + aide_written\n"
+                      "         + (['--units'] + aide_written_units if aide_written_units else []) }}", refresh)
+        self.assertIn("lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname,", refresh)
+        self.assertIn("lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname ~ '.units',", refresh)
+
+
+class Declarations(unittest.TestCase):
+    def declarations(self):
+        found = []
+        for path in yaml_files():
+            with open(path) as handle:
+                for number, line in enumerate(handle, 1):
+                    if re.match(r"^\s*aide_writes:", line):
+                        found.append((os.path.relpath(path, support.REPOSITORY), number, line.strip()))
+        return found
+
+    def test_there_are_declarations(self):
+        self.assertTrue(self.declarations())
+
+    def test_each_is_a_flow_list_of_literal_absolute_paths(self):
+        # The callback reads aide_writes untemplated.
+        for path, number, line in self.declarations():
+            where = "%s:%d" % (path, number)
+            match = re.match(r"^aide_writes: \[(.*)\]$", line)
+            self.assertIsNotNone(match, where)
+            for entry in match.group(1).split(","):
+                entry = entry.strip().strip("\"'")
+                self.assertTrue(entry.startswith("/"), where)
+                self.assertNotIn("{{", entry, where)
+
+    def test_gap_firewalld_declares_its_zones_without_their_backups(self):
+        for path, number, line in self.declarations():
+            if path.startswith("ansible-common/roles/firewalld/"):
+                self.assertEqual(line, "aide_writes: [/etc/firewalld/zones/*.xml]", "%s:%d" % (path, number))
+
+
+if __name__ == "__main__":
+    unittest.main()
