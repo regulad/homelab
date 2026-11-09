@@ -26,6 +26,8 @@ class PlaybookRun(unittest.TestCase):
 
     playbook = None
     inventory = ["-i", "localhost,", "-c", "local"]
+    # An inventory file's text, written for the run, in place of inventory.
+    inventory_file = None
     environment = {}
     # Whether the host has an accepted baseline: a database and its manifest.
     accepted = True
@@ -73,8 +75,13 @@ class PlaybookRun(unittest.TestCase):
         with open(variables, "w") as handle:
             json.dump({"out": cls.out, "aide_database": cls.database, "aide_manifest": cls.manifest,
                        "aide_unit_dir": cls.units}, handle)
+        inventory = cls.inventory
+        if cls.inventory_file is not None:
+            with open(os.path.join(cls.root, "inventory.ini"), "w") as handle:
+                handle.write(cls.inventory_file)
+            inventory = ["-i", os.path.join(cls.root, "inventory.ini")]
         cls.completed = subprocess.run(
-            [playbook, "--check"] + cls.inventory + [os.path.join(PLAYBOOKS, cls.playbook), "-e", "@" + variables],
+            [playbook, "--check"] + inventory + [os.path.join(PLAYBOOKS, cls.playbook), "-e", "@" + variables],
             cwd=cls.root, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True)
         cls.records = []
@@ -114,6 +121,23 @@ class NothingRecorded(PlaybookRun):
                          {"aide_written": [], "aide_written_units": []})
         self.assertEqual(self.find("Read the baseline"), [])
         self.assertEqual(self.find("AIDE's baseline for them"), [])
+
+
+class HostBecome(PlaybookRun):
+    """A host's own ansible_become, as dodo's, against a task's become: false."""
+
+    playbook = "become.yml"
+    inventory_file = ("localhost ansible_connection=local ansible_become=true ansible_become_method=sudo "
+                      "ansible_become_exe=/bin/false\n")
+
+    def test_the_aide_roles_task_reads_the_home_as_the_connecting_user(self):
+        (record,) = self.records_of("As the aide role reads the connecting user's home")
+        self.assertEqual(record["event"], "ok", self.completed.stdout[-3000:])
+        self.assertEqual(record["result"]["stdout"], os.path.expanduser("~"))
+
+    def test_the_keyword_alone_does_not_outrank_the_hosts_variable(self):
+        (record,) = self.records_of("With the become keyword alone")
+        self.assertEqual(record["event"], "failed")
 
 
 class FirstBaseline(PlaybookRun):

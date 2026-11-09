@@ -108,6 +108,15 @@ class SitePlaybooks(unittest.TestCase):
             self.assertNotIn("/usr/local/lib/systemd/system", read(path), path)
 
 
+class AideRole(unittest.TestCase):
+    def test_reads_the_connecting_users_home_as_that_user_whatever_the_host_sets(self):
+        # dodo's host_vars set ansible_become, a variable, which outranks the
+        # become keyword; a task's own variable outranks the host's.
+        main = read("ansible-common/roles/aide/tasks/main.yml")
+        self.assertRegex(main, r"- name: Read the connecting user's home\s+ansible\.builtin\.command: printenv HOME\s+"
+                               r"become: false\s+vars:\s+ansible_become: false\s")
+
+
 class RefreshTasks(unittest.TestCase):
     def test_runs_aide_report_with_the_paths_then_the_units(self):
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")

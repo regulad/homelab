@@ -68,10 +68,14 @@
         - {path: "{{ aide_state_dir }}", mode: "0700"}
         - {path: "{{ aide_unit_dir }}", mode: "0755"}
 
-    # Ansible's scratch files lie in the home of the user it connects as.
+    # Ansible's scratch files lie in the home of the user it connects as. A
+    # host's ansible_become, as dodo's, would outrank the become keyword; the
+    # task's own variable outranks the host's.
     - name: Read the connecting user's home
       ansible.builtin.command: printenv HOME
       become: false
+      vars:
+        ansible_become: false
       check_mode: false
       changed_when: false
       register: aide_connection_home
