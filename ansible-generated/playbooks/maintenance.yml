@@ -3652,3 +3652,7 @@
       loop: "{{ llama_cpp_builds.files | rejectattr('path', 'in', [llama_cpp_build, llama_cpp_previous]) | list }}"
       loop_control:
         label: "{{ item.path | basename }}"
+
+# Last: AIDE's baseline moved for the files this run wrote.
+- name: File integrity baseline for this run's files
+  ansible.builtin.import_playbook: ../../ansible-common/playbooks/aide-refresh.yml

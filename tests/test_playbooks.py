@@ -26,6 +26,18 @@ def plays(text):
     return [chunk for chunk in re.split(r"(?m)^(?=- )", text) if chunk.startswith("- ")]
 
 
+REFRESH_PLAYBOOK = "ansible-common/playbooks/aide-refresh.yml"
+
+
+def playbooks():
+    """Every playbook of the three Ansible directories, relative to the repository."""
+    for directory in ANSIBLE_DIRECTORIES:
+        folder = os.path.join(support.REPOSITORY, directory, "playbooks")
+        for name in sorted(os.listdir(folder)):
+            if name.endswith(".yml"):
+                yield "%s/playbooks/%s" % (directory, name)
+
+
 def yaml_files():
     for directory in ANSIBLE_DIRECTORIES:
         for root, directories, files in os.walk(os.path.join(support.REPOSITORY, directory)):
@@ -52,22 +64,29 @@ class SitePlaybooks(unittest.TestCase):
             first = plays(read(stage + "/playbooks/site.yml"))[0]
             self.assertIn("ansible.builtin.import_playbook: ../../ansible-common/playbooks/site.yml", first, stage)
 
-    def test_each_stage_ends_with_the_refresh(self):
+    def test_each_stage_ends_both_playbooks_with_the_refresh(self):
         for stage in STAGES:
-            last = plays(read(stage + "/playbooks/site.yml"))[-1]
-            self.assertIn("hosts: debian:ubuntu:rhel", last, stage)
-            self.assertIn("become: true", last, stage)
-            self.assertIn("tags: [always, aide, aide_refresh]", last, stage)
-            self.assertRegex(last, r"import_role:\s+name: aide\s+tasks_from: refresh", stage)
+            for playbook in ("site.yml", "maintenance.yml"):
+                last = plays(read("%s/playbooks/%s" % (stage, playbook)))[-1]
+                self.assertIn("ansible.builtin.import_playbook: ../../ansible-common/playbooks/aide-refresh.yml", last,
+                              "%s/%s" % (stage, playbook))
 
-    def test_the_refresh_once_per_stage(self):
-        for stage in STAGES:
-            self.assertEqual(read(stage + "/playbooks/site.yml").count("tasks_from: refresh"), 1, stage)
-        self.assertNotIn("tasks_from: refresh", read("ansible-common/playbooks/site.yml"))
+    def test_the_refresh_play(self):
+        (play,) = plays(read(REFRESH_PLAYBOOK))
+        self.assertIn("hosts: debian:ubuntu:rhel", play)
+        self.assertIn("gather_facts: false", play)
+        self.assertIn("become: true", play)
+        self.assertIn("tags: [always, aide, aide_refresh]", play)
+        self.assertRegex(play, r"import_role:\s+name: aide\s+tasks_from: refresh")
 
-    def test_gap_no_refresh_after_maintenance(self):
-        for playbook in ("ansible-common/playbooks/maintenance.yml",) + tuple(s + "/playbooks/maintenance.yml" for s in STAGES):
-            self.assertNotIn("tasks_from: refresh", read(playbook), playbook)
+    def test_the_refresh_once_in_one_playbook(self):
+        for path in playbooks():
+            text = read(path)
+            expected = 1 if path == REFRESH_PLAYBOOK else 0
+            self.assertEqual(text.count("tasks_from: refresh"), expected, path)
+            imports = text.count("ansible-common/playbooks/aide-refresh.yml")
+            stage_playbook = path.split("/")[0] in STAGES and path.endswith(("/site.yml", "/maintenance.yml"))
+            self.assertEqual(imports, 1 if stage_playbook else 0, path)
 
     def test_gap_the_first_baseline_starts_with_the_shared_plays(self):
         # The aide play is the last of the shared plays, which each stage runs

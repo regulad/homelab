@@ -1,6 +1,6 @@
 """The aide_written callback and the aide role's refresh tasks in ansible-core
-itself, in check mode on localhost, so that nothing is written; and what
-ansible-core hands callbacks, which the callback relies on.
+itself, in check mode, so that nothing is written; and what ansible-core
+hands callbacks, which the callback relies on.
 
 Tests named for a gap record what happens today where the triage of
 2026-11-08 found it wanting; a fix changes them on purpose."""
@@ -14,13 +14,20 @@ import unittest
 
 import support
 
-PLAYBOOK = os.path.join(support.TESTS, "playbooks", "refresh.yml")
+PLAYBOOKS = os.path.join(support.TESTS, "playbooks")
 CALLBACKS = os.path.join(support.REPOSITORY, "ansible-common", "plugins", "callback")
 RECORDER = os.path.join(support.TESTS, "callback_plugins")
 ROLES = os.path.join(support.REPOSITORY, "ansible-common", "roles")
 
 
-class CheckRun(unittest.TestCase):
+class PlaybookRun(unittest.TestCase):
+    """One check-mode run of a playbook in tests/playbooks, set up by the
+    class, with the aide_written callback and the recorder enabled."""
+
+    playbook = None
+    inventory = ["-i", "localhost,", "-c", "local"]
+    environment = {}
+
     @classmethod
     def setUpClass(cls):
         playbook = shutil.which("ansible-playbook")
@@ -53,12 +60,14 @@ class CheckRun(unittest.TestCase):
             "PYTHONDONTWRITEBYTECODE": "1",
             "RECORDER_OUT": recorded,
         })
+        environment.update(cls.environment)
         variables = os.path.join(cls.root, "variables.json")
         with open(variables, "w") as handle:
             json.dump({"out": cls.out, "aide_database": cls.database}, handle)
-        cls.completed = subprocess.run([playbook, "--check", "-i", "localhost,", "-c", "local", PLAYBOOK, "-e", "@" + variables],
-                                 cwd=cls.root, env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 universal_newlines=True)
+        cls.completed = subprocess.run(
+            [playbook, "--check"] + cls.inventory + [os.path.join(PLAYBOOKS, cls.playbook), "-e", "@" + variables],
+            cwd=cls.root, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            universal_newlines=True)
         cls.records = []
         if os.path.exists(recorded):
             with open(recorded) as handle:
@@ -68,12 +77,38 @@ class CheckRun(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.root, ignore_errors=True)
 
-    def records_of(self, task, event=None):
+    def find(self, task, event=None):
         # A role's task is named for its role too: "aide : Files this run wrote".
-        found = [r for r in self.records if r["task"] in (task, "aide : " + task)
-                 and (event is None or r["event"] == event)]
+        return [r for r in self.records if r["task"] in (task, "aide : " + task)
+                and (event is None or r["event"] == event)]
+
+    def records_of(self, task, event=None):
+        found = self.find(task, event)
         self.assertTrue(found, "no %s record of %r; the run said:\n%s" % (event or "", task, self.completed.stdout[-3000:]))
         return found
+
+
+class NothingRecorded(PlaybookRun):
+    """A refresh with nothing recorded, for a host no connection reaches: it
+    ends there, without contacting the host."""
+
+    playbook = "refresh-only.yml"
+    inventory = ["-i", "nowhere.invalid,"]
+    environment = {"ANSIBLE_SSH_EXECUTABLE": "/bin/false", "ANSIBLE_TIMEOUT": "5"}
+
+    def test_the_run_succeeds_without_contacting_the_host(self):
+        self.assertEqual(self.completed.returncode, 0, self.completed.stdout[-3000:])
+        self.assertNotIn("UNREACHABLE", self.completed.stdout)
+
+    def test_the_host_ends_before_reading_its_baseline(self):
+        self.assertEqual(self.records_of("Files this run wrote", "ok")[0]["result"]["ansible_facts"],
+                         {"aide_written": [], "aide_written_units": []})
+        self.assertEqual(self.find("Read the baseline"), [])
+        self.assertEqual(self.find("AIDE's baseline for them"), [])
+
+
+class CheckRun(PlaybookRun):
+    playbook = "refresh.yml"
 
     def facts(self):
         (record,) = self.records_of("Files this run wrote", "ok")

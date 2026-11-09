@@ -4,14 +4,9 @@
 # the aide_written callback recorded them, so that the next report does not
 # list Ansible's own changes to the files it manages. A file Ansible restored
 # after tampering is recorded as the repository declares it; every other
-# change stays in the report. Without the callback, or before a host has a
-# baseline, there is nothing to do.
-- name: Read the baseline
-  ansible.builtin.stat:
-    path: "{{ aide_database }}"
-    get_checksum: false
-  register: aide_baseline
-
+# change stays in the report. A host the run recorded nothing for ends here,
+# before anything connects to it; without the callback, or before a host has
+# a baseline, there is nothing to do.
 - name: Files this run wrote
   ansible.builtin.set_fact:
     aide_written: >-
@@ -24,7 +19,16 @@
                  lookup('ansible.builtin.env', 'AIDE_WRITTEN_DIR') ~ '/' ~ inventory_hostname ~ '.units',
                  errors='ignore') or '').splitlines()
          | select | unique | list }}
-  when: aide_baseline.stat.exists
+
+- name: Nothing to refresh
+  ansible.builtin.meta: end_host
+  when: (aide_written + aide_written_units) | length == 0
+
+- name: Read the baseline
+  ansible.builtin.stat:
+    path: "{{ aide_database }}"
+    get_checksum: false
+  register: aide_baseline
 
 - name: AIDE's baseline for them
   ansible.builtin.command:
@@ -32,6 +36,4 @@
       {{ ['/usr/local/bin/aide-report', '--refresh'] + aide_written
          + (['--units'] + aide_written_units if aide_written_units else []) }}
   changed_when: true
-  when:
-    - aide_baseline.stat.exists
-    - (aide_written + aide_written_units) | length > 0
+  when: aide_baseline.stat.exists

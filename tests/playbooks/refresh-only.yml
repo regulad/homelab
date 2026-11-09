@@ -1,0 +1,11 @@
+---
+# Run by test_ansible.py in check mode for a host no connection reaches: the
+# aide role's refresh tasks, with nothing written before them.
+- name: The refresh with nothing to read back
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: AIDE's baseline for the files this run wrote
+      ansible.builtin.import_role:
+        name: aide
+        tasks_from: refresh

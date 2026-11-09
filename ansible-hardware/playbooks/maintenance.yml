@@ -5,3 +5,7 @@
 
 - name: Maintenance both stages share
   ansible.builtin.import_playbook: ../../ansible-common/playbooks/maintenance.yml
+
+# Last: AIDE's baseline moved for the files this run wrote.
+- name: File integrity baseline for this run's files
+  ansible.builtin.import_playbook: ../../ansible-common/playbooks/aide-refresh.yml
