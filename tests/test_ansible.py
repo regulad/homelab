@@ -93,6 +93,9 @@ class CheckRun(unittest.TestCase):
             "/declared/literal",
             "/declared/{{ out }}",
             self.out + "/declaring",
+            "/etc/passwd", "/etc/passwd-", "/etc/shadow", "/etc/shadow-", "/etc/group", "/etc/group-",
+            "/etc/gshadow", "/etc/gshadow-", "/etc/subuid", "/etc/subuid-", "/etc/subgid", "/etc/subgid-",
+            "/etc/.pwd.lock",
         ])
         self.assertEqual(self.facts()["aide_written_units"], [])
 

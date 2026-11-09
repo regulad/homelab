@@ -53,6 +53,13 @@
       vars:
         aide_writes: [/declared/literal, relative/path, "/declared/{{ out }}"]
 
+    - name: A system user
+      ansible.builtin.user:
+        name: aide-tests-nobody
+        system: true
+        create_home: false
+        shell: /usr/sbin/nologin
+
     - name: A delegated copy
       ansible.builtin.copy:
         content: "e\n"

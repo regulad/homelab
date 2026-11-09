@@ -20,6 +20,12 @@ description:
     appends that path to a file named for the host, in a directory created for
     the run and named by the AIDE_WRITTEN_DIR environment variable, which the
     run's workers inherit. The directory is removed when the run ends.
+  - For each changed result of a module that writes files it is not given,
+    such as user's /etc/passwd, appends the files its code writes, from
+    MODULE_FILES; and for selinux, the configuration file it is given or its
+    default. Modules that write a tree, such as unarchive and git, and those
+    that leave the writing to another tool, such as sefcontext and
+    dnf_config_manager, are not among them.
   - For each changed result of a module that enables, disables or masks a
     systemd unit, appends the unit's name to a second file for the host, named
     for it with .units after. The module does not say which links it made or
@@ -47,6 +53,27 @@ MODULES = {
     "copy", "template", "file", "lineinfile", "blockinfile", "replace",
     "ini_file", "get_url", "xml",
 }
+# Modules that write files they are not given, each with what its code writes
+# on Linux, by the strategy this repository uses.
+ACCOUNT_LOCK = "/etc/.pwd.lock"
+MODULE_FILES = {
+    # shadow-utils' useradd, usermod and userdel, each file with the backup
+    # beside it they write first, under the lock file they create.
+    "user": ["/etc/passwd", "/etc/passwd-", "/etc/shadow", "/etc/shadow-", "/etc/group", "/etc/group-",
+             "/etc/gshadow", "/etc/gshadow-", "/etc/subuid", "/etc/subuid-", "/etc/subgid", "/etc/subgid-",
+             ACCOUNT_LOCK],
+    # groupadd, groupmod and groupdel.
+    "group": ["/etc/group", "/etc/group-", "/etc/gshadow", "/etc/gshadow-", ACCOUNT_LOCK],
+    # hostnamectl --static --pretty, the systemd strategy base's task uses.
+    "hostname": ["/etc/hostname", "/etc/machine-info"],
+    # timedatectl's link, or without it Debian's /etc/timezone beside a copy.
+    "timezone": ["/etc/localtime", "/etc/timezone"],
+    # glibc's mechanism: the list, and the archive locale-gen compiles from it.
+    "locale_gen": ["/etc/locale.gen", "/usr/lib/locale/locale-archive"],
+}
+# Modules that write a file named by another argument than dest or path, with
+# that argument and its default.
+PATH_ARGUMENTS = {"selinux": ("configfile", "/etc/selinux/config")}
 # Modules that enable, disable or mask a systemd unit, through links in
 # /etc/systemd/system they do not name.
 UNIT_MODULES = {"systemd_service", "systemd", "service"}
@@ -87,9 +114,17 @@ class CallbackModule(CallbackBase):
                 with open(os.path.join(self.directory, host + ".units"), "a") as handle:
                     handle.write(unit + "\n")
             return
-        if action not in MODULES:
+        if action in MODULE_FILES:
+            with open(os.path.join(self.directory, host), "a") as handle:
+                handle.writelines(path + "\n" for path in MODULE_FILES[action])
             return
-        path = values.get("dest") or arguments.get("dest") or arguments.get("path") or values.get("path")
+        if action in PATH_ARGUMENTS:
+            argument, default = PATH_ARGUMENTS[action]
+            path = arguments.get(argument) or default
+        elif action in MODULES:
+            path = values.get("dest") or arguments.get("dest") or arguments.get("path") or values.get("path")
+        else:
+            return
         if not isinstance(path, str) or not path.startswith("/"):
             return
         with open(os.path.join(self.directory, host), "a") as handle:

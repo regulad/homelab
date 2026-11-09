@@ -151,10 +151,9 @@ class FileModules(CallbackTestCase):
         self.ok(Result("ansible.builtin.copy", {"changed": True, "dest": "/srv/x"}, delegate_to="localhost"))
         self.assertEqual(self.recorded(), [])
 
-    def test_gap_not_a_module_that_does_not_take_its_path(self):
-        self.ok(Result("ansible.builtin.user", {"changed": True, "name": "synapse_user", "home": "/home/synapse_user"}),
-                Result("ansible.builtin.hostname", dict(changed=True, **invoked(name="host"))),
-                Result("ansible.builtin.unarchive", dict(changed=True, dest="/opt/x", **invoked(dest="/opt/x"))),
+    def test_gap_not_a_module_that_writes_a_tree_or_a_command_that_declares_nothing(self):
+        self.ok(Result("ansible.builtin.unarchive", dict(changed=True, dest="/opt/x", **invoked(dest="/opt/x"))),
+                Result("ansible.builtin.git", dict(changed=True, **invoked(dest="/opt/y"))),
                 Result("ansible.builtin.command", {"changed": True, "cmd": ["ipa-replica-install"]}))
         self.assertEqual(self.recorded(), [])
 
@@ -163,6 +162,53 @@ class FileModules(CallbackTestCase):
                 Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/b"}, host="two"),
                 Result("ansible.builtin.copy", {"changed": True, "dest": "/etc/c"}, host="one"))
         self.assertEqual((self.recorded("one"), self.recorded("two")), (["/etc/a", "/etc/c"], ["/etc/b"]))
+
+
+class ModulesWithTheirOwnFiles(CallbackTestCase):
+    """Modules that write files they are not given, each the files its code writes."""
+
+    accounts = ["/etc/passwd", "/etc/passwd-", "/etc/shadow", "/etc/shadow-", "/etc/group", "/etc/group-",
+                "/etc/gshadow", "/etc/gshadow-", "/etc/subuid", "/etc/subuid-", "/etc/subgid", "/etc/subgid-",
+                "/etc/.pwd.lock"]
+    groups = ["/etc/group", "/etc/group-", "/etc/gshadow", "/etc/gshadow-", "/etc/.pwd.lock"]
+
+    def test_a_user_the_account_files_and_their_backups(self):
+        self.ok(Result("ansible.builtin.user", {"changed": True, "name": "synapse_user", "home": "/home/synapse_user"}))
+        self.assertEqual(self.recorded(), self.accounts)
+
+    def test_a_group_the_group_files_and_their_backups(self):
+        self.ok(Result("ansible.builtin.group", {"changed": True, "name": "synapse"}))
+        self.assertEqual(self.recorded(), self.groups)
+
+    def test_a_hostname_by_hostnamectl(self):
+        self.ok(Result("ansible.builtin.hostname", dict(changed=True, **invoked(name="host", use="systemd"))))
+        self.assertEqual(self.recorded(), ["/etc/hostname", "/etc/machine-info"])
+
+    def test_a_timezone(self):
+        self.ok(Result("community.general.timezone", dict(changed=True, **invoked(name="America/New_York"))))
+        self.assertEqual(self.recorded(), ["/etc/localtime", "/etc/timezone"])
+
+    def test_a_locale(self):
+        self.ok(Result("community.general.locale_gen", dict(changed=True, **invoked(name="C.UTF-8"))))
+        self.assertEqual(self.recorded(), ["/etc/locale.gen", "/usr/lib/locale/locale-archive"])
+
+    def test_selinux_the_configuration_it_is_given_or_its_default(self):
+        self.ok(Result("ansible.posix.selinux", dict(changed=True, **invoked(state="enforcing"))),
+                Result("ansible.posix.selinux", dict(changed=True, **invoked(state="enforcing", configfile="/etc/x"))))
+        self.assertEqual(self.recorded(), ["/etc/selinux/config", "/etc/x"])
+
+    def test_under_no_log_too(self):
+        self.ok(Result("ansible.builtin.user", CENSORED, args={"name": "x", "password": "secret"}))
+        self.assertEqual(self.recorded(), self.accounts)
+
+    def test_not_unchanged_or_delegated(self):
+        self.ok(Result("ansible.builtin.user", {"changed": False, "name": "x"}),
+                Result("ansible.builtin.user", {"changed": True, "name": "x"}, delegate_to="ldap.example"))
+        self.assertEqual(self.recorded(), [])
+
+    def test_with_its_declared_paths_first(self):
+        self.ok(Result("ansible.builtin.group", {"changed": True, "name": "x"}, variables={"aide_writes": ["/etc/y"]}))
+        self.assertEqual(self.recorded(), ["/etc/y"] + self.groups)
 
 
 class Loops(CallbackTestCase):
