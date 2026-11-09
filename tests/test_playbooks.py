@@ -127,6 +127,30 @@ class RefreshTasks(unittest.TestCase):
         self.assertIn("lookup('ansible.builtin.file', aide_written_file ~ '.units', errors='ignore')", refresh)
 
 
+def exclude_paths():
+    """aide_exclude_paths' literal entries, from the aide role's defaults."""
+    lines = read("ansible-common/roles/aide/defaults/main.yml").splitlines()
+    start = lines.index("aide_exclude_paths:") + 1
+    entries = []
+    for line in lines[start:]:
+        if line and not line.startswith((" ", "#")):
+            break
+        match = re.match(r"^  - (\S+)$", line)
+        if match:
+            entries.append(match.group(1).strip("\"'"))
+    return entries
+
+
+class Exclusions(unittest.TestCase):
+    def test_the_list_is_read(self):
+        self.assertIn("/var/lib/aide", exclude_paths())
+
+    def test_systemds_timer_stamps(self):
+        # Empty files whose times are all they hold: a persistent timer's stamp
+        # is made at its first run, often after the run that started it.
+        self.assertIn("/var/lib/systemd/timers", exclude_paths())
+
+
 class RecordsConsumed(unittest.TestCase):
     def test_removes_the_two_files_of_records_on_the_controller_outside_check_mode(self):
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")

@@ -85,6 +85,10 @@ aide_exclude_paths:
   - /var/lib/ubuntu-advantage/private/machine-token.json
   - /var/lib/ubuntu-advantage/machine-token.json
   - /var/lib/ubuntu-advantage/jobs-status.json
+  # systemd's stamps of each persistent timer's last run: empty files whose
+  # times are all they hold, rewritten as each timer fires, and made at its
+  # first run, often after the run that started the timer.
+  - /var/lib/systemd/timers
 # The package manager's own state, which every transaction rewrites and any
 # query of it may touch, such as the rpm database's SQLite shared memory, and
 # apt's lists of what its repositories offer, with Ubuntu Pro's copy of them
