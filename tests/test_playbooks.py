@@ -127,6 +127,49 @@ class AideRole(unittest.TestCase):
                                r"become: false\s+vars:\s+ansible_become: false\s")
 
 
+def task(text, name):
+    """The text of a task in a tasks file, from its name to the next task's."""
+    match = re.search(r"(?ms)^( *)- name: %s\n.*?(?=^\1- name: |\Z)" % re.escape(name), text)
+    return match.group(0) if match else ""
+
+
+class AppArmorCache(unittest.TestCase):
+    """snapd compiles its snaps' profiles with a parser of its own, which
+    skip-cache in /etc/apparmor/parser.conf does not reach, and loads them at
+    each boot from the cache it writes in /var/cache/apparmor."""
+
+    MAIN = "ansible-common/roles/aide/tasks/main.yml"
+
+    def test_a_tmpfs_where_snapd_is_installed(self):
+        unit = read("ansible-common/roles/aide/files/var-cache-apparmor.mount")
+        self.assertRegex(unit, r"(?m)^What=tmpfs$")
+        self.assertRegex(unit, r"(?m)^Where=/var/cache/apparmor$")
+        self.assertRegex(unit, r"(?m)^Type=tmpfs$")
+        options = re.search(r"(?m)^Options=(.*)$", unit).group(1).split(",")
+        for option in ("noexec", "nosuid", "nodev"):
+            self.assertIn(option, options)
+        self.assertRegex(unit, r"(?m)^WantedBy=local-fs\.target$")
+        main = read(self.MAIN)
+        copy = task(main, "AppArmor's policy cache in memory, where snapd keeps one")
+        self.assertRegex(copy, r"src: var-cache-apparmor\.mount\n")
+        self.assertRegex(copy, r"dest: \"\{\{ aide_unit_dir \}\}/var-cache-apparmor\.mount\"")
+        self.assertIn("'snapd' in ansible_facts.packages", copy)
+        started = task(main, "AppArmor's policy cache mounted, and at each boot")
+        self.assertRegex(started, r"name: var-cache-apparmor\.mount\s+enabled: true\s+state: started")
+        self.assertIn("'snapd' in ansible_facts.packages", started)
+
+    def test_the_cache_on_disk_removed_unless_the_tmpfs_holds_it(self):
+        # Removing the tmpfs's mount point would fail, and what it holds
+        # outlives no boot; the cache on disk is removed before the tmpfs
+        # covers it, rather than left hidden below.
+        main = read(self.MAIN)
+        removed = task(main, "AppArmor's old policy cache removed")
+        self.assertRegex(removed, r"state: absent")
+        self.assertIn("aide_apparmor_cache.stdout | trim != 'tmpfs'", removed)
+        self.assertLess(main.index("- name: AppArmor's old policy cache removed"),
+                        main.index("- name: AppArmor's policy cache mounted, and at each boot"))
+
+
 class AuditdSettings(unittest.TestCase):
     def test_space_left_action_out_of_reach_of_oci_linux_configs_rewrite(self):
         # oci-linux-config's passwd_mgmt.sh, which its %post runs at each

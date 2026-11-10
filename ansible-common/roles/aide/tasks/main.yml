@@ -153,8 +153,49 @@
         line: skip-cache
       when: aide_apparmor_parser.stat.exists
 
+    # snapd compiles its snaps' profiles with a parser of its own, whose
+    # settings lie in the snapd snap, so skip-cache does not reach it: it
+    # writes their cache to /var/cache/apparmor, and snapd.apparmor.service
+    # loads them from there at each boot. Where snapd is installed, that
+    # directory is a tmpfs, so that no cache outlives a boot; elsewhere it is
+    # removed. A cache on disk is removed before the tmpfs covers it.
+    - name: Read what holds AppArmor's policy cache
+      ansible.builtin.command: findmnt --noheadings --output FSTYPE --mountpoint /var/cache/apparmor
+      register: aide_apparmor_cache
+      check_mode: false
+      changed_when: false
+      failed_when: aide_apparmor_cache.rc not in [0, 1]
+      when: aide_apparmor_parser.stat.exists
+
     - name: AppArmor's old policy cache removed
       ansible.builtin.file:
         path: /var/cache/apparmor
         state: absent
-      when: aide_apparmor_parser.stat.exists
+      when:
+        - aide_apparmor_parser.stat.exists
+        - aide_apparmor_cache.stdout | trim != 'tmpfs'
+
+    - name: AppArmor's policy cache in memory, where snapd keeps one
+      ansible.builtin.copy:
+        src: var-cache-apparmor.mount
+        dest: "{{ aide_unit_dir }}/var-cache-apparmor.mount"
+        owner: root
+        group: root
+        mode: "0644"
+      register: aide_apparmor_cache_unit
+      notify: Remount AppArmor's policy cache
+      when:
+        - aide_apparmor_parser.stat.exists
+        - "'snapd' in ansible_facts.packages"
+
+    - name: AppArmor's policy cache mounted, and at each boot
+      ansible.builtin.systemd_service:
+        name: var-cache-apparmor.mount
+        enabled: true
+        state: started
+        daemon_reload: true
+      when:
+        - aide_apparmor_parser.stat.exists
+        - "'snapd' in ansible_facts.packages"
+        # A check run cannot read what an install still pending would create.
+        - not (ansible_check_mode and aide_apparmor_cache_unit is changed)

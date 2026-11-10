@@ -1,0 +1,16 @@
+# Managed by Ansible (aide). AppArmor's policy cache in memory, where snapd
+# keeps its snaps' compiled profiles, so that none outlives a boot: at each
+# boot snapd.apparmor.service, which requires this mount, compiles them again
+# from their sources in /var/lib/snapd/apparmor/profiles, which AIDE watches.
+[Unit]
+Description=AppArmor's policy cache, in memory
+Documentation=man:systemd.mount(5) man:tmpfs(5)
+
+[Mount]
+What=tmpfs
+Where=/var/cache/apparmor
+Type=tmpfs
+Options=mode=0755,noexec,nosuid,nodev
+
+[Install]
+WantedBy=local-fs.target
