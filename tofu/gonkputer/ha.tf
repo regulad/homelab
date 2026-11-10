@@ -23,6 +23,7 @@ locals {
     nexus           = { id = proxmox_haresource.nexus.resource_id, tags = proxmox_virtual_environment_container.nexus.tags }
     openclaw        = { id = proxmox_haresource.openclaw.resource_id, tags = proxmox_virtual_environment_container.openclaw.tags }
     openwebui       = { id = proxmox_haresource.openwebui.resource_id, tags = proxmox_virtual_environment_container.openwebui.tags }
+    orchard         = { id = proxmox_haresource.orchard.resource_id, tags = proxmox_virtual_environment_container.orchard.tags }
     peppercord      = { id = proxmox_haresource.peppercord.resource_id, tags = proxmox_virtual_environment_container.peppercord.tags }
     pihole          = { id = proxmox_haresource.pihole.resource_id, tags = proxmox_virtual_environment_container.pihole.tags }
     pterodactyl     = { id = proxmox_haresource.pterodactyl.resource_id, tags = proxmox_virtual_environment_container.pterodactyl.tags }

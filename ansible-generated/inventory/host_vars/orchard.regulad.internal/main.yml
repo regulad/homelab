@@ -1,0 +1,51 @@
+---
+# The Orchard controller, which serves Orchard's API on its default port, 6120,
+# and schedules Tart VMs onto the Orchard worker on overture. Orchard publishes
+# no current Linux package or public image, so its release binary runs under a
+# native unit. Its key, certificate and bootstrap-admin's token are in
+# ansible-common's group_vars/all.sops.yml, which the worker's stage reads too.
+
+# The Orchard release this host runs, and the sha256 of its orchard-linux-amd64
+# asset, from the release's orchard_<version>_checksums.txt. Bumping both fetches
+# the new binary and restarts the controller; Orchard keeps controller and
+# worker compatible across versions.
+orchard_version: 0.58.0
+orchard_linux_amd64_sha256: aab11b6ffa704eab04f43c34e0b8765f671afc09824b334ee80e03bd9791192c
+
+host_files_users: [orchard]
+host_files_directories:
+  - path: /etc/orchard
+    mode: "0755"
+host_files_list:
+  - path: /etc/systemd/system/orchard-controller.service
+    mode: "0644"
+    restarts: [orchard-controller.service]
+  - path: /etc/orchard/controller.crt
+    mode: "0644"
+    content: "{{ orchard_controller_cert }}"
+    restarts: [orchard-controller.service]
+  - path: /etc/orchard/controller.key
+    group: orchard
+    mode: "0640"
+    content: "{{ orchard_controller_key }}"
+    secret: true
+    restarts: [orchard-controller.service]
+  # Read by systemd, as root, into the controller's environment.
+  - path: /etc/orchard/controller.env
+    mode: "0600"
+    content: |
+      ORCHARD_BOOTSTRAP_ADMIN_TOKEN={{ orchard_bootstrap_admin_token }}
+    secret: true
+    restarts: [orchard-controller.service]
+host_files_downloads:
+  - path: /usr/local/bin/orchard
+    url: https://github.com/openai/orchard/releases/download/{{ orchard_version }}/orchard-linux-amd64
+    checksum: sha256:{{ orchard_linux_amd64_sha256 }}
+    mode: "0755"
+    restarts: [orchard-controller.service]
+host_files_units:
+  - orchard-controller.service
+
+# The controller's database, which it rewrites as it works, in the unit's
+# StateDirectory. Its unit, binary, key and certificate stay watched.
+aide_exclude_paths_host: [/var/lib/orchard]

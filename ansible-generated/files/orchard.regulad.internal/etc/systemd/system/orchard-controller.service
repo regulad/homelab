@@ -1,0 +1,46 @@
+[Unit]
+Description=Orchard controller
+Documentation=https://tart.run/orchard/deploying-controller/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=orchard
+Group=orchard
+# Its database, and the context it writes for bootstrap-admin, under
+# $ORCHARD_HOME/.orchard.
+StateDirectory=orchard
+StateDirectoryMode=0700
+Environment=ORCHARD_HOME=/var/lib/orchard
+# ORCHARD_BOOTSTRAP_ADMIN_TOKEN, which sets bootstrap-admin's token at each
+# start.
+EnvironmentFile=/etc/orchard/controller.env
+# Orchard's default port, 6120, on every address of both families, with the key
+# and certificate that its workers' bootstrap tokens carry.
+ExecStart=/usr/local/bin/orchard controller run --controller-cert /etc/orchard/controller.crt --controller-key /etc/orchard/controller.key
+Restart=on-failure
+RestartSec=5s
+
+# Sandboxing, as matrix's bridges have it in their unprivileged container.
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+ProtectKernelLogs=true
+ProtectKernelTunables=true
+ProtectHostname=true
+ProtectKernelModules=true
+PrivateUsers=true
+ProtectClock=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target
