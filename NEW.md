@@ -46,8 +46,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   `unprivileged`, keeps the play off them
 - [x] Scheduled ClamAV scans on every Linux host, containers included:
   clamav-scan, the `clamav` role's `scan` entry point, run weekly by a systemd
-  timer at a delay of the host's own (`RandomizedDelaySec=1w` with
-  `FixedRandomDelay=`). It sends each file to the shared clamd, or to the
+  timer at a time of the week of the host's own, derived from its name
+  (`clamav_scan_minute`). It sends each file to the shared clamd, or to the
   host's own where it runs one, over the on-access directories, `/var` and each
   host's additions, and quarantines and mails what it finds through the host's
   mail relay; prodingus alone scans the CephFS. On-access scanning is
@@ -56,8 +56,8 @@ See [`.claude/PLAN.md`](.claude/PLAN.md) for the phases.
   unprivileged containers have none. A scheduled scan catches what is already
   on disk
   - [x] The backups scheduled the same way: each `restic_jobs` job sets a
-    `period`, daily or weekly, and its timer runs it at a delay of the host's
-    own within that period (`RandomizedDelaySec=` with `FixedRandomDelay=`),
+    `period`, daily or weekly, and its timer runs it at a time of its own
+    within that period, derived from the host's name and the job's,
     in place of the fixed times in host_vars; the guest descriptions that
     announced those times are gone from tofu/gonkputer. Every job runs
     weekly, the host backups no longer daily
