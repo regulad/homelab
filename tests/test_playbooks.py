@@ -184,6 +184,28 @@ class AuditdSettings(unittest.TestCase):
         self.assertIsNone(re.search(r"^space_left_action = ", lines[0]))
 
 
+class Timers(unittest.TestCase):
+    """systemd adds RandomizedDelaySec= to a run a Persistent= timer missed while
+    the host was down counting from the boot, after moving the missed calendar
+    time up to it (systemd#21166), so a reboot put a run off by up to the whole
+    delay. Timers that spread hosts across a period do so with a fixed time of
+    each host's own."""
+
+    WEEKDAY = r"\['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'\]\[%s \| int // 1440\]"
+
+    def test_the_weekly_scan_at_a_fixed_time_of_the_hosts_own(self):
+        timer = read("ansible-common/roles/clamav/templates/clamav-scan.timer.j2")
+        self.assertRegex(timer, r"(?m)^OnCalendar=\{\{ %s \}\} \*-\*-\* \{\{ .*clamav_scan_minute.* \}\}:00 UTC$"
+                                % (self.WEEKDAY % "clamav_scan_minute"))
+        self.assertRegex(timer, r"(?m)^Persistent=true$")
+        defaults = read("ansible-common/roles/clamav/defaults/main.yml")
+        # A seed of its own: the name alone would give the scan the daily
+        # report's time of day.
+        self.assertRegex(defaults, r"(?m)^clamav_scan_minute: \"\{\{ \(\(inventory_hostname ~ ' clamav-scan'\) "
+                                   r"\| hash\('sha1'\)\)\[:8\] \| int\(base=16\) % 10080 \}\}\"$")
+        scan = read("ansible-common/roles/clamav/tasks/scan.yml")
+        self.assertRegex(task(scan, "Weekly scan's timer"), r"ansible\.builtin\.template:\s+src: clamav-scan\.timer\.j2")
+
 class RefreshTasks(unittest.TestCase):
     def test_runs_aide_report_with_the_paths_then_the_units(self):
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")

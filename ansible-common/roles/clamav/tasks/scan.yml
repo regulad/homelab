@@ -36,8 +36,8 @@
         mode: "0644"
 
     - name: Weekly scan's timer
-      ansible.builtin.copy:
-        src: clamav-scan.timer
+      ansible.builtin.template:
+        src: clamav-scan.timer.j2
         dest: /usr/local/lib/systemd/system/clamav-scan.timer
         owner: root
         group: root

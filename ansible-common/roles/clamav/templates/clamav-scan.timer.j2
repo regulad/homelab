@@ -1,0 +1,14 @@
+# Managed by Ansible (clamav).
+[Unit]
+Description=Weekly ClamAV scan of the host's files, at a time of the week of its own
+Documentation=man:systemd.timer(5)
+
+[Timer]
+# Once a week, at the host's own time (clamav_scan_minute), so that the hosts'
+# scans spread across the week rather than meeting at the shared clamd.
+OnCalendar={{ ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][clamav_scan_minute | int // 1440] }} *-*-* {{ '%02d:%02d' | format(clamav_scan_minute | int % 1440 // 60, clamav_scan_minute | int % 60) }}:00 UTC
+# A scan missed while the host was down runs once it is up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
