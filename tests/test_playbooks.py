@@ -184,6 +184,16 @@ class AuditdSettings(unittest.TestCase):
         self.assertIsNone(re.search(r"^space_left_action = ", lines[0]))
 
 
+def timer_files():
+    """Every systemd timer the repository installs, as a file or a template."""
+    skipped = {".git", ".claude", "collections", ".terraform", "snapshot"}
+    for top, directories, files in os.walk(support.REPOSITORY):
+        directories[:] = [name for name in directories if name not in skipped]
+        for name in files:
+            if name.endswith((".timer", ".timer.j2")):
+                yield os.path.relpath(os.path.join(top, name), support.REPOSITORY)
+
+
 class Timers(unittest.TestCase):
     """systemd adds RandomizedDelaySec= to a run a Persistent= timer missed while
     the host was down counting from the boot, after moving the missed calendar
@@ -192,6 +202,14 @@ class Timers(unittest.TestCase):
     each host's own."""
 
     WEEKDAY = r"\['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'\]\[%s \| int // 1440\]"
+
+    def test_no_persistent_timer_draws_a_random_delay(self):
+        paths = list(timer_files())
+        self.assertIn("ansible-common/roles/restic/templates/restic.timer.j2", paths)
+        for path in paths:
+            timer = read(path)
+            if re.search(r"(?m)^Persistent=(true|yes)$", timer):
+                self.assertNotRegex(timer, r"(?m)^(RandomizedDelaySec|FixedRandomDelay)=", path)
 
     def test_the_weekly_scan_at_a_fixed_time_of_the_hosts_own(self):
         timer = read("ansible-common/roles/clamav/templates/clamav-scan.timer.j2")

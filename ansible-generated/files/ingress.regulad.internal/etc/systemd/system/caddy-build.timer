@@ -2,11 +2,11 @@
 Description=Start caddy-build.service weekly
 
 [Timer]
-# Once a week, at a delay of up to a week from its start that systemd derives
-# from the host's machine ID and this timer's name and keeps.
-OnCalendar=weekly
-RandomizedDelaySec=1w
-FixedRandomDelay=true
+# Once a week, just after midnight on Tuesday in the host's time zone,
+# America/New_York, where systemd's fixed random delay had put it. A fixed
+# time rather than RandomizedDelaySec= with FixedRandomDelay=, which systemd
+# adds to a run missed while the host was down counting from the boot.
+OnCalendar=Tue *-*-* 05:06:00 UTC
 # A run missed while the host was down starts once it is up.
 Persistent=true
 
