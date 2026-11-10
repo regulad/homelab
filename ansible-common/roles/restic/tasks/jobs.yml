@@ -4,11 +4,11 @@
 # jobs no longer declared and of the crontab scripts the jobs replace.
 - name: Gather the jobs' settings
   ansible.builtin.set_fact:
-    # The periods a job runs once in, its timer's OnCalendar=, each with its
-    # length, the timer's RandomizedDelaySec=.
+    # The periods a job runs once in, each with its length in minutes, within
+    # which its timer's time lies.
     restic_job_periods:
-      daily: 1d
-      weekly: 1w
+      daily: 1440
+      weekly: 10080
     # What each job sets besides period.
     restic_job_fields:
       simple: [paths]

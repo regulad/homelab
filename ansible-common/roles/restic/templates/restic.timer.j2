@@ -1,15 +1,19 @@
 # Managed by Ansible (restic).
+{# The job's minute of its period, from midnight, Monday's for a weekly job, in
+   UTC: one of its own, derived from the host's name and the job's. A fixed
+   time rather than systemd's RandomizedDelaySec= with FixedRandomDelay=, which
+   systemd adds to a run missed while the host was down counting from the boot,
+   so that a reboot put the run off by up to the whole delay, a period's run
+   skipped where the reboot came shortly before it. #}
+{% set minute = ((inventory_hostname ~ ' restic-' ~ item.key) | hash('sha1'))[:8] | int(base=16) % restic_job_periods[item.value.period] %}
 [Unit]
 Description=Start restic-{{ item.key }}.service on schedule
 
 [Timer]
-# Once {{ item.value.period }}, at a delay of up to {{ restic_job_periods[item.value.period] }} from the period's start that
-# systemd derives from the host's machine ID and this timer's name and keeps,
-# so that the hosts' jobs, and each host's, spread across the period rather
-# than meeting at the repository.
-OnCalendar={{ item.value.period }}
-RandomizedDelaySec={{ restic_job_periods[item.value.period] }}
-FixedRandomDelay=true
+# Once {{ item.value.period }}, at a time of the {{ 'week' if item.value.period == 'weekly' else 'day' }} of the host's own, derived from its name
+# and the job's, so that the hosts' jobs, and each host's, spread across the
+# period rather than meeting at the repository.
+OnCalendar={{ ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][minute // 1440] ~ ' ' if item.value.period == 'weekly' else '' }}*-*-* {{ '%02d:%02d' | format(minute % 1440 // 60, minute % 60) }}:00 UTC
 # A run missed while the host was down starts once it is up.
 Persistent=true
 

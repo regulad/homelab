@@ -206,6 +206,18 @@ class Timers(unittest.TestCase):
         scan = read("ansible-common/roles/clamav/tasks/scan.yml")
         self.assertRegex(task(scan, "Weekly scan's timer"), r"ansible\.builtin\.template:\s+src: clamav-scan\.timer\.j2")
 
+    def test_each_backup_job_at_a_fixed_time_of_its_own(self):
+        timer = read("ansible-common/roles/restic/templates/restic.timer.j2")
+        self.assertIn("{% set minute = ((inventory_hostname ~ ' restic-' ~ item.key) | hash('sha1'))[:8]"
+                      " | int(base=16) % restic_job_periods[item.value.period] %}", timer)
+        self.assertRegex(timer, r"(?m)^OnCalendar=\{\{ \['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'\]"
+                                r"\[minute // 1440\] ~ ' ' if item\.value\.period == 'weekly' else '' \}\}"
+                                r"\*-\*-\* \{\{ .*minute.* \}\}:00 UTC$")
+        self.assertRegex(timer, r"(?m)^Persistent=true$")
+        jobs = read("ansible-common/roles/restic/tasks/jobs.yml")
+        self.assertRegex(jobs, r"restic_job_periods:\s+daily: 1440\s+weekly: 10080\s")
+
+
 class RefreshTasks(unittest.TestCase):
     def test_runs_aide_report_with_the_paths_then_the_units(self):
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
