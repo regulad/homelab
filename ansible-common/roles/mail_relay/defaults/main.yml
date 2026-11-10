@@ -9,6 +9,9 @@ mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
 mail_relay_domain: regulad.xyz
 # The account's password, from the host's secrets.sops.yml.
 mail_relay_password: ""
+# When the account's password expires: 2038-01-19 03:14:07 UTC, FreeIPA's
+# latest, so the relay login never expires.
+mail_relay_password_expiration: "20380119031407"
 # The name Postfix gives itself, in Received headers and its EHLO. Empty finds
 # it on the host: its canonical name (hostname -f) where that has a domain,
 # otherwise its short name in the DHCP domain of the preferred default route's

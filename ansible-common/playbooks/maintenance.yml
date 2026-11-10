@@ -58,6 +58,19 @@
         name: mail_relay
         tasks_from: remove_account
 
+# Set the FreeIPA mail account of each host given with --limit to the host's
+# SOPS password, which mail_relay sets only when it creates the account:
+# --tags mail-password-reset --limit <host>.
+- name: Mail account password reset
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  tags: [mail-password-reset]
+  tasks:
+    - name: Reset the account's password
+      ansible.builtin.include_role:
+        name: mail_relay
+        tasks_from: password_reset
+
 # Move AIDE's baseline to the files as they are, on the hosts given with
 # --limit, where no mailed report has, such as one too long for a mail, once
 # each change is accounted for.
