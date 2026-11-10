@@ -162,6 +162,34 @@ class RpmVouches(unittest.TestCase):
         packages = self.packages(ghost={"/var/log/foo.log"})
         self.assertEqual(kept_paths(explain(entries, packages)[0]), {"changed": ["/var/log/foo.log"]})
 
+    def test_kept_a_file_whose_contents_rpm_does_not_check(self):
+        # setup's /etc/passwd: %verify(not md5 size mtime), so rpm --verify
+        # passes whatever it holds, a user with uid 0 added by hand included.
+        entries = report(changed={"/etc/passwd": CHANGED_FILE},
+                         details={"/etc/passwd": attributes("sha256", "size", "modify_time")})
+        packages = FakePackages(owner={"/etc/passwd": "setup-2.14-1.noarch"}, rpm=True,
+                                unchecked={"/etc/passwd": ar.CHECKSUMS | {"size", "block_count", "growing_size"}})
+        self.assertEqual(kept_paths(explain(entries, packages)[0]), {"changed": ["/etc/passwd"]})
+
+    def test_kept_any_change_to_a_file_whose_contents_rpm_does_not_check(self):
+        entries = report(changed={"/etc/passwd": CHANGED_FILE}, details={"/etc/passwd": attributes("perm")})
+        packages = FakePackages(owner={"/etc/passwd": "setup-2.14-1.noarch"}, rpm=True,
+                                unchecked={"/etc/passwd": ar.CHECKSUMS})
+        self.assertEqual(kept_paths(explain(entries, packages)[0]), {"changed": ["/etc/passwd"]})
+
+    def test_kept_a_change_in_what_else_rpm_does_not_check(self):
+        for attribute, unchecked in (("link_name", {"link_name"}), ("uid", {"uid"}), ("perm", {"perm", "file_type"}),
+                                     ("capabilities", {"capabilities"})):
+            entries = report(changed={"/usr/bin/foo": CHANGED_FILE},
+                             details={"/usr/bin/foo": attributes("sha256", attribute)})
+            packages = self.packages(unchecked={"/usr/bin/foo": unchecked})
+            self.assertEqual(kept_paths(explain(entries, packages)[0]), {"changed": ["/usr/bin/foo"]}, attribute)
+
+    def test_vouched_for_where_rpm_checks_what_changed(self):
+        entries = report(changed={"/usr/bin/foo": CHANGED_FILE}, details={"/usr/bin/foo": attributes("sha256", "uid")})
+        packages = self.packages(unchecked={"/usr/bin/foo": {"link_name", "perm", "file_type"}})
+        self.assertEqual(explain(entries, packages)[1], 1)
+
 
 class DpkgRecords(unittest.TestCase):
     def test_a_record_of_a_package_whose_version_changed(self):
@@ -203,6 +231,16 @@ class PackageLinks(support.TreeTestCase):
         entries = report(changed={link: CHANGED_LINK}, details={link: attributes("link_name", "change_time")})
         self.assertEqual(explain(entries, packages)[1], 1)
 
+    def test_kept_a_link_to_a_file_whose_contents_rpm_does_not_check(self):
+        # The link's own package does not check its target, as bind's
+        # named.ca's does not, so it is vouched for by what it points at.
+        target = self.write("etc/hosts")
+        link = self.link("etc/hosts.link", target)
+        packages = FakePackages(owner={link: "foo-2-1.noarch", target: "setup-2.14-1.noarch"}, rpm=True,
+                                unchecked={link: {"link_name"}, target: ar.CHECKSUMS})
+        entries = report(changed={link: CHANGED_LINK}, details={link: attributes("link_name", "change_time")})
+        self.assertEqual(kept_paths(explain(entries, packages)[0]), {"changed": [link]})
+
     def test_kept_a_link_to_a_file_no_package_owns(self):
         target = self.write("usr/local/lib/libfoo.so.2")
         link = self.link("usr/lib/libfoo.so", target)
@@ -219,6 +257,13 @@ class KernelCopies(unittest.TestCase):
         packages = FakePackages(owner={twin: "kernel-uek-core", copy: "kernel-uek-core"}, ghost={copy}, rpm=True)
         with mock.patch.object(ar, "same_contents", lambda a, b: (a, b) == (copy, twin)):
             self.assertEqual(explain(report(added={copy: ADDED_FILE}), packages)[1], 1)
+
+    def test_kept_a_copy_of_a_file_whose_contents_rpm_does_not_check(self):
+        copy, twin = "/boot/vmlinuz-" + self.release, "/usr/lib/modules/%s/vmlinuz" % self.release
+        packages = FakePackages(owner={twin: "kernel-uek-core", copy: "kernel-uek-core"}, ghost={copy}, rpm=True,
+                                unchecked={twin: ar.CHECKSUMS})
+        with mock.patch.object(ar, "same_contents", lambda a, b: (a, b) == (copy, twin)):
+            self.assertEqual(kept_paths(explain(report(added={copy: ADDED_FILE}), packages)[0]), {"added": [copy]})
 
     def test_kept_a_copy_whose_contents_differ(self):
         copy, twin = "/boot/vmlinuz-" + self.release, "/usr/lib/modules/%s/vmlinuz" % self.release

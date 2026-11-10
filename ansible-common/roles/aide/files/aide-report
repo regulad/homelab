@@ -35,7 +35,9 @@ A change is left out when:
   rpm --verify finds nothing but its mtime, or dpkg --verify finds its contents
   intact and AIDE saw no change in its type, mode, ownership or other metadata
   dpkg does not record; rpm records no contents for a %ghost file, so never
-  vouches for one;
+  vouches for one, nor for a file whose package's %verify(not ...) leaves its
+  digest unchecked, as setup's does for /etc/passwd, or a change in what else
+  it leaves unchecked;
 - the path is a symlink of a package, pointing at a file of a package that
   vouches for it;
 - the path is a copy in /boot that kernel-install made of a kernel's own file,
@@ -148,6 +150,22 @@ INCIDENTAL = {"access_time", "change_time", "modify_time", "inode", "link_count"
 # rpm --verify also checks mode, ownership, link target, type and
 # capabilities; neither package manager records these.
 UNRECORDED = {"acl", "selinux", "xattrs", "e2fsattrs"}
+# What rpm --verify checks of a file, by the bits of its verify flags
+# (RPMVERIFY_* in rpm's rpmfiles.h), each with the attributes of AIDE's report
+# it covers. A package's %verify(not ...) clears some for a file, as setup's
+# does the digest, size and mtime of /etc/passwd, and rpm --verify then passes
+# whatever the file holds there. The mtime (1 << 5) is not among them, as
+# rpm's T alone leaves a file as its package has it, nor the device numbers
+# (1 << 7), which AIDE does not record.
+RPM_VERIFIES = (
+    (1 << 0, CHECKSUMS),                                    # file digest
+    (1 << 1, {"size", "block_count", "growing_size"}),      # size
+    (1 << 2, {"link_name"}),                                # link target
+    (1 << 3, {"uid"}),                                      # user
+    (1 << 4, {"gid"}),                                      # group
+    (1 << 6, {"perm", "file_type"}),                        # mode
+    (1 << 8, {"capabilities"}),                             # capabilities
+)
 # dpkg's records of a package: /var/lib/dpkg/info/<package>[:<arch>].<kind>.
 DPKG_INFO = re.compile(r"^/var/lib/dpkg/info/([^/]+)\.[A-Za-z0-9_-]+$")
 # The links of a merged /usr, which AIDE does not follow. Packages may still
@@ -371,19 +389,27 @@ class Packages:
         self.installed = set()
         # rpm's %ghost files: listed, with no contents rpm --verify checks.
         self.ghost = set()
+        # The attributes of AIDE's report that rpm --verify does not check of
+        # a path, by its owner's verify flags, where there are any.
+        self.unchecked = {}
         if self.rpm:
             out = subprocess.run(
                 ["rpm", "-qa", "--qf",
-                 "[%{FILENAMES}\\t%{FILEFLAGS:fflags}\\t%{=NAME}-%{=VERSION}-%{=RELEASE}.%{=ARCH}\\n]"],
+                 "[%{FILENAMES}\\t%{FILEFLAGS:fflags}\\t%{FILEVERIFYFLAGS}"
+                 "\\t%{=NAME}-%{=VERSION}-%{=RELEASE}.%{=ARCH}\\n]"],
                 stdout=subprocess.PIPE, text=True, errors="replace", check=True).stdout
             regular = set()
             for line in out.splitlines():
-                fields = line.rsplit("\t", 2)
-                if len(fields) == 3 and fields[0]:
-                    path, flags, package = self.canonical(fields[0]), fields[1], fields[2]
-                    self.owner.setdefault(path, package)
+                fields = line.rsplit("\t", 3)
+                if len(fields) == 4 and fields[0] and fields[2].lstrip("-").isdigit():
+                    path, flags, verify, package = self.canonical(fields[0]), fields[1], int(fields[2]), fields[3]
                     self.installed.add(package)
                     (self.ghost if "g" in flags else regular).add(path)
+                    if self.owner.setdefault(path, package) != package or "g" in flags:
+                        continue
+                    unchecked = frozenset().union(*(names for bit, names in RPM_VERIFIES if not verify & bit))
+                    if unchecked:
+                        self.unchecked[path] = unchecked
             # A path one package lists as a ghost and another installs is the latter's.
             self.ghost -= regular
         else:
@@ -700,15 +726,17 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
     explained = 0
 
     def verified(path):
-        # rpm --verify checks none of a ghost's contents, so passes any.
-        return path in packages.owner and path not in packages.ghost and path not in unverified
+        # rpm --verify checks none of a ghost's contents, nor of a file whose
+        # package clears its digest's verify flag, so passes any.
+        return (path in packages.owner and path not in packages.ghost and path not in unverified
+                and not packages.unchecked.get(path, frozenset()) & CHECKSUMS)
 
     def vouched(path):
         if not verified(path):
             return False
         attributes = changed_attributes(report, path)
         if packages.rpm:
-            return not attributes & UNRECORDED
+            return not attributes & (UNRECORDED | packages.unchecked.get(path, frozenset()))
         return not attributes - CONTENT - INCIDENTAL
 
     def rewritten(path, summary):

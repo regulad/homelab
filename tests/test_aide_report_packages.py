@@ -84,6 +84,10 @@ class DpkgPackages(PackagesTestCase):
         self.assertNotIn("bar=2.0", packages.installed)
         self.assertNotIn("/etc/bar.conf", packages.owner)
 
+    def test_dpkg_leaves_nothing_unchecked(self):
+        # dpkg --verify checks only contents, which it checks for every file.
+        self.assertEqual(ar.Packages().unchecked, {})
+
     def test_dpkg_verifies_by_package_name(self):
         packages = ar.Packages()
         self.assertEqual(packages.package("foo=1.0"), "foo")
@@ -101,14 +105,25 @@ class RpmPackages(PackagesTestCase):
     def setUp(self):
         super().setUp()
         self.manager(rpm=True)
-        self.output("rpm", "/usr/bin/foo\t\tfoo-1.0-1.x86_64\n/etc/foo.conf\tc\tfoo-1.0-1.x86_64\n"
-                           "/var/log/foo.log\tg\tfoo-1.0-1.x86_64\n/boot/vmlinuz-6\tg\tkernel-core-6-1.x86_64\n"
-                           "/boot/vmlinuz-6\t\tother-1-1.x86_64\n(contains no files)\n")
+        # Verify flags as rpm prints them, unsigned: every check (4294967295),
+        # all but the mtime (4294967263), and setup's %verify(not md5 size
+        # mtime) of /etc/passwd (4294967260), the same with a ghost's link.
+        self.output("rpm", "/usr/bin/foo\t\t4294967295\tfoo-1.0-1.x86_64\n"
+                           "/etc/foo.conf\tc\t4294967263\tfoo-1.0-1.x86_64\n"
+                           "/var/log/foo.log\tg\t4294967256\tfoo-1.0-1.x86_64\n"
+                           "/boot/vmlinuz-6\tg\t4294967256\tkernel-core-6-1.x86_64\n"
+                           "/boot/vmlinuz-6\t\t4294967295\tother-1-1.x86_64\n"
+                           "/etc/passwd\tcn\t4294967260\tsetup-2.14-1.noarch\n"
+                           "/etc/passwd\t\t4294967295\tother-1-1.x86_64\n"
+                           "/var/named/named.ca\t\t4294967291\tbind-9-1.x86_64\n"
+                           "/etc/odd\t\t8\tbind-9-1.x86_64\n"
+                           "(contains no files)\n")
 
     def test_owner_installed_and_ghosts(self):
         packages = ar.Packages()
         self.assertTrue(packages.rpm)
-        self.assertEqual(packages.installed, {"foo-1.0-1.x86_64", "kernel-core-6-1.x86_64", "other-1-1.x86_64"})
+        self.assertEqual(packages.installed, {"foo-1.0-1.x86_64", "kernel-core-6-1.x86_64", "other-1-1.x86_64",
+                                              "setup-2.14-1.noarch", "bind-9-1.x86_64"})
         self.assertEqual(packages.owner["/usr/bin/foo"], "foo-1.0-1.x86_64")
         self.assertIn("/var/log/foo.log", packages.ghost)
 
@@ -116,6 +131,32 @@ class RpmPackages(PackagesTestCase):
         packages = ar.Packages()
         self.assertEqual(packages.owner["/boot/vmlinuz-6"], "kernel-core-6-1.x86_64")
         self.assertNotIn("/boot/vmlinuz-6", packages.ghost)
+
+    def test_the_query_lists_each_files_flags_and_verify_flags(self):
+        ar.Packages()
+        (query,) = [call["argv"] for call in self.calls("rpm") if call["argv"][:1] == ["-qa"]]
+        self.assertEqual(query, ["-qa", "--qf", "[%{FILENAMES}\\t%{FILEFLAGS:fflags}\\t%{FILEVERIFYFLAGS}"
+                                              "\\t%{=NAME}-%{=VERSION}-%{=RELEASE}.%{=ARCH}\\n]"])
+
+    def test_what_rpm_does_not_check_of_a_file_by_its_verify_flags(self):
+        packages = ar.Packages()
+        self.assertEqual(packages.unchecked["/etc/passwd"], ar.CHECKSUMS | {"size", "block_count", "growing_size"})
+        self.assertEqual(packages.unchecked["/var/named/named.ca"], {"link_name"})
+        self.assertEqual(packages.unchecked["/etc/odd"], ar.CHECKSUMS | {
+            "size", "block_count", "growing_size", "link_name", "gid", "perm", "file_type", "capabilities"})
+
+    def test_every_check_or_all_but_the_mtime_leaves_nothing_unchecked(self):
+        packages = ar.Packages()
+        self.assertNotIn("/usr/bin/foo", packages.unchecked)
+        self.assertNotIn("/etc/foo.conf", packages.unchecked)
+
+    def test_a_ghost_is_never_vouched_for_and_needs_no_flags(self):
+        self.assertNotIn("/var/log/foo.log", ar.Packages().unchecked)
+
+    def test_the_owners_flags_are_the_ones_its_verify_checks(self):
+        packages = ar.Packages()
+        self.assertEqual(packages.owner["/etc/passwd"], "setup-2.14-1.noarch")
+        self.assertIn("/etc/passwd", packages.unchecked)
 
     def test_rpm_verifies_by_the_whole_name(self):
         self.assertEqual(ar.Packages().package("foo-1.0-1.x86_64"), "foo-1.0-1.x86_64")

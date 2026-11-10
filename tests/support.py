@@ -84,12 +84,13 @@ def attributes(*names):
 class FakePackages:
     """aide-report's Packages, as the test sets it out."""
 
-    def __init__(self, owner=None, installed=None, ghost=(), rpm=False, unverified=()):
+    def __init__(self, owner=None, installed=None, ghost=(), rpm=False, unverified=(), unchecked=None):
         self.rpm = rpm
         self.merged = {}
         self.owner = dict(owner or {})
         self.installed = set(self.owner.values() if installed is None else installed)
         self.ghost = set(ghost)
+        self.unchecked = {path: frozenset(names) for path, names in (unchecked or {}).items()}
         self.failing = set(unverified)
         self.asked = []
 
