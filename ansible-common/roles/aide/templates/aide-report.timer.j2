@@ -1,0 +1,14 @@
+# Managed by Ansible (aide).
+[Unit]
+Description=Daily AIDE report, at a time of the day of the host's own
+Documentation=man:systemd.timer(5)
+
+[Timer]
+# Once a day, at the host's own time (aide_report_minute), so that the hosts'
+# checks spread across the day rather than meeting on shared storage.
+OnCalendar=*-*-* {{ '%02d:%02d' | format(aide_report_minute | int // 60, aide_report_minute | int % 60) }}:00 UTC
+# A check missed while the host was down runs once it is up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

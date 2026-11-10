@@ -91,7 +91,7 @@ class SitePlaybooks(unittest.TestCase):
     def test_the_first_baseline_starts_from_the_refresh_once_the_run_has_written_everything(self):
         main = read("ansible-common/roles/aide/tasks/main.yml")
         # The role installs the unit, and starts it nowhere.
-        self.assertIn("loop: [aide-report.service, aide-baseline.service, aide-report.timer]", main)
+        self.assertIn("loop: [aide-report.service, aide-baseline.service]", main)
         self.assertNotIn("name: aide-baseline.service", main)
         self.assertNotIn("First baseline", main)
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
@@ -100,6 +100,16 @@ class SitePlaybooks(unittest.TestCase):
         order = [refresh.index(name) for name in ("- name: Nothing to refresh", "- name: First baseline",
                                                   "- name: AIDE's baseline for them")]
         self.assertEqual(order, sorted(order))
+
+    def test_the_daily_report_at_a_fixed_time_of_the_hosts_own(self):
+        # RandomizedDelaySec= counts a missed check's delay from the boot, so a
+        # reboot before the host's delay put its report off by the whole delay.
+        timer = read("ansible-common/roles/aide/templates/aide-report.timer.j2")
+        self.assertRegex(timer, r"(?m)^OnCalendar=\*-\*-\* \{\{ .*aide_report_minute.* \}\}:00 UTC$")
+        self.assertRegex(timer, r"(?m)^Persistent=true$")
+        self.assertNotIn("RandomizedDelaySec", timer)
+        defaults = read("ansible-common/roles/aide/defaults/main.yml")
+        self.assertRegex(defaults, r"(?m)^aide_report_minute: .*inventory_hostname.* % 1440 \}\}\"$")
 
     def test_the_units_directory_is_one_setting(self):
         defaults = read("ansible-common/roles/aide/defaults/main.yml")

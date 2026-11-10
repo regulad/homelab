@@ -8,6 +8,14 @@
 # no report does.
 aide_enabled: true
 
+# The minute of the day, in UTC, of the host's daily report: one of its own,
+# derived from its name, so that the hosts' checks spread across the day. A
+# fixed time rather than systemd's RandomizedDelaySec=, which systemd adds to a
+# check missed while the host was down counting from the boot, so that a
+# reboot between midnight and the host's delay put its report off by the whole
+# delay, a day's report skipped where the reboot came shortly before it.
+aide_report_minute: "{{ (inventory_hostname | hash('sha1'))[:8] | int(base=16) % 1440 }}"
+
 # The filesystems AIDE walks, by mount point: the system's own. aide-report
 # excludes every other mount point at each run, with everything below it: data
 # disks, the CephFS, container storage and the kernel's virtual filesystems

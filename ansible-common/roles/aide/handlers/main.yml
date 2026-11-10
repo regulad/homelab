@@ -5,4 +5,4 @@
     state: restarted
     daemon_reload: true
   # A check run cannot read what an install still pending would create.
-  when: not (ansible_check_mode and aide_units is changed)
+  when: not (ansible_check_mode and (aide_units is changed or aide_timer is changed))

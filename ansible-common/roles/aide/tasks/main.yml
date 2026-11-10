@@ -112,8 +112,18 @@
         owner: root
         group: root
         mode: "0644"
-      loop: [aide-report.service, aide-baseline.service, aide-report.timer]
+      loop: [aide-report.service, aide-baseline.service]
       register: aide_units
+      notify: Restart the daily report's timer
+
+    - name: Daily report's timer
+      ansible.builtin.template:
+        src: aide-report.timer.j2
+        dest: "{{ aide_unit_dir }}/aide-report.timer"
+        owner: root
+        group: root
+        mode: "0644"
+      register: aide_timer
       notify: Restart the daily report's timer
 
     - name: Daily report's timer running
@@ -123,7 +133,7 @@
         state: started
         daemon_reload: true
       # A check run cannot read what an install still pending would create.
-      when: not (ansible_check_mode and aide_units is changed)
+      when: not (ansible_check_mode and (aide_units is changed or aide_timer is changed))
 
     # AppArmor's compiled policy cache, /var/cache/apparmor, lies below
     # /var/cache, and AIDE does not walk into an excluded directory whatever a
