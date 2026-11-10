@@ -15,7 +15,11 @@ num_logs = {{ auditd_num_logs }}
 max_log_file_action = ROTATE
 name_format = HOSTNAME
 space_left = 10%
-space_left_action = SYSLOG
+# Two spaces before the =, which auditd reads as one: oci-linux-config's
+# passwd_mgmt.sh, run at each install and upgrade of that package on Oracle
+# Linux, sets "space_left_action = email" with sed, and its address matches
+# only one.
+space_left_action  = SYSLOG
 admin_space_left = 5%
 admin_space_left_action = SYSLOG
 disk_full_action = ROTATE

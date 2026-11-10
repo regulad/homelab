@@ -127,6 +127,20 @@ class AideRole(unittest.TestCase):
                                r"become: false\s+vars:\s+ansible_become: false\s")
 
 
+class AuditdSettings(unittest.TestCase):
+    def test_space_left_action_out_of_reach_of_oci_linux_configs_rewrite(self):
+        # oci-linux-config's passwd_mgmt.sh, which its %post runs at each
+        # install and upgrade, runs
+        #   sed -i "/^space_left_action = / s/=.*/= email/" /etc/audit/auditd.conf
+        # auditd splits each line on runs of spaces, so two before the =
+        # read the same to auditd and fall outside the sed's address.
+        template = read("ansible-common/roles/auditd/templates/auditd.conf.j2")
+        lines = [line for line in template.splitlines() if line.split()[:1] == ["space_left_action"]]
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0].split(" "), ["space_left_action", "", "=", "SYSLOG"])
+        self.assertIsNone(re.search(r"^space_left_action = ", lines[0]))
+
+
 class RefreshTasks(unittest.TestCase):
     def test_runs_aide_report_with_the_paths_then_the_units(self):
         refresh = read("ansible-common/roles/aide/tasks/refresh.yml")
