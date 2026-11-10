@@ -88,9 +88,12 @@
 - name: Dnf-automatic
   when: auto_updates_family == 'rhel'
   block:
-    - name: Install dnf-automatic
+    # dnf-plugins-core brings dnf needs-restarting, which a reboot_command can
+    # ask whether the update needs a reboot. Not every image has it: wako's
+    # AlmaLinux 10 has not.
+    - name: Install dnf-automatic and needs-restarting
       ansible.builtin.package:
-        name: dnf-automatic
+        name: [dnf-automatic, dnf-plugins-core]
         state: present
       register: auto_updates_dnf_installed
 

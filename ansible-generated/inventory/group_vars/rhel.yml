@@ -5,11 +5,21 @@ ca_trust_family: rhel
 auto_updates_family: rhel
 # One dnf-automatic setup for every host: all updates, not only security ones,
 # installed and rebooted into when needed, with a report mailed as well as logged.
+# dnf 4's own when-needed checks a fixed list of package names, which has no
+# kernel-uek or kernel-uek-core, so a UEK update alone never rebooted the
+# host. needs-restarting decides instead: after every update that changed
+# something, it reboots, five minutes later as by default, when a package on
+# its list was installed since boot. Oracle's build lists the UEK packages.
+# The command fails toward rebooting: needs-restarting exits 1 on an error too.
 auto_updates_dnf_automatic:
   - {section: commands, key: upgrade_type, value: default}
   - {section: commands, key: download_updates, value: "yes"}
   - {section: commands, key: apply_updates, value: "yes"}
-  - {section: commands, key: reboot, value: when-needed}
+  - {section: commands, key: reboot, value: when-changed}
+  - section: commands
+    key: reboot_command
+    value: >-
+      "dnf needs-restarting -r >/dev/null || shutdown -r +5 'Rebooting after applying package updates'"
   - {section: emitters, key: emit_via, value: "stdio,email"}
   - {section: email, key: email_from, value: "{{ auto_updates_mail_from }}"}
   - {section: email, key: email_to, value: "{{ auto_updates_mail_to }}"}
