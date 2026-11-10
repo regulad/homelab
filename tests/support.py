@@ -135,14 +135,15 @@ class TreeTestCase(unittest.TestCase):
 
 
 FAKE_COMMAND = """#!{python}
-# A stand-in for {name}: logs its arguments, and for mail its standard input,
-# to $FAKE_LOG, prints $FAKE_{key}_OUTPUT's file, writes "written" to
-# $FAKE_{key}_WRITES's path, and exits with $FAKE_{key}_STATUS, or prints
-# {name} --version's text. Only mail is given input; any other would wait on
-# the standard input it inherits.
+# A stand-in for {name}: logs its arguments, and for sendmail its standard
+# input, as UTF-8 with any other bytes kept as surrogates, to $FAKE_LOG; prints
+# $FAKE_{key}_OUTPUT's file, writes "written" to $FAKE_{key}_WRITES's path, and
+# exits with $FAKE_{key}_STATUS, or prints {name} --version's text. Only
+# sendmail is given input; any other would wait on the standard input it
+# inherits.
 import json, os, sys
 argv = sys.argv[1:]
-stdin = sys.stdin.read() if "{name}" == "mail" else ""
+stdin = sys.stdin.buffer.read().decode("utf-8", "surrogateescape") if "{name}" == "sendmail" else ""
 with open(os.environ["FAKE_LOG"], "a") as handle:
     handle.write(json.dumps({{"command": "{name}", "argv": argv, "stdin": stdin}}) + "\\n")
 if argv[:1] == ["--version"]:

@@ -3,8 +3,8 @@
 # --tags aide-accept, where no mailed report has: on a host without one, after
 # a report too long for one mail, or before the next report would list what a
 # deliberate change, such as a release upgrade, wrote. Every other report
-# moves it as its mail is sent. A run without --limit would accept every
-# host's changes unread, so it refuses.
+# moves it once the relay accepts its mail. A run without --limit would accept
+# every host's changes unread, so it refuses.
 - name: Check the run names its hosts
   ansible.builtin.assert:
     that: ansible_limit is defined

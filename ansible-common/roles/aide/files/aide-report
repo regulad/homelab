@@ -4,15 +4,19 @@
 Managed by Ansible (aide).
 
 aide-report: checks the host's files against the accepted baseline, leaves out
-the changes its package manager vouches for, and mails root what remains. Once
-the mail is sent, the files as that check found them become the baseline, so
-each change is mailed once. AIDE's --update compares the files and writes their
-new database in the same walk, and only that database is accepted, so a change
-made after the walk stays for the next report. A mail accepts nothing where
-there is no baseline, the check failed, the report is too long for one mail, or
-the mail is only of container images, which are reported until repaired. Each
-mail begins with when the previous one was sent, and its subject, so that a
-mail lost or held back on the way leaves a gap the next one shows.
+the changes its package manager vouches for, and mails root what remains,
+through Postfix. Once the relay Postfix sends through accepts the mail, as
+Postfix's log in the journal shows, the files as that check found them become
+the baseline, so each change is mailed until a mail of it gets through. A mail
+the relay defers or refuses, or that Postfix has logged no answer for within
+five minutes, accepts nothing, and the next mail says so. AIDE's --update
+compares the files and writes their new database in the same walk, and only
+that database is accepted, so a change made after the walk stays for the next
+report. A mail accepts nothing where there is no baseline, the check failed,
+the report is too long for one mail, or the mail is only of container images,
+which are reported until repaired. Each mail begins with when the previous one
+was sent, and its subject, so that a mail lost on the way leaves a gap the
+next one shows.
 aide-report --baseline: accepts the files as they are: a new database, and the
 list of package-owned paths beside it, which later reports use to tell a path
 an upgrade removed from one removed by hand. The list is the packages' before
@@ -113,6 +117,9 @@ Settings come from a JSON file, by default /etc/aide-report/settings.json.
 
 import argparse
 import datetime
+import email.message
+import email.policy
+import email.utils
 import fcntl
 import glob
 import gzip
@@ -230,6 +237,21 @@ ALTERNATIVES = "/etc/alternatives"
 ALTERNATIVES_RECORDS = ("/var/lib/dpkg/alternatives", "/var/lib/alternatives")
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
+# How a mail is written: lines of up to SMTP's 998 characters go unencoded, as
+# 7bit or, with other than ASCII in them, 8bit; only a longer one is encoded.
+MAIL_POLICY = email.policy.default.clone(max_line_length=998)
+# How long a check waits for the relay's answer to its mail, and how often it
+# reads Postfix's log meanwhile, in seconds. Postfix hands a mail on within
+# seconds, and gives up on a relay it cannot reach within a minute or two.
+RELAY_WAIT = 300
+RELAY_POLL = 5
+# Postfix's log, under its default syslog_name, which mail_relay keeps: the
+# queue ID cleanup gives a mail, by its Message-ID, and the answer a delivery
+# agent logs for a recipient of it: smtp's, or error's while Postfix holds the
+# relay unreachable.
+POSTFIX_IDENTIFIER = "postfix/"
+POSTFIX_QUEUED = re.compile(r"^(?P<queue_id>\w+): message-id=(?P<message_id>\S+)$")
+POSTFIX_ANSWER = re.compile(r"^(?P<queue_id>\w+): to=<[^>]*>, .*\bstatus=(?P<status>\w+)(?: \((?P<detail>.*)\))?$")
 
 
 def load(path):
@@ -1007,36 +1029,113 @@ def docker_check():
 
 
 def previous_mail(settings):
-    """The line each mail begins with: when the previous mail aide-report sent
-    from the host was, and its subject, by which to find it in a mailbox."""
+    """The lines each mail begins with: when the previous mail aide-report sent
+    from the host was, and its subject, by which to find it in a mailbox; and
+    where the relay had not accepted it, what Postfix logged for it."""
     record = os.path.join(settings["state"], "mailed.json")
     try:
         previous = load(record)
-        return "The previous mail from aide-report here was sent %s, with the subject: %s" % (
-            previous["time"], previous["subject"])
+        lines = ["The previous mail from aide-report here was sent %s, with the subject: %s" % (
+            previous["time"], previous["subject"])]
+        # A record without the relay's answer is one from before aide-report
+        # waited for it, or from a wait that never ended.
+        answer = previous.get("relay", {"status": "sent"})
+        unaccepted = "The relay had not accepted it when that check stopped waiting, so it moved no baseline: "
+        if answer is None:
+            lines.append(unaccepted + "Postfix logged no answer for it within %d minutes." % (RELAY_WAIT // 60))
+        elif answer["status"] != "sent":
+            lines.append(unaccepted + "%s (%s)" % (answer["status"], answer["detail"]))
+        return lines
     except FileNotFoundError:
-        return "No earlier mail from aide-report here is recorded."
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        return "The record of the previous mail from aide-report here, %s, cannot be read: %s" % (record, error)
+        return ["No earlier mail from aide-report here is recorded."]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        return ["The record of the previous mail from aide-report here, %s, cannot be read: %s" % (record, error)]
+
+
+def record_mail(settings, record):
+    os.makedirs(settings["state"], mode=0o700, exist_ok=True)
+    path = os.path.join(settings["state"], "mailed.json")
+    with open(path + ".tmp", "w") as handle:
+        json.dump(record, handle)
+    os.replace(path + ".tmp", path)
 
 
 def mail(settings, subject, lines):
-    """Mails root the report's lines, after a line naming the previous mail,
-    and records this one as sent: its subject, and the time it was handed to
-    mail, in ISO 8601 with its UTC offset. Sent means the local MTA has it:
-    both mail clients, Debian's bsd-mailx and s-nail, wait for the MTA's
-    sendmail and fail with it. A mail that fails raises, and is not recorded."""
+    """Mails root the report's lines, after the lines naming the previous mail,
+    through Postfix's sendmail, which returns once Postfix has queued it, and
+    records it as sent: its subject, its Message-ID and the time Postfix took
+    it, in ISO 8601 with its UTC offset. A mail sendmail fails raises, and is
+    not recorded. Then waits for the relay's answer, records it with the mail,
+    and returns whether the relay accepted the mail."""
     if len(lines) > MAIL_LINES:
         lines = lines[:MAIL_LINES] + ["", "... and %d more lines." % (len(lines) - MAIL_LINES)]
-    subject = "AIDE on %s: %s" % (socket.getfqdn(), subject)
-    lines = [previous_mail(settings), ""] + lines
+    host = socket.getfqdn()
+    subject = "AIDE on %s: %s" % (host, subject)
+    message = email.message.EmailMessage(policy=MAIL_POLICY)
+    message["To"] = "root"
+    message["Subject"] = subject
+    message["Date"] = email.utils.formatdate(localtime=True)
+    message_id = email.utils.make_msgid("aide-report", domain=host)
+    message["Message-ID"] = message_id
+    message.set_content("\n".join(previous_mail(settings) + [""] + lines) + "\n")
+    # Postfix's log is read from a second before, as journalctl reads whole seconds.
+    since = int(time.time()) - 1
     sent = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-    subprocess.run(["mail", "-s", subject, "root"], input="\n".join(lines) + "\n", text=True, check=True)
-    os.makedirs(settings["state"], mode=0o700, exist_ok=True)
-    record = os.path.join(settings["state"], "mailed.json")
-    with open(record + ".tmp", "w") as handle:
-        json.dump({"time": sent, "subject": subject}, handle)
-    os.replace(record + ".tmp", record)
+    subprocess.run(["sendmail", "-i", "root"], input=message.as_bytes(), check=True)
+    record = {"time": sent, "subject": subject, "message_id": message_id}
+    record_mail(settings, record)
+    answer = relay_answer(message_id, since)
+    record["relay"] = {"status": answer[0], "detail": answer[1]} if answer else None
+    record_mail(settings, record)
+    return bool(answer) and answer[0] == "sent"
+
+
+def postfix_log(since):
+    """What Postfix has logged to the journal since then, each entry's message;
+    nothing where journalctl fails. The entries of a container's Postfix carry
+    the container's name instead."""
+    result = subprocess.run(["journalctl", "--since", "@%d" % since, "--output", "json",
+                             "--output-fields", "SYSLOG_IDENTIFIER,MESSAGE", "--quiet", "--no-pager"],
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, errors="replace")
+    messages = []
+    for line in result.stdout.splitlines() if result.returncode == 0 else []:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        identifier, message = entry.get("SYSLOG_IDENTIFIER"), entry.get("MESSAGE")
+        # journalctl gives a message that is not UTF-8 as an array of its bytes.
+        if isinstance(identifier, str) and identifier.startswith(POSTFIX_IDENTIFIER) and isinstance(message, str):
+            messages.append(message)
+    return messages
+
+
+def postfix_answer(messages, message_id):
+    """The first answer Postfix's log gives for the mail of this Message-ID,
+    its status and detail, such as sent and the relay's reply; none yet if it
+    gives none."""
+    queue_ids = set()
+    for message in messages:
+        queued = POSTFIX_QUEUED.match(message)
+        if queued and queued.group("message_id") == message_id:
+            queue_ids.add(queued.group("queue_id"))
+            continue
+        answer = POSTFIX_ANSWER.match(message)
+        if answer and answer.group("queue_id") in queue_ids:
+            return answer.group("status"), answer.group("detail") or ""
+    return None
+
+
+def relay_answer(message_id, since):
+    """Postfix's answer for the mail of this Message-ID, read from its log
+    every RELAY_POLL seconds until it gives one, for up to RELAY_WAIT; none if
+    it gives none by then."""
+    deadline = time.monotonic() + RELAY_WAIT
+    while True:
+        answer = postfix_answer(postfix_log(since), message_id)
+        if answer is not None or time.monotonic() >= deadline:
+            return answer
+        time.sleep(RELAY_POLL)
 
 
 def describe(report, path, summary):
@@ -1061,8 +1160,8 @@ def save_kept(settings, kept, explained):
 
 def check(settings):
     """Mails root what the check found, AIDE's and the container engines',
-    and once a mail of the files' changes is sent, accepts the files as that
-    check found them."""
+    and once the relay accepts a mail of the files' changes, accepts the files
+    as that check found them. A mail the relay has not accepted fails the run."""
     try:
         subject, lines, status, manifest = check_files(settings)
         # AIDE does not walk the engines' image stores: each checks its own.
@@ -1071,9 +1170,12 @@ def check(settings):
             subject = ", ".join(part for part in (subject, "container images") if part)
             lines = lines + ([""] if lines else []) + images
         if subject:
-            mail(settings, subject, lines)
-            # Only after the mail, and its record: if this fails, the next
-            # mail lists the same changes again.
+            if not mail(settings, subject, lines):
+                sys.stderr.write("The relay has not accepted the mail, so the baseline stays where it was; "
+                                 "see %s.\n" % os.path.join(settings["state"], "mailed.json"))
+                return 1
+            # Only after the relay accepted the mail, and its record: if this
+            # fails, the next mail lists the same changes again.
             if manifest is not None:
                 accept(settings, manifest)
         return status
@@ -1090,7 +1192,7 @@ def acceptance(settings, head, body, manifest):
     the baseline between them, and the manifest to accept the files with once
     it is sent: none where the mail cannot hold the whole report, so that
     nothing the report holds is accepted without being mailed."""
-    lines = head + ["Once this mail is sent, the baseline moves to the files as this check found them,",
+    lines = head + ["Once the relay accepts this mail, the baseline moves to the files as this check found them,",
                     "and no later report lists these changes again."] + body
     if len(lines) <= MAIL_LINES:
         return lines, manifest
@@ -1102,7 +1204,7 @@ def acceptance(settings, head, body, manifest):
 def check_files(settings):
     """AIDE's report: a mail's subject, or none, its lines, the exit status,
     and the manifest to accept the files with as this check found them once
-    the mail is sent, or none. AIDE's --update compares the files and writes
+    the relay accepts the mail, or none. AIDE's --update compares the files and writes
     their new database in the same walk, so a change made after it stays for
     the next report."""
     # A database without the manifest beside it is not one aide-report accepted.

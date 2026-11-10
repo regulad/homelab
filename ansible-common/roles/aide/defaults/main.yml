@@ -2,9 +2,10 @@
 # AIDE's daily report on the host's files, by the package's own rules, of the
 # changes since the accepted baseline that the host's packages do not explain,
 # mailed to root through the host's mail relay. aide-report decides what the
-# packages explain, and each report it mails moves the baseline to the files
-# as that report's check found them, so each change is mailed once;
-# maintenance.yml --tags aide-accept moves it where no report does.
+# packages explain, and each report the relay accepts moves the baseline to
+# the files as that report's check found them, so each change is mailed until
+# a mail of it gets through; maintenance.yml --tags aide-accept moves it where
+# no report does.
 aide_enabled: true
 
 # The filesystems AIDE walks, by mount point: the system's own. aide-report

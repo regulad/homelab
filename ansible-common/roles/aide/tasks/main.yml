@@ -2,8 +2,8 @@
 # Converge AIDE's daily report, aide-report, on every Linux host: hardware
 # (Phase 2) and generated (Phase 4), containers included. A host with no
 # baseline yet gets its first one in the background, from the refresh at the
-# end of the run (tasks/refresh.yml); each report mailed moves it after, as
-# maintenance.yml --tags aide-accept does by hand.
+# end of the run (tasks/refresh.yml); each report the relay accepts moves it
+# after, as maintenance.yml --tags aide-accept does by hand.
 - name: AIDE's daily report
   when: aide_enabled
   block:

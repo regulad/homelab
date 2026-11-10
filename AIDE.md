@@ -1,6 +1,6 @@
 # Writing a role AIDE accepts
 
-AIDE checks every Debian, Ubuntu and Enterprise Linux host's files each day. aide-report mails root what the host's packages don't explain, and each mail moves the baseline. A role that writes on such a host must let AIDE's refresh take in what it writes. Otherwise every change the role makes is mailed as one nobody explained.
+AIDE checks every Debian, Ubuntu and Enterprise Linux host's files each day. aide-report mails root what the host's packages don't explain, and each mail the relay accepts moves the baseline. A role that writes on such a host must let AIDE's refresh take in what it writes. Otherwise every change the role makes is mailed as one nobody explained.
 
 ## How a write reaches the baseline
 

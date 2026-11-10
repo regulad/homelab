@@ -23,7 +23,7 @@ uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest 
 | `test_aide_report_units.py` | Unit files' `[Install]` links, and the expressions the refresh uses for a unit |
 | `test_aide_report_packages.py` | The package record: owners, installed packages, what `dpkg --verify` and `rpm --verify` vouch for, and the manifest |
 | `test_aide_report_explain.py` | Each rule `explain()` leaves a change out by, with a case it explains and one it keeps |
-| `test_aide_report_runs.py` | The daily check and when its mail accepts; the first baseline; the refresh; the command line |
+| `test_aide_report_runs.py` | The daily check; its mail, the relay's answer in Postfix's log, and when the mail accepts; the first baseline; the refresh; the command line |
 | `test_aide_written.py` | The callback's own logic, with a stand-in for ansible-core |
 | `test_ansible.py` | The callback and the refresh tasks in ansible-core itself, and what ansible-core hands callbacks |
 | `test_playbooks.py` | The playbooks' and `ansible.cfg`'s wiring, read from their text |
@@ -33,6 +33,6 @@ uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest 
 ## Rules
 
 - **No bytecode beside the code under test.** The tests load aide-report and the callback with `sys.dont_write_bytecode` set and run with `python3 -B`. `test_ansible.py` sets `PYTHONDONTWRITEBYTECODE` for ansible-core.
-- **Nothing outside a scratch directory.** Commands aide-report runs, such as `aide`, `mail`, `dpkg-query` and `rpm`, are stand-ins first on PATH. Absolute paths that aide-report keeps as module constants are patched to a scratch tree. `ansible-playbook` runs only in check mode, on localhost.
+- **Nothing outside a scratch directory.** Commands aide-report runs, such as `aide`, `sendmail`, `journalctl`, `dpkg-query` and `rpm`, are stand-ins first on PATH. Absolute paths that aide-report keeps as module constants are patched to a scratch tree. `ansible-playbook` runs only in check mode, on localhost.
 - **Synthetic fixtures.** Reports and package lists are written for each test. A host's real `report.json` is discovery output, which never goes into git.
 - **Gaps are named.** A test whose name contains `gap` records what the system does today where the AIDE triage of 2026-11-08 found it wanting. A fix changes that test on purpose, in the same commit.
