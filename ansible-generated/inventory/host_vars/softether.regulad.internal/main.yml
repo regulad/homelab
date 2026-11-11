@@ -1,8 +1,12 @@
 ---
-# SoftEther's logs, and the configuration it saves over itself as it runs, with
-# its backups: state beside the server in /usr/local/vpnserver, not files AIDE
-# can hold to a baseline (roles/softether/README.md).
+# SoftEther's logs, the configuration it saves over itself as it runs, with
+# its backups, and the process ID and control files it writes at each start,
+# named for a hash of its directory: state beside the server in
+# /usr/local/vpnserver, not files AIDE can hold to a baseline
+# (roles/softether/README.md).
 aide_exclude_paths_host:
+  - /usr/local/vpnserver/.pid_6BE712FB1B726B608526E5B2444A260A
+  - /usr/local/vpnserver/.ctl_6BE712FB1B726B608526E5B2444A260A
   - /usr/local/vpnserver/vpn_server.config
   - /usr/local/vpnserver/backup.vpn_server.config
   - /usr/local/vpnserver/packet_log

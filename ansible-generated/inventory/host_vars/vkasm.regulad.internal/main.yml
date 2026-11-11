@@ -13,12 +13,13 @@ ansible_user: kasm_admin
 kasm_dir: /opt/kasm/1.19.0
 
 # Not checked by AIDE: what Kasm writes in its installation as it runs, its
-# logs, health checks and scratch files, and the configurations of its agent
+# logs, health checks and scratch files, the ledger of its rolling updates,
+# and the configurations of its agent
 # and gateways, which it writes anew every 30 to 100 seconds with what they
 # held, too often for AIDE to hash them between finding and reading them; and
 # Open vSwitch's database, which ovsdb-server rewrites as it compacts it.
 aide_exclude_paths_host: >-
-  {{ ['log', 'healthcheck', 'tmp',
+  {{ ['log', 'healthcheck', 'tmp', 'rolling/kasm-rolling-ledger',
       'conf/app/agent/agent.app.config.yaml', 'conf/app/guac/kasmguac.app.config.yaml',
       'conf/app/rdp_gateway/passthrough.app.config.yaml',
       'conf/app/rdp_https_gateway/rdp_https_gateway.app.config.yaml']

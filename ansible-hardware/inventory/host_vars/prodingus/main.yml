@@ -189,7 +189,12 @@ clamav_exclude_paths:
 # as the cluster runs. Also what Proxmox derives from that database as it runs:
 # each container's LXC configuration, written at its start, the firewall's
 # rule sets, and pve-manager's job states and lists of updates and appliances.
+# And LVM's own backups of its metadata, which every change to a volume
+# archives, as the weekly backup's fleecing volumes do, and prunes; lvm.conf
+# stays watched.
 aide_exclude_paths_host:
+  - /etc/lvm/archive
+  - /etc/lvm/backup
   - /var/lib/ceph
   - /var/lib/pve-cluster
   - /var/lib/rrdcached

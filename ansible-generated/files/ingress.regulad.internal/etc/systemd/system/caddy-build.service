@@ -7,7 +7,7 @@ After=network-online.target
 Type=oneshot
 # The DNS provider's token, which validating the configuration needs.
 EnvironmentFile=/etc/caddy/cloudflare.env
-Environment=GOPATH=/var/lib/caddy/go
+Environment=GOPATH=/var/cache/caddy/go
 Environment=GOMODCACHE=/var/cache/caddy/go/pkg/mod
 Environment=GOCACHE=/var/cache/caddy/go/cache
 ExecStart=/usr/local/sbin/caddy-build

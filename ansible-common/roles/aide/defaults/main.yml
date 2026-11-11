@@ -58,12 +58,16 @@ aide_exclude_paths:
   - /root/.ansible/tmp
   - /root/.ansible_async
   - "{{ aide_connection_home.stdout | default('/root') }}/.ansible/tmp"
-  # Tailscale's logs and its caches of the DERP map and the control plane's
-  # addresses. tailscaled.state, with the node's keys, stays watched.
+  # Tailscale's logs, its caches of the DERP map and the control plane's
+  # addresses, and its profile's data: the cache of the network map, which
+  # tailscaled rewrites as the tailnet changes, and the client's preferences,
+  # in a directory named for the profile. tailscaled.state, with the node's
+  # keys, stays watched.
   - /var/lib/tailscale/tailscaled.log1.txt
   - /var/lib/tailscale/tailscaled.log2.txt
   - /var/lib/tailscale/derpmap.cached.json
   - /var/lib/tailscale/dns-cache
+  - /var/lib/tailscale/profile-data
   # The rules augenrules joins from /etc/audit/rules.d, which stays watched, at
   # each load, and the copy it keeps of those it replaced (auditd role).
   - /etc/audit/audit.rules
@@ -103,19 +107,25 @@ aide_exclude_paths:
 # apt's lists of what its repositories offer, with Ubuntu Pro's copy of them
 # and of apt's caches for its ESM repositories, and command-not-found's index
 # of them. Also the automatic updater's own state, and apt-listchanges' record
-# of the changelogs it has shown. dpkg's records of each package, its
-# maintainer scripts among them, stay watched: aide-report explains them by
-# their package's version. And /var/backups, where dpkg-db-backup keeps daily
-# copies of dpkg's state and of the alternatives, and apt of its record of
-# packages installed automatically, each rotated through seven; Debian's own
-# rules for them say an exclusion handles them best, as AIDE cannot follow a
-# rotation that leaves a file as it was. The noexec role binds it noexec.
+# of the changelogs it has shown. On Debian and Ubuntu also ucf's record of the
+# configuration files it manages, with its cache of each one's packaged
+# version, which it rewrites as packages update them; AppStream's catalogue of
+# what the repositories offer, which apt's update rewrites; and install-info's
+# copy of the Info directory before its last change. dpkg's records of each
+# package, its maintainer scripts among them, stay watched: aide-report
+# explains them by their package's version. And /var/backups, where
+# dpkg-db-backup keeps daily copies of dpkg's state and of the alternatives,
+# and apt of its record of packages installed automatically, each rotated
+# through seven; Debian's own rules for them say an exclusion handles them
+# best, as AIDE cannot follow a rotation that leaves a file as it was. The
+# noexec role binds it noexec.
 aide_exclude_paths_packages: >-
   {{ ['/usr/lib/sysimage/rpm', '/var/lib/rpm', '/var/lib/dnf']
      if 'rhel' in group_names else
      ['/var/lib/apt/lists', '/var/lib/ubuntu-advantage/apt-esm', '/var/lib/command-not-found',
       '/var/lib/unattended-upgrades',
-      '/var/lib/apt/listchanges', '/var/lib/apt/listchanges-old', '/var/backups'] }}
+      '/var/lib/apt/listchanges', '/var/lib/apt/listchanges-old', '/var/backups',
+      '/var/lib/ucf', '/var/lib/swcatalog', '/usr/share/info/dir.old'] }}
 # Each group's additions, from its group_vars, such as what a platform's own
 # agents write.
 aide_exclude_paths_group: []

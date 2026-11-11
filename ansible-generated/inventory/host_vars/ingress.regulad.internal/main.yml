@@ -104,6 +104,9 @@ ubuntu_release: "26.04"
 
 # Not checked by AIDE: the cydia mirror cydia-sync rewrites, and Caddy's
 # certificates, with the locks and cleanup record of the certificate manager
-# that renews them. Caddy keeps its data in /caddy, as its unit runs it as root
-# with no HOME set; its ACME account stays watched.
-aide_exclude_paths_host: [/srv/cydia, /caddy/certificates, /caddy/locks, /caddy/last_clean.json]
+# that renews them, the Encrypted Client Hello keys it rotates, and the copy
+# of its running configuration it saves at each load. Caddy keeps its data in
+# /caddy, as its unit runs it as root with no HOME set; its ACME account stays
+# watched.
+aide_exclude_paths_host:
+  [/srv/cydia, /caddy/certificates, /caddy/locks, /caddy/last_clean.json, /caddy/ech, /caddy/autosave.json]
