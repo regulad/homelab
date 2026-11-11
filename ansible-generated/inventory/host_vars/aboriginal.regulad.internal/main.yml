@@ -465,6 +465,15 @@ netplan_config:
 # mDNS by systemd-resolved on eth0, which netplan has no setting for (resolved
 # role): lime browses it, and Home Assistant and matter-server answer beside it.
 resolved_networks: [10-netplan-eth0.network]
+# No cache of unicast DNS, which arawi's unbound caches. resolved caches each
+# record of a CNAME chain on its own, and follows a cached CNAME by asking for
+# its target by name, which arawi's split horizon rewrites: Nextcloud's DNS
+# pinning asks A, then AAAA, and once the A lookup had cached
+# rsshub.regulad.xyz's CNAME, the AAAA came back as ingress.regulad.internal's
+# ULA, which Nextcloud refuses. On systemd 259 mDNS keeps its cache; from 261,
+# Cache=no ends that too, and DNSCacheSize=0 is the setting to use instead.
+resolved_settings_host:
+  Cache: "no"
 
 # Swap: zram at half the RAM, then a swapfile on the root's btrfs, on the SATA
 # SSD passed through to this VM.
