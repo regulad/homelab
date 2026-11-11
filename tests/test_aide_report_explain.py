@@ -5,7 +5,10 @@ Each rule has a case it explains and one it keeps. Tests named for a gap
 record what aide-report does today where the triage of 2026-11-08 found it
 wanting; a fix changes them on purpose."""
 
+import importlib.util
 import os
+import py_compile
+import sys
 import unittest
 from unittest import mock
 
@@ -279,10 +282,179 @@ class KernelCopies(unittest.TestCase):
             self.assertEqual([pattern.sub(template, copy) for pattern, template in ar.KERNEL_COPIES if pattern.match(copy)],
                              [twin])
 
-    def test_gap_kept_device_tree_copies(self):
-        path = "/boot/dtb-%s/apm/apm-merlin.dtb" % self.release
-        packages = FakePackages(owner={path: "kernel-uek-core"}, ghost={path}, rpm=True)
-        self.assertEqual(kept_paths(explain(report(added={path: ADDED_FILE}), packages)[0]), {"added": [path]})
+    def test_device_trees_copied_into_boot(self):
+        # The arm64 UEK lists its trees in /boot as ghosts of those in its
+        # modules' directory, which grubby's devicetree plugin copies.
+        copy = "/boot/dtb-%s/apm/apm-merlin.dtb" % self.release
+        twin = "/usr/lib/modules/%s/dtb/apm/apm-merlin.dtb" % self.release
+        self.assertEqual([pattern.sub(template, copy) for pattern, template in ar.KERNEL_COPIES if pattern.match(copy)],
+                         [twin])
+        packages = FakePackages(owner={twin: "kernel-uek-core", copy: "kernel-uek-core"}, ghost={copy}, rpm=True)
+        with mock.patch.object(ar, "same_contents", lambda a, b: (a, b) == (copy, twin)):
+            self.assertEqual(explain(report(added={copy: ADDED_FILE}), packages)[1], 1)
+        with mock.patch.object(ar, "same_contents", return_value=False):
+            self.assertEqual(kept_paths(explain(report(added={copy: ADDED_FILE}), packages)[0]), {"added": [copy]})
+
+
+class DeviceTreeLink(support.TreeTestCase):
+    release = "6.12.0-208.112.5.el9uek.aarch64"
+    package = "kernel-uek-core-6.12.0-208.112.5.el9uek.aarch64"
+
+    def setUp(self):
+        super().setUp()
+        self.link_path = self.path("boot/dtb")
+        patcher = mock.patch.object(ar, "DEVICE_TREE_LINK", self.link_path)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        os.makedirs(self.path("boot/dtb-" + self.release))
+        self.packages = FakePackages(owner={"/usr/lib/modules/%s/vmlinuz" % self.release: self.package}, rpm=True)
+
+    def explain_link(self, target, installed_then, details=("link_name", "size", "inode")):
+        os.symlink(target, self.link_path)
+        entries = report(changed={self.link_path: CHANGED_LINK}, details={self.link_path: attributes(*details)})
+        return explain(entries, self.packages, {"installed": installed_then})
+
+    def test_pointed_at_a_kernel_installed_since_the_baseline(self):
+        self.assertEqual(self.explain_link("dtb-" + self.release, ["kernel-uek-core-6.12.0-207"])[1], 1)
+
+    def test_kept_pointed_at_a_kernel_installed_at_the_baseline(self):
+        kept, _ = self.explain_link("dtb-" + self.release, [self.package])
+        self.assertEqual(kept_paths(kept), {"changed": [self.link_path]})
+
+    def test_kept_pointed_elsewhere_or_at_trees_not_there(self):
+        for target in ("/tmp/dtb-" + self.release, "dtb-6.12.0-999.el9uek.aarch64"):
+            kept, _ = self.explain_link(target, [])
+            self.assertEqual(kept_paths(kept), {"changed": [self.link_path]}, target)
+            os.remove(self.link_path)
+
+    def test_kept_when_more_than_its_target_changed(self):
+        kept, _ = self.explain_link("dtb-" + self.release, [], details=("link_name", "uid"))
+        self.assertEqual(kept_paths(kept), {"changed": [self.link_path]})
+
+
+class Bytecode(support.TreeTestCase):
+    """Bytecode that py3compile rebuilt after an upgrade: explained where
+    compiling its verified source now gives the same bytes."""
+
+    def setUp(self):
+        super().setUp()
+        self.source = self.write("usr/lib/python3/dist-packages/foo/bar.py", "VALUE = 1\n")
+        self.bytecode = importlib.util.cache_from_source(self.source)
+        py_compile.compile(self.source, cfile=self.bytecode, dfile=self.source, doraise=True,
+                           invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)
+        self.scratch = self.path("scratch")
+        self.packages = FakePackages(owner={self.source: "python3-foo=2"})
+
+    def explain_bytecode(self, details=("sha256", "size", "modify_time"), packages=None, scratch=True):
+        entries = report(changed={self.bytecode: CHANGED_FILE}, details={self.bytecode: attributes(*details)})
+        return explain(entries, packages or self.packages, scratch=self.scratch if scratch else None)
+
+    def test_the_same_bytes_from_its_verified_source(self):
+        self.assertEqual(self.explain_bytecode()[1], 1)
+        self.assertEqual(self.packages.asked, [[self.source]])
+        self.assertEqual(os.listdir(self.scratch), [])
+
+    def test_hash_based_bytecode_compiled_as_its_header_says(self):
+        py_compile.compile(self.source, cfile=self.bytecode, dfile=self.source, doraise=True,
+                           invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
+        self.assertEqual(self.explain_bytecode()[1], 1)
+
+    def test_kept_bytecode_its_source_does_not_compile_to(self):
+        with open(self.bytecode, "r+b") as handle:
+            handle.seek(-1, os.SEEK_END)
+            last = handle.read(1)
+            handle.seek(-1, os.SEEK_END)
+            handle.write(bytes([last[0] ^ 1]))
+        self.assertEqual(kept_paths(self.explain_bytecode()[0]), {"changed": [self.bytecode]})
+
+    def test_kept_where_the_source_fails_its_check_or_no_package_owns_it(self):
+        failing = FakePackages(owner={self.source: "python3-foo=2"}, unverified={self.source})
+        self.assertEqual(kept_paths(self.explain_bytecode(packages=failing)[0]), {"changed": [self.bytecode]})
+        self.assertEqual(kept_paths(self.explain_bytecode(packages=FakePackages())[0]), {"changed": [self.bytecode]})
+
+    def test_kept_without_scratch_or_with_more_than_its_contents_changed(self):
+        self.assertEqual(kept_paths(self.explain_bytecode(scratch=False)[0]), {"changed": [self.bytecode]})
+        self.assertEqual(kept_paths(self.explain_bytecode(details=("sha256", "perm"))[0]), {"changed": [self.bytecode]})
+
+    def test_kept_another_interpreters_bytecode(self):
+        other = self.bytecode.replace(sys.implementation.cache_tag, "cpython-27")
+        os.rename(self.bytecode, other)
+        entries = report(changed={other: CHANGED_FILE}, details={other: attributes("sha256")})
+        self.assertEqual(kept_paths(explain(entries, self.packages, scratch=self.scratch)[0]), {"changed": [other]})
+
+    def test_optimized_bytecode_compiled_at_its_level(self):
+        self.assertEqual(ar.BYTECODE.match("/usr/lib/python3/x/__pycache__/y.cpython-312.opt-1.pyc").group("optimize"),
+                         "1")
+        self.assertIsNone(ar.BYTECODE.match("/usr/lib/python3/x/y.cpython-312.pyc"))
+
+
+class TrustStore(support.TreeTestCase):
+    """Enterprise Linux's trust store, which update-ca-trust extracts again
+    into scratch to compare."""
+
+    def setUp(self):
+        super().setUp()
+        self.store = self.path("etc/pki/ca-trust/extracted")
+        self.links = self.path("etc/pki/tls/certs")
+        self.source = self.path("source")
+        hashed = self.store + "/pem/directory-hash"
+        # A stand-in for update-ca-trust extract -o: copies the source tree.
+        copy = "import shutil, sys; shutil.copytree(%r, sys.argv[1], symlinks=True, dirs_exist_ok=True)" % self.source
+        self.command = [sys.executable, "-c", copy]
+        for name, value in (("TRUST_STORE", self.store), ("TRUST_LINKS", self.links), ("TRUST_HASHED", hashed),
+                            ("EXTRACTED", ((self.store, self.command),))):
+            patcher = mock.patch.object(ar, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        for root in (self.store, self.source):
+            self.write(root[len(self.root):] + "/pem/tls-ca-bundle.pem", "bundle\n")
+            self.write(root[len(self.root):] + "/pem/directory-hash/Root.pem", "root\n")
+            self.link(root[len(self.root):] + "/pem/directory-hash/0123abcd.0", "Root.pem")
+        self.scratch = self.path("scratch")
+
+    def explain_store(self, added=None, changed=None, removed=None):
+        details = {path: attributes("sha256", "size") for path in changed or ()}
+        return explain(report(added=added, changed=changed, removed=removed, details=details), scratch=self.scratch)
+
+    def test_files_and_links_extracting_it_again_gives(self):
+        bundle = self.store + "/pem/tls-ca-bundle.pem"
+        hashed = self.store + "/pem/directory-hash/0123abcd.0"
+        self.assertEqual(self.explain_store(added={hashed: ADDED_LINK}, changed={bundle: CHANGED_FILE}),
+                         ({"added": {}, "removed": {}, "changed": {}}, 2))
+        self.assertEqual(os.listdir(self.scratch), [])
+
+    def test_kept_a_file_extracting_it_again_does_not_give(self):
+        bundle = self.store + "/pem/tls-ca-bundle.pem"
+        with open(bundle, "a") as handle:
+            handle.write("an added certificate\n")
+        self.assertEqual(kept_paths(self.explain_store(changed={bundle: CHANGED_FILE})[0]), {"changed": [bundle]})
+
+    def test_kept_where_extracting_it_again_fails_or_without_scratch(self):
+        bundle = self.store + "/pem/tls-ca-bundle.pem"
+        with mock.patch.object(ar, "EXTRACTED", ((self.store, ["false"]),)):
+            self.assertEqual(kept_paths(self.explain_store(changed={bundle: CHANGED_FILE})[0]), {"changed": [bundle]})
+        entries = report(changed={bundle: CHANGED_FILE}, details={bundle: attributes("sha256")})
+        self.assertEqual(kept_paths(explain(entries)[0]), {"changed": [bundle]})
+
+    def test_gone_where_extracting_it_again_no_longer_gives_it(self):
+        old = self.store + "/pem/directory-hash/Old.pem"
+        self.assertEqual(self.explain_store(removed={old: REMOVED_FILE})[1], 1)
+        kept, _ = self.explain_store(removed={self.store + "/pem/directory-hash/Root.pem": REMOVED_FILE})
+        self.assertEqual(kept_paths(kept), {"removed": [self.store + "/pem/directory-hash/Root.pem"]})
+
+    def test_a_hash_link_in_tls_certs_to_the_stores_certificate(self):
+        link = self.link("etc/pki/tls/certs/0123abcd.0", self.store + "/pem/directory-hash/Root.pem")
+        self.assertEqual(self.explain_store(added={link: ADDED_LINK})[1], 1)
+
+    def test_kept_a_hash_link_to_another_certificate(self):
+        self.write("etc/pki/ca-trust/extracted/pem/directory-hash/Other.pem", "other\n")
+        link = self.link("etc/pki/tls/certs/0123abcd.0", self.store + "/pem/directory-hash/Other.pem")
+        self.assertEqual(kept_paths(self.explain_store(added={link: ADDED_LINK})[0]), {"added": [link]})
+
+    def test_a_hash_link_gone_with_the_stores_own(self):
+        self.assertEqual(self.explain_store(removed={self.links + "/9999ffff.0": REMOVED_LINK})[1], 1)
+        kept, _ = self.explain_store(removed={self.links + "/0123abcd.0": REMOVED_LINK})
+        self.assertEqual(kept_paths(kept), {"removed": [self.links + "/0123abcd.0"]})
 
 
 class Caches(unittest.TestCase):

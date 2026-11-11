@@ -127,11 +127,13 @@ import glob
 import gzip
 import json
 import os
+import py_compile
 import re
 import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 SETTINGS = "/etc/aide-report/settings.json"
@@ -182,7 +184,13 @@ KERNEL_COPIES = (
     (re.compile(r"^/boot/(vmlinuz|System\.map|config)-([^/]+)$"), r"/usr/lib/modules/\2/\1"),
     (re.compile(r"^/boot/\.vmlinuz-([^/]+)\.hmac$"), r"/usr/lib/modules/\1/.vmlinuz.hmac"),
     (re.compile(r"^/boot/symvers-([^/]+)\.gz$"), r"/usr/lib/modules/\1/symvers.gz"),
+    # The arm64 UEK's device trees, which grubby's devicetree plugin copies.
+    (re.compile(r"^/boot/dtb-([^/]+)/(.+)$"), r"/usr/lib/modules/\1/dtb/\2"),
 )
+# The link to a kernel's device trees in /boot, which grubby's devicetree
+# plugin points at each kernel it adds: dtb-<release>.
+DEVICE_TREE_LINK = "/boot/dtb"
+DEVICE_TREE_TARGET = re.compile(r"^dtb-(?P<release>[^/]+)$")
 # What a kernel's installation generates, named for its release: its initramfs
 # images (dracut's and kdump's, or initramfs-tools' and its record of one), its
 # boot entry, depmod's indexes of its modules, and the directory of its keys.
@@ -213,6 +221,25 @@ REBUILT = (
     (re.compile(r"^/etc/ld\.so\.cache$"), ["ldconfig", "-i", "-X", "-C"]),
     (re.compile(r"^/usr/lib(64|/[^/]+-linux-gnu)/gconv/gconv-modules\.cache$"), ["iconvconfig", "-o"]),
 )
+# Trees a tool extracts from what AIDE watches, each with the command that
+# extracts the same tree into the directory named after it, which must hold the
+# tree's directories already: Enterprise Linux's trust store, from
+# /usr/share/pki/ca-trust-source and /etc/pki/ca-trust/source. Java's keystore
+# in it records when each certificate was extracted, so it differs at every
+# extraction and stays in the report.
+TRUST_STORE = "/etc/pki/ca-trust/extracted"
+EXTRACTED = ((TRUST_STORE, ["update-ca-trust", "extract", "-o"]),)
+# Where Enterprise Linux 10's update-ca-trust also links each certificate by
+# its subject's hash, to the trust store's own link of that name: the hashed
+# directory OpenSSL looks in.
+TRUST_LINKS = "/etc/pki/tls/certs"
+TRUST_HASHED = TRUST_STORE + "/pem/directory-hash"
+TRUST_LINK_NAME = re.compile(r"^[0-9a-f]{8}\.[0-9]+$")
+# Python's bytecode of a module, in the __pycache__ beside its source, by the
+# interpreter's cache tag and the optimization level it was compiled at, as
+# Debian's py3compile writes it after each upgrade of a package's modules.
+BYTECODE = re.compile(r"^(?P<directory>/.+)/__pycache__/(?P<module>[^/.]+)\.(?P<tag>[^./]+)"
+                      r"(?:\.opt-(?P<optimize>[12]))?\.pyc$")
 # A changed entry's summary has a column per attribute, in AIDE's order from
 # 0.18 (report_attrs_order in src/report.c): '.' where AIDE compared it at both
 # ends and found it unchanged, a space where the entry's rule does not record it.
@@ -535,6 +562,60 @@ def rebuilds_same(path, command, scratch):
             pass
 
 
+# The invalidation modes of Python's bytecode, by the flags in its header.
+BYTECODE_MODES = {
+    0: py_compile.PycInvalidationMode.TIMESTAMP,
+    1: py_compile.PycInvalidationMode.UNCHECKED_HASH,
+    3: py_compile.PycInvalidationMode.CHECKED_HASH,
+}
+
+
+def compiles_same(path, source, optimize, scratch):
+    """Whether compiling the source now, as the bytecode's header says it was
+    compiled, gives the same bytes, in a file in scratch that is removed
+    again. Compiling only parses the source; none of it runs."""
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(8)
+    except OSError:
+        return False
+    mode = BYTECODE_MODES.get(int.from_bytes(header[4:8], "little")) if len(header) == 8 else None
+    if mode is None:
+        return False
+    os.makedirs(scratch, mode=0o700, exist_ok=True)
+    rebuilt = os.path.join(scratch, "rebuilt.pyc")
+    try:
+        py_compile.compile(source, cfile=rebuilt, dfile=source, doraise=True, optimize=optimize,
+                           invalidation_mode=mode)
+        return same_contents(path, rebuilt)
+    except (py_compile.PyCompileError, OSError, ValueError, SyntaxError):
+        return False
+    finally:
+        try:
+            os.remove(rebuilt)
+        except OSError:
+            pass
+
+
+def extract_again(root, command, scratch):
+    """The tree extracted again into a new directory in scratch, which holds
+    the tree's directories first; None where the command fails. The caller
+    removes it."""
+    os.makedirs(scratch, mode=0o700, exist_ok=True)
+    out = tempfile.mkdtemp(prefix="extracted-", dir=scratch)
+    try:
+        for top, directories, _ in os.walk(root):
+            for name in directories:
+                os.makedirs(os.path.join(out, os.path.relpath(os.path.join(top, name), root)), exist_ok=True)
+        result = subprocess.run(command + [out], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode == 0:
+            return out
+    except OSError:
+        pass
+    shutil.rmtree(out, ignore_errors=True)
+    return None
+
+
 def install_settings(unit_file):
     """A unit file's [Install] settings, each with the list of its values."""
     settings = {}
@@ -718,10 +799,19 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             path in records or summary[:1] == "l") else None
         if target is not None:
             chosen[path] = target
+    # Python's bytecode, by the source it compiles and the optimization level,
+    # where this interpreter compiled it.
+    bytecode = {}
+    for path in list(added) + list(changed):
+        match = BYTECODE.match(path)
+        if match and match.group("tag") == sys.implementation.cache_tag:
+            bytecode[path] = ("%s/%s.py" % (match.group("directory"), match.group("module")),
+                              int(match.group("optimize") or 0))
     unverified = packages.unverified(candidates + [t for t in targets.values() if t in packages.owner]
                                      + [t for t in copies.values() if t in packages.owner]
                                      + [t for t in sources.values() if t in packages.owner]
-                                     + [t for t in chosen.values() if t in packages.owner])
+                                     + [t for t in chosen.values() if t in packages.owner]
+                                     + sorted({s for s, _ in bytecode.values() if s in packages.owner}))
     kept = {"added": {}, "removed": {}, "changed": {}}
     explained = 0
 
@@ -776,6 +866,92 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             if pattern.match(path):
                 return rebuilds_same(path, command, scratch)
         return False
+
+    def bytecode_rebuilt(path, summary):
+        # A module's bytecode that compiling its verified source now gives
+        # byte for byte, with nothing else about it changed but what
+        # compiling it changes.
+        attributes = changed_attributes(report, path) - CONTENT - INCIDENTAL
+        if scratch is None or summary[:1] != "f" or path not in bytecode or attributes:
+            return False
+        source, optimize = bytecode[path]
+        return verified(source) and compiles_same(path, source, optimize, scratch)
+
+    # Each tree its tool extracted again, once, where an entry below it needs it.
+    extracted = {}
+
+    def extracted_twin(path):
+        # Where the tree extracted again holds the path; None outside such a
+        # tree, or where extracting it again failed.
+        for root, command in EXTRACTED:
+            if below(path, [root]) and path != root:
+                if root not in extracted:
+                    extracted[root] = None if scratch is None else extract_again(root, command, scratch)
+                tree = extracted[root]
+                return None if tree is None else os.path.join(tree, os.path.relpath(path, root))
+        return None
+
+    def extracted_same(path, summary):
+        # A file or link of a tree that extracting it again gives the same,
+        # with nothing else about it changed but what extracting it changes.
+        attributes = changed_attributes(report, path) - CONTENT - INCIDENTAL - {"link_name"}
+        if selinux_user_only(report, path):
+            attributes -= {"selinux", "xattrs"}
+        kind = summary[:1]
+        twin = extracted_twin(path) if kind in ("f", "l") and not attributes else None
+        if twin is None:
+            return False
+        try:
+            if kind == "l":
+                return os.path.islink(path) and os.path.islink(twin) and os.readlink(path) == os.readlink(twin)
+        except OSError:
+            return False
+        return (os.path.isfile(path) and not os.path.islink(path) and os.path.isfile(twin)
+                and not os.path.islink(twin) and same_contents(path, twin))
+
+    def trust_link(path, summary):
+        # Enterprise Linux 10's link to a certificate by its subject's hash,
+        # which points where the trust store's own link of that name does,
+        # at a certificate, both as extracting the store again gives them.
+        if (summary[:1] != "l" or os.path.dirname(path) != TRUST_LINKS
+                or not TRUST_LINK_NAME.match(os.path.basename(path))
+                or changed_attributes(report, path) - INCIDENTAL - {"link_name", "size", "block_count"}):
+            return False
+        hashed = os.path.join(TRUST_HASHED, os.path.basename(path))
+        try:
+            target = os.readlink(path)
+        except OSError:
+            return False
+        certificate = os.path.realpath(hashed)
+        return (os.path.dirname(target) == TRUST_HASHED and os.path.realpath(path) == certificate
+                and os.path.dirname(certificate) == TRUST_HASHED
+                and extracted_same(hashed, "l") and extracted_same(certificate, "f"))
+
+    def extracted_gone(path):
+        # Gone from a tree that extracting it again no longer gives it in, or
+        # a hash's link gone with the trust store's own.
+        if os.path.dirname(path) == TRUST_LINKS and TRUST_LINK_NAME.match(os.path.basename(path)):
+            path = os.path.join(TRUST_HASHED, os.path.basename(path))
+            if os.path.lexists(path):
+                return False
+        twin = extracted_twin(path)
+        return twin is not None and not os.path.lexists(twin)
+
+    def device_tree_link(path, summary):
+        # The link to a kernel's device trees, pointed at those of a kernel
+        # installed since the baseline, whose copies are there.
+        if (path != DEVICE_TREE_LINK or summary[:1] != "l"
+                or changed_attributes(report, path) - INCIDENTAL - {"link_name", "size", "block_count"}):
+            return False
+        try:
+            target = os.readlink(path)
+        except OSError:
+            return False
+        match = DEVICE_TREE_TARGET.match(target)
+        if not match or not os.path.isdir(os.path.join(os.path.dirname(path), target)):
+            return False
+        package = kernel_package(match.group("release"), packages.owner)
+        return package is not None and package not in baseline_installed
 
     def kernel_generated(path, section):
         # Made with a kernel installed since the baseline, or gone with one
@@ -916,6 +1092,12 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
                 explained += 1
             elif section == "changed" and cache_rebuilt(path, summary):
                 explained += 1
+            elif bytecode_rebuilt(path, summary):
+                explained += 1
+            elif extracted_same(path, summary) or trust_link(path, summary):
+                explained += 1
+            elif device_tree_link(path, summary):
+                explained += 1
             elif section == "added" and kernel_generated(path, section):
                 explained += 1
             elif section == "added" and kdump_built(path):
@@ -933,10 +1115,14 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
     for path, summary in removed.items():
         owner = baseline_owner.get(path)
         if ((owner is not None and owner not in packages.installed) or dpkg_record(path, "removed")
-                or kernel_generated(path, "removed") or removed_with(path, summary) or below(path, excluded)):
+                or kernel_generated(path, "removed") or removed_with(path, summary) or below(path, excluded)
+                or extracted_gone(path)):
             explained += 1
         else:
             kept["removed"][path] = summary
+    for tree in extracted.values():
+        if tree is not None:
+            shutil.rmtree(tree, ignore_errors=True)
     # A directory added or removed with what it held, everything below it
     # explained: the deepest first, so that one holding another follows it.
     for section, items in (("added", added), ("removed", removed)):
