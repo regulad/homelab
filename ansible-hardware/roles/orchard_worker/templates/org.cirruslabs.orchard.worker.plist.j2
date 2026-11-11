@@ -27,6 +27,10 @@
       <string>--default-cpu</string>
       <string>{{ orchard_worker_default_cpu }}</string>
 {% endif %}
+{% if orchard_worker_resources | length > 0 %}
+      <string>--resources</string>
+      <string>{% for name, count in orchard_worker_resources | dictsort %}{{ name }}={{ count }}{{ ',' if not loop.last }}{% endfor %}</string>
+{% endif %}
       <string>{{ orchard_worker_controller }}</string>
     </array>
     <key>EnvironmentVariables</key>

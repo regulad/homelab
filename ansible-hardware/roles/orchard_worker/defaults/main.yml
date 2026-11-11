@@ -9,6 +9,13 @@ orchard_worker_home: /Users/_orchard
 # Orchard's own, 8192 and 4.
 orchard_worker_default_memory: ""
 orchard_worker_default_cpu: ""
+# Resources the worker offers in place of those it detects, as {name: count}.
+# Unless overridden here, it offers org.cirruslabs.tart-vms 2, and
+# org.cirruslabs.logical-cores and org.cirruslabs.memory-mib for the whole
+# Mac. Orchard's scheduler counts a VM against only the resources the VM
+# requests: one tart-vms for every macOS VM, and cores and memory only when
+# its own resources ask for them.
+orchard_worker_resources: {}
 # Homebrew's prefix on Apple silicon, where orchard and tart are installed.
 orchard_worker_brew_prefix: /opt/homebrew
 

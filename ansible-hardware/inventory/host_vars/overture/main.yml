@@ -5,6 +5,15 @@ ansible_ssh_common_args: -o RemoteCommand=none -o RequestTTY=no
 # The interpreter macOS ships, rather than whichever Python discovery finds.
 ansible_python_interpreter: /usr/bin/python3
 
-# The Orchard worker's VMs, two macOS guests at most by Apple's licence, get
-# 3 GB each unless they ask for more, leaving the Mac 2 GB of its 8.
-orchard_worker_default_memory: 3072
+# The Orchard worker's VMs, two macOS guests at most by Apple's licence, share
+# 6 of the Mac's 8 cores and 6 GiB of its 8 GiB, leaving macOS the rest. Which
+# cores run them is macOS's choice, not Tart's. A VM that sets no CPU or memory
+# gets half of each. Orchard holds a VM to these totals only when the VM
+# requests them in its own resources; orchard create vm asks for 4 CPUs and
+# 8192 MB unless told otherwise, so create a VM with --cpu and --memory and the
+# matching --resources org.cirruslabs.logical-cores=<n>,org.cirruslabs.memory-mib=<n>.
+orchard_worker_resources:
+  org.cirruslabs.logical-cores: 6
+  org.cirruslabs.memory-mib: 6144
+orchard_worker_default_cpu: "{{ orchard_worker_resources['org.cirruslabs.logical-cores'] // 2 }}"
+orchard_worker_default_memory: "{{ orchard_worker_resources['org.cirruslabs.memory-mib'] // 2 }}"
