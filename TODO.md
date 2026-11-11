@@ -35,7 +35,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [ ] `turk`: Ubuntu 24.04 with VMware Workstation
 - [ ] `overture`: macOS
   - [ ] lime's side, by lime's README: the hidden FileVault unlock account, and the sshd drop-in `50-lime-unlock.conf` that leaves it nowhere once the Mac is booted
-  - [ ] An Orchard worker for the `orchard` controller's Tart VMs: two macOS guests of 3 GB each
+  - [x] An Orchard worker for the `orchard` controller's Tart VMs: `ansible-hardware`'s `orchard_worker` role, a root launchd daemon running as the hidden `_orchard`, for two macOS guests of 3 GB each
 
 ## Network switches (`ansible-hardware/`, the `switches` group)
 
