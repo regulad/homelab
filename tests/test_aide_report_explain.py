@@ -296,33 +296,40 @@ class KernelCopies(unittest.TestCase):
             self.assertEqual(kept_paths(explain(report(added={copy: ADDED_FILE}), packages)[0]), {"added": [copy]})
 
 
-class DeviceTreeLink(support.TreeTestCase):
+class KernelLinks(support.TreeTestCase):
+    """The links a kernel's installation or removal points at an installed
+    kernel's files: /boot/dtb, Debian's /boot links and kdump-tools' own."""
+
     release = "6.12.0-208.112.5.el9uek.aarch64"
     package = "kernel-uek-core-6.12.0-208.112.5.el9uek.aarch64"
+    image = "/usr/lib/modules/6.12.0-208.112.5.el9uek.aarch64/vmlinuz"
 
     def setUp(self):
         super().setUp()
         self.link_path = self.path("boot/dtb")
-        patcher = mock.patch.object(ar, "DEVICE_TREE_LINK", self.link_path)
+        self.all_links = ar.KERNEL_LINKS
+        patcher = mock.patch.object(ar, "KERNEL_LINKS", {self.link_path: ar.KERNEL_LINKS["/boot/dtb"]})
         patcher.start()
         self.addCleanup(patcher.stop)
         os.makedirs(self.path("boot/dtb-" + self.release))
-        self.packages = FakePackages(owner={"/usr/lib/modules/%s/vmlinuz" % self.release: self.package}, rpm=True)
+        self.packages = FakePackages(owner={self.image: self.package}, rpm=True)
 
-    def explain_link(self, target, installed_then, details=("link_name", "size", "inode")):
+    def explain_link(self, target, kernels_then, details=("link_name", "size", "inode")):
         os.symlink(target, self.link_path)
         entries = report(changed={self.link_path: CHANGED_LINK}, details={self.link_path: attributes(*details)})
-        return explain(entries, self.packages, {"installed": installed_then})
+        owner = {"/usr/lib/modules/%s/vmlinuz" % k: k for k in kernels_then}
+        return explain(entries, self.packages, {"owner": owner, "installed": list(kernels_then)})
 
-    def test_pointed_at_a_kernel_installed_since_the_baseline(self):
+    def test_pointed_at_an_installed_kernel_once_the_kernels_changed(self):
         self.assertEqual(self.explain_link("dtb-" + self.release, ["kernel-uek-core-6.12.0-207"])[1], 1)
 
-    def test_kept_pointed_at_a_kernel_installed_at_the_baseline(self):
+    def test_kept_while_the_kernels_are_those_of_the_baseline(self):
         kept, _ = self.explain_link("dtb-" + self.release, [self.package])
         self.assertEqual(kept_paths(kept), {"changed": [self.link_path]})
 
-    def test_kept_pointed_elsewhere_or_at_trees_not_there(self):
-        for target in ("/tmp/dtb-" + self.release, "dtb-6.12.0-999.el9uek.aarch64"):
+    def test_kept_pointed_elsewhere_or_at_a_kernel_not_installed_or_not_there(self):
+        os.makedirs(self.path("boot/dtb-6.12.0-999.el9uek.aarch64"))
+        for target in ("/tmp/dtb-" + self.release, "dtb-6.12.0-999.el9uek.aarch64", "dtb-6.12.0-1.el9uek.aarch64"):
             kept, _ = self.explain_link(target, [])
             self.assertEqual(kept_paths(kept), {"changed": [self.link_path]}, target)
             os.remove(self.link_path)
@@ -330,6 +337,51 @@ class DeviceTreeLink(support.TreeTestCase):
     def test_kept_when_more_than_its_target_changed(self):
         kept, _ = self.explain_link("dtb-" + self.release, [], details=("link_name", "uid"))
         self.assertEqual(kept_paths(kept), {"changed": [self.link_path]})
+
+    def test_the_links_and_their_targets(self):
+        for link, target in (("/boot/vmlinuz", "vmlinuz-6.8.0-149-generic"),
+                             ("/boot/initrd.img.old", "initrd.img-6.8.0-147-generic"),
+                             ("/var/lib/kdump/vmlinuz", "/boot/vmlinuz-6.8.0-149-lowlatency"),
+                             ("/var/lib/kdump/initrd.img", "/var/lib/kdump/initrd.img-6.8.0-149-lowlatency")):
+            self.assertTrue(self.all_links[link].match(target), link)
+        self.assertIsNone(self.all_links["/var/lib/kdump/vmlinuz"].match("/tmp/vmlinuz-6.8.0-149-lowlatency"))
+
+
+class Swapped(support.TreeTestCase):
+    """A package's file an upgrade replaced with a link, or a link with a
+    file, as apt's changelogs and amdgpu's firmware move."""
+
+    def explain_swap(self, path, kind, perm="-rw-r--r--", installed_then=("apt=2",), unverified=(),
+                     owner=None, others=()):
+        details = {"file_type": {"old": "Link" if kind == "f" else "File", "new": "File" if kind == "f" else "Link"},
+                   "perm": {"old": "lrwxrwxrwx" if kind == "f" else "-rw-r--r--", "new": perm},
+                   "size": {"old": 32, "new": 20256}, "inode": {"old": 1, "new": 2}}
+        details.update(attributes(*others))
+        packages = FakePackages(owner=owner or {path: "apt=3"}, unverified=unverified)
+        entries = report(changed={path: CHANGED_FILE if kind == "f" else CHANGED_LINK}, details={path: details})
+        return explain(entries, packages, {"installed": list(installed_then)})
+
+    def test_a_link_its_upgrade_made_a_file_its_package_vouches_for(self):
+        self.assertEqual(self.explain_swap("/usr/share/doc/apt/changelog.gz", "f")[1], 1)
+
+    def test_a_file_its_upgrade_made_a_link_to_one_its_package_vouches_for(self):
+        target = self.write("usr/lib/firmware/amdgpu/dcn_4_0_1_dmcub.bin.zst.real")
+        link = self.link("usr/lib/firmware/amdgpu/dcn_4_0_1_dmcub.bin.zst", target)
+        owner = {link: "linux-firmware=2", target: "linux-firmware=2"}
+        self.assertEqual(self.explain_swap(link, "l", perm="lrwxrwxrwx", owner=owner)[1], 1)
+        failing = self.explain_swap(link, "l", perm="lrwxrwxrwx", owner=owner, unverified={target})
+        self.assertEqual(kept_paths(failing[0]), {"changed": [link]})
+
+    def test_kept_without_an_upgrade_since_the_baseline(self):
+        kept, _ = self.explain_swap("/usr/share/doc/apt/changelog.gz", "f", installed_then=("apt=3",))
+        self.assertEqual(kept_paths(kept), {"changed": ["/usr/share/doc/apt/changelog.gz"]})
+
+    def test_kept_a_file_that_fails_its_check_sets_an_id_or_others_may_write(self):
+        path = "/usr/bin/tool"
+        for keywords in ({"unverified": {path}}, {"perm": "-rwsr-xr-x"}, {"perm": "-rwxr-sr-x"},
+                         {"perm": "-rw-rw-rw-"}, {"others": ("uid",)}):
+            kept, _ = self.explain_swap(path, "f", **keywords)
+            self.assertEqual(kept_paths(kept), {"changed": [path]}, keywords)
 
 
 class Bytecode(support.TreeTestCase):
@@ -507,19 +559,26 @@ class KernelGenerated(unittest.TestCase):
         self.assertEqual(kept_paths(explain(report(added={path: ADDED_FILE}), packages, {"installed": []})[0]),
                          {"added": [path]})
 
-    def test_gap_kept_a_removed_kernels_indexes_rewritten(self):
+    def test_a_removed_kernels_indexes_rewritten(self):
         # depmod rewrites a removed kernel's indexes, which stay until a purge.
         path = "/usr/lib/modules/6.8.0-146-generic/modules.alias"
         entries = report(changed={path: CHANGED_FILE}, details={path: attributes("sha256", "size")})
         manifest = {"owner": {"/usr/lib/modules/6.8.0-146-generic/vmlinuz": "k=146"}, "installed": ["k=146"]}
-        self.assertEqual(kept_paths(explain(entries, FakePackages(installed=set()), manifest)[0]), {"changed": [path]})
+        self.assertEqual(explain(entries, FakePackages(installed=set()), manifest)[1], 1)
+        still = FakePackages(owner={"/usr/lib/modules/6.8.0-146-generic/vmlinuz": "k=146"})
+        self.assertEqual(kept_paths(explain(entries, still, manifest)[0]), {"changed": [path]})
 
-    def test_gap_kept_dkms_and_debian_kdump_files(self):
+    def test_debian_kdump_files_and_the_kernels_update_trigger(self):
+        packages = FakePackages(owner={self.image: self.package})
+        for path in ("/var/lib/kdump/initrd.img-" + self.release, "/var/lib/kdump/size_initrd.img-" + self.release,
+                     "/var/lib/kdump/mem-" + self.release, "/var/lib/kdump/latest_sysctls-" + self.release,
+                     "/var/lib/dpkg/triggers/linux-update-" + self.release):
+            self.assertEqual(explain(report(added={path: ADDED_FILE}), packages, {"installed": []})[1], 1, path)
+
+    def test_kept_dkms_modules_built_for_a_new_kernel(self):
         packages = FakePackages(owner={self.image: self.package})
         for path in ("/var/lib/dkms/v4l2loopback/0.15.1/%s/x" % self.release,
-                     "/usr/lib/modules/%s/updates/dkms/v4l2loopback.ko.zst" % self.release,
-                     "/var/lib/kdump/initrd.img-" + self.release,
-                     "/var/lib/dpkg/triggers/linux-update-" + self.release):
+                     "/usr/lib/modules/%s/updates/dkms/v4l2loopback.ko.zst" % self.release):
             self.assertEqual(kept_paths(explain(report(added={path: ADDED_FILE}), packages, {"installed": []})[0]),
                              {"added": [path]}, path)
 

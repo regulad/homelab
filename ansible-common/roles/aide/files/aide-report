@@ -187,17 +187,33 @@ KERNEL_COPIES = (
     # The arm64 UEK's device trees, which grubby's devicetree plugin copies.
     (re.compile(r"^/boot/dtb-([^/]+)/(.+)$"), r"/usr/lib/modules/\1/dtb/\2"),
 )
-# The link to a kernel's device trees in /boot, which grubby's devicetree
-# plugin points at each kernel it adds: dtb-<release>.
-DEVICE_TREE_LINK = "/boot/dtb"
-DEVICE_TREE_TARGET = re.compile(r"^dtb-(?P<release>[^/]+)$")
+# The links a kernel's installation or removal points at one of the installed
+# kernels' files, each with the targets it may have: the arm64 UEK's
+# /boot/dtb, which grubby's devicetree plugin points at each kernel it adds;
+# Debian's and Ubuntu's /boot links to the newest kernel and the one before,
+# from linux-base's linux-update-symlinks; and kdump-tools' links to the image
+# and initramfs it loads.
+KERNEL_LINKS = {
+    "/boot/dtb": re.compile(r"^dtb-(?P<release>[^/]+)$"),
+    "/boot/vmlinuz": re.compile(r"^vmlinuz-(?P<release>[^/]+)$"),
+    "/boot/vmlinuz.old": re.compile(r"^vmlinuz-(?P<release>[^/]+)$"),
+    "/boot/initrd.img": re.compile(r"^initrd\.img-(?P<release>[^/]+)$"),
+    "/boot/initrd.img.old": re.compile(r"^initrd\.img-(?P<release>[^/]+)$"),
+    "/var/lib/kdump/vmlinuz": re.compile(r"^/boot/vmlinuz-(?P<release>[^/]+)$"),
+    "/var/lib/kdump/initrd.img": re.compile(r"^/var/lib/kdump/initrd\.img-(?P<release>[^/]+)$"),
+}
+# A kernel's image, by which its package is known.
+KERNEL_IMAGE = re.compile(r"^(/usr/lib/modules/[^/]+/vmlinuz|/boot/vmlinuz-[^/]+)$")
 # What a kernel's installation generates, named for its release: its initramfs
 # images (dracut's and kdump's, or initramfs-tools' and its record of one), its
 # boot entry, depmod's indexes of its modules, and the directory of its keys.
 # On Enterprise Linux also microcode_ctl's tree for it in /usr/lib/firmware,
 # links to the microcode it allows that kernel and their readmes, and
 # weak-modules' links to the kABI-compatible modules another kernel's kmod
-# packages installed.
+# packages installed. On Debian and Ubuntu also kdump-tools' initramfs for it
+# and its records of the memory it reserves and the kernel's settings, and the
+# trigger that runs linux-update-symlinks once the kernel's packages are in.
+# DKMS's modules built for a kernel stay in the report: nothing vouches for them.
 KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/boot/initramfs-(?P<release>[^/]+?)(kdump)?\.img$",
     r"^/boot/initrd\.img-(?P<release>[^/]+)$",
@@ -207,6 +223,8 @@ KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/usr/share/doc/kernel-keys/(?P<release>[^/]+)$",
     r"^/usr/lib/firmware/(?P<release>[^/]+)(/.*)?$",
     r"^/usr/lib/modules/(?P<release>[^/]+)/weak-updates/.+$",
+    r"^/var/lib/kdump/(initrd\.img|size_initrd\.img|mem|latest_sysctls)-(?P<release>[^/]+)$",
+    r"^/var/lib/dpkg/triggers/linux-update-(?P<release>[^/]+)$",
 ))
 # kdump's initramfs for a kernel, which kdump.service builds at the first boot
 # into that kernel: kexec-tools' kernel-install hook builds none.
@@ -841,6 +859,23 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
         target = targets.get(path)
         return target is not None and verified(target)
 
+    def swapped(path, summary):
+        # A package's file that its install or upgrade since the baseline
+        # replaced with a link, or a link with a file, as apt's changelogs
+        # move between packages: a link to a file its package vouches for, or
+        # a file its package vouches for with a mode that sets no IDs and lets
+        # no other user write.
+        attributes = changed_attributes(report, path)
+        owner = packages.owner.get(path)
+        if ("file_type" not in attributes or owner is None or owner in baseline_installed
+                or attributes - CONTENT - INCIDENTAL - {"file_type", "perm", "link_name"}):
+            return False
+        if summary[:1] == "l":
+            return symlink_vouched(path)
+        mode = str(((report.get("details") or {}).get(path, {}).get("perm") or {}).get("new", ""))
+        return (summary[:1] == "f" and verified(path) and len(mode) == 10
+                and not set(mode) & set("sStT") and mode[8] == "-")
+
     def copy_vouched(path, summary):
         # Holds what the file it copies holds, or points at it, and nothing
         # else about it changed that its contents do not explain.
@@ -937,37 +972,42 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
         twin = extracted_twin(path)
         return twin is not None and not os.path.lexists(twin)
 
-    def device_tree_link(path, summary):
-        # The link to a kernel's device trees, pointed at those of a kernel
-        # installed since the baseline, whose copies are there.
-        if (path != DEVICE_TREE_LINK or summary[:1] != "l"
+    def kernels(owner):
+        return {package for path, package in owner.items() if KERNEL_IMAGE.match(path)}
+
+    kernels_changed = kernels(packages.owner) != kernels(baseline_owner)
+
+    def kernel_link(path, summary):
+        # A link a kernel's installation or removal since the baseline points
+        # at a file of an installed kernel, which is there.
+        pattern = KERNEL_LINKS.get(path)
+        if (pattern is None or summary[:1] != "l" or not kernels_changed
                 or changed_attributes(report, path) - INCIDENTAL - {"link_name", "size", "block_count"}):
             return False
         try:
-            target = os.readlink(path)
+            match = pattern.match(os.readlink(path))
         except OSError:
             return False
-        match = DEVICE_TREE_TARGET.match(target)
-        if not match or not os.path.isdir(os.path.join(os.path.dirname(path), target)):
-            return False
-        package = kernel_package(match.group("release"), packages.owner)
-        return package is not None and package not in baseline_installed
+        return (match is not None and os.path.exists(path)
+                and kernel_package(match.group("release"), packages.owner) is not None)
 
     def kernel_generated(path, section):
-        # Made with a kernel installed since the baseline, or gone with one
-        # removed since; a later change to it stays in the report. A package
-        # may list it as a ghost, as dracut's initramfs is.
+        # Made with a kernel installed since the baseline, gone with one
+        # removed since, or changed with either, as depmod rewrites the
+        # indexes a removed kernel's modules leave; a later change to it stays
+        # in the report. A package may list it as a ghost, as dracut's
+        # initramfs is.
         if path in packages.owner and path not in packages.ghost:
             return False
         for pattern in KERNEL_GENERATED:
             match = pattern.match(path)
             if match:
                 release = match.group("release")
-                if section == "added":
-                    package = kernel_package(release, packages.owner)
-                    return package is not None and package not in baseline_installed
-                package = kernel_package(release, baseline_owner)
-                return package is not None and package not in packages.installed
+                installed = kernel_package(release, packages.owner)
+                removed = kernel_package(release, baseline_owner)
+                installed = installed is not None and installed not in baseline_installed
+                removed = removed is not None and removed not in packages.installed
+                return {"added": installed, "removed": removed}.get(section, installed or removed)
         return False
 
     booted = boot_time()
@@ -1080,6 +1120,8 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
                 explained += 1
             elif vouched(path):
                 explained += 1
+            elif section == "changed" and swapped(path, summary):
+                explained += 1
             elif kind == "l" and symlink_vouched(path) and not attributes - INCIDENTAL - {"link_name", "size", "block_count"}:
                 explained += 1
             elif copy_vouched(path, summary):
@@ -1096,9 +1138,9 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
                 explained += 1
             elif extracted_same(path, summary) or trust_link(path, summary):
                 explained += 1
-            elif device_tree_link(path, summary):
+            elif kernel_link(path, summary):
                 explained += 1
-            elif section == "added" and kernel_generated(path, section):
+            elif kernel_generated(path, section):
                 explained += 1
             elif section == "added" and kdump_built(path):
                 explained += 1
