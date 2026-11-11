@@ -102,6 +102,14 @@ podman_storage_driver_unnamed: true
 # The Ubuntu release maintenance.yml's release-upgrade play upgrades it to.
 ubuntu_release: "26.04"
 
+# Not scanned by ClamAV: caddy-build's Go module cache, its GOMODCACHE in
+# caddy-build.service. Go checks each module it downloads against the checksum
+# database, sum.golang.org. klauspost/compress, which Caddy depends on, ships a
+# malformed zip among its test data, which ClamAV flags as
+# Heuristics.Zip.OverlappingFiles in each version's module and its zip; upstream
+# keeps it (https://github.com/klauspost/compress/issues/1119).
+clamav_exclude_paths: [/var/cache/caddy/go/pkg/mod]
+
 # Not checked by AIDE: the cydia mirror cydia-sync rewrites, and Caddy's
 # certificates, with the locks and cleanup record of the certificate manager
 # that renews them, the Encrypted Client Hello keys it rotates, and the copy
