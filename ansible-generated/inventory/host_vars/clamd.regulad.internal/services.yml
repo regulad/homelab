@@ -17,7 +17,7 @@ quadlet_services:
       - clamav_db:/var/lib/clamav
       - /etc/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
       - /etc/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
-      - /etc/clamav/ignored.ign2:/var/lib/clamav/ignored.ign2:ro
+      - /etc/clamav/ignored.ign2:/var/lib/clamav/ignored.ign2
     environment:
       # freshclam's own default; the image's entrypoint passes once a day.
       FRESHCLAM_CHECKS: "12"

@@ -53,7 +53,12 @@ host_files_list:
   # win_updates.ps1 and -DownloadFile in its win_get_url.ps1. Homebrew's
   # ansible bottles, which Nexus's ghcr-io repository caches, and the layer of
   # kasmweb/terminal that installs Ubuntu's ansible package are such archives.
+  # Mounted writable and owned by the image's clamav user, 100, and group, 101:
+  # the image's entrypoint chowns the database directory at each start, and
+  # exits when a file there is read-only.
   - path: /etc/clamav/ignored.ign2
+    owner: "100"
+    group: "101"
     mode: "0644"
     content: |
       Ps1.Trojan.LNKBuilder-10060627-0:2b42ffa81f43a5f2297f312006bbb597
