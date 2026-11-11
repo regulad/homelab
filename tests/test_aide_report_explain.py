@@ -8,6 +8,7 @@ wanting; a fix changes them on purpose."""
 import importlib.util
 import os
 import py_compile
+import socket
 import sys
 import unittest
 from unittest import mock
@@ -345,6 +346,44 @@ class KernelLinks(support.TreeTestCase):
                              ("/var/lib/kdump/initrd.img", "/var/lib/kdump/initrd.img-6.8.0-149-lowlatency")):
             self.assertTrue(self.all_links[link].match(target), link)
         self.assertIsNone(self.all_links["/var/lib/kdump/vmlinuz"].match("/tmp/vmlinuz-6.8.0-149-lowlatency"))
+
+
+class Sockets(support.TreeTestCase):
+    """A socket holds nothing: agents and services make theirs anew at each
+    start, as the Oracle Cloud Agent's plugins and fluentd do."""
+
+    def bind(self, relative, mode):
+        path = self.path(relative)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        sock = socket.socket(socket.AF_UNIX)
+        self.addCleanup(sock.close)
+        sock.bind(path)
+        os.chmod(path, mode)
+        return path
+
+    def test_added_letting_no_other_user_write(self):
+        path = self.bind("var/lib/oracle-cloud-agent/tmp/plugin1", 0o660)
+        self.assertEqual(explain(report(added={path: "s" + "+" * 17}))[1], 1)
+
+    def test_kept_added_where_any_user_may_write(self):
+        path = self.bind("run/docker.sock", 0o666)
+        self.assertEqual(kept_paths(explain(report(added={path: "s" + "+" * 17}))[0]), {"added": [path]})
+
+    def test_kept_a_file_reported_as_a_socket_that_is_not_one(self):
+        path = self.write("var/lib/x/plugin1")
+        self.assertEqual(kept_paths(explain(report(added={path: "s" + "+" * 17}))[0]), {"added": [path]})
+
+    def test_made_anew_as_it_was_or_removed(self):
+        path = "/var/lib/livepatch/livepatch.sock"
+        entries = report(changed={path: summary("s")}, removed={"/run/x.sock": "s" + "-" * 17},
+                         details={path: attributes("inode", "change_time", "modify_time")})
+        self.assertEqual(explain(entries)[1], 2)
+
+    def test_kept_made_anew_with_another_mode_or_owner(self):
+        path = "/var/lib/livepatch/livepatch.sock"
+        for changes in (("inode", "perm"), ("inode", "uid")):
+            entries = report(changed={path: summary("s")}, details={path: attributes(*changes)})
+            self.assertEqual(kept_paths(explain(entries)[0]), {"changed": [path]}, changes)
 
 
 class Swapped(support.TreeTestCase):

@@ -131,6 +131,7 @@ import py_compile
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -855,6 +856,20 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             attributes -= {"selinux", "xattrs"}
         return summary[column:column + 1] == "." and not attributes
 
+    def socket_made(path, summary, section):
+        # A socket, which holds nothing: made anew by the service listening
+        # on it, as it is at each start, owned and with the mode it had, or
+        # added with a mode that lets no other user write to it.
+        if summary[:1] != "s":
+            return False
+        if section == "changed":
+            return not changed_attributes(report, path) - REWRITTEN
+        try:
+            mode = os.lstat(path).st_mode
+        except OSError:
+            return False
+        return stat.S_ISSOCK(mode) and not mode & stat.S_IWOTH
+
     def symlink_vouched(path):
         target = targets.get(path)
         return target is not None and verified(target)
@@ -1116,6 +1131,8 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
                 explained += 1
             elif section == "changed" and rewritten(path, summary):
                 explained += 1
+            elif socket_made(path, summary, section):
+                explained += 1
             elif dpkg_record(path, section):
                 explained += 1
             elif vouched(path):
@@ -1158,7 +1175,7 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
         owner = baseline_owner.get(path)
         if ((owner is not None and owner not in packages.installed) or dpkg_record(path, "removed")
                 or kernel_generated(path, "removed") or removed_with(path, summary) or below(path, excluded)
-                or extracted_gone(path)):
+                or extracted_gone(path) or summary[:1] == "s"):
             explained += 1
         else:
             kept["removed"][path] = summary
