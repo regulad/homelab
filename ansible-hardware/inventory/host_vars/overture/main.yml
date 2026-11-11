@@ -4,3 +4,7 @@
 ansible_ssh_common_args: -o RemoteCommand=none -o RequestTTY=no
 # The interpreter macOS ships, rather than whichever Python discovery finds.
 ansible_python_interpreter: /usr/bin/python3
+
+# The Orchard worker's VMs, two macOS guests at most by Apple's licence, get
+# 3 GB each unless they ask for more, leaving the Mac 2 GB of its 8.
+orchard_worker_default_memory: 3072

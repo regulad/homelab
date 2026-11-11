@@ -47,6 +47,14 @@
   roles:
     - usb_port_disable
 
+# Orchard workers, which run the orchard controller's Tart VMs.
+- name: Orchard workers
+  hosts: orchard_workers
+  gather_facts: false
+  tags: [orchard_worker]
+  roles:
+    - orchard_worker
+
 # Each Arista switch's whole running configuration, from files/<switch>/.
 - name: Arista switches
   hosts: eos

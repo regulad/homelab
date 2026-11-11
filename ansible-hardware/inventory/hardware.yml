@@ -32,6 +32,10 @@ hardware:
     usb_port_disable:
       hosts:
         prodingus:
+    # Orchard workers, which run the orchard controller's Tart VMs.
+    orchard_workers:
+      hosts:
+        overture:
 
 # Network switches: configured over SSH by Ansible's network modules, which run
 # on the control node, through each platform's CLI. Kept outside the hardware

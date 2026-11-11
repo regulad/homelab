@@ -1,0 +1,113 @@
+---
+# An Orchard worker, running the Orchard controller's Tart VMs, by Orchard's
+# documented launchd deployment: a daemon started as root with --user, so that
+# its Local Network helper makes its connections without macOS's prompt, which
+# then runs as a hidden account of its own. Runs on macOS hardware hosts
+# (Phase 2). Its play runs unprivileged, as Homebrew refuses root, so each task
+# that needs root says so.
+- name: Install Orchard and Tart
+  community.general.homebrew:
+    name:
+      - openai/tools/orchard
+      - openai/tools/tart
+    state: present
+
+- name: The worker's group
+  ansible.builtin.group:
+    name: "{{ orchard_worker_user }}"
+    system: true
+  become: true
+
+# A system account: an ID below 500, hidden from the login window, and a
+# password of *, which no login matches.
+- name: The worker's account
+  ansible.builtin.user:
+    name: "{{ orchard_worker_user }}"
+    group: "{{ orchard_worker_user }}"
+    system: true
+    hidden: true
+    shell: /usr/bin/false
+    home: "{{ orchard_worker_home }}"
+    create_home: true
+  become: true
+
+- name: The worker's home, readable by it alone
+  ansible.builtin.file:
+    path: "{{ orchard_worker_home }}"
+    state: directory
+    owner: "{{ orchard_worker_user }}"
+    group: "{{ orchard_worker_user }}"
+    mode: "0700"
+  become: true
+
+# Tart's images and VMs come again from their registries and the controller,
+# so Time Machine skips them: a sticky exclusion, kept on the folder itself.
+- name: Read whether Time Machine skips the worker's home
+  ansible.builtin.command:
+    argv: [tmutil, isexcluded, "{{ orchard_worker_home }}"]
+  register: orchard_worker_tm
+  changed_when: false
+  check_mode: false
+  become: true
+
+- name: Time Machine skips the worker's home
+  ansible.builtin.command:
+    argv: [tmutil, addexclusion, "{{ orchard_worker_home }}"]
+  when: "'[Excluded]' not in orchard_worker_tm.stdout"
+  changed_when: true
+  become: true
+
+- name: Orchard's configuration directory
+  ansible.builtin.file:
+    path: /etc/orchard
+    state: directory
+    owner: root
+    group: wheel
+    mode: "0755"
+  become: true
+
+# launchd opens it, as root, as the worker's standard input, so the token is in
+# neither the daemon's arguments nor its plist.
+- name: The worker's bootstrap token
+  ansible.builtin.copy:
+    dest: /etc/orchard/bootstrap-token
+    content: "{{ orchard_worker_bootstrap_token }}\n"
+    owner: root
+    group: wheel
+    mode: "0600"
+  register: orchard_worker_token
+  no_log: true
+  become: true
+
+# The worker's own log, which it rotates, written once it runs as its account;
+# and launchd's, for what it prints before.
+- name: The worker's log directory
+  ansible.builtin.file:
+    path: /var/log/orchard-worker
+    state: directory
+    owner: "{{ orchard_worker_user }}"
+    group: "{{ orchard_worker_user }}"
+    mode: "0755"
+  become: true
+
+- name: The worker's daemon
+  ansible.builtin.template:
+    src: org.cirruslabs.orchard.worker.plist.j2
+    dest: /Library/LaunchDaemons/org.cirruslabs.orchard.worker.plist
+    owner: root
+    group: wheel
+    mode: "0644"
+    validate: plutil -lint %s
+  register: orchard_worker_plist
+  become: true
+
+# Reloaded when its plist or token changed: the worker reads the token only at
+# start.
+- name: The worker running
+  community.general.launchd:
+    name: org.cirruslabs.orchard.worker
+    state: "{{ 'reloaded' if orchard_worker_plist is changed or orchard_worker_token is changed else 'started' }}"
+    enabled: true
+  become: true
+  # A check run cannot load a daemon whose plist it has not written.
+  when: not (ansible_check_mode and orchard_worker_plist is changed)

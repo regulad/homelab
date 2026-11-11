@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Orchard's documented worker daemon, from Ansible's orchard_worker role. -->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>org.cirruslabs.orchard.worker</string>
+    <key>Program</key>
+    <string>{{ orchard_worker_brew_prefix }}/bin/orchard</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>{{ orchard_worker_brew_prefix }}/bin/orchard</string>
+      <string>worker</string>
+      <string>run</string>
+      <string>--name</string>
+      <string>{{ inventory_hostname }}</string>
+      <string>--user</string>
+      <string>{{ orchard_worker_user }}</string>
+      <string>--bootstrap-token-stdin</string>
+      <string>--log-file</string>
+      <string>/var/log/orchard-worker/worker.log</string>
+{% if orchard_worker_default_memory | string | length > 0 %}
+      <string>--default-memory</string>
+      <string>{{ orchard_worker_default_memory }}</string>
+{% endif %}
+{% if orchard_worker_default_cpu | string | length > 0 %}
+      <string>--default-cpu</string>
+      <string>{{ orchard_worker_default_cpu }}</string>
+{% endif %}
+      <string>{{ orchard_worker_controller }}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/bin:/usr/bin:/usr/local/bin:{{ orchard_worker_brew_prefix }}/bin</string>
+    </dict>
+    <key>StandardInPath</key>
+    <string>/etc/orchard/bootstrap-token</string>
+    <key>StandardOutPath</key>
+    <string>/var/log/orchard-worker/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/orchard-worker/launchd.log</string>
+    <key>WorkingDirectory</key>
+    <string>/var/empty</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+  </dict>
+</plist>

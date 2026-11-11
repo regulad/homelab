@@ -1,0 +1,23 @@
+---
+# The Orchard controller the worker joins, at Orchard's default port, 6120.
+orchard_worker_controller: orchard.regulad.internal
+# The account the worker drops to once its Local Network helper runs as root,
+# and that account's own group. Its home holds Tart's images and VMs, in .tart.
+orchard_worker_user: _orchard
+orchard_worker_home: /Users/_orchard
+# Megabytes of memory and vCPUs for a VM that asks for none; empty keeps
+# Orchard's own, 8192 and 4.
+orchard_worker_default_memory: ""
+orchard_worker_default_cpu: ""
+# Homebrew's prefix on Apple silicon, where orchard and tart are installed.
+orchard_worker_brew_prefix: /opt/homebrew
+
+# The service account the worker logs in as, and its bootstrap token in
+# Orchard's format, built from the shared secrets: each part base64url without
+# padding, the certificate last so that the worker trusts it alone.
+orchard_worker_service_account: bootstrap-admin
+orchard_worker_bootstrap_token: >-
+  orchard-bootstrap-token-v0.{{
+    [orchard_worker_service_account, orchard_bootstrap_admin_token, orchard_controller_cert]
+    | map('b64encode') | map('replace', '+', '-') | map('replace', '/', '_')
+    | map('regex_replace', '=+$', '') | join('.') }}
