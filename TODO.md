@@ -33,7 +33,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [ ] A replacement for aboriginal's ASUS BT400 (BCM20702A0), dead since the same minute; then its `usb` block back in `vm-aboriginal.tf`
   - [ ] USB ports 1-5 and 1-6 on the `0a:00.1` controller: phantom low-speed devices there since 2026-11-01 kill the controller at boot, and TubesZB (1-1) with it; `usb_port_disable` rebinds it and disables them at boot until their cabling is fixed (the FIXME in prodingus's `host_vars`)
 - [ ] `turk`: Ubuntu 24.04 with VMware Workstation
-- [ ] `overture`: macOS
+- [ ] `overture`: macOS, and also a remote workstation, so `/Users/regulad` is managed out-of-band and nothing under it is managed here
   - [ ] lime's side, by lime's README: the hidden FileVault unlock account, and the sshd drop-in `50-lime-unlock.conf` that leaves it nowhere once the Mac is booted
   - [x] An Orchard worker for the `orchard` controller's Tart VMs: `ansible-hardware`'s `orchard_worker` role, a root launchd daemon running as the hidden `_orchard`, for two macOS guests of 3 GB each
 

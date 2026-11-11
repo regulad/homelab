@@ -5,7 +5,7 @@
 hardware:
   hosts:
     turk:  # Ubuntu 24.04; VMware Workstation for Windows guests with accelerated graphics
-    overture:  # macOS, from 99-osx
+    overture:  # macOS, from 99-osx; also a remote workstation, its /Users/regulad managed out-of-band
   children:
     proxmox_nodes:
       hosts:
