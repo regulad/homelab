@@ -2,6 +2,12 @@
 
 AIDE checks every Debian, Ubuntu and Enterprise Linux host's files each day. aide-report mails root what the host's packages don't explain, and each mail the relay accepts moves the baseline. A role that writes on such a host must let AIDE's refresh take in what it writes. Otherwise every change the role makes is mailed as one nobody explained.
 
+## Why AIDE
+
+AIDE is here only because these hosts cannot be made immutable. Packages, services and Ansible all write to their root filesystems, so the only way to notice a write nobody explained is to compare the files with a baseline after the fact.
+
+A host made completely immutable would have nothing left for AIDE to find. Its root would be a read-only image whose integrity is verified as it is read, as dm-verity checks each block against a root hash the boot chain trusts. A changed file there fails verification when it is read, instead of waiting for the next daily check. Such a host would need no AIDE.
+
 ## How a write reaches the baseline
 
 1. **The callback records it.** The `aide_written` callback, which both stages' `ansible.cfg` enable, records each changed result of a task it knows.
