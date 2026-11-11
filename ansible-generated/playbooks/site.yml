@@ -101,6 +101,15 @@
   roles:
     - host_files
 
+# The Orchard controller's service accounts, through its API, once host_files
+# runs the controller.
+- name: Orchard controllers
+  hosts: orchard_controllers
+  gather_facts: false
+  tags: [orchard_controller]
+  roles:
+    - orchard_controller
+
 # The docker role's compose projects, once host_files has placed their files and
 # secrets.
 - name: Docker Compose projects

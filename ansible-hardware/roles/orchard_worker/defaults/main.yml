@@ -12,12 +12,14 @@ orchard_worker_default_cpu: ""
 # Homebrew's prefix on Apple silicon, where orchard and tart are installed.
 orchard_worker_brew_prefix: /opt/homebrew
 
-# The service account the worker logs in as, and its bootstrap token in
-# Orchard's format, built from the shared secrets: each part base64url without
-# padding, the certificate last so that the worker trusts it alone.
-orchard_worker_service_account: bootstrap-admin
+# The service account the worker logs in as, which ansible-generated's
+# orchard_controller role declares on the controller with the roles Orchard
+# recommends for workers; and its bootstrap token in Orchard's format, built
+# from the shared secrets: each part base64url without padding, the certificate
+# last so that the worker trusts it alone.
+orchard_worker_service_account: worker-{{ inventory_hostname }}
 orchard_worker_bootstrap_token: >-
   orchard-bootstrap-token-v0.{{
-    [orchard_worker_service_account, orchard_bootstrap_admin_token, orchard_controller_cert]
+    [orchard_worker_service_account, orchard_service_account_tokens[orchard_worker_service_account], orchard_controller_cert]
     | map('b64encode') | map('replace', '+', '-') | map('replace', '/', '_')
     | map('regex_replace', '=+$', '') | join('.') }}

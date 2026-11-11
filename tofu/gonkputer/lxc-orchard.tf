@@ -125,7 +125,7 @@ resource "ansible_host" "orchard" {
 
   name = "${proxmox_virtual_environment_container.orchard.initialization[0].hostname}.${local.guest_domain}"
   groups = sort(setunion(
-    ["gonkputer", "proxmox_containers", "ubuntu"],
+    ["gonkputer", "orchard_controllers", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.orchard.tags, local.ansible_group_tags),
     [proxmox_virtual_environment_container.orchard.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))

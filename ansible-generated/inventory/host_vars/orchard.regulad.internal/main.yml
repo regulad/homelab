@@ -46,6 +46,14 @@ host_files_downloads:
 host_files_units:
   - orchard-controller.service
 
+# Service accounts besides bootstrap-admin (orchard_controller role), each with
+# its token from the shared secrets. Each Orchard worker logs in as its own,
+# worker-<host> (ansible-hardware's orchard_worker role), with the roles
+# Orchard recommends for workers.
+orchard_controller_service_accounts:
+  - name: worker-overture
+    roles: [compute:read, compute:write]
+
 # The controller's database, which it rewrites as it works, in the unit's
 # StateDirectory. Its unit, binary, key and certificate stay watched.
 aide_exclude_paths_host: [/var/lib/orchard]

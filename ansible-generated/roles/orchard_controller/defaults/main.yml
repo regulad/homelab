@@ -1,0 +1,10 @@
+---
+# The controller's API, at the name its certificate carries, which the
+# container resolves to itself, and that certificate, which host_files places.
+orchard_controller_api: https://{{ inventory_hostname }}:6120/v1
+orchard_controller_ca_path: /etc/orchard/controller.crt
+
+# The controller's service accounts besides bootstrap-admin, each a name and its
+# roles; its token is orchard_service_account_tokens[name], in the shared
+# secrets. Accounts the controller has that are not listed are left as they are.
+orchard_controller_service_accounts: []

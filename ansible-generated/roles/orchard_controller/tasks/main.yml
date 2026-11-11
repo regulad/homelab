@@ -1,0 +1,80 @@
+---
+# Converge the Orchard controller's service accounts through its API at
+# orchard_controller_api, as bootstrap-admin. Only what
+# orchard_controller_service_accounts names changes. uri has no check mode, so a
+# check run reports what a run would change instead. The controller itself, its
+# binary, unit and secrets, is host_files'.
+- name: Orchard service accounts
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: bootstrap-admin
+      url_password: "{{ orchard_bootstrap_admin_token }}"
+      force_basic_auth: true
+      ca_path: "{{ orchard_controller_ca_path }}"
+  block:
+    # Each account comes with its token.
+    - name: Read the controller's service accounts
+      ansible.builtin.uri:
+        url: "{{ orchard_controller_api }}/service-accounts"
+      register: orchard_controller_accounts_live
+      check_mode: false
+      no_log: true
+
+    - name: Service accounts to create or update
+      ansible.builtin.set_fact:
+        orchard_controller_accounts_new: >-
+          {{ orchard_controller_service_accounts
+             | rejectattr('name', 'in', orchard_controller_accounts_live.json | map(attribute='name') | list)
+             | map(attribute='name') | list }}
+        orchard_controller_accounts_changed: >-
+          {%- set out = [] -%}
+          {%- for account in orchard_controller_service_accounts -%}
+          {%- for live in orchard_controller_accounts_live.json if live.name == account.name -%}
+          {%- if live.token != orchard_service_account_tokens[account.name]
+                or live.roles | default([]) | sort != account.roles | sort -%}
+          {%- set _ = out.append(account.name) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {%- endfor -%}
+          {{ out }}
+
+    - name: Create service accounts
+      ansible.builtin.uri:
+        url: "{{ orchard_controller_api }}/service-accounts"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ item.name }}"
+          token: "{{ orchard_service_account_tokens[item.name] }}"
+          roles: "{{ item.roles }}"
+        status_code: 200
+      loop: "{{ orchard_controller_service_accounts | selectattr('name', 'in', orchard_controller_accounts_new) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+      changed_when: true
+
+    # The controller takes the account's name from the body.
+    - name: Update service accounts
+      ansible.builtin.uri:
+        url: "{{ orchard_controller_api }}/service-accounts/{{ item.name }}"
+        method: PUT
+        body_format: json
+        body:
+          name: "{{ item.name }}"
+          token: "{{ orchard_service_account_tokens[item.name] }}"
+          roles: "{{ item.roles }}"
+        status_code: 200
+      loop: "{{ orchard_controller_service_accounts | selectattr('name', 'in', orchard_controller_accounts_changed) | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+      changed_when: true
+
+    - name: What a run would change
+      ansible.builtin.debug:
+        msg:
+          created: "{{ orchard_controller_accounts_new }}"
+          updated: "{{ orchard_controller_accounts_changed }}"
+      when: ansible_check_mode
+      changed_when: (orchard_controller_accounts_new + orchard_controller_accounts_changed) | length > 0

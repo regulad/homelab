@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: The Orchard controller's service accounts, through its API as bootstrap-admin
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []
