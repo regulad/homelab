@@ -44,3 +44,17 @@ host_files_list:
       DatabaseMirror database.clamav.net
       NotifyClamd /etc/clamav/clamd.conf
     restarts: [clamav.service]
+  # Signatures clamd ignores, mounted into its database directory, each pinned
+  # to the MD5 of its database entry, so that the ignore lapses once Talos
+  # changes the signature. Ps1.Trojan.LNKBuilder-10060627-0, from daily.ldb,
+  # is overzealous: it matches any archive of Ansible with its Windows
+  # collections as a whole, from CreateShortcut and .IconLocation in
+  # community.windows's win_shortcut.ps1, MpCmdRun in ansible.windows's
+  # win_updates.ps1 and -DownloadFile in its win_get_url.ps1. Homebrew's
+  # ansible bottles, which Nexus's ghcr-io repository caches, and the layer of
+  # kasmweb/terminal that installs Ubuntu's ansible package are such archives.
+  - path: /etc/clamav/ignored.ign2
+    mode: "0644"
+    content: |
+      Ps1.Trojan.LNKBuilder-10060627-0:2b42ffa81f43a5f2297f312006bbb597
+    restarts: [clamav.service]
