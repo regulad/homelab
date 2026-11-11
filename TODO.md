@@ -102,7 +102,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
   - [x] Baseline from the shared roles: mail relay as `null-openclaw`, automatic updates, CA trust
   - [ ] Its application, not to be described declaratively for now
 - [x] `openwebui` (115)
-- [ ] `orchard`: the Orchard controller, its pinned release binary under a native unit, for Tart VMs on overture's Orchard worker
+- [x] `orchard` (212): the Orchard controller, its pinned release binary under a native unit, for Tart VMs on overture's Orchard worker
 - [x] `peppercord` (126): a mirror of `cordpepperer`
 - [x] `pihole` (112)
 - [x] `pterodactyl` (120)
