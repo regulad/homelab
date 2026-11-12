@@ -85,6 +85,9 @@ aide_exclude_paths:
   # smartd's record of each disk's attributes, and DHCP clients' leases.
   - /var/lib/smartmontools
   - /var/lib/dhcp
+  # fwupd's copy of the LVFS's catalogue of firmware, with its signature, which
+  # fwupd-refresh downloads again as the LVFS changes it.
+  - /var/lib/fwupd/metadata
   # snapd's state, and what the login banner shows, on Ubuntu: the cache of the
   # system information, and update-notifier's count of the pending updates,
   # rewritten as updates arrive.
