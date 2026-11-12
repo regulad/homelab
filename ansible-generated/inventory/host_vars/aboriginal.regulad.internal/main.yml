@@ -272,6 +272,32 @@ host_files_list:
       [Install]
       WantedBy=timers.target
     restarts: [nextcloud-cron.timer]
+  # Its apps at their newest releases for its major, as podman-auto-update
+  # keeps its image at the major's newest patch: daily, at the start of its
+  # maintenance window (nextcloud.yml); skipped while the stack is down.
+  - path: /etc/systemd/system/nextcloud-app-update.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Nextcloud's apps updated to their newest releases for its major
+      Requisite=podman-compose@nextcloud.service
+      After=podman-compose@nextcloud.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/podman exec --user www-data nextcloud php occ app:update --all
+  - path: /etc/systemd/system/nextcloud-app-update.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Nextcloud's app updates, daily at the start of its maintenance window
+
+      [Timer]
+      OnCalendar=*-*-* {{ '%02d' | format(nextcloud_maintenance_window_start) }}:00:00 UTC
+
+      [Install]
+      WantedBy=timers.target
+    restarts: [nextcloud-app-update.timer]
 rgw_backup_buckets: [synapse-media]
 
 # Jellyfin's major release, which its image tag follows. To move to the next,
@@ -365,6 +391,7 @@ host_files_units:
   - podman-compose@homeassistant.service
   - podman-compose@nextcloud.service
   - nextcloud-cron.timer
+  - nextcloud-app-update.timer
   - mnt-rgw.service
   - smbd.service
   - nmbd.service

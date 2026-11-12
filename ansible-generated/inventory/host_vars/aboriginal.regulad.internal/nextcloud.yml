@@ -13,14 +13,15 @@ nextcloud_svc_account: svc-nextcloud
 nextcloud_mail_host: mail.regulad.xyz
 nextcloud_mail_domain: "{{ hostvars['mail'].mailserver_mailbox_domain }}"
 # The hour, in UTC, its maintenance window starts, in which it runs its heavy
-# background jobs.
+# background jobs, and nextcloud-app-update.timer its app updates.
 nextcloud_maintenance_window_start: 6
 # wako's directory suffix, derived from its domain.
 nextcloud_ldap_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
 
 # The apps enabled besides those Nextcloud enables by itself (its
 # core/shipped.json's defaultEnabled and alwaysEnabled), and those of its own
-# kept disabled; every other app is disabled.
+# kept disabled; every other app is disabled. nextcloud-app-update.timer keeps
+# them at their newest releases for the running major.
 nextcloud_apps_enabled:
   # Shipped with Nextcloud.
   - admin_audit

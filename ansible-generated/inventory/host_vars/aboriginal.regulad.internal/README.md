@@ -63,6 +63,8 @@ of their own.
   - Its configuration is the `nextcloud` role's, from `nextcloud.yml`:
     `config.php`, whole; its apps; their settings, its LDAP configuration on
     wako among them; and Mail's provisioning.
+    `nextcloud-app-update.timer` updates its apps daily to their newest
+    releases for its major, at the start of its maintenance window.
   - Mail gives each LDAP user an account on mail, logging in as
     `<uid>@regulad.xyz` with their own Nextcloud password, which is their
     directory's. regulad, a local user of Nextcloud's own, keeps the account
