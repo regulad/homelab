@@ -228,6 +228,30 @@ class DpkgRecords(unittest.TestCase):
                          {"changed": ["/var/lib/dpkg/info/foo.md5sums"]})
 
 
+
+class Variants(unittest.TestCase):
+    """A package moved to its architecture variant's build of the same
+    version, as Ubuntu's amd64v3 packages move: a change of package against a
+    baseline whose manifest records variants, and none against one from
+    before it did."""
+
+    RECORD = "/var/lib/dpkg/info/foo.md5sums"
+    GONE = "/usr/lib/foo/generic.so"
+
+    def explain_move(self, **manifest):
+        entries = report(changed={self.RECORD: CHANGED_FILE}, removed={self.GONE: REMOVED_FILE},
+                         details={self.RECORD: attributes("sha256")})
+        packages = FakePackages(owner={"/usr/bin/foo": "foo=1/amd64v3"})
+        return explain(entries, packages, dict(owner={self.GONE: "foo=1"}, installed=["foo=1"], **manifest))
+
+    def test_a_change_of_package_against_a_baseline_with_variants(self):
+        kept, explained = self.explain_move(variants=True)
+        self.assertEqual((kept_paths(kept), explained), ({}, 2))
+
+    def test_the_same_package_against_a_baseline_from_before_variants(self):
+        kept, _ = self.explain_move()
+        self.assertEqual(kept_paths(kept), {"changed": [self.RECORD], "removed": [self.GONE]})
+
 class PackageLinks(support.TreeTestCase):
     def test_a_link_to_a_file_its_package_vouches_for(self):
         target = self.write("usr/lib/libfoo.so.2")

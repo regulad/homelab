@@ -157,7 +157,7 @@ class CheckFiles(RunTestCase):
         self.assertNotIn("/usr/bin/new", sent["body"])
         self.assertTrue(self.database().startswith("written by aide"))
         self.assertEqual(support.read_gzip_json(self.settings["manifest"]),
-                         {"owner": {"/usr/bin/new": "new=1"}, "installed": ["new=1"]})
+                         {"owner": {"/usr/bin/new": "new=1"}, "installed": ["new=1"], "variants": True})
         self.assertEqual(self.state("mailed.json")["subject"], sent["subject"])
 
     def test_the_head_counts_and_dates_from_the_manifest(self):

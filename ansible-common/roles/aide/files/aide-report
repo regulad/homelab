@@ -586,16 +586,22 @@ class Packages:
             self.ghost -= regular
         else:
             out = subprocess.run(
-                ["dpkg-query", "-W", "-f", "${binary:Package}\\t${Version}\\t${db:Status-Status}\\n"],
+                ["dpkg-query", "-W", "-f",
+                 "${binary:Package}\\t${Version}\\t${db:Status-Status}\\t${Architecture-Variant}\\n"],
                 stdout=subprocess.PIPE, text=True, errors="replace", check=True).stdout
             # A package removed but not purged keeps its version, and a record
             # of the configuration files it leaves, as config-files: it is not
             # installed, and dpkg --verify vouches for none of what it left.
+            # A package installed as an architecture variant's build, as
+            # Ubuntu's amd64v3 packages are, has the variant after its version
+            # and a "/", which no version holds: moving to the variant's build
+            # of the same version changes the package, as an upgrade does. A
+            # dpkg that knows no variants prints the field empty.
             versions = {}
             for line in out.splitlines():
                 fields = line.split("\t")
-                if len(fields) == 3 and fields[2] not in ("config-files", "not-installed"):
-                    versions[fields[0]] = fields[1]
+                if len(fields) == 4 and fields[2] not in ("config-files", "not-installed"):
+                    versions[fields[0]] = fields[1] + ("/" + fields[3] if fields[3] else "")
             # A file dpkg diverts is where the diversion moved it, which its
             # package's list does not say: there dpkg --verify checks it.
             # Where the package that diverts it installs a file of the same
@@ -631,7 +637,8 @@ class Packages:
         return target + sep + rest if target and sep else path
 
     def versions(self):
-        """Each installed package's version, by the name dpkg's records use."""
+        """Each installed package's version, and its variant where it has one,
+        by the name dpkg's records use."""
         return dict(package_id.split("=", 1) for package_id in self.installed if "=" in package_id)
 
     def package(self, package_id):
@@ -1250,8 +1257,17 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
             return os.path.realpath(path) == twin
         return summary[:1] == "f" and same_contents(path, twin)
 
-    baseline_owner = {packages.canonical(path): owner for path, owner in manifest.get("owner", {}).items()}
-    baseline_installed = manifest.get("installed") or list(set(baseline_owner.values()))
+    # A manifest from before aide-report recorded dpkg's architecture variants
+    # names each package without its variant: against it, a package is the
+    # one the baseline had if only its variant differs.
+    if packages.rpm or manifest.get("variants"):
+        unvaried = {}
+    else:
+        unvaried = {package_id.split("/", 1)[0]: package_id for package_id in packages.installed}
+    baseline_owner = {packages.canonical(path): unvaried.get(owner, owner)
+                      for path, owner in manifest.get("owner", {}).items()}
+    baseline_installed = [unvaried.get(package_id, package_id) for package_id in manifest.get("installed") or ()]
+    baseline_installed = baseline_installed or list(set(baseline_owner.values()))
 
     def cache_rebuilt(path, summary):
         # A cache its tool builds the same now from what AIDE watches, with
@@ -2094,11 +2110,14 @@ def check_files(settings):
 
 def package_manifest(packages):
     """What a baseline's manifest records of the host's packages: each
-    package-owned path's owner, the packages installed, and dpkg's diversions."""
+    package-owned path's owner, the packages installed, dpkg's diversions, and
+    with dpkg that its packages carry their architecture variants."""
     recorded = {"owner": packages.owner, "installed": sorted(packages.installed)}
     current = None if packages.rpm else diversions()
     if current is not None:
         recorded["diversions"] = sorted(current)
+    if not packages.rpm:
+        recorded["variants"] = True
     return recorded
 
 

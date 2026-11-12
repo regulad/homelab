@@ -60,21 +60,33 @@ class DpkgPackages(PackagesTestCase):
         patcher = mock.patch.object(ar, "DPKG_DIVERSIONS", self.diversions)
         patcher.start()
         self.addCleanup(patcher.stop)
-        self.output("dpkg-query", "foo\t1.0\tinstalled\nbar\t2.0\tconfig-files\nold\t3.0\tnot-installed\n"
-                                  "multi:amd64\t4.0\tinstalled\nhalf\t5.0\thalf-configured\n")
+        self.output("dpkg-query", "foo\t1.0\tinstalled\t\nbar\t2.0\tconfig-files\t\nold\t3.0\tnot-installed\t\n"
+                                  "multi:amd64\t4.0\tinstalled\t\nhalf\t5.0\thalf-configured\t\n"
+                                  "vary:amd64\t6.0\tinstalled\tamd64v3\n")
         self.dpkg_info({
             "foo.list": ["/.", "/usr/bin/foo", "/etc/foo.conf"],
             "bar.list": ["/etc/bar.conf"],
             "multi:amd64.list": ["/usr/lib/multi.so"],
             "half.list": ["/usr/bin/half"],
+            "vary:amd64.list": ["/usr/lib/vary.so"],
             "foo.md5sums": ["ignored"],
         })
 
     def test_installed_packages_by_name_and_version(self):
         packages = ar.Packages()
         self.assertFalse(packages.rpm)
-        self.assertEqual(packages.installed, {"foo=1.0", "multi:amd64=4.0", "half=5.0"})
-        self.assertEqual(packages.versions(), {"foo": "1.0", "multi:amd64": "4.0", "half": "5.0"})
+        self.assertEqual(packages.installed, {"foo=1.0", "multi:amd64=4.0", "half=5.0", "vary:amd64=6.0/amd64v3"})
+        self.assertEqual(packages.versions(), {"foo": "1.0", "multi:amd64": "4.0", "half": "5.0",
+                                               "vary:amd64": "6.0/amd64v3"})
+
+    def test_a_variants_build_has_the_variant_after_its_version(self):
+        # Ubuntu's amd64v3 builds of the same version are other packages to
+        # aide-report, as an upgrade's are; a dpkg without variants prints
+        # the field empty.
+        packages = ar.Packages()
+        self.assertIn("${Architecture-Variant}", self.calls("dpkg-query")[-1]["argv"][-1])
+        self.assertEqual(packages.owner["/usr/lib/vary.so"], "vary:amd64=6.0/amd64v3")
+        self.assertEqual(packages.package("vary:amd64=6.0/amd64v3"), "vary:amd64")
 
     def test_each_listed_path_owned_by_its_package(self):
         packages = ar.Packages()
@@ -107,7 +119,7 @@ class DpkgPackages(PackagesTestCase):
     def test_a_diverted_file_is_its_packages_where_the_diversion_moved_it(self):
         # proxmox-kernel-helper diverts grub2-common's grub-install, and
         # installs a grub-install of its own in its place.
-        self.output("dpkg-query", "grub2-common\t2.12\tinstalled\nproxmox-kernel-helper\t9.0\tinstalled\n")
+        self.output("dpkg-query", "grub2-common\t2.12\tinstalled\t\nproxmox-kernel-helper\t9.0\tinstalled\t\n")
         with open(self.diversions, "w") as handle:
             handle.write("/usr/sbin/grub-install\n/usr/sbin/grub-install.real\nproxmox-kernel-helper\n")
         for package in ("grub2-common", "proxmox-kernel-helper"):
@@ -216,17 +228,18 @@ class Canonical(unittest.TestCase):
 
 
 class Manifest(unittest.TestCase):
-    def test_owner_installed_and_dpkg_diversions(self):
+    def test_owner_installed_dpkg_diversions_and_variants(self):
         packages = support.FakePackages(owner={"/usr/bin/foo": "foo=1"}, installed={"foo=1", "bar=2"})
         diversion = ("/usr/sbin/grub-install", "/usr/sbin/grub-install.real", "proxmox-kernel-helper")
         with mock.patch.object(ar, "diversions", return_value={diversion}):
             manifest = ar.package_manifest(packages)
         self.assertEqual(manifest, {"owner": {"/usr/bin/foo": "foo=1"}, "installed": ["bar=2", "foo=1"],
-                                    "diversions": [diversion]})
+                                    "diversions": [diversion], "variants": True})
 
     def test_no_diversions_with_rpm_or_without_the_file(self):
         with mock.patch.object(ar, "diversions", return_value={("a", "b", "c")}):
             self.assertNotIn("diversions", ar.package_manifest(support.FakePackages(rpm=True)))
+            self.assertNotIn("variants", ar.package_manifest(support.FakePackages(rpm=True)))
         with mock.patch.object(ar, "diversions", return_value=None):
             self.assertNotIn("diversions", ar.package_manifest(support.FakePackages()))
 
