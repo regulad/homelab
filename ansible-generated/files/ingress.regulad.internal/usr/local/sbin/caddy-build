@@ -13,11 +13,6 @@ set -eu
 running=/usr/local/bin/caddy
 new=/usr/local/bin/caddy.new
 
-# Go's telemetry, off: it would otherwise count each go command in root's
-# configuration directory. GOTELEMETRY only reports the mode; go telemetry sets
-# it, once.
-[ "$(/usr/bin/go env GOTELEMETRY)" = off ] || /usr/bin/go telemetry off
-
 /usr/bin/xcaddy build "<v3.0.0" \
     --with "github.com/caddyserver/cache-handler@<v0.18.0" \
     --with "github.com/caddy-dns/cloudflare@<v0.3.0" \
