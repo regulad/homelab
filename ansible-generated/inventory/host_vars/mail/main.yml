@@ -271,11 +271,5 @@ mailserver_mailbox_domain: regulad.xyz
 # docker-mailserver's own ClamAV scans each message as Postfix accepts it.
 clamav_onaccess_enabled: true
 
-# The Unified Monitoring Agent's sockets (oci group): bound over themselves
-# noexec, and so not checked by AIDE.
-noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
-
-# Not checked by AIDE: the noexec paths. docker-mailserver's configuration
-# stays watched; its data on /mnt/mailserver, another filesystem, AIDE does not
-# walk.
-aide_exclude_paths_host: "{{ noexec_paths_host }}"
+# docker-mailserver's configuration stays watched by AIDE; its data on
+# /mnt/mailserver, another filesystem, AIDE does not walk.

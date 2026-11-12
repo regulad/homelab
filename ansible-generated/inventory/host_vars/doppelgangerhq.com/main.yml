@@ -228,14 +228,10 @@ clamav_clamd_local: true
 clamav_scan_paths_host:
   - /opt/doppelganger
 
-# The Unified Monitoring Agent's sockets (oci group): bound over themselves
-# noexec, and so not checked by AIDE.
-noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
-
 # Not checked by AIDE: what Caddy rewrites as it runs, as on ingress (its
 # certificates at each renewal, its locks, and its storage cleaner's last run),
-# the copy of its configuration it saves at each load, which Caddy 2.6 has no
-# persist_config to turn off, and the noexec paths.
+# and the copy of its configuration it saves at each load, which Caddy 2.6 has
+# no persist_config to turn off.
 aide_exclude_paths_host: >-
   {{ ['certificates', 'locks', 'last_clean.json'] | map('regex_replace', '^', '/var/lib/caddy/.local/share/caddy/') | list
-     + ['/var/lib/caddy/.config/caddy/autosave.json'] + noexec_paths_host }}
+     + ['/var/lib/caddy/.config/caddy/autosave.json'] }}

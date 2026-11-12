@@ -170,6 +170,30 @@ class AppArmorCache(unittest.TestCase):
                         main.index("- name: AppArmor's policy cache mounted, and at each boot"))
 
 
+class NoexecUnits(unittest.TestCase):
+    """A path taken off the noexec role's lists stays bound until its unit goes,
+    and its bind makes it a mount point, which aide-report keeps AIDE out of."""
+
+    MAIN = "ansible-common/roles/noexec/tasks/main.yml"
+
+    def test_units_the_role_made_for_paths_no_longer_listed_go(self):
+        main = read(self.MAIN)
+        header = read("ansible-common/roles/noexec/templates/bind.mount.j2").splitlines()[0]
+        self.assertTrue(header.startswith("# Managed by Ansible (noexec). "))
+        found = task(main, "Find the mount units the role made")
+        self.assertIn("paths: /etc/systemd/system", found)
+        self.assertIn(r'contains: "^# Managed by Ansible \\(noexec\\)\\. "', found)
+        stale = "noexec_made.files | map(attribute='path') | map('basename') | difference(noexec_units.stdout.split())"
+        stopped = task(main, "Units of paths no longer listed stopped and disabled")
+        self.assertRegex(stopped, r"state: stopped\s+enabled: false")
+        self.assertIn(stale, stopped)
+        removed = task(main, "Their unit files removed")
+        self.assertRegex(removed, r"path: /etc/systemd/system/\{\{ item \}\}\s+state: absent")
+        self.assertIn(stale, removed)
+        self.assertLess(main.index("- name: Units of paths no longer listed stopped and disabled"),
+                        main.index("- name: Their unit files removed"))
+
+
 class AuditdSettings(unittest.TestCase):
     def test_space_left_action_out_of_reach_of_oci_linux_configs_rewrite(self):
         # oci-linux-config's passwd_mgmt.sh, which its %post runs at each

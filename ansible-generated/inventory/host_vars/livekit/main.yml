@@ -32,11 +32,6 @@ kernel_params_sysctl_files:
   90-livekit-relay:
     net.ipv4.ip_local_reserved_ports: "{{ livekit_relay_ports.start }}-{{ livekit_relay_ports.end }}"
 
-# The Unified Monitoring Agent's sockets (oci group): bound over themselves
-# noexec, and so not checked by AIDE.
-noexec_paths_host: ["{{ oci_monitoring_agent_sockets }}"]
-aide_exclude_paths_host: "{{ noexec_paths_host }}"
-
 # nginx proxies to LiveKit and lk-jwt-service on localhost.
 host_files_selinux_booleans:
   httpd_can_network_connect: true
