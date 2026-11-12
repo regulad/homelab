@@ -61,7 +61,7 @@ homelab/
 │   ├── group_vars/              # all.sops.yml: secrets both stages share, linked from each stage's inventory/group_vars/
 │   ├── playbooks/               # site.yml, maintenance.yml: plays both stages share, imported first by each stage's own; aide-refresh.yml: AIDE's refresh, imported last; roles -> ../roles
 │   ├── plugins/                 # callback/aide_written: the files each run wrote, kept in ~/.cache/ansible/aide_written until AIDE's refresh play consumes them; both stages' ansible.cfg enable it
-│   └── roles/                   # roles both stages apply: base, tailscale, firewalld, cve_2026_98432, ca_trust, auto_updates, mail_relay, kdump, kernel_params, apt_amd64v3, netplan, swap, noexec, auditd, avahi, restic, clamav, aide
+│   └── roles/                   # roles both stages apply: base, tailscale, firewalld, cve_2026_98432, ca_trust, auto_updates, mail_relay, kdump, kernel_params, apt_amd64v3, netplan, swap, noexec, auditd, avahi, restic, clamav, go_telemetry, aide
 ├── ansible-hardware/            # Phase 2, after tofu/backblaze, before the other roots; hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent
