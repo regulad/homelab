@@ -13,12 +13,13 @@ A host made completely immutable would have nothing left for AIDE to find. Its r
 1. **The callback records it.** The `aide_written` callback, which both stages' `ansible.cfg` enable, records each changed result of a task it knows.
    - Records go into `~/.cache/ansible/aide_written/<host>` on the controller, each with the time it was made.
    - Unit names go into `<host>.units`.
-2. **Each run ends with the refresh.** Both stages' `site.yml` and `maintenance.yml` import `ansible-common/playbooks/aide-refresh.yml` as their last play. It is tagged `always`, so a run with `--tags` refreshes too.
-3. **The refresh moves the baseline for exactly those entries.** Its tasks are `ansible-common/roles/aide/tasks/refresh.yml`.
+2. **Each run holds the daily check from its start.** The shared `site.yml` and `maintenance.yml` begin with `ansible-common/playbooks/aide-hold.yml`, which runs `aide-report --run-started` on each host. Until the run ends, a daily check that comes due on that host waits instead of mailing what the run has written so far. A mark older than six hours holds nothing, so a run that died stops holding.
+3. **Each run ends with the refresh.** Both stages' `site.yml` and `maintenance.yml` import `ansible-common/playbooks/aide-refresh.yml` as their last play. Like the hold, it is tagged `always`, so a run with `--tags` refreshes too. Its second play runs `aide-report --run-ended` on every host, after the refresh: that ends the hold, and starts the check it held, against the moved baseline.
+4. **The refresh moves the baseline for exactly those entries.** Its tasks are `ansible-common/roles/aide/tasks/refresh.yml`.
    - It runs `aide-report --refresh` with the recorded paths and units.
    - It accepts each path as it is at that moment, then removes the records it used.
    - It leaves out records made before the host's baseline was last accepted.
-   - A host with no records is left without being contacted.
+   - A host with no records ends the refresh without being contacted; only the release contacts it, to end its hold.
    - A host without a baseline gets its first one here, at the end of the run that set it up.
 
 Records outlast a run that fails or is interrupted, and the next run to reach the host refreshes them. Nothing is recorded or removed in check mode.
@@ -69,7 +70,7 @@ A no_log task is recorded like any other. The callback reads only paths and unit
    - Where something can write into an excluded directory, bind it noexec as well, with the noexec role's `noexec_paths_host`. mail does this for the monitoring agent's sockets: `aide_exclude_paths_host: "{{ noexec_paths_host }}"`.
 7. **Leave package scripts' leftovers to aide-report.** Some files a package's own scripts make, such as caches, generated links and kernel files, aren't explained yet. Those need a rule in aide-report's `explain()`, with tests, not an exclusion or a declaration.
 8. **Let a one-off operation be mailed once.** Installers such as `ipa-replica-install`, and release upgrades, rewrite more than can be declared. The next report mails the changes once and accepts them. Alternatively, review the changes and run `maintenance.yml --tags aide-accept --limit <host>`.
-9. **Keep the refresh last.** A new play goes before the refresh import in `site.yml` or `maintenance.yml`. The tests check that each stage's two playbooks end with it.
+9. **Keep the hold first and the refresh last.** A new play goes after the hold import in the shared `site.yml` or `maintenance.yml`, and before the refresh import in a stage's. The tests check that both shared playbooks begin with the hold, and that each stage's two playbooks end with the refresh.
 
 Roles for hosts outside those three OS groups, such as pfSense and the switches, have nothing to do here: AIDE doesn't run on them. The callback still records their writes, but no refresh ever reads those records, so they are harmless.
 
@@ -84,7 +85,8 @@ Roles for hosts outside those three OS groups, such as pfSense and the switches,
 | Piece | File |
 |---|---|
 | The callback | `ansible-common/plugins/callback/aide_written.py` |
-| The refresh play | `ansible-common/playbooks/aide-refresh.yml` |
+| The hold play | `ansible-common/playbooks/aide-hold.yml` |
+| The refresh play, and the release after it | `ansible-common/playbooks/aide-refresh.yml` |
 | The refresh tasks | `ansible-common/roles/aide/tasks/refresh.yml` |
 | The daily report, the baseline and the refresh itself | `ansible-common/roles/aide/files/aide-report` |
 | Exclusions, and the rest of the role's settings | `ansible-common/roles/aide/defaults/main.yml` |
