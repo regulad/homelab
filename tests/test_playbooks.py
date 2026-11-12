@@ -189,12 +189,9 @@ class NoexecUnits(unittest.TestCase):
         self.assertIn("noexec_stale_units: \"{{ noexec_made.files | map(attribute='path') | map('basename')"
                       " | difference(noexec_units.stdout.split()) }}\"", named)
         stale = 'loop: "{{ noexec_stale_units }}"'
-        # A bind over itself leaves the same files at its path, so it unmounts
-        # lazily rather than failing while something holds it open.
-        lazy = task(main, "Their units unmount lazily")
-        self.assertIn("line: LazyUnmount=yes", lazy)
-        self.assertIn(r"insertafter: ^\[Mount\]$", lazy)
-        self.assertIn(stale, lazy)
+        # Each unmounts lazily by its template's LazyUnmount=, rather than
+        # failing while something holds its path open.
+        self.assertNotIn("line: LazyUnmount", main)
         stopped = task(main, "Their units stopped and disabled")
         self.assertRegex(stopped, r"state: stopped\s+enabled: false\s+daemon_reload: true")
         self.assertIn(stale, stopped)
@@ -202,8 +199,8 @@ class NoexecUnits(unittest.TestCase):
         self.assertRegex(removed, r"path: /etc/systemd/system/\{\{ item \}\}\s+state: absent")
         self.assertIn(stale, removed)
         order = [main.index("- name: " + name) for name in (
-            "Name the units of paths no longer listed", "Their units unmount lazily",
-            "Their units stopped and disabled", "Their unit files removed")]
+            "Name the units of paths no longer listed", "Their units stopped and disabled",
+            "Their unit files removed")]
         self.assertEqual(order, sorted(order))
 
     def test_binds_unmount_lazily(self):
