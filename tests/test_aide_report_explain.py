@@ -10,6 +10,7 @@ import os
 import py_compile
 import socket
 import sys
+import time
 import unittest
 from unittest import mock
 
@@ -626,22 +627,397 @@ class Kdump(unittest.TestCase):
     release = "6.12.0-208.112.5.el9uek.aarch64"
     accepted, booted = 1000, 2000
 
-    def explained(self, written):
+    def explained(self, written, boots=None):
         path = "/boot/initramfs-%skdump.img" % self.release
         image = "/usr/lib/modules/%s/vmlinuz" % self.release
         packages = FakePackages(owner={image: "kernel-uek-core"}, rpm=True)
         manifest = {"installed": ["kernel-uek-core"]}
         real_getmtime = os.path.getmtime
-        with mock.patch.object(ar, "boot_time", return_value=self.booted), \
-                mock.patch.object(ar.os, "uname", return_value=mock.Mock(release=self.release)), \
+        with mock.patch.object(ar, "boots", return_value=boots or [(self.booted, self.release)]), \
                 mock.patch.object(ar.os.path, "getmtime", lambda p: written if p == path else real_getmtime(p)):
             return explain(report(added={path: ADDED_FILE}), packages, manifest, accepted=self.accepted)[1]
 
-    def test_built_during_this_boot_into_the_running_kernel(self):
+    def test_built_during_this_boot_into_the_kernel(self):
         self.assertEqual(self.explained(written=self.booted + 60), 1)
 
-    def test_gap_kept_one_built_during_an_earlier_boot_after_the_baseline(self):
-        self.assertEqual(self.explained(written=self.booted - 60), 0)
+    def test_built_during_an_earlier_boot_after_the_baseline(self):
+        boots = [(1500, self.release), (self.booted, self.release)]
+        self.assertEqual(self.explained(written=1560, boots=boots), 1)
+
+    def test_kept_one_written_long_after_its_boot(self):
+        self.assertEqual(self.explained(written=self.booted + ar.KDUMP_BUILT + 1), 0)
+
+    def test_kept_after_a_boot_into_another_kernel_or_before_the_baseline(self):
+        self.assertEqual(self.explained(written=1560, boots=[(1500, "6.12.0-207.el9uek.aarch64")]), 0)
+        self.assertEqual(self.explained(written=960, boots=[(900, self.release)]), 0)
+
+
+class Boots(support.TreeTestCase):
+    def record(self, kind, when, host):
+        fields = [kind, 0, b"~", b"~~", b"reboot", host.encode(), 0, 0, 0, when, 0, 0, 0, 0, 0, b""]
+        return ar.UTMP_RECORD.pack(*fields)
+
+    def test_each_boot_the_login_records_hold_and_this_one(self):
+        self.assertEqual(ar.UTMP_RECORD.size, 384)
+        older = self.write("wtmp.1")
+        with open(older, "wb") as handle:
+            handle.write(self.record(ar.UTMP_BOOT_TIME, 100, "6.1-old"))
+        newer = self.write("wtmp")
+        with open(newer, "wb") as handle:
+            handle.write(self.record(7, 150, "10.0.0.1") + self.record(ar.UTMP_BOOT_TIME, 200, "6.2-new"))
+        with mock.patch.object(ar, "WTMP", (older, newer, self.path("missing"))), \
+                mock.patch.object(ar, "boot_time", return_value=300), \
+                mock.patch.object(ar.os, "uname", return_value=mock.Mock(release="6.3-running")):
+            self.assertEqual(ar.boots(), [(100, "6.1-old"), (200, "6.2-new"), (300, "6.3-running")])
+
+
+class TransactionWritten(unittest.TestCase):
+    entry = "/boot/loader/entries/%s-6.12.0-208.el9uek.x86_64.conf" % ("0" * 32)
+    accepted = 1000
+
+    def explained(self, path, written, windows=((1500, 1600),), changed=("sha256", "size", "inode"),
+                  packages=None, summary=CHANGED_FILE):
+        real_lstat = os.lstat
+        entries = report(changed={path: summary}, details={path: attributes(*changed)})
+        written_file = mock.Mock(st_ctime=written, st_mode=0o100644)
+        with mock.patch.object(ar, "package_transactions", return_value=list(windows)), \
+                mock.patch.object(ar.os, "lstat", lambda p: written_file if p == path else real_lstat(p)):
+            return explain(entries, packages or FakePackages(rpm=True), accepted=self.accepted)[1]
+
+    def test_written_during_a_package_transaction_since_the_baseline(self):
+        for path in (self.entry, "/etc/default/grub", "/boot/initramfs-6.12.0-208.el9uek.x86_64.img",
+                     "/boot/initrd.img-6.8.0-149-generic", "/boot/grub/grub.cfg", "/boot/grub2/grub.cfg",
+                     "/etc/apt/apt.conf.d/76pveconf", "/etc/pki/pki.version",
+                     "/etc/ssh/ssh_config.d/04-ipa.conf.orig", "/etc/sysconfig/krb5kdc.orig",
+                     "/etc/ssh/sshd_config.rpmnew", "/etc/default/useradd.dpkg-old"):
+            self.assertEqual(self.explained(path, written=1550), 1, path)
+
+    def test_written_in_the_moments_after_its_end(self):
+        self.assertEqual(self.explained(self.entry, written=1600 + ar.TRANSACTION_TAIL), 1)
+
+    def test_kept_written_outside_any_transaction_or_before_the_baseline(self):
+        self.assertEqual(self.explained(self.entry, written=1600 + ar.TRANSACTION_TAIL + 1), 0)
+        self.assertEqual(self.explained(self.entry, written=900, windows=((800, 950),)), 0)
+        self.assertEqual(self.explained(self.entry, written=1550, windows=()), 0)
+
+    def test_kept_what_no_scriptlet_writes_or_more_than_its_contents(self):
+        self.assertEqual(self.explained("/etc/ssh/sshd_config", written=1550), 0)
+        self.assertEqual(self.explained("/usr/bin/sshd.orig", written=1550), 0)
+        self.assertEqual(self.explained(self.entry, written=1550, changed=("sha256", "perm")), 0)
+        self.assertEqual(self.explained(self.entry, written=1550, summary=CHANGED_LINK), 0)
+
+    def test_kdumps_image_is_left_to_its_own_rule(self):
+        self.assertEqual(self.explained("/boot/initramfs-6.12.0-208.el9uek.x86_64kdump.img", written=1550), 0)
+
+
+class PackageTransactions(support.TreeTestCase):
+    def test_dnfs_history(self):
+        import sqlite3
+        path = self.path("history.sqlite")
+        database = sqlite3.connect(path)
+        database.execute("CREATE TABLE trans (id INTEGER PRIMARY KEY, dt_begin INTEGER, dt_end INTEGER)")
+        database.executemany("INSERT INTO trans (dt_begin, dt_end) VALUES (?, ?)", [(100, 160), (200, None)])
+        database.commit()
+        database.close()
+        with mock.patch.object(ar, "DNF_HISTORY", path):
+            self.assertEqual(ar.package_transactions(rpm=True), [(100, 160)])
+        with mock.patch.object(ar, "DNF_HISTORY", self.path("missing")):
+            self.assertEqual(ar.package_transactions(rpm=True), [])
+
+    def test_apts_records_the_rotated_ones_among_them(self):
+        import gzip
+        log = self.write("history.log", "\nStart-Date: 2026-11-11  06:41:36\nCommandline: /usr/bin/unattended-upgrade\n"
+                                        "Upgrade: snapd:amd64 (2.77, 2.78)\nEnd-Date: 2026-11-11  06:41:37\n"
+                                        "\nStart-Date: 2026-11-11  07:00:00\n")
+        with gzip.open(self.path("history.log.1.gz"), "wt") as handle:
+            handle.write("Start-Date: 2026-10-31  06:00:00\nEnd-Date: 2026-10-31  06:01:00\n")
+        with mock.patch.object(ar, "APT_HISTORY", log):
+            windows = ar.package_transactions(rpm=False)
+
+        def at(text):
+            return time.mktime(time.strptime(text, "%Y-%m-%d %H:%M:%S"))
+        self.assertEqual(sorted(windows), [(at("2026-10-31 06:00:00"), at("2026-10-31 06:01:00")),
+                                           (at("2026-11-11 06:41:36"), at("2026-11-11 06:41:37"))])
+
+
+class Capabilities(unittest.TestCase):
+    path = "/usr/libexec/oracle-cloud-agent/plugins/bastions"
+    package = "oracle-cloud-agent-1.65.0-8.el9.aarch64"
+    script = "postinstall scriptlet (using /bin/sh):\n  /usr/libexec/oracle-cloud-agent/plugins/setCapability %s\n" % path
+
+    def explained(self, script=None, installed=("oracle-cloud-agent-1.64.0-16.el9.aarch64",), rpm=True,
+                  changed=("sha512", "size", "inode")):
+        packages = FakePackages(owner={self.path: self.package}, rpm=rpm, capabilities_only={self.path},
+                                scriptlets={self.package: self.script if script is None else script})
+        entries = report(changed={self.path: CHANGED_FILE}, details={self.path: attributes(*changed)})
+        return explain(entries, packages, {"installed": list(installed)})[1]
+
+    def test_set_by_the_scriptlets_of_its_package_upgraded_since_the_baseline(self):
+        self.assertEqual(self.explained(), 1)
+
+    def test_kept_where_its_scriptlets_do_not_name_it(self):
+        self.assertEqual(self.explained(script="postinstall scriptlet:\n  true\n"), 0)
+
+    def test_kept_where_its_package_did_not_change_or_on_dpkg(self):
+        self.assertEqual(self.explained(installed=(self.package,)), 0)
+        self.assertEqual(self.explained(rpm=False), 0)
+
+    def test_kept_where_more_than_its_contents_changed(self):
+        self.assertEqual(self.explained(changed=("sha512", "perm")), 0)
+
+
+def jks(certificates, private=False):
+    """A JKS keystore of trusted certificates, each added at a time of its own."""
+    import struct
+    data = struct.pack(">III", ar.JKS_MAGIC, 2, len(certificates))
+    for number, certificate in enumerate(certificates):
+        alias = ("ca%d" % number).encode()
+        data += struct.pack(">I", 1 if private else 2) + struct.pack(">H", len(alias)) + alias
+        data += struct.pack(">Q", int(time.time() * 1000) + number)
+        data += struct.pack(">H", 5) + b"X.509" + struct.pack(">I", len(certificate)) + certificate
+    return data + b"\0" * 20
+
+
+def pem(certificates):
+    import base64
+    return "".join("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n" % base64.b64encode(c).decode()
+                   for c in certificates)
+
+
+class Keystores(support.TreeTestCase):
+    certificates = [b"\x30\x82first", b"\x30\x82second"]
+
+    def setUp(self):
+        super().setUp()
+        self.keystore = self.path("etc/ssl/certs/java/cacerts")
+        self.bundle = self.write("etc/ssl/certs/ca-certificates.crt", pem(self.certificates))
+        patcher = mock.patch.object(ar, "JAVA_KEYSTORES", {self.keystore: self.bundle})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def store(self, path, data):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(data)
+
+    def explain_keystore(self, changed=("sha256", "modify_time")):
+        return explain(report(changed={self.keystore: CHANGED_FILE},
+                              details={self.keystore: attributes(*changed)}), scratch=self.path("scratch"))[1]
+
+    def test_holding_exactly_the_bundles_certificates(self):
+        self.store(self.keystore, jks(list(reversed(self.certificates))))
+        self.assertEqual(self.explain_keystore(), 1)
+
+    def test_kept_with_another_certificate_or_one_fewer(self):
+        self.store(self.keystore, jks(self.certificates + [b"\x30\x82third"]))
+        self.assertEqual(self.explain_keystore(), 0)
+        self.store(self.keystore, jks(self.certificates[:1]))
+        self.assertEqual(self.explain_keystore(), 0)
+
+    def test_kept_a_keystore_with_a_private_key_or_not_in_jks(self):
+        self.store(self.keystore, jks(self.certificates, private=True))
+        self.assertEqual(self.explain_keystore(), 0)
+        self.store(self.keystore, b"\x30\x82PKCS12")
+        self.assertEqual(self.explain_keystore(), 0)
+
+    def test_kept_where_more_than_its_contents_changed(self):
+        self.store(self.keystore, jks(self.certificates))
+        self.assertEqual(self.explain_keystore(changed=("sha256", "perm")), 0)
+
+    def test_enterprise_linuxs_compared_with_its_own_extracted_again(self):
+        store, source = self.path("etc/pki/ca-trust/extracted"), self.path("source")
+        copy = "import shutil, sys; shutil.copytree(%r, sys.argv[1], symlinks=True, dirs_exist_ok=True)" % source
+        keystore = store + "/java/cacerts"
+        self.store(keystore, jks(self.certificates))
+        self.store(source + "/java/cacerts", jks(list(reversed(self.certificates))))
+        entries = report(changed={keystore: CHANGED_FILE}, details={keystore: attributes("sha256")})
+        with mock.patch.object(ar, "TRUST_STORE", store), \
+                mock.patch.object(ar, "EXTRACTED", ((store, [sys.executable, "-c", copy]),)):
+            self.assertEqual(explain(entries, scratch=self.path("scratch"))[1], 1)
+            self.store(source + "/java/cacerts", jks(self.certificates[:1]))
+            self.assertEqual(explain(entries, scratch=self.path("scratch"))[1], 0)
+
+
+class Snaps(support.TreeTestCase):
+    """snapd's records of the snaps it holds, in a scratch tree."""
+
+    snap_id = "PMrrV4ml8uWuEUDBT8dSGnKUYbevVhc4"
+
+    def setUp(self):
+        super().setUp()
+        self.snapd = self.path("var/lib/snapd")
+        self.units = self.path("etc/systemd/system")
+        self.roots = tuple(self.path(root) for root in ("snap", "var/snap", "root/snap"))
+        for name, value in (("SNAPD", self.snapd), ("SNAP_FILES", self.snapd + "/snaps"),
+                            ("SNAP_CACHE", self.snapd + "/cache"),
+                            ("SNAP_REVISIONS", self.snapd + "/assertions/asserts-v0/snap-revision"),
+                            ("SNAP_DECLARATIONS", self.snapd + "/assertions/asserts-v0/snap-declaration/16"),
+                            ("SNAP_ROOTS", self.roots), ("SNAP_DATA_ROOTS", self.roots[1:]),
+                            ("SYSTEMD_UNITS", self.units), ("SNAPD_DAEMON", self.path("usr/lib/snapd/snapd"))):
+            patcher = mock.patch.object(ar, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.write("var/lib/snapd/assertions/asserts-v0/snap-declaration/16/%s/active" % self.snap_id,
+                   "type: snap-declaration\nsnap-id: %s\nsnap-name: snapd\n\nsignature\n" % self.snap_id)
+
+    def hold(self, revision, signed=True, assertion_revision=None):
+        """A revision's file, and the store's assertion of it where signed."""
+        import base64
+        import hashlib
+        data = ("snapd revision %s" % revision).encode()
+        path = self.path("var/lib/snapd/snaps/snapd_%s.snap" % revision)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as handle:
+            handle.write(data)
+        key = base64.urlsafe_b64encode(hashlib.sha3_384(data).digest()).decode().rstrip("=")
+        if signed:
+            self.write("var/lib/snapd/assertions/asserts-v0/snap-revision/%s/active" % key,
+                       "type: snap-revision\nsnap-sha3-384: %s\nsnap-id: %s\nsnap-revision: %s\n\nsignature\n"
+                       % (key, self.snap_id, assertion_revision or revision))
+        return path, key
+
+    def current(self, revision):
+        for root in self.roots[:2]:
+            self.link(os.path.relpath(root, self.root) + "/snapd/current", revision)
+        return self.roots[0] + "/snapd/current"
+
+    def unit(self, revision, what=None):
+        return self.write("etc/systemd/system/snap-snapd-%s.mount" % revision, (
+            "[Unit]\nDescription=Mount unit for snapd, revision {r}\n\n[Mount]\nWhat={what}\n"
+            "Where={root}/snapd/{r}\nType=squashfs\nOptions=nodev,ro,x-gdu.hide,x-gvfs-hide\nLazyUnmount=yes\n\n"
+            "[Install]\nWantedBy=multi-user.target\n").format(
+                r=revision, root=self.roots[0], what=what or self.snapd + "/snaps/snapd_%s.snap" % revision))
+
+    def explained(self, added=None, removed=None, changed=None, details=None, packages=None, manifest=None,
+                  accepted=None):
+        return explain(report(added=added, removed=removed, changed=changed, details=details),
+                       packages, manifest, accepted=accepted)
+
+    def test_a_revisions_file_the_store_signed(self):
+        path, _ = self.hold("28332")
+        self.assertEqual(self.explained(added={path: ADDED_FILE})[1], 1)
+
+    def test_kept_a_revisions_file_unsigned_or_signed_as_another(self):
+        path, _ = self.hold("28332", signed=False)
+        self.assertEqual(kept_paths(self.explained(added={path: ADDED_FILE})[0]), {"added": [path]})
+        path, _ = self.hold("28333", assertion_revision="1")
+        self.assertEqual(kept_paths(self.explained(added={path: ADDED_FILE})[0]), {"added": [path]})
+
+    def test_kept_where_the_declaration_names_another_snap(self):
+        path, _ = self.hold("28332")
+        self.write("var/lib/snapd/assertions/asserts-v0/snap-declaration/16/%s/active" % self.snap_id,
+                   "type: snap-declaration\nsnap-id: %s\nsnap-name: other\n\n" % self.snap_id)
+        self.assertEqual(kept_paths(self.explained(added={path: ADDED_FILE})[0]), {"added": [path]})
+
+    def test_the_revisions_assertion_and_its_directory(self):
+        _, key = self.hold("28332")
+        directory = self.snapd + "/assertions/asserts-v0/snap-revision/" + key
+        self.assertEqual(self.explained(added={directory: ADDED_DIRECTORY, directory + "/active": ADDED_FILE})[1], 2)
+
+    def test_the_current_link_to_a_signed_revision(self):
+        self.hold("28332")
+        link = self.current("28332")
+        details = {link: attributes("link_name", "change_time", "inode")}
+        self.assertEqual(self.explained(changed={link: CHANGED_LINK}, details=details)[1], 1)
+        self.hold("28400", signed=False)
+        os.remove(link)
+        os.symlink("28400", link)
+        self.assertEqual(kept_paths(self.explained(changed={link: CHANGED_LINK}, details=details)[0]),
+                         {"changed": [link]})
+
+    def test_the_unit_mounting_a_signed_revision_and_the_link_enabling_it(self):
+        self.hold("28332")
+        unit = self.unit("28332")
+        link = self.link("etc/systemd/system/multi-user.target.wants/snap-snapd-28332.mount", unit)
+        self.assertEqual(self.explained(added={unit: ADDED_FILE, link: ADDED_LINK})[1], 2)
+
+    def test_kept_a_unit_mounting_anything_else(self):
+        self.hold("28332")
+        unit = self.unit("28332", what="/dev/sda1")
+        self.assertEqual(kept_paths(self.explained(added={unit: ADDED_FILE})[0]), {"added": [unit]})
+
+    def test_the_directories_of_a_signed_revision(self):
+        self.hold("28332")
+        directories = [root + "/snapd/28332" for root in self.roots]
+        for directory in directories:
+            os.makedirs(directory)
+        self.assertEqual(self.explained(added={d: ADDED_DIRECTORY for d in directories})[1], 3)
+
+    def test_gone_with_a_revision_snapd_no_longer_holds(self):
+        self.hold("28332")
+        self.current("28332")
+        unit = self.units + "/snap-snapd-27738.mount"
+        gone = {self.snapd + "/snaps/snapd_27738.snap": REMOVED_FILE, unit: REMOVED_FILE,
+                self.units + "/multi-user.target.wants/snap-snapd-27738.mount": REMOVED_LINK,
+                self.roots[1] + "/snapd/27738": REMOVED_DIRECTORY}
+        self.assertEqual(self.explained(removed=gone)[1], 4)
+
+    def test_kept_gone_while_still_held_or_in_use(self):
+        path, _ = self.hold("28332")
+        self.current("28332")
+        unit = self.units + "/snap-snapd-28332.mount"
+        self.assertEqual(kept_paths(self.explained(removed={unit: REMOVED_FILE})[0]), {"removed": [unit]})
+        os.remove(path)
+        self.assertEqual(kept_paths(self.explained(removed={path: REMOVED_FILE})[0]), {"removed": [path]})
+
+    def test_the_cache_named_for_its_own_digest(self):
+        import hashlib
+        cached = self.write("var/lib/snapd/cache/" + hashlib.sha3_384(b"blob").hexdigest(), "blob")
+        self.assertEqual(self.explained(added={cached: ADDED_FILE})[1], 1)
+        details = {cached: attributes("link_count", "change_time")}
+        self.assertEqual(self.explained(changed={cached: CHANGED_FILE}, details=details)[1], 1)
+        wrong = self.write("var/lib/snapd/cache/" + "0" * 96, "blob")
+        self.assertEqual(kept_paths(self.explained(added={wrong: ADDED_FILE})[0]), {"added": [wrong]})
+        self.assertEqual(self.explained(removed={self.snapd + "/cache/" + "1" * 96: REMOVED_FILE})[1], 1)
+
+    def regenerated(self):
+        profile = self.write("var/lib/snapd/apparmor/profiles/snap.snapd.hook.configure", "profile\n")
+        data = self.write("var/snap/snapd/28332/settings", "copied\n")
+        return {profile: CHANGED_FILE, data: ADDED_FILE}, {profile: attributes("sha256", "size")}
+
+    def test_what_snapd_writes_again_within_minutes_of_a_refresh(self):
+        self.hold("28332")
+        link = self.current("28332")
+        entries, details = self.regenerated()
+        changed = {p: s for p, s in entries.items() if s == CHANGED_FILE}
+        added = {p: s for p, s in entries.items() if s == ADDED_FILE}
+        details[link] = attributes("link_name", "change_time")
+        self.assertEqual(self.explained(changed=dict(changed, **{link: CHANGED_LINK}), added=added,
+                                        details=details)[1], 3)
+        gone = {self.snapd + "/seccomp/bpf/snap.old.old.bin2": REMOVED_FILE}
+        self.assertEqual(self.explained(changed={link: CHANGED_LINK}, removed=gone, details=details)[1], 2)
+
+    def test_kept_without_a_refresh_since_the_baseline_or_long_after_it(self):
+        self.hold("28332")
+        link = self.current("28332")
+        entries, details = self.regenerated()
+        self.assertEqual(self.explained(changed={p: s for p, s in entries.items() if s == CHANGED_FILE},
+                                        details=details)[1], 0)
+        details[link] = attributes("link_name", "change_time")
+        changed = {p: s for p, s in entries.items() if s == CHANGED_FILE}
+        changed[link] = CHANGED_LINK
+        profile = sorted(p for p in changed if p != link)
+        # The link to the signed revision is left out either way.
+        kept, _ = self.explained(changed=changed, details=details, accepted=time.time() + 3600)
+        self.assertEqual(kept_paths(kept), {"changed": profile})
+        with mock.patch.object(ar, "SNAPD_WINDOW", -1):
+            self.assertEqual(kept_paths(self.explained(changed=changed, details=details)[0]), {"changed": profile})
+
+    def test_what_snapd_writes_again_as_its_own_package_changes(self):
+        self.write("usr/lib/snapd/snapd", "daemon\n")
+        system_key = self.write("var/lib/snapd/system-key", "{}\n")
+        entries = report(changed={system_key: CHANGED_FILE}, details={system_key: attributes("sha256")})
+        upgraded = FakePackages(installed={"snapd=2.78"})
+        self.assertEqual(explain(entries, upgraded, {"installed": ["snapd=2.77"]})[1], 1)
+        self.assertEqual(explain(entries, upgraded, {"installed": ["snapd=2.78"]})[1], 0)
+
+    def test_never_a_revisions_file_by_the_time_it_was_written(self):
+        self.hold("28332")
+        link = self.current("28332")
+        path, _ = self.hold("28400", signed=False)
+        details = {link: attributes("link_name", "change_time")}
+        kept, _ = self.explained(changed={link: CHANGED_LINK}, added={path: ADDED_FILE}, details=details)
+        self.assertEqual(kept_paths(kept), {"added": [path]})
 
 
 class InstalledWith(support.TreeTestCase):

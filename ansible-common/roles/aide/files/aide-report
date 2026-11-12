@@ -74,9 +74,40 @@ A change is left out when:
   on Enterprise Linux microcode_ctl's firmware links and weak-modules' links
   for it), added with a kernel package installed since the baseline, or gone
   with one removed since;
-- the path is kdump's initramfs for the running kernel, added and written
-  during this boot, which began after the baseline was accepted: kdump.service
-  builds it at the first boot into a kernel, not at the kernel's installation;
+- the path is kdump's initramfs for an installed kernel, added and written in
+  the minutes after a boot into that kernel that began after the baseline was
+  accepted, this boot or one the login records hold: kdump.service builds it
+  at the first boot into a kernel, not at the kernel's installation;
+- the path is one a package's scriptlets write, which no package vouches for
+  as it is (Enterprise Linux's boot entries and /etc/default/grub, which
+  grubby rewrites; the initramfs images; GRUB's configuration; Proxmox VE's
+  APT settings; python3-idm-pki's record of its version; and the copies kept
+  beside a configuration file in /etc as it changes, .orig, .rpmnew,
+  .dpkg-old and the like), last written, by its change time, during a package
+  transaction since the baseline, as dnf's history or apt's records it;
+- the path is a file rpm --verify finds as its package has it but for its
+  capabilities, the package was installed or upgraded since the baseline, and
+  its own scriptlets name the file, as oracle-cloud-agent's sets those of its
+  bastions plugin;
+- the path is Java's keystore of trusted certificates, holding exactly the
+  certificates of the PEM bundle it is built from, or on Enterprise Linux of
+  its keystore extracted again: it records when each was added, so its bytes
+  differ at every rebuild;
+- the path is snapd's, of a revision of a snap that snapd holds as the store
+  signed it: the revision's file, whose SHA3-384 the store's assertion of that
+  revision names, for the snap that the store's declaration gives that name;
+  that assertion; the directories it is mounted on and keeps its data in; the
+  unit that mounts it, read-only, where snapd mounts it, and the links that
+  enable that unit; and the snap's current link to it. Or it is gone with a
+  revision snapd no longer holds, while the current link points at another;
+- the path is snapd's cache of a file it downloaded, named for that file's own
+  SHA3-384, which it holds, or gone from it;
+- the path is what snapd writes again as it refreshes a snap or starts anew,
+  from what the snaps declare (their AppArmor, seccomp and mount profiles,
+  udev rules and service units, the copy of a revision's data, and its own
+  records under /var/lib/snapd), written within minutes of a refresh since
+  the baseline, as the snap's current link dates it, or of snapd's own
+  package changing; or gone after such a refresh;
 - the path is gone, and the package that owned it at the baseline is no longer
   installed in that version (one removed but not purged is not installed,
   though dpkg keeps its version), or it now lies below a path the configuration
@@ -95,7 +126,9 @@ A change is left out when:
   level stays in the report.
 
 dpkg records its files' contents alone, so on Debian and Ubuntu the mode of a
-file a package installed since the baseline is not checked.
+file a package installed since the baseline is not checked. A file dpkg
+diverts is its package's where the diversion moved it, where dpkg --verify
+checks it.
 
 While the firmware reports Secure Boot on, the paths the settings leave to it,
 /boot by default, are excluded too, read from its Secure Boot variable at each
@@ -118,6 +151,7 @@ Settings come from a JSON file, by default /etc/aide-report/settings.json.
 """
 
 import argparse
+import base64
 import datetime
 import email.message
 import email.policy
@@ -125,13 +159,16 @@ import email.utils
 import fcntl
 import glob
 import gzip
+import hashlib
 import json
 import os
 import py_compile
 import re
 import shutil
 import socket
+import sqlite3
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -228,8 +265,71 @@ KERNEL_GENERATED = tuple(re.compile(pattern) for pattern in (
     r"^/var/lib/dpkg/triggers/linux-update-(?P<release>[^/]+)$",
 ))
 # kdump's initramfs for a kernel, which kdump.service builds at the first boot
-# into that kernel: kexec-tools' kernel-install hook builds none.
+# into that kernel: kexec-tools' kernel-install hook builds none. It builds it
+# in the minutes after the boot begins, within KDUMP_BUILT seconds of it.
 KDUMP_IMAGE = re.compile(r"^/boot/initramfs-(?P<release>[^/]+)kdump\.img$")
+KDUMP_BUILT = 900
+# The login records, the older first, in which each boot is a record of glibc's
+# struct utmp on 64-bit Linux, of type BOOT_TIME, with the kernel's release.
+WTMP = ("/var/log/wtmp.1", "/var/log/wtmp")
+UTMP_RECORD = struct.Struct("@hi32s4s32s256shhiii4i20s")
+UTMP_BOOT_TIME = 2
+# What a package's scriptlets write as it is installed, upgraded or removed,
+# which no package vouches for as it is: Enterprise Linux's boot entries and
+# /etc/default/grub, which grubby rewrites as a kernel is installed and as
+# oci-linux-config's scriptlet adds its arguments to every kernel's; the
+# initramfs images dracut and initramfs-tools build again as a package with a
+# module for them changes; GRUB's configuration, which update-grub and
+# grub2-mkconfig write; Proxmox VE's APT settings, which pve-manager's
+# scriptlet writes at each upgrade; the version python3-idm-pki's scriptlet
+# records of itself; and the copies in /etc that scriptlets and the package
+# managers keep beside a configuration file they change, as ipa-client's
+# trigger does with sed --in-place=.orig, rpm of a file it would replace or
+# remove, and dpkg and ucf of a configuration file whose packaged version
+# changed. Each is left out where it was last written during a package
+# transaction since the baseline, as dnf's history or apt's records it, or
+# within TRANSACTION_TAIL seconds of its end.
+TRANSACTION_WRITTEN = tuple(re.compile(pattern) for pattern in (
+    r"^/boot/loader/entries/[0-9a-f]{32}-[^/]+\.conf$",
+    r"^/etc/default/grub$",
+    r"^/boot/initramfs-[^/]+\.img$",
+    r"^/boot/initrd\.img-[^/]+$",
+    r"^/boot/grub2?/grub\.cfg$",
+    r"^/etc/apt/apt\.conf\.d/76pveconf$",
+    r"^/etc/pki/pki\.version$",
+    r"^/etc/.+\.(orig|rpmnew|rpmsave|dpkg-dist|dpkg-old|dpkg-new|ucf-dist|ucf-old)$",
+))
+TRANSACTION_TAIL = 60
+DNF_HISTORY = "/var/lib/dnf/history.sqlite"
+APT_HISTORY = "/var/log/apt/history.log"
+# snapd's own records of the snaps it holds: each revision's file, named for
+# the snap and the revision; the store's signed assertion of each revision, in
+# a directory named for the base64 of its file's SHA3-384, and of each snap's
+# name, by its ID; and its cache of the files it downloaded, each named for
+# the hex of its own SHA3-384.
+SNAPD = "/var/lib/snapd"
+SNAP_FILES = SNAPD + "/snaps"
+SNAP_CACHE = SNAPD + "/cache"
+SNAP_REVISIONS = SNAPD + "/assertions/asserts-v0/snap-revision"
+SNAP_DECLARATIONS = SNAPD + "/assertions/asserts-v0/snap-declaration/16"
+SNAP_FILE = re.compile(r"^(?P<name>[a-z0-9][a-z0-9-]*)_(?P<revision>[0-9]+)\.snap$")
+SNAP_DIGEST = re.compile(r"^[0-9a-f]{96}$")
+# Where each revision of a snap is mounted, and where its data is kept, each
+# with a link, current, to the revision in use.
+SNAP_ROOTS = ("/snap", "/var/snap", "/root/snap")
+SNAP_DATA_ROOTS = ("/var/snap", "/root/snap")
+# What snapd writes again as it refreshes a snap, or as a new snapd starts,
+# from what the snaps declare: its records of them under /var/lib/snapd, the
+# snaps' AppArmor, seccomp and mount profiles among them, their udev rules,
+# the units of their services, and each revision's data, copied from the
+# revision before. Each is left out where it was written within SNAPD_WINDOW
+# seconds of a refresh since the baseline: when a snap's current link was
+# pointed at a revision snapd holds and the store signed, or when snapd's own
+# package changed, by its daemon's change time.
+SNAPD_UDEV_RULES = re.compile(r"^/etc/udev/rules\.d/70-snap\.[^/]+\.rules$")
+SNAPD_UNIT = re.compile(r"^snap\.[^/]+\.(?:service|timer|socket)$")
+SNAPD_WINDOW = 300
+SNAPD_DAEMON = "/usr/lib/snapd/snapd"
 # Caches a tool builds from files AIDE watches, each with the command that
 # builds it into the file named after the command instead: ldconfig's index of
 # the shared libraries, without its auxiliary cache and leaving the libraries'
@@ -245,7 +345,7 @@ REBUILT = (
 # tree's directories already: Enterprise Linux's trust store, from
 # /usr/share/pki/ca-trust-source and /etc/pki/ca-trust/source. Java's keystore
 # in it records when each certificate was extracted, so it differs at every
-# extraction and stays in the report.
+# extraction: it is compared by the certificates it holds instead.
 TRUST_STORE = "/etc/pki/ca-trust/extracted"
 EXTRACTED = ((TRUST_STORE, ["update-ca-trust", "extract", "-o"]),)
 # Where Enterprise Linux 10's update-ca-trust also links each certificate by
@@ -254,6 +354,15 @@ EXTRACTED = ((TRUST_STORE, ["update-ca-trust", "extract", "-o"]),)
 TRUST_LINKS = "/etc/pki/tls/certs"
 TRUST_HASHED = TRUST_STORE + "/pem/directory-hash"
 TRUST_LINK_NAME = re.compile(r"^[0-9a-f]{8}\.[0-9]+$")
+# Java's keystores of trusted certificates, which record when each was added,
+# so that one built again differs in its bytes: each with the PEM bundle of
+# the certificates it is built from, Debian's and Ubuntu's, which
+# ca-certificates-java builds from the system's bundle at each change of it.
+# Enterprise Linux's, in its trust store, is compared with its own extracted
+# again. Both are in Java's own format, JKS.
+JAVA_KEYSTORES = {"/etc/ssl/certs/java/cacerts": "/etc/ssl/certs/ca-certificates.crt"}
+JKS_MAGIC = 0xFEEDFEED
+PEM_CERTIFICATE = re.compile(r"-----BEGIN CERTIFICATE-----([A-Za-z0-9+/=\s]*?)-----END CERTIFICATE-----")
 # Python's bytecode of a module, in the __pycache__ beside its source, by the
 # interpreter's cache tag and the optimization level it was compiled at, as
 # Debian's py3compile writes it after each upgrade of a package's modules.
@@ -438,6 +547,10 @@ class Packages:
         # The attributes of AIDE's report that rpm --verify does not check of
         # a path, by its owner's verify flags, where there are any.
         self.unchecked = {}
+        # The paths rpm --verify found as their packages have them but for
+        # their capabilities, of those it was asked about.
+        self.capabilities_only = set()
+        self.scripts = {}
         if self.rpm:
             out = subprocess.run(
                 ["rpm", "-qa", "--qf",
@@ -470,6 +583,12 @@ class Packages:
                 fields = line.split("\t")
                 if len(fields) == 3 and fields[2] not in ("config-files", "not-installed"):
                     versions[fields[0]] = fields[1]
+            # A file dpkg diverts is where the diversion moved it, which its
+            # package's list does not say: there dpkg --verify checks it.
+            # Where the package that diverts it installs a file of the same
+            # name, that file is its own.
+            diverted = {self.canonical(original): (self.canonical(moved), by)
+                        for original, moved, by in diversions(DPKG_DIVERSIONS) or ()}
             info = "/var/lib/dpkg/info"
             for name in os.listdir(info):
                 if not name.endswith(".list"):
@@ -482,7 +601,15 @@ class Packages:
                 self.installed.add(package_id)
                 with open(os.path.join(info, name), errors="replace") as handle:
                     for line in handle:
-                        self.owner.setdefault(self.canonical(line.rstrip("\n")), package_id)
+                        path = self.canonical(line.rstrip("\n"))
+                        if path in diverted:
+                            moved, by = diverted[path]
+                            if package.split(":")[0] == by:
+                                self.owner[path] = package_id
+                            else:
+                                self.owner.setdefault(moved, package_id)
+                            continue
+                        self.owner.setdefault(path, package_id)
 
     def canonical(self, path):
         """The path AIDE reports for one a package lists, below /usr where merged."""
@@ -515,8 +642,21 @@ class Packages:
                 # Only rpm's mtime flag, T, leaves the file as the package has it.
                 if self.rpm and flags != "missing" and not set(flags) - set(".T"):
                     continue
+                if self.rpm and flags != "missing" and set(flags) - set(".T") == {"P"}:
+                    self.capabilities_only.add(self.canonical(path))
                 failed.add(self.canonical(path))
         return failed
+
+    def scriptlets(self, package_id):
+        """What an rpm package's scriptlets run, as rpm prints them; "" for a
+        dpkg package, or where rpm cannot say."""
+        if not self.rpm:
+            return ""
+        if package_id not in self.scripts:
+            result = subprocess.run(["rpm", "-q", "--scripts", package_id], stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, text=True, errors="replace")
+            self.scripts[package_id] = result.stdout if result.returncode == 0 else ""
+        return self.scripts[package_id]
 
 
 def entries(report, section):
@@ -764,6 +904,202 @@ def kernel_package(release, owner):
         if image in owner:
             return owner[image]
     return None
+
+
+def boots():
+    """Each boot the login records hold, and this one, from /proc/stat, as
+    when it began and the release of the kernel it booted."""
+    found = []
+    for path in WTMP:
+        try:
+            with open(path, "rb") as handle:
+                data = handle.read()
+        except OSError:
+            continue
+        for offset in range(0, len(data) - UTMP_RECORD.size + 1, UTMP_RECORD.size):
+            fields = UTMP_RECORD.unpack_from(data, offset)
+            if fields[0] == UTMP_BOOT_TIME:
+                found.append((fields[9], fields[5].split(b"\0", 1)[0].decode("ascii", "replace")))
+    booted = boot_time()
+    if booted is not None:
+        found.append((booted, os.uname().release))
+    return found
+
+
+def package_transactions(rpm):
+    """When each package transaction began and ended, as Unix times: dnf's
+    history, or the records apt keeps of each of its runs, the rotated ones
+    among them."""
+    windows = []
+    if rpm:
+        try:
+            database = sqlite3.connect("file:%s?mode=ro" % DNF_HISTORY, uri=True)
+            try:
+                rows = database.execute("SELECT dt_begin, dt_end FROM trans").fetchall()
+            finally:
+                database.close()
+        except (sqlite3.Error, OSError):
+            return windows
+        return [(int(begin), int(end)) for begin, end in rows if begin and end]
+    for path in sorted(glob.glob(APT_HISTORY + "*")):
+        opener = gzip.open if path.endswith(".gz") else open
+        try:
+            with opener(path, "rt", errors="replace") as handle:
+                began = None
+                for line in handle:
+                    key, _, value = line.partition(":")
+                    if key not in ("Start-Date", "End-Date"):
+                        continue
+                    try:
+                        when = time.mktime(time.strptime(" ".join(value.split()), "%Y-%m-%d %H:%M:%S"))
+                    except (ValueError, OverflowError):
+                        continue
+                    if key == "Start-Date":
+                        began = when
+                    elif began is not None:
+                        windows.append((began, when))
+                        began = None
+        except (OSError, EOFError):
+            continue
+    return windows
+
+
+def file_digest(path, algorithm):
+    """A file's digest, by hashlib's name for the algorithm; None where it
+    cannot be read."""
+    digest = hashlib.new(algorithm)
+    try:
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest
+
+
+def assertion_headers(path):
+    """A snapd assertion's headers, which come before its body and
+    signature; {} where it cannot be read."""
+    headers = {}
+    try:
+        with open(path, errors="replace") as handle:
+            for line in handle:
+                line = line.rstrip("\n")
+                if not line:
+                    break
+                key, separator, value = line.partition(": ")
+                if separator and not line.startswith(" "):
+                    headers[key] = value
+    except OSError:
+        return {}
+    return headers
+
+
+def snap_signed(name, revision):
+    """Whether snapd holds that revision of a snap, as the store signed it: its
+    file, the assertion of that revision for the file's SHA3-384, and the
+    declaration that the assertion's snap ID is the snap of that name."""
+    path = os.path.join(SNAP_FILES, "%s_%s.snap" % (name, revision))
+    if os.path.islink(path) or not os.path.isfile(path):
+        return False
+    digest = file_digest(path, "sha3_384")
+    if digest is None:
+        return False
+    key = base64.urlsafe_b64encode(digest.digest()).decode("ascii").rstrip("=")
+    assertion = assertion_headers(os.path.join(SNAP_REVISIONS, key, "active"))
+    snap_id = assertion.get("snap-id", "")
+    if (assertion.get("type") != "snap-revision" or assertion.get("snap-sha3-384") != key
+            or assertion.get("snap-revision") != revision or not snap_id or "/" in snap_id or snap_id.startswith(".")):
+        return False
+    declaration = assertion_headers(os.path.join(SNAP_DECLARATIONS, snap_id, "active"))
+    return declaration.get("type") == "snap-declaration" and declaration.get("snap-name") == name
+
+
+def unit_settings(unit_file, wanted):
+    """A unit file's settings in one section, each with the list of its values."""
+    settings = {}
+    section = None
+    try:
+        with open(unit_file, errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if line.startswith("[") and line.endswith("]"):
+                    section = line[1:-1]
+                elif section == wanted and "=" in line and not line.startswith(("#", ";")):
+                    key, _, value = line.partition("=")
+                    settings.setdefault(key.strip(), []).append(value.strip())
+    except OSError:
+        return None
+    return settings
+
+
+def snap_mount(unit):
+    """The snap and revision a unit of snapd's mounts, from its name, the
+    escaped path it mounts; None for any other unit."""
+    if not unit.startswith("snap-") or not unit.endswith(".mount"):
+        return None
+    parts = [re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), part)
+             for part in unit[:-len(".mount")].split("-")]
+    if len(parts) != 3 or parts[0] != "snap" or not SNAP_FILE.match("%s_%s.snap" % (parts[1], parts[2])):
+        return None
+    return parts[1], parts[2]
+
+
+def snap_mounts_only(unit_file, name, revision):
+    """Whether a unit of snapd's mounts that revision's file, read-only, where
+    snapd mounts it, and does nothing else."""
+    mount = unit_settings(unit_file, "Mount")
+    service = unit_settings(unit_file, "Service") or {}
+    if mount is None or service:
+        return False
+    return (mount.get("What") == [os.path.join(SNAP_FILES, "%s_%s.snap" % (name, revision))]
+            and mount.get("Where") == ["%s/%s/%s" % (SNAP_ROOTS[0], name, revision)] and mount.get("Type") == ["squashfs"]
+            and len(mount.get("Options", [])) == 1 and "ro" in mount["Options"][0].split(","))
+
+
+def keystore_certificates(path):
+    """The SHA-256 of each certificate in a JKS keystore of trusted
+    certificates; None for any other keystore, or one that cannot be read."""
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+        magic, version, count = struct.unpack_from(">III", data, 0)
+        if magic != JKS_MAGIC or version != 2:
+            return None
+        offset, digests = 12, set()
+        for _ in range(count):
+            (tag,) = struct.unpack_from(">I", data, offset)
+            if tag != 2:
+                # A private key's entry: not a keystore of trusted certificates.
+                return None
+            (length,) = struct.unpack_from(">H", data, offset + 4)
+            # The alias, then when the certificate was added, which differs.
+            offset += 4 + 2 + length + 8
+            (length,) = struct.unpack_from(">H", data, offset)
+            if data[offset + 2:offset + 2 + length] != b"X.509":
+                return None
+            offset += 2 + length
+            (length,) = struct.unpack_from(">I", data, offset)
+            certificate = data[offset + 4:offset + 4 + length]
+            if len(certificate) != length:
+                return None
+            offset += 4 + length
+            digests.add(hashlib.sha256(certificate).hexdigest())
+        # What remains is the keystore's SHA-1 of the rest.
+        return digests if len(data) == offset + 20 else None
+    except (OSError, struct.error):
+        return None
+
+
+def pem_certificates(path):
+    """The SHA-256 of each certificate in a PEM bundle; None where it cannot be read."""
+    try:
+        with open(path, errors="replace") as handle:
+            text = handle.read()
+        return {hashlib.sha256(base64.b64decode("".join(body.split()), validate=True)).hexdigest()
+                for body in PEM_CERTIFICATE.findall(text)}
+    except (OSError, ValueError):
+        return None
 
 
 def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None):
@@ -1025,22 +1361,218 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
                 return {"added": installed, "removed": removed}.get(section, installed or removed)
         return False
 
-    booted = boot_time()
+    booted = {}
 
     def kdump_built(path):
-        # kdump's image for the running kernel, of an installed package, written
-        # since this boot began, and the boot after the baseline: kdump.service
-        # built it at the first boot into the kernel. A later rebuild changes it,
-        # and stays in the report.
+        # kdump's image for a kernel of an installed package, written in the
+        # minutes after a boot into that kernel that began after the baseline:
+        # kdump.service built it at the first boot into the kernel, this boot
+        # or one before it. A later rebuild changes it, and stays in the report.
         match = KDUMP_IMAGE.match(path)
-        if (not match or match.group("release") != os.uname().release or accepted is None
-                or booted is None or booted <= accepted
+        if (not match or accepted is None
                 or kernel_package(match.group("release"), packages.owner) is None):
             return False
         try:
-            return os.path.getmtime(path) >= booted
+            written = os.path.getmtime(path)
         except OSError:
             return False
+        if "boots" not in booted:
+            booted["boots"] = boots()
+        return any(began > accepted and release == match.group("release") and began <= written <= began + KDUMP_BUILT
+                   for began, release in booted["boots"])
+
+    transactions = {}
+
+    def transaction_written(path, summary, section):
+        # What a package's scriptlets write, last written during a package
+        # transaction since the baseline, by its change time, which no write
+        # can set back, with nothing else about it changed but what
+        # rewriting it changes.
+        attributes = changed_attributes(report, path) - CONTENT - INCIDENTAL
+        if selinux_user_only(report, path):
+            attributes -= {"selinux", "xattrs"}
+        if (section == "removed" or summary[:1] != "f" or attributes or KDUMP_IMAGE.match(path)
+                or not any(pattern.match(path) for pattern in TRANSACTION_WRITTEN)):
+            return False
+        try:
+            written = os.lstat(path).st_ctime
+        except OSError:
+            return False
+        if "windows" not in transactions:
+            transactions["windows"] = package_transactions(packages.rpm)
+        return ((accepted is None or written >= accepted)
+                and any(began <= written <= ended + TRANSACTION_TAIL for began, ended in transactions["windows"]))
+
+    def capabilities_set(path, summary):
+        # A file rpm finds as its package has it but for its capabilities,
+        # which the package's own scriptlets set, naming the file, at its
+        # install or upgrade since the baseline: as oracle-cloud-agent's %post
+        # does on its bastions plugin.
+        owner = packages.owner.get(path)
+        return (packages.rpm and summary[:1] == "f" and owner is not None and owner not in baseline_installed
+                and path in packages.capabilities_only and path not in packages.ghost
+                and not packages.unchecked.get(path, frozenset()) & CHECKSUMS
+                and not changed_attributes(report, path) - CONTENT - INCIDENTAL - {"xattrs"}
+                and path in packages.scriptlets(owner))
+
+    def keystore_same(path, summary):
+        # Java's keystore, holding exactly the certificates of what it is
+        # built from: the system's PEM bundle, or Enterprise Linux's own
+        # keystore extracted again, with nothing else about it changed but
+        # what building it again changes.
+        theirs = path in JAVA_KEYSTORES or (below(path, [TRUST_STORE]) and path.endswith("/java/cacerts"))
+        attributes = changed_attributes(report, path) - CONTENT - INCIDENTAL
+        if selinux_user_only(report, path):
+            attributes -= {"selinux", "xattrs"}
+        if not theirs or summary[:1] != "f" or attributes or os.path.islink(path):
+            return False
+        if path in JAVA_KEYSTORES:
+            expected = pem_certificates(JAVA_KEYSTORES[path])
+        else:
+            twin = extracted_twin(path)
+            expected = None if twin is None else keystore_certificates(twin)
+        stored = keystore_certificates(path)
+        return bool(stored) and stored == expected
+
+    signed = {}
+
+    def snap_held(name, revision):
+        if (name, revision) not in signed:
+            signed[(name, revision)] = snap_signed(name, revision)
+        return signed[(name, revision)]
+
+    def snap_current(path):
+        # A snap's link to the revision in use: its name and that revision,
+        # where snapd holds it as the store signed it; None otherwise.
+        name, base = os.path.basename(os.path.dirname(path)), os.path.dirname(os.path.dirname(path))
+        if os.path.basename(path) != "current" or base not in SNAP_ROOTS:
+            return None
+        try:
+            revision = os.readlink(path)
+        except OSError:
+            return None
+        return (name, revision) if SNAP_FILE.match("%s_%s.snap" % (name, revision)) and snap_held(name, revision) else None
+
+    def snap_revision_path(path):
+        # The snap and revision a path of snapd's is for, and what it is: the
+        # revision's file, a directory it is mounted on or keeps its data
+        # in, or the unit that mounts it or a link enabling that unit.
+        directory, name = os.path.dirname(path), os.path.basename(path)
+        match = SNAP_FILE.match(name)
+        if directory == SNAP_FILES and match:
+            return match.group("name"), match.group("revision"), "file"
+        if os.path.dirname(directory) in SNAP_ROOTS and name.isdigit():
+            return os.path.basename(directory), name, "directory"
+        mount = snap_mount(name)
+        if mount and directory == SYSTEMD_UNITS:
+            return mount + ("unit",)
+        if mount and os.path.dirname(directory) == SYSTEMD_UNITS and directory.endswith((".wants", ".requires")):
+            return mount + ("link",)
+        return None
+
+    def snap_revision(path, summary, section):
+        # What snapd holds of a revision of a snap that it holds as the store
+        # signed it, or of one it no longer holds, gone with it.
+        found = snap_revision_path(path)
+        if found is None:
+            return False
+        name, revision, kind = found
+        if section == "removed":
+            current = snap_current(SNAP_ROOTS[0] + "/%s/current" % name)
+            return (not os.path.lexists(os.path.join(SNAP_FILES, "%s_%s.snap" % (name, revision)))
+                    and current is not None and current[1] != revision)
+        attributes = changed_attributes(report, path) - CONTENT - INCIDENTAL
+        if not snap_held(name, revision) or attributes - ({"link_name"} if kind == "link" else set()):
+            return False
+        if kind == "file":
+            return summary[:1] == "f"
+        if kind == "directory":
+            return summary[:1] == "d"
+        if kind == "unit":
+            return summary[:1] == "f" and snap_mounts_only(path, name, revision)
+        # A link enabling the unit, named for it.
+        unit = os.path.join(SYSTEMD_UNITS, os.path.basename(path))
+        return summary[:1] == "l" and os.path.realpath(path) == unit and snap_mounts_only(unit, name, revision)
+
+    def snap_revision_assertion(path, summary):
+        # The store's assertion of a revision snapd holds, in the directory
+        # named for that revision's file's SHA3-384, or the directory itself.
+        key = path if os.path.dirname(path) == SNAP_REVISIONS else os.path.dirname(path)
+        if os.path.dirname(key) != SNAP_REVISIONS or (key != path and os.path.basename(path) != "active"):
+            return False
+        if summary[:1] != ("d" if key == path else "f"):
+            return False
+        assertion = assertion_headers(os.path.join(key, "active"))
+        snap_id = assertion.get("snap-id", "")
+        if assertion.get("snap-sha3-384") != os.path.basename(key) or not snap_id or "/" in snap_id \
+                or snap_id.startswith("."):
+            return False
+        name = assertion_headers(os.path.join(SNAP_DECLARATIONS, snap_id, "active")).get("snap-name", "")
+        return bool(name) and snap_held(name, assertion.get("snap-revision", ""))
+
+    def snap_revision_data(path):
+        # Below a revision's data directory, which snapd copies from the
+        # revision before as it refreshes the snap: /var/snap/<name>/<revision>/...
+        for root in SNAP_DATA_ROOTS:
+            if below(path, [root]) and path != root:
+                parts = os.path.relpath(path, root).split("/")
+                return len(parts) > 2 and parts[1].isdigit()
+        return False
+
+    def snap_cache(path, summary, section):
+        # snapd's cache of a file it downloaded, named for its own SHA3-384.
+        if os.path.dirname(path) != SNAP_CACHE or not SNAP_DIGEST.match(os.path.basename(path)):
+            return False
+        if section == "removed":
+            return True
+        if summary[:1] != "f" or changed_attributes(report, path) - CONTENT - INCIDENTAL:
+            return False
+        digest = file_digest(path, "sha3_384")
+        return digest is not None and digest.hexdigest() == os.path.basename(path)
+
+    refreshes = {}
+
+    def snapd_refreshes():
+        # When a snap's current link was pointed at a revision snapd holds as
+        # the store signed it, and when snapd's own package installed its
+        # daemon, where either was since the baseline.
+        if "times" not in refreshes:
+            times = []
+            for path, summary in list(added.items()) + list(changed.items()):
+                if summary[:1] == "l" and snap_current(path):
+                    try:
+                        times.append(os.lstat(path).st_ctime)
+                    except OSError:
+                        pass
+            if not packages.rpm and package_changed("snapd"):
+                try:
+                    times.append(os.lstat(SNAPD_DAEMON).st_ctime)
+                except OSError:
+                    pass
+            refreshes["times"] = [t for t in times if accepted is None or t >= accepted]
+        return refreshes["times"]
+
+    def snapd_written(path, summary, section):
+        # What snapd writes again as it refreshes a snap or starts anew,
+        # written within minutes of such a refresh since the baseline, or
+        # gone with one; never a revision's file, which only the store's
+        # assertion vouches for, or its cache, which only its digest does.
+        directory = os.path.dirname(path)
+        generated = ((below(path, [SNAPD]) and directory not in (SNAP_FILES, SNAP_CACHE))
+                     or SNAPD_UDEV_RULES.match(path)
+                     or (SNAPD_UNIT.match(os.path.basename(path))
+                         and SYSTEMD_UNITS in (directory, os.path.dirname(directory)))
+                     or snap_revision_data(path))
+        if not generated:
+            return False
+        times = snapd_refreshes()
+        if section == "removed":
+            return bool(times)
+        try:
+            written = os.lstat(path).st_ctime
+        except OSError:
+            return False
+        return any(abs(written - refreshed) <= SNAPD_WINDOW for refreshed in times)
 
     now = packages.versions() if not packages.rpm else {}
     then = dict(i.split("=", 1) for i in baseline_installed if "=" in i) if not packages.rpm else {}
@@ -1161,6 +1693,18 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
                 explained += 1
             elif section == "added" and kdump_built(path):
                 explained += 1
+            elif transaction_written(path, summary, section):
+                explained += 1
+            elif section == "changed" and capabilities_set(path, summary):
+                explained += 1
+            elif keystore_same(path, summary):
+                explained += 1
+            elif (snap_revision(path, summary, section) or snap_revision_assertion(path, summary)
+                  or snap_cache(path, summary, section)
+                  or (kind == "l" and snap_current(path) and not attributes - INCIDENTAL - {"link_name", "size",
+                                                                                           "block_count"})
+                  or snapd_written(path, summary, section)):
+                explained += 1
             elif section == "added" and installed_with(path):
                 explained += 1
             elif (section == "changed" and diverted and path in (DPKG_DIVERSIONS, DPKG_DIVERSIONS_OLD)
@@ -1175,7 +1719,8 @@ def explain(report, packages, manifest, excluded=(), scratch=None, accepted=None
         owner = baseline_owner.get(path)
         if ((owner is not None and owner not in packages.installed) or dpkg_record(path, "removed")
                 or kernel_generated(path, "removed") or removed_with(path, summary) or below(path, excluded)
-                or extracted_gone(path) or summary[:1] == "s"):
+                or extracted_gone(path) or summary[:1] == "s" or snap_revision(path, summary, "removed")
+                or snap_cache(path, summary, "removed") or snapd_written(path, summary, "removed")):
             explained += 1
         else:
             kept["removed"][path] = summary

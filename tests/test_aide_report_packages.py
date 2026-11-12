@@ -56,6 +56,10 @@ class DpkgPackages(PackagesTestCase):
     def setUp(self):
         super().setUp()
         self.manager(rpm=False)
+        self.diversions = self.path("diversions")
+        patcher = mock.patch.object(ar, "DPKG_DIVERSIONS", self.diversions)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.output("dpkg-query", "foo\t1.0\tinstalled\nbar\t2.0\tconfig-files\nold\t3.0\tnot-installed\n"
                                   "multi:amd64\t4.0\tinstalled\nhalf\t5.0\thalf-configured\n")
         self.dpkg_info({
@@ -99,6 +103,22 @@ class DpkgPackages(PackagesTestCase):
         failed = packages.unverified(["/usr/bin/foo", "/usr/lib/multi.so", "/etc/foo.conf", "/unowned"])
         self.assertEqual(failed, {"/usr/bin/foo", "/usr/lib/multi.so", "/etc/foo.conf"})
         self.assertEqual(self.calls("dpkg")[-1]["argv"], ["--verify", "foo", "multi:amd64"])
+
+    def test_a_diverted_file_is_its_packages_where_the_diversion_moved_it(self):
+        # proxmox-kernel-helper diverts grub2-common's grub-install, and
+        # installs a grub-install of its own in its place.
+        self.output("dpkg-query", "grub2-common\t2.12\tinstalled\nproxmox-kernel-helper\t9.0\tinstalled\n")
+        with open(self.diversions, "w") as handle:
+            handle.write("/usr/sbin/grub-install\n/usr/sbin/grub-install.real\nproxmox-kernel-helper\n")
+        for package in ("grub2-common", "proxmox-kernel-helper"):
+            self.write("dpkg-info/%s.list" % package, "/usr/sbin/grub-install\n")
+        packages = ar.Packages()
+        self.assertEqual(packages.owner["/usr/sbin/grub-install.real"], "grub2-common=2.12")
+        self.assertEqual(packages.owner["/usr/sbin/grub-install"], "proxmox-kernel-helper=9.0")
+
+    def test_dpkg_has_no_scriptlets_to_read(self):
+        self.assertEqual(ar.Packages().scriptlets("foo=1.0"), "")
+        self.assertEqual(self.calls("rpm"), [])
 
 
 class RpmPackages(PackagesTestCase):
@@ -166,6 +186,23 @@ class RpmPackages(PackagesTestCase):
         self.output("rpm", ".......T.    /usr/bin/foo\nS.5....T.  c /etc/foo.conf\nmissing     /var/log/foo.log\n")
         self.assertEqual(packages.unverified(["/usr/bin/foo", "/etc/foo.conf", "/var/log/foo.log"]),
                          {"/etc/foo.conf", "/var/log/foo.log"})
+
+    def test_a_file_whose_capabilities_alone_differ_is_unverified_and_noted(self):
+        packages = ar.Packages()
+        self.output("rpm", "........P    /usr/bin/foo\n.......TP    /etc/foo.conf\nS.5.....P    /var/named/named.ca\n")
+        self.assertEqual(packages.unverified(["/usr/bin/foo", "/etc/foo.conf", "/var/named/named.ca"]),
+                         {"/usr/bin/foo", "/etc/foo.conf", "/var/named/named.ca"})
+        self.assertEqual(packages.capabilities_only, {"/usr/bin/foo", "/etc/foo.conf"})
+
+    def test_scriptlets_as_rpm_prints_them_once_for_each_package(self):
+        packages = ar.Packages()
+        self.output("rpm", "postinstall scriptlet (using /bin/sh):\nsetcap cap_net_raw+ep /usr/bin/foo\n")
+        self.assertIn("/usr/bin/foo", packages.scriptlets("foo-1.0-1.x86_64"))
+        packages.scriptlets("foo-1.0-1.x86_64")
+        self.assertEqual([call["argv"] for call in self.calls("rpm") if call["argv"][:2] == ["-q", "--scripts"]],
+                         [["-q", "--scripts", "foo-1.0-1.x86_64"]])
+        self.set_command("rpm", status=1)
+        self.assertEqual(packages.scriptlets("gone-1-1.noarch"), "")
 
 
 class Canonical(unittest.TestCase):

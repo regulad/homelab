@@ -84,15 +84,21 @@ def attributes(*names):
 class FakePackages:
     """aide-report's Packages, as the test sets it out."""
 
-    def __init__(self, owner=None, installed=None, ghost=(), rpm=False, unverified=(), unchecked=None):
+    def __init__(self, owner=None, installed=None, ghost=(), rpm=False, unverified=(), unchecked=None,
+                 capabilities_only=(), scriptlets=None):
         self.rpm = rpm
         self.merged = {}
         self.owner = dict(owner or {})
         self.installed = set(self.owner.values() if installed is None else installed)
         self.ghost = set(ghost)
         self.unchecked = {path: frozenset(names) for path, names in (unchecked or {}).items()}
-        self.failing = set(unverified)
+        self.failing = set(unverified) | set(capabilities_only)
+        self.capabilities_only = set(capabilities_only)
+        self.scripts = dict(scriptlets or {})
         self.asked = []
+
+    def scriptlets(self, package_id):
+        return self.scripts.get(package_id, "")
 
     def canonical(self, path):
         return path
