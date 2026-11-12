@@ -148,6 +148,8 @@ class AppArmorCache(unittest.TestCase):
         options = re.search(r"(?m)^Options=(.*)$", unit).group(1).split(",")
         for option in ("noexec", "nosuid", "nodev"):
             self.assertIn(option, options)
+        # What it holds is lost at its unmount either way.
+        self.assertRegex(unit, r"(?m)^LazyUnmount=yes$")
         self.assertRegex(unit, r"(?m)^WantedBy=local-fs\.target$")
         main = read(self.MAIN)
         copy = task(main, "AppArmor's policy cache in memory, where snapd keeps one")

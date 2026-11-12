@@ -11,6 +11,9 @@ What=tmpfs
 Where=/var/cache/apparmor
 Type=tmpfs
 Options=mode=0755,noexec,nosuid,nodev
+# Unmounted at once, even while a profile in it is held open: what it holds is
+# lost at its unmount either way.
+LazyUnmount=yes
 
 [Install]
 WantedBy=local-fs.target
