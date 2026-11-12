@@ -4,9 +4,11 @@ quadlet_services:
     description: RSSHub
     after: [network-online.target]
     wants: [network-online.target]
-    # Upstream publishes only latest, chromium-bundled, dated and per-commit
-    # builds.
-    image: docker.io/diygod/rsshub:latest
+    # FIXME: the head commit of DIYgod/RSSHub#23860, ASUS's ROG products and
+    # driver feed, built by regulad/RSSHub's ci branch, until upstream merges
+    # it. Then back to docker.io/diygod/rsshub:latest: upstream publishes only
+    # latest, chromium-bundled, dated and per-commit builds.
+    image: ghcr.io/regulad/rsshub:5352d8039df228ef466f0b979b60e504a6e7cf84
     container_name: rsshub
     auto_update: registry
     # Listens on 1200 on every address, IPv6 included; caches in memory, its
