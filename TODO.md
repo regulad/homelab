@@ -153,6 +153,9 @@ cloud-init.
           - [x] A `maintenance.yml` play moving Nextcloud a major release at a time, as `jellyfin-upgrade` does: `nextcloud-upgrade` and `nextcloud-upgrade-cleanup`
           - [x] Nextcloud up the ladder to 35, a major per run: 33, 34, 35
           - [x] Docker's stopped project, `/root/compose/nextcloud`, its containers and volumes, and the `nextcloud-ca` image removed
+          - [ ] The `nextcloud` role: `config.php` whole from the repository, alone in its config volume; the apps, their settings and Mail's provisioning declared in `nextcloud.yml`
+          - [ ] Its apps updated daily by `nextcloud-app-update.timer`, which brings Mail to 5.13, whose `occ` manages provisioning
+          - [ ] Mail provisions each LDAP user's account with their own login; jewcy's and ralph's hand-made accounts (ids 2 and 3) deleted once their provisioned ones have synced, regulad's kept
       - [x] bandcampsync: to regulad's own rootless Podman, by hand and not managed, its Bandcamp session cookies being volatile
       - [x] nginxproxymanagerlocal retired; `archive` moved to Caddy on ingress, behind an LDAP login check bound as `svc-ingress`
       - [x] Docker removed once nothing runs on it, with root's prune cron jobs, `docker.service.d`'s override, and its firewalld zone and policy
