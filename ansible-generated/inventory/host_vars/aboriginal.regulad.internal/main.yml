@@ -546,9 +546,12 @@ noexec_paths_host: [/opt/pipx/logs]
 # over 70 GB on the root filesystem that change as they are used. ClamAV's
 # on-access scanner watches /home. Also what Ubuntu's clients record as they
 # run: NetworkManager's leases and state, and Livepatch's status and logs;
-# lime's state, a file per Mac, the StateDirectory of its DynamicUser unit; and
-# the noexec paths.
+# lime's state, a file per Mac, the StateDirectory of its DynamicUser unit;
+# the network Podman makes anew, with a new ID and creation time, each time
+# podman-compose brings Nextcloud's stack up, from its compose file, which
+# stays watched; and the noexec paths.
 aide_exclude_paths_host: >-
   {{ [nextcloud_data_dir, '/home/regulad', '/home/linuxbrew', '/var/lib/NetworkManager',
-      '/var/snap/canonical-livepatch/common', '/var/lib/private/lime']
+      '/var/snap/canonical-livepatch/common', '/var/lib/private/lime',
+      '/etc/containers/networks/nextcloud_default.json']
      + noexec_paths_host }}

@@ -23,5 +23,8 @@ host_files_units: [podman-compose@immich.service, podman-auto-update.timer]
 # ClamAV's on-access scanner, over the baseline directories alone.
 clamav_onaccess_enabled: true
 
-# Not checked by AIDE: Immich's PostgreSQL data, DB_DATA_LOCATION in its .env.
-aide_exclude_paths_host: [/opt/immich/postgres]
+# Not checked by AIDE: Immich's PostgreSQL data, DB_DATA_LOCATION in its .env;
+# and the network Podman makes anew, with a new ID and creation time, each time
+# podman-compose brings the stack up, from its compose file, which stays
+# watched.
+aide_exclude_paths_host: [/opt/immich/postgres, /etc/containers/networks/immich_default.json]
