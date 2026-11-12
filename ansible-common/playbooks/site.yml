@@ -165,6 +165,15 @@
         name: clamav
         tasks_from: scan
 
+# Go's telemetry off for root, on every Linux host with Go installed.
+- name: Go's telemetry
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [go_telemetry]
+  roles:
+    - go_telemetry
+
 # AIDE's daily report of the file changes the host's packages do not explain,
 # against a baseline each mailed report moves, on every Linux host, containers
 # included.

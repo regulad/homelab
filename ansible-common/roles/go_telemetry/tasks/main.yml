@@ -1,0 +1,31 @@
+---
+# Go's telemetry off for root, on hosts with Go installed. Its default, local,
+# counts each go command in files under root's .config/go/telemetry/local,
+# Go's os.UserConfigDir, which AIDE watches: those of Ansible and its operators,
+# such as caddy-build run by hand. off collects and uploads nothing. A service
+# run without HOME has no such directory, and Go keeps its telemetry off there
+# already. The mode is the file go telemetry off writes, .config/go/telemetry/mode,
+# whose first word Go reads as the mode, with surrounding whitespace trimmed
+# (golang.org/x/telemetry, internal/telemetry's Dir.Mode).
+- name: Find Go
+  ansible.builtin.stat:
+    path: /usr/bin/go
+  register: go_telemetry_go
+
+- name: Go's telemetry directory
+  ansible.builtin.file:
+    path: /root/.config/go/telemetry
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: go_telemetry_go.stat.exists
+
+- name: Go's telemetry off
+  ansible.builtin.copy:
+    content: "off\n"
+    dest: /root/.config/go/telemetry/mode
+    owner: root
+    group: root
+    mode: "0644"
+  when: go_telemetry_go.stat.exists

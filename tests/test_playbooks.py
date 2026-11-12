@@ -241,6 +241,32 @@ class NoexecUnits(unittest.TestCase):
         self.assertIn("daemon_reload: true", task(main, "Their units stopped and disabled"))
 
 
+class GoTelemetry(unittest.TestCase):
+    """Go's default telemetry mode, local, counts each go command in root's
+    .config/go/telemetry, which AIDE watches; off counts nothing."""
+
+    MAIN = "ansible-common/roles/go_telemetry/tasks/main.yml"
+
+    def test_root_s_mode_is_off_where_go_is_installed(self):
+        main = read(self.MAIN)
+        self.assertIn("path: /usr/bin/go", task(main, "Find Go"))
+        directory = task(main, "Go's telemetry directory")
+        self.assertRegex(directory, r"path: /root/\.config/go/telemetry\s+state: directory")
+        mode = task(main, "Go's telemetry off")
+        # Go reads the first word of the file, whitespace trimmed, as the mode.
+        self.assertIn('content: "off\\n"', mode)
+        self.assertIn("dest: /root/.config/go/telemetry/mode", mode)
+        for written in (directory, mode):
+            self.assertIn("when: go_telemetry_go.stat.exists", written)
+
+    def test_its_play_runs_on_every_linux_host_before_the_aide_play(self):
+        site = read("ansible-common/playbooks/site.yml")
+        play = site[site.index("- name: Go's telemetry"):site.index("- name: File integrity")]
+        self.assertIn("hosts: debian:ubuntu:rhel", play)
+        self.assertIn("tags: [go_telemetry]", play)
+        self.assertIn("- go_telemetry", play)
+
+
 class AuditdSettings(unittest.TestCase):
     def test_space_left_action_out_of_reach_of_oci_linux_configs_rewrite(self):
         # oci-linux-config's passwd_mgmt.sh, which its %post runs at each
