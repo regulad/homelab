@@ -1,0 +1,73 @@
+---
+# The declared app settings, nextcloud_app_settings, set where they differ.
+# config:app:set keeps a stored key's type, laziness and sensitivity, so a
+# type is given only for a key Nextcloud does not have yet. Values Nextcloud
+# marks sensitive stay out of the output.
+- name: Read Nextcloud's settings, sensitive values masked
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['config:list'] }}"
+  register: nextcloud_settings_masked
+  changed_when: false
+  check_mode: false
+
+- name: Read Nextcloud's settings, sensitive values included
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['config:list', '--private'] }}"
+  register: nextcloud_settings_private
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: The declared settings that differ
+  ansible.builtin.set_fact:
+    nextcloud_settings_changes: >-
+      {%- set masked = (nextcloud_settings_masked.stdout | from_json).apps -%}
+      {%- set live = (nextcloud_settings_private.stdout | from_json).apps -%}
+      {%- set out = [] -%}
+      {%- for app, settings in nextcloud_app_settings.items() -%}
+      {%- for key, value in settings.items() -%}
+      {%- set have = live.get(app, {}) -%}
+      {%- if key not in have or have[key] != value -%}
+      {%- set _ = out.append({
+            'app': app,
+            'key': key,
+            'value': value,
+            'old': have.get(key),
+            'new': key not in have,
+            'sensitive': masked.get(app, {}).get(key) == '***REMOVED SENSITIVE VALUE***'}) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ out }}
+  no_log: true
+
+# A check run sets nothing, so it lists here what a run would set.
+- name: Report the settings to set
+  ansible.builtin.debug:
+    msg: >-
+      {%- set lines = [] -%}
+      {%- for change in nextcloud_settings_changes -%}
+      {%- set _ = lines.append(change.app ~ ' ' ~ change.key ~ ': '
+            ~ ('(sensitive)' if change.sensitive else (change.old | to_json) ~ ' -> ' ~ (change.value | to_json))) -%}
+      {%- endfor -%}
+      {{ lines }}
+  when: nextcloud_settings_changes | length > 0
+
+- name: Set the declared settings that differ
+  ansible.builtin.command:
+    argv: >-
+      {{ nextcloud_occ + ['config:app:set', item.app, item.key, '--value=' ~ nextcloud_settings_value]
+         + (['--type=' ~ nextcloud_settings_type] if item.new else []) }}
+  vars:
+    nextcloud_settings_value: >-
+      {{ (item.value | ternary('true', 'false')) if item.value is boolean
+         else (item.value | to_json) if item.value is mapping or (item.value is iterable and item.value is not string)
+         else item.value | string }}
+    nextcloud_settings_type: >-
+      {{ 'boolean' if item.value is boolean else 'integer' if item.value is integer else 'float' if item.value is float
+         else 'array' if item.value is mapping or (item.value is iterable and item.value is not string) else 'string' }}
+  loop: "{{ nextcloud_settings_changes }}"
+  loop_control:
+    label: "{{ item.app }} {{ item.key }}"
+  no_log: "{{ item.sensitive }}"
+  changed_when: true

@@ -1,0 +1,56 @@
+---
+# Nextcloud's container, and occ in it as the image's www-data, as
+# maintenance.yml's plays and nextcloud-cron run it.
+nextcloud_container: nextcloud
+nextcloud_occ: [podman, exec, --user, www-data, "{{ nextcloud_container }}", php, occ]
+
+# The named volume of Nextcloud's config directory. config.php's template is
+# in files/<host>/, at the path of that volume's directory on the host:
+# <mountpoint>/config.php.j2.
+nextcloud_config_volume: nextcloud_config
+nextcloud_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
+
+# The apps enabled are the shipped ones Nextcloud enables by itself, those its
+# running code's core/shipped.json lists as defaultEnabled or alwaysEnabled,
+# with nextcloud_apps_enabled added and nextcloud_apps_disabled taken away.
+# Every other enabled app is disabled, never removed. An app Nextcloud lacks is
+# installed from the App Store; occ installs and updates an app only to the
+# App Store's newest release for the running major, so versions are not
+# declared.
+nextcloud_apps_enabled: []
+# Shipped apps Nextcloud enables by default, kept disabled; not alwaysEnabled
+# ones, which cannot be.
+nextcloud_apps_disabled: []
+
+# App settings, by app ID and key, each value of the type `occ config:list`
+# reports for it, as Nextcloud stores it typed. Only declared keys change; the
+# rest, such as each app's installed_version and the state apps record as they
+# run, stays Nextcloud's own.
+nextcloud_app_settings: {}
+
+# Mail's provisioning configurations, each by the camelCase fields of `occ
+# mail:provisioning:list --json` and matched to the live one by its
+# provisioningDomain; one for a domain not listed is deleted, with the accounts
+# it provisioned. Accounts use each user's own login password: the role
+# supports no master password.
+nextcloud_mail_provisionings: []
+
+# Each field of a provisioning configuration that maps to an occ option.
+# sieve* fields are passed only with sieveEnabled, and ldapAliasesAttribute
+# only with ldapAliasesProvisioning; otherwise --no-sieve and --no-ldap-aliases.
+nextcloud_mail_provisioning_options:
+  provisioningDomain: provisioning-domain
+  emailTemplate: email-template
+  imapUser: imap-user
+  imapHost: imap-host
+  imapPort: imap-port
+  imapSslMode: imap-ssl-mode
+  smtpUser: smtp-user
+  smtpHost: smtp-host
+  smtpPort: smtp-port
+  smtpSslMode: smtp-ssl-mode
+  sieveUser: sieve-user
+  sieveHost: sieve-host
+  sievePort: sieve-port
+  sieveSslMode: sieve-ssl-mode
+  ldapAliasesAttribute: ldap-aliases-attribute

@@ -1,0 +1,16 @@
+---
+# Converge a Nextcloud that runs in a container: its config.php, its apps,
+# their declared settings and Mail's provisioning, through occ in the
+# container. Runs on the generated hosts in the nextcloud group (Phase 4),
+# once host_files runs the stack.
+- name: Config.php
+  ansible.builtin.import_tasks: config.yml
+
+- name: Apps
+  ansible.builtin.import_tasks: apps.yml
+
+- name: App settings
+  ansible.builtin.import_tasks: settings.yml
+
+- name: Mail provisioning
+  ansible.builtin.import_tasks: mail.yml

@@ -1,0 +1,176 @@
+{#-
+  Nextcloud's config.php, which the nextcloud role writes into the
+  nextcloud_config volume, in the form Nextcloud writes it itself (PHP's
+  var_export, trailing spaces included), so a file Nextcloud rewrites with the
+  same values stays the same byte for byte.
+  version and maintenance are Nextcloud's own: the role reads them from the live
+  configuration at each run. Values with a single source elsewhere come from it.
+-#}
+{% macro php(value) -%}
+'{{ value | string | replace('\\', '\\\\') | replace("'", "\\'") }}'
+{%- endmacro -%}
+<?php
+
+/*
+ * WARNING
+ *
+ * This file gets modified by automatic processes and all lines that are not
+ * active code (ie. comments) are lost during that process.
+ *
+ * If you want to document things with comments or use constants add your settings
+ * in a '<NAME>.config.php' file which will be included and rendered into this file.
+ *
+ * Example:
+ *   <?php
+ *   $CONFIG = [];
+ *
+ * See also: https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/config_sample_php_parameters.html#multiple-merged-configuration-files
+ */
+$CONFIG = array (
+  'app.mail.accounts.default' => 
+  array (
+    'email' => '%EMAIL%',
+    'imapHost' => 'mail.regulad.xyz',
+    'imapPort' => 993,
+    'imapUser' => '%EMAIL%',
+    'imapSslMode' => 'ssl',
+    'smtpHost' => 'mail.regulad.xyz',
+    'smtpPort' => 587,
+    'smtpUser' => '%EMAIL%',
+    'smtpSslMode' => 'tls',
+  ),
+  'user_backend_sql_raw' => 
+  array (
+    'post_createUser' => '/var/www/nextcloud/user_provisioning.sh $uid',
+  ),
+  'htaccess.RewriteBase' => '/',
+  'filelocking.enabled' => true,
+  'memcache.locking' => '\\OC\\Memcache\\Redis',
+  'memcache.local' => '\\OC\\Memcache\\APCu',
+  'memcache.distributed' => '\\OC\\Memcache\\Redis',
+  'redis' => 
+  array (
+    'host' => 'redis',
+    'port' => 6379,
+    'timeout' => 0.0,
+  ),
+  'apps_paths' => 
+  array (
+    0 => 
+    array (
+      'path' => '/var/www/html/apps',
+      'url' => '/apps',
+      'writable' => false,
+    ),
+    1 => 
+    array (
+      'path' => '/var/www/html/custom_apps',
+      'url' => '/custom_apps',
+      'writable' => true,
+    ),
+  ),
+  'instanceid' => 'oci3p7d3ojfw',
+  'passwordsalt' => {{ php(nextcloud_passwordsalt) }},
+  'secret' => {{ php(nextcloud_secret) }},
+  'trusted_domains' => 
+  array (
+    0 => {{ php(nextcloud_domain) }},
+  ),
+  'trashbin_retention_obligation' => '7, 30',
+  'trusted_proxies' => 
+  array (
+    0 => '10.23.0.0/20',
+  ),
+  'overwriteprotocol' => 'https',
+  'overwritehost' => {{ php(nextcloud_domain ~ ':443') }},
+  'datadirectory' => '/var/www/html/data',
+  'dbtype' => 'mysql',
+  'version' => {{ php(nextcloud_config_version) }},
+  'overwrite.cli.url' => {{ php('https://' ~ nextcloud_domain) }},
+  'dbname' => 'nextcloud',
+  'dbhost' => 'db',
+  'dbport' => '',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => 'nextcloud',
+  'dbpassword' => {{ php(nextcloud_mysql_password) }},
+  'installed' => true,
+  'twofactor_enforced' => 'true',
+  'twofactor_enforced_groups' => 
+  array (
+    0 => 'admin',
+  ),
+  'twofactor_enforced_excluded_groups' => 
+  array (
+  ),
+  'theme' => '',
+  'loglevel' => 3,
+  'logfile' => '/dev/stderr',
+  'maintenance' => {{ nextcloud_config_maintenance | bool | ternary('true', 'false') }},
+  'maintenance_window_start' => {{ nextcloud_maintenance_window_start | int }},
+  'forbidden_filename_basenames' => 
+  array (
+    0 => 'con',
+    1 => 'prn',
+    2 => 'aux',
+    3 => 'nul',
+    4 => 'com0',
+    5 => 'com1',
+    6 => 'com2',
+    7 => 'com3',
+    8 => 'com4',
+    9 => 'com5',
+    10 => 'com6',
+    11 => 'com7',
+    12 => 'com8',
+    13 => 'com9',
+    14 => 'com¹',
+    15 => 'com²',
+    16 => 'com³',
+    17 => 'lpt0',
+    18 => 'lpt1',
+    19 => 'lpt2',
+    20 => 'lpt3',
+    21 => 'lpt4',
+    22 => 'lpt5',
+    23 => 'lpt6',
+    24 => 'lpt7',
+    25 => 'lpt8',
+    26 => 'lpt9',
+    27 => 'lpt¹',
+    28 => 'lpt²',
+    29 => 'lpt³',
+  ),
+  'forbidden_filename_characters' => 
+  array (
+    0 => '<',
+    1 => '>',
+    2 => ':',
+    3 => '"',
+    4 => '|',
+    5 => '?',
+    6 => '*',
+    7 => '\\',
+    8 => '/',
+  ),
+  'forbidden_filename_extensions' => 
+  array (
+    0 => ' ',
+    1 => '.',
+    2 => '.filepart',
+    3 => '.part',
+  ),
+  'mail_smtpmode' => 'smtp',
+  'mail_smtphost' => {{ php(nextcloud_mail_host) }},
+  'mail_sendmailmode' => 'smtp',
+  'mail_smtpport' => '465',
+  'mail_domain' => {{ php(nextcloud_mail_domain) }},
+  'mail_from_address' => {{ php(nextcloud_svc_account) }},
+  'mail_smtpauth' => true,
+  'mail_smtpname' => {{ php(nextcloud_svc_account) }},
+  'mail_smtppassword' => {{ php(nextcloud_svc_password) }},
+  'files.chunked_upload.max_size' => 20971520,
+  'tempdirectory' => '/tmp',
+  'ldapProviderFactory' => 'OCA\\User_LDAP\\LDAPProviderFactory',
+  'mail_smtpsecure' => 'ssl',
+);

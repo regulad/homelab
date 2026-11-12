@@ -1,0 +1,36 @@
+---
+# config.php, whole, from its template in files/<host>/. version and
+# maintenance are Nextcloud's own, written by its upgrades and its maintenance
+# mode, so they are read from the live configuration; everything else is
+# declared. The template keeps the form Nextcloud writes, so a file it
+# rewrites with the same values stays the same.
+- name: Read the config volume's mountpoint
+  ansible.builtin.command:
+    argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "{{ nextcloud_config_volume }}"]
+  register: nextcloud_config_mountpoint
+  changed_when: false
+  check_mode: false
+
+- name: Read Nextcloud's own values in config.php
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['config:system:get', item, '--output=json'] }}"
+  loop: [version, maintenance]
+  register: nextcloud_config_owned
+  changed_when: false
+  check_mode: false
+
+# Owned by the image's www-data, uid 33, as Nextcloud writes it. Opcache
+# rechecks it within 60 seconds (opcache.revalidate_freq).
+- name: Config.php
+  ansible.builtin.template:
+    src: "{{ nextcloud_files_dir }}{{ nextcloud_config_mountpoint.stdout }}/config.php.j2"
+    dest: "{{ nextcloud_config_mountpoint.stdout }}/config.php"
+    owner: "33"
+    group: "33"
+    mode: "0640"
+  vars:
+    nextcloud_config_version: "{{ nextcloud_config_owned.results[0].stdout | from_json }}"
+    nextcloud_config_maintenance: "{{ nextcloud_config_owned.results[1].stdout | from_json }}"
+  # It holds Nextcloud's secrets, so neither its content nor its diff is shown.
+  no_log: true
+  diff: false

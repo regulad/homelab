@@ -52,15 +52,21 @@ of their own.
     family its `trusted_proxies` name. Its image is the stock one, with the
     host's `/etc/ssl/certs` bound in for its LDAPS to wako; its code is the
     `nextcloud_html` volume, which the image's entrypoint upgrades, and its
-    data `/srv/nextcloud`, its own state, as are its config and database
-    volumes and its LDAP settings. All of them are no-COW, the volumes as
-    Podman's storage now is. It follows `nextcloud_release`, a major, which
-    only `maintenance.yml`'s `nextcloud-upgrade` moves, one major at a time,
-    with a copy to roll back to, and only once every enabled app has a
-    release for the next; its
+    data `/srv/nextcloud`, its own state, as is its database volume. All of
+    them are no-COW, the volumes as Podman's storage now is. It follows
+    `nextcloud_release`, a major, which only `maintenance.yml`'s
+    `nextcloud-upgrade` moves, one major at a time, with a copy to roll back
+    to, and only once every enabled app has a release for the next; its
     background jobs run from `nextcloud-cron.timer`. Pretty URLs are off:
     its `.htaccess` lacks `occ maintenance:update:htaccess`'s section, so its
     links go through `index.php`.
+  - Its configuration is the `nextcloud` role's, from `nextcloud.yml`:
+    `config.php`, whole; its apps; their settings, its LDAP configuration on
+    wako among them; and Mail's provisioning.
+  - Mail gives each LDAP user an account on mail, logging in as
+    `<uid>@regulad.xyz` with their own Nextcloud password, which is their
+    directory's. regulad, a local user of Nextcloud's own, keeps the account
+    he added by hand.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
   masked, as `nut.target` would start it to fail. The APC's section in

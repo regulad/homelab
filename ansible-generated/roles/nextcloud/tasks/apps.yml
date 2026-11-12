@@ -1,0 +1,64 @@
+---
+# The apps enabled are the shipped ones Nextcloud enables by itself, with
+# nextcloud_apps_enabled added and nextcloud_apps_disabled taken away; every
+# other enabled app is disabled. No app is removed, so a disabled one keeps its
+# data.
+- name: Read the shipped apps Nextcloud enables by itself
+  ansible.builtin.command:
+    argv: [podman, exec, "{{ nextcloud_container }}", cat, /var/www/html/core/shipped.json]
+  register: nextcloud_apps_shipped
+  changed_when: false
+  check_mode: false
+
+- name: Read Nextcloud's apps
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['app:list', '--output=json'] }}"
+  register: nextcloud_apps_live
+  changed_when: false
+  check_mode: false
+
+- name: No app is declared both enabled and disabled, nor an app Nextcloud always enables disabled
+  ansible.builtin.assert:
+    that:
+      - nextcloud_apps_enabled | intersect(nextcloud_apps_disabled) | length == 0
+      - nextcloud_apps_disabled | intersect((nextcloud_apps_shipped.stdout | from_json).alwaysEnabled) | length == 0
+    fail_msg: >-
+      Declared both enabled and disabled: {{ nextcloud_apps_enabled | intersect(nextcloud_apps_disabled) | join(', ') or 'none' }};
+      declared disabled but always enabled:
+      {{ nextcloud_apps_disabled | intersect((nextcloud_apps_shipped.stdout | from_json).alwaysEnabled) | join(', ') or 'none' }}.
+    quiet: true
+
+# Only declared apps are installed: a default app the running code does not
+# have is left out rather than sought in the App Store.
+- name: The apps to install, enable and disable
+  ansible.builtin.set_fact:
+    nextcloud_apps_wanted: "{{ nextcloud_apps_target | intersect(nextcloud_apps_present + nextcloud_apps_enabled) }}"
+    nextcloud_apps_install: "{{ nextcloud_apps_enabled | difference(nextcloud_apps_present) }}"
+    nextcloud_apps_enable: "{{ nextcloud_apps_target | intersect(nextcloud_apps_disabled_live) }}"
+    nextcloud_apps_disable: "{{ nextcloud_apps_enabled_live | difference(nextcloud_apps_target) }}"
+  vars:
+    nextcloud_apps_shipped_json: "{{ nextcloud_apps_shipped.stdout | from_json }}"
+    nextcloud_apps_target: >-
+      {{ nextcloud_apps_shipped_json.defaultEnabled | union(nextcloud_apps_shipped_json.alwaysEnabled)
+         | union(nextcloud_apps_enabled) | difference(nextcloud_apps_disabled) }}
+    nextcloud_apps_enabled_live: "{{ (nextcloud_apps_live.stdout | from_json).enabled.keys() | list }}"
+    nextcloud_apps_disabled_live: "{{ (nextcloud_apps_live.stdout | from_json).disabled.keys() | list }}"
+    nextcloud_apps_present: "{{ nextcloud_apps_enabled_live + nextcloud_apps_disabled_live }}"
+
+- name: Install the declared apps Nextcloud lacks
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['app:install', item] }}"
+  loop: "{{ nextcloud_apps_install }}"
+  changed_when: true
+
+- name: Enable the wanted apps that are disabled
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['app:enable', item] }}"
+  loop: "{{ nextcloud_apps_enable }}"
+  changed_when: true
+
+- name: Disable the enabled apps not wanted
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['app:disable', item] }}"
+  loop: "{{ nextcloud_apps_disable }}"
+  changed_when: true

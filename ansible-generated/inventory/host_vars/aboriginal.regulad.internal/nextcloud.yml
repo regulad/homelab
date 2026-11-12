@@ -1,0 +1,198 @@
+---
+# Nextcloud's own configuration, which the nextcloud role converges through occ
+# in its container: config.php from files/<this host>/, the apps, their
+# settings and Mail's provisioning. Its stack is in main.yml's host files.
+
+# The name it is served at, through ingress's Caddy.
+nextcloud_domain: nextcloud.regulad.xyz
+# Its FreeIPA account, as which user_ldap binds and it sends its own mail; its
+# password is nextcloud_svc_password, in secrets.sops.yml.
+nextcloud_svc_account: svc-nextcloud
+# The mail server, and the domain of its mailboxes: the address each user logs
+# in with is <uid>@ it.
+nextcloud_mail_host: mail.regulad.xyz
+nextcloud_mail_domain: "{{ hostvars['mail'].mailserver_mailbox_domain }}"
+# The hour, in UTC, its maintenance window starts, in which it runs its heavy
+# background jobs.
+nextcloud_maintenance_window_start: 6
+# wako's directory suffix, derived from its domain.
+nextcloud_ldap_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
+
+# The apps enabled besides those Nextcloud enables by itself (its
+# core/shipped.json's defaultEnabled and alwaysEnabled), and those of its own
+# kept disabled; every other app is disabled.
+nextcloud_apps_enabled:
+  # Shipped with Nextcloud.
+  - admin_audit
+  - encryption
+  - files_external
+  - suspicious_login
+  - user_ldap
+  # From the App Store.
+  - bookmarks
+  - checksum
+  - classic_appmenu
+  - contacts
+  - mail
+  - news
+  - notes
+  - tasks
+  - uppush
+  - webapppassword
+nextcloud_apps_disabled:
+  - activity
+  - circles
+  - comments
+  - contactsinteraction
+  - files_pdfviewer
+  - photos
+  - recommendations
+  - related_resources
+  - serverinfo
+  - sharebymail
+  - survey_client
+  - systemtags
+  - weather_status
+
+# Settings set through each app's administration page or occ, by app ID, each
+# of the type Nextcloud stores it as. The state apps keep as they run, such as
+# timestamps, sync cursors, detected capabilities and generated keys, is left
+# out.
+nextcloud_app_settings:
+  bookmarks:
+    performance.maxBookmarksperAccount: '0'
+    previews.generic.url: ''
+    previews.pageres.env: ''
+    previews.screenly.token: ''
+    previews.screenly.url: ''
+    previews.screenshotmachine.key: ''
+    previews.webshot.url: ''
+    privacy.enableScraping: 'true'
+  # Brute-force protection's exempt range, the LAN.
+  bruteForce:
+    whitelist_1: '10.23.0.0/20'
+  # Background jobs from nextcloud-cron.timer; server-side encryption with its
+  # master key.
+  core:
+    backgroundjobs_mode: cron
+    default_encryption_module: OC_DEFAULT_MODULE
+    encryption_enabled: 'yes'
+  files_external:
+    allow_user_mounting: true
+    user_mounting_backends: 'ftp,dav,owncloud,sftp,amazons3,swift,\OC\Files\Storage\SFTP_Key'
+  password_policy:
+    enforceNumericCharacters: '1'
+    enforceSpecialCharacters: '1'
+    enforceUpperLowerCase: '1'
+  privacy:
+    fullDiskEncryptionEnabled: '1'
+    readableLocation: us
+  # Seconds it gives the App Store's listing, some 16 MB, which took two to
+  # three minutes to arrive on this host; maintenance.yml's nextcloud-upgrade
+  # sets it too before an upgrade.
+  settings:
+    appstore-timeout: '600'
+  # Its LDAP configuration s01, on wako: the members of nextcloudusers, except
+  # regulad, a local user of Nextcloud's own.
+  user_ldap:
+    configuration_prefixes: [s01]
+    s01home_folder_naming_rule: ''
+    s01ldap_admin_group: ''
+    # user_ldap stores the bind password base64-encoded.
+    s01ldap_agent_password: "{{ nextcloud_svc_password | b64encode }}"
+    s01ldap_attr_address: ''
+    s01ldap_attr_anniversarydate: ''
+    s01ldap_attr_biography: ''
+    s01ldap_attr_birthdate: ''
+    s01ldap_attr_fediverse: ''
+    s01ldap_attr_headline: ''
+    s01ldap_attr_organisation: ''
+    s01ldap_attr_phone: ''
+    s01ldap_attr_pronouns: ''
+    s01ldap_attr_role: ''
+    s01ldap_attr_twitter: ''
+    s01ldap_attr_website: ''
+    s01ldap_attributes_for_group_search: ''
+    s01ldap_attributes_for_user_search: ''
+    s01ldap_background_host: ''
+    s01ldap_background_port: ''
+    s01ldap_backup_host: ''
+    s01ldap_backup_port: '389'
+    s01ldap_base: "{{ nextcloud_ldap_suffix }}"
+    s01ldap_base_groups: "cn=groups,cn=accounts,{{ nextcloud_ldap_suffix }}"
+    s01ldap_base_users: "cn=users,cn=accounts,{{ nextcloud_ldap_suffix }}"
+    s01ldap_cache_ttl: '600'
+    s01ldap_configuration_active: '1'
+    s01ldap_connection_timeout: '15'
+    s01ldap_default_ppolicy_dn: ''
+    s01ldap_display_name: displayname
+    s01ldap_dn: "uid={{ nextcloud_svc_account }},cn=users,cn=accounts,{{ nextcloud_ldap_suffix }}"
+    s01ldap_dynamic_group_member_url: ''
+    s01ldap_email_attr: mail
+    s01ldap_experienced_admin: '0'
+    s01ldap_expert_username_attr: ''
+    s01ldap_expert_uuid_group_attr: ''
+    s01ldap_expert_uuid_user_attr: ''
+    s01ldap_ext_storage_home_attribute: ''
+    s01ldap_gid_number: gidNumber
+    s01ldap_group_display_name: cn
+    s01ldap_group_filter: ''
+    s01ldap_group_filter_mode: '1'
+    s01ldap_group_member_assoc_attribute: ''
+    s01ldap_groupfilter_groups: ''
+    s01ldap_groupfilter_objectclass: ''
+    s01ldap_host: "ldaps://{{ freeipa_server.fqdn }}"
+    s01ldap_login_filter: >-
+      (&(&(objectclass=posixAccount)(memberof=cn=nextcloudusers,cn=groups,cn=accounts,{{ nextcloud_ldap_suffix }})(!(uid=regulad)))(uid=%uid))
+    s01ldap_login_filter_mode: '0'
+    s01ldap_loginfilter_attributes: ''
+    s01ldap_loginfilter_email: '0'
+    s01ldap_loginfilter_username: '1'
+    s01ldap_mark_remnants_as_disabled: '0'
+    s01ldap_nested_groups: '0'
+    s01ldap_override_main_server: ''
+    s01ldap_paging_size: '500'
+    s01ldap_port: '636'
+    s01ldap_quota_attr: ''
+    s01ldap_quota_def: ''
+    s01ldap_tls: ''
+    s01ldap_turn_off_cert_check: '0'
+    s01ldap_turn_on_pwd_change: '1'
+    s01ldap_user_avatar_rule: default
+    s01ldap_user_display_name_2: ''
+    s01ldap_user_filter_mode: '1'
+    s01ldap_userfilter_groups: ''
+    s01ldap_userfilter_objectclass: "inetorgperson\nposixAccount"
+    s01ldap_userlist_filter: >-
+      (&(objectclass=posixAccount)(memberof=cn=nextcloudusers,cn=groups,cn=accounts,{{ nextcloud_ldap_suffix }})(!(uid=regulad)))
+    s01use_memberof_to_detect_membership: '1'
+  webapppassword:
+    cleanup_job_interval: '86400'
+    files_sharing_origins: http://localhost:8000/
+    origins: ''
+    preview_origins: ''
+
+# Mail logs each LDAP user into their mailbox with their own login password,
+# which their Nextcloud login and Dovecot both check against wako. The address
+# and logins name the user's LDAP uid, and Mail provisions no account for a
+# user it cannot resolve one for: local users, such as regulad, whose Nextcloud
+# password is not their directory's, add their accounts by hand. Implicit TLS
+# for IMAP and submission, and STARTTLS for ManageSieve, as mail offers them.
+nextcloud_mail_provisionings:
+  - provisioningDomain: "{{ nextcloud_mail_domain }}"
+    emailTemplate: "%LDAP:uid%@{{ nextcloud_mail_domain }}"
+    imapUser: "%LDAP:uid%@{{ nextcloud_mail_domain }}"
+    imapHost: "{{ nextcloud_mail_host }}"
+    imapPort: 993
+    imapSslMode: ssl
+    smtpUser: "%LDAP:uid%@{{ nextcloud_mail_domain }}"
+    smtpHost: "{{ nextcloud_mail_host }}"
+    smtpPort: 465
+    smtpSslMode: ssl
+    sieveEnabled: true
+    sieveUser: "%LDAP:uid%@{{ nextcloud_mail_domain }}"
+    sieveHost: "{{ nextcloud_mail_host }}"
+    sievePort: 4190
+    sieveSslMode: tls
+    masterPasswordEnabled: false
+    ldapAliasesProvisioning: false

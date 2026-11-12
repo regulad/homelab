@@ -110,6 +110,16 @@
   roles:
     - orchard_controller
 
+# Nextcloud's config.php, apps, app settings and Mail provisioning, through occ
+# in its container, once host_files runs its stack.
+- name: Nextcloud
+  hosts: nextcloud
+  gather_facts: false
+  become: true
+  tags: [nextcloud]
+  roles:
+    - nextcloud
+
 # The docker role's compose projects, once host_files has placed their files and
 # secrets.
 - name: Docker Compose projects

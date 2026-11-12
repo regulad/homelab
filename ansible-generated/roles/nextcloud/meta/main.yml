@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: Nextcloud's config.php, apps, app settings and Mail provisioning, through occ in its container
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

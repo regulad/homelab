@@ -2478,9 +2478,10 @@
     # Seconds each start has to answer, its upgrade included.
     nextcloud_upgrade_timeout: 1800
     # Seconds Nextcloud gives the App Store's listing, which occ upgrade fetches
-    # to update the apps it would otherwise disable: some 16 MB, which took two
-    # to three minutes to arrive on aboriginal, past its default of 120.
-    nextcloud_upgrade_appstore_timeout: 600
+    # to update the apps it would otherwise disable: the host's declared
+    # setting, which site.yml's nextcloud role keeps, set here too in case it
+    # has not run since.
+    nextcloud_upgrade_appstore_timeout: "{{ nextcloud_app_settings.settings['appstore-timeout'] }}"
   tasks:
     - name: Only where Nextcloud is declared
       ansible.builtin.meta: end_host

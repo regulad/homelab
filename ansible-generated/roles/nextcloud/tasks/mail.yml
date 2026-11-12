@@ -1,0 +1,105 @@
+---
+# Mail's provisioning configurations, nextcloud_mail_provisionings: created,
+# updated where a declared field differs, and deleted where their domain is not
+# declared. Mail provisions a user's account, and brings it in line with its
+# configuration, each time the user opens Mail, storing their login password
+# for it then, so the role runs no mail:provisioning:apply, which would give an
+# account to every matching user at once, whether they use Mail or not.
+- name: Mail provisioning
+  when: "'mail' in nextcloud_apps_wanted"
+  block:
+    - name: Mail has occ's provisioning commands
+      ansible.builtin.assert:
+        that: nextcloud_mail_version is version('5.13.0', '>=')
+        fail_msg: >-
+          Mail {{ nextcloud_mail_version }} has no mail:provisioning commands, which came in 5.13.0. Update it,
+          with occ app:update mail, then run this again.
+        quiet: true
+      vars:
+        nextcloud_mail_version: "{{ (nextcloud_apps_live.stdout | from_json).enabled.mail | default('0') }}"
+
+    - name: Each declared configuration uses its users' own login passwords
+      ansible.builtin.assert:
+        that: not (item.masterPasswordEnabled | default(false))
+        fail_msg: The configuration for {{ item.provisioningDomain }} enables a master password, which the role does not support.
+        quiet: true
+      loop: "{{ nextcloud_mail_provisionings }}"
+      loop_control:
+        label: "{{ item.provisioningDomain }}"
+
+    - name: Read Mail's provisioning configurations
+      ansible.builtin.command:
+        argv: "{{ nextcloud_occ + ['mail:provisioning:list', '--json'] }}"
+      register: nextcloud_mail_live
+      changed_when: false
+      check_mode: false
+
+    - name: The configurations to create, update and delete
+      ansible.builtin.set_fact:
+        nextcloud_mail_create: >-
+          {{ nextcloud_mail_provisionings
+             | rejectattr('provisioningDomain', 'in', nextcloud_mail_live_list | map(attribute='provisioningDomain') | list)
+             | list }}
+        nextcloud_mail_update: >-
+          {%- set out = [] -%}
+          {%- for want in nextcloud_mail_provisionings -%}
+          {%- for have in nextcloud_mail_live_list if have.provisioningDomain == want.provisioningDomain -%}
+          {%- set differs = [] -%}
+          {%- for field, value in want.items() if have[field] | default(none) != value -%}
+          {%- set _ = differs.append(field) -%}
+          {%- endfor -%}
+          {%- if differs | length > 0 -%}
+          {%- set _ = out.append(want | combine({'id': have.id, 'differs': differs})) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {%- endfor -%}
+          {{ out }}
+        nextcloud_mail_delete: >-
+          {{ nextcloud_mail_live_list
+             | rejectattr('provisioningDomain', 'in', nextcloud_mail_provisionings | map(attribute='provisioningDomain') | list)
+             | list }}
+      vars:
+        nextcloud_mail_live_list: "{{ nextcloud_mail_live.stdout | from_json }}"
+
+    - name: Create the declared configurations Mail lacks
+      ansible.builtin.command:
+        argv: "{{ nextcloud_occ + ['mail:provisioning:create'] + nextcloud_mail_args }}"
+      vars: &nextcloud_mail_args_vars
+        nextcloud_mail_args: >-
+          {%- set args = [] -%}
+          {%- for field, option in nextcloud_mail_provisioning_options.items()
+                if item[field] | default(none) is not none
+                and (not field.startswith('sieve') or item.sieveEnabled | default(false))
+                and (field != 'ldapAliasesAttribute' or item.ldapAliasesProvisioning | default(false)) -%}
+          {%- set _ = args.append('--' ~ option ~ '=' ~ item[field]) -%}
+          {%- endfor -%}
+          {%- if not item.sieveEnabled | default(false) -%}
+          {%- set _ = args.append('--no-sieve') -%}
+          {%- endif -%}
+          {%- if not item.ldapAliasesProvisioning | default(false) -%}
+          {%- set _ = args.append('--no-ldap-aliases') -%}
+          {%- endif -%}
+          {%- set _ = args.append('--no-master-password') -%}
+          {{ args }}
+      loop: "{{ nextcloud_mail_create }}"
+      loop_control:
+        label: "{{ item.provisioningDomain }}"
+      changed_when: true
+
+    - name: Update the configurations whose declared fields differ
+      ansible.builtin.command:
+        argv: "{{ nextcloud_occ + ['mail:provisioning:update', item.id | string] + nextcloud_mail_args }}"
+      vars: *nextcloud_mail_args_vars
+      loop: "{{ nextcloud_mail_update }}"
+      loop_control:
+        label: "{{ item.provisioningDomain }} ({{ item.differs | join(', ') }})"
+      changed_when: true
+
+    # Deleting a configuration deletes the accounts it provisioned.
+    - name: Delete the configurations of undeclared domains
+      ansible.builtin.command:
+        argv: "{{ nextcloud_occ + ['mail:provisioning:delete', item.id | string, '--force'] }}"
+      loop: "{{ nextcloud_mail_delete }}"
+      loop_control:
+        label: "{{ item.provisioningDomain }}"
+      changed_when: true
