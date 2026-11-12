@@ -13,6 +13,10 @@ What=/mnt/media
 Where=/mnt/media_nextcloud
 Type=fuse.bindfs
 Options=map=1000/33:@1000/@33
+# Unmounted at once, even while Nextcloud holds a file open through it: bindfs
+# passes /mnt/media through and keeps nothing of its own. The overlay below
+# unmounts normally.
+LazyUnmount=yes
 
 [Install]
 WantedBy=multi-user.target
