@@ -1,0 +1,17 @@
+---
+# First in the shared site.yml and maintenance.yml, and so first in each
+# stage's: AIDE's daily check held on each host from here until the run's end,
+# where aide-refresh.yml moves the baseline for what the run wrote and then runs
+# any check held meanwhile, so that no check mails the run's own writes. Tagged
+# always, as the refresh is. A check run writes nothing, and holds nothing.
+- name: AIDE's daily check held for this run
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [always, aide, aide_hold]
+  tasks:
+    - name: The run's start marked
+      ansible.builtin.command:
+        argv: [/usr/local/bin/aide-report, --run-started]
+        removes: /usr/local/bin/aide-report
+      changed_when: false

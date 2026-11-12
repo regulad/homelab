@@ -16,7 +16,14 @@ report. A mail accepts nothing where there is no baseline, the check failed,
 the report is too long for one mail, or the mail is only of container images,
 which are reported until repaired. Each mail begins with when the previous one
 was sent, and its subject, so that a mail lost on the way leaves a gap the
-next one shows.
+next one shows. While an Ansible run is writing on the host, from its
+--run-started until its --run-ended, the check is held, and --run-ended runs
+it once the run's refresh has moved the baseline for what the run wrote; a
+run that marked its start more than RUN_HOLD ago holds nothing, as one that
+died before its end.
+aide-report --run-started: marks that an Ansible run has started writing.
+aide-report --run-ended: clears that mark, after the run's refresh, and starts
+the check it held, if it held one.
 aide-report --baseline: accepts the files as they are: a new database, and the
 list of package-owned paths beside it, which later reports use to tell a path
 an upgrade removed from one removed by hand. The list is the packages' before
@@ -410,6 +417,12 @@ ALTERNATIVES = "/etc/alternatives"
 ALTERNATIVES_RECORDS = ("/var/lib/dpkg/alternatives", "/var/lib/alternatives")
 # Lines of the report in each mail, at most.
 MAIL_LINES = 400
+# Seconds a run's mark holds the daily check: a fleet run takes an hour or two,
+# and one marked longer ago than this died before its end.
+RUN_HOLD = 6 * 3600
+# The unit the timer starts for the daily check, which --run-ended starts
+# for a check it held.
+CHECK_UNIT = "aide-report.service"
 # How a mail is written: lines of up to SMTP's 998 characters go unencoded, as
 # 7bit or, with other than ASCII in them, 8bit; only a longer one is encoded.
 MAIL_POLICY = email.policy.default.clone(max_line_length=998)
@@ -2190,9 +2203,64 @@ def refresh(settings, paths, units=()):
     return 0
 
 
+def run_mark(settings):
+    return os.path.join(settings["run"], "run-pending")
+
+
+def held_mark(settings):
+    return os.path.join(settings["run"], "check-held")
+
+
+def run_pending(settings):
+    """Whether an Ansible run marked its start here less than RUN_HOLD ago and
+    has not ended."""
+    try:
+        return time.time() - os.path.getmtime(run_mark(settings)) < RUN_HOLD
+    except OSError:
+        return False
+
+
+def mark(path):
+    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    with open(path, "w"):
+        pass
+
+
+def run_started(settings):
+    mark(run_mark(settings))
+    return 0
+
+
+def hold_check(settings):
+    """Leaves the check to the run's end, which runs it after the refresh."""
+    mark(held_mark(settings))
+    print("An Ansible run is writing on this host, so the check waits for its end.")
+    return 0
+
+
+def run_ended(settings):
+    """Clears the run's mark and starts the check it held, if it held one."""
+    try:
+        os.remove(run_mark(settings))
+    except FileNotFoundError:
+        pass
+    try:
+        os.remove(held_mark(settings))
+    except FileNotFoundError:
+        return 0
+    result = subprocess.run(["systemctl", "start", "--no-block", CHECK_UNIT])
+    if result.returncode == 0:
+        print("Started the check the run held.")
+    return result.returncode
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     action = parser.add_mutually_exclusive_group()
+    action.add_argument("--run-started", action="store_true",
+                        help="hold the daily check until --run-ended: an Ansible run is writing")
+    action.add_argument("--run-ended", action="store_true",
+                        help="after the run's refresh, end the hold and start the check it held")
     action.add_argument("--baseline", action="store_true", help="accept the files as they are")
     action.add_argument("--refresh", metavar="PATH", nargs="*", help="move the baseline for these paths alone, a * standing for any part of one name")
     action.add_argument("--repair-images", action="store_true",
@@ -2203,6 +2271,11 @@ def main():
     args = parser.parse_args()
     settings = load(args.settings)
     os.umask(0o077)
+    # Not behind the lock, which a check holds for minutes as it walks.
+    if args.run_started:
+        return run_started(settings)
+    if args.run_ended:
+        return run_ended(settings)
     with open(settings["lock"], "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if args.baseline:
@@ -2211,6 +2284,8 @@ def main():
             return refresh(settings, args.refresh, args.units)
         if args.repair_images:
             return repair_images()
+        if run_pending(settings):
+            return hold_check(settings)
         return check(settings)
 
 

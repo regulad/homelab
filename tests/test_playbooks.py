@@ -27,6 +27,7 @@ def plays(text):
 
 
 REFRESH_PLAYBOOK = "ansible-common/playbooks/aide-refresh.yml"
+HOLD_PLAYBOOK = "ansible-common/playbooks/aide-hold.yml"
 
 
 def playbooks():
@@ -72,12 +73,33 @@ class SitePlaybooks(unittest.TestCase):
                               "%s/%s" % (stage, playbook))
 
     def test_the_refresh_play(self):
-        (play,) = plays(read(REFRESH_PLAYBOOK))
-        self.assertIn("hosts: debian:ubuntu:rhel", play)
-        self.assertIn("gather_facts: false", play)
-        self.assertIn("become: true", play)
-        self.assertIn("tags: [always, aide, aide_refresh]", play)
+        play, release = plays(read(REFRESH_PLAYBOOK))
+        for each in (play, release):
+            self.assertIn("hosts: debian:ubuntu:rhel", each)
+            self.assertIn("gather_facts: false", each)
+            self.assertIn("become: true", each)
+            self.assertIn("tags: [always, aide, aide_refresh]", each)
         self.assertRegex(play, r"import_role:\s+name: aide\s+tasks_from: refresh")
+        # The hold on each host's check ends after the refresh, on every host,
+        # those the refresh ended at once included, and starts any check held.
+        self.assertRegex(release, r"argv: \[/usr/local/bin/aide-report, --run-ended\]\s+"
+                                  r"removes: /usr/local/bin/aide-report")
+        self.assertIn("changed_when: \"'Started' in aide_run_ended.stdout\"", release)
+
+    def test_each_run_holds_the_daily_check_from_its_start(self):
+        (hold,) = plays(read(HOLD_PLAYBOOK))
+        self.assertIn("hosts: debian:ubuntu:rhel", hold)
+        self.assertIn("become: true", hold)
+        # Under any --tags, as the refresh that ends it.
+        self.assertIn("tags: [always, aide, aide_hold]", hold)
+        self.assertRegex(hold, r"argv: \[/usr/local/bin/aide-report, --run-started\]\s+"
+                               r"removes: /usr/local/bin/aide-report\s+changed_when: false")
+        for shared in ("ansible-common/playbooks/site.yml", "ansible-common/playbooks/maintenance.yml"):
+            first = plays(read(shared))[0]
+            self.assertIn("ansible.builtin.import_playbook: aide-hold.yml", first, shared)
+        for path in playbooks():
+            expected = 1 if path in ("ansible-common/playbooks/site.yml", "ansible-common/playbooks/maintenance.yml") else 0
+            self.assertEqual(read(path).count("import_playbook: aide-hold.yml"), expected, path)
 
     def test_the_refresh_once_in_one_playbook(self):
         for path in playbooks():

@@ -4,6 +4,10 @@
 # after its declared version or setting is bumped. Run a single one with
 # --tags, from inside a stage, whose ansible.cfg gives the inventory and roles.
 
+# AIDE's daily check held until the run's end (aide-hold.yml).
+- name: AIDE's daily check held for this run
+  ansible.builtin.import_playbook: aide-hold.yml
+
 # Align a hardware install's hostname and its /etc/hosts line with Ubuntu's
 # installer (Subiquity), on the hosts that set base_hostname_managed.
 - name: Align hostname with Subiquity settings

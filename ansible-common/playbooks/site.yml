@@ -4,6 +4,10 @@
 # to rerun. Run it through a stage, whose ansible.cfg gives the inventory and
 # the roles.
 
+# AIDE's daily check held until the run's end (aide-hold.yml).
+- name: AIDE's daily check held for this run
+  ansible.builtin.import_playbook: aide-hold.yml
+
 # Every host Ansible manages but pfSense and the network switches.
 - name: Host baseline
   hosts: debian:ubuntu:rhel:macos

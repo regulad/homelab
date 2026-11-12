@@ -13,3 +13,19 @@
       ansible.builtin.import_role:
         name: aide
         tasks_from: refresh
+
+# Then the hold aide-hold.yml put on each host's daily check ends, on every
+# host, those the refresh left at once included, and a check it held runs now,
+# against the baseline the refresh moved.
+- name: AIDE's daily check released after this run
+  hosts: debian:ubuntu:rhel
+  gather_facts: false
+  become: true
+  tags: [always, aide, aide_refresh]
+  tasks:
+    - name: The run's end marked, and any check held started
+      ansible.builtin.command:
+        argv: [/usr/local/bin/aide-report, --run-ended]
+        removes: /usr/local/bin/aide-report
+      register: aide_run_ended
+      changed_when: "'Started' in aide_run_ended.stdout"

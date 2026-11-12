@@ -40,6 +40,7 @@ class RunTestCase(support.CommandsTestCase):
             "state": self.path("var/lib/aide-report"),
             "manifest": self.path("var/lib/aide-report/packages.json.gz"),
             "lock": self.path("run/aide-report.lock"),
+            "run": self.path("run/aide-report"),
             "accept": "ACCEPT-COMMAND",
             "repair": "REPAIR-COMMAND",
         }
@@ -592,6 +593,73 @@ class Main(RunTestCase):
     def test_one_action_at_a_time(self):
         with mock.patch.object(sys, "stderr"), self.assertRaises(SystemExit):
             self.run_main("--baseline", "--refresh", "/etc/a")
+
+    def test_the_check_holds_while_a_run_is_writing(self):
+        ar.run_started(self.settings)
+        with mock.patch.object(sys, "stdout"):
+            self.assertEqual(self.run_main(), [])
+        self.assertTrue(os.path.exists(ar.held_mark(self.settings)))
+
+    def test_a_mark_older_than_the_hold_holds_nothing(self):
+        ar.run_started(self.settings)
+        old = os.path.getmtime(ar.run_mark(self.settings)) - ar.RUN_HOLD - 1
+        os.utime(ar.run_mark(self.settings), (old, old))
+        self.assertEqual(self.run_main(), [("check", (self.settings,))])
+        self.assertFalse(os.path.exists(ar.held_mark(self.settings)))
+
+    def test_only_the_check_holds(self):
+        ar.run_started(self.settings)
+        self.assertEqual(self.run_main("--baseline"), [("baseline", (self.settings,))])
+        self.assertEqual(self.run_main("--refresh", "/etc/a"), [("refresh", (self.settings, ["/etc/a"], []))])
+
+    def test_a_runs_start_and_end_wait_for_no_check(self):
+        # A check holds the lock for minutes as it walks.
+        with mock.patch.object(ar.fcntl, "flock", side_effect=AssertionError("locked")), \
+                mock.patch.object(ar, "run_ended", return_value=0) as ended:
+            self.assertEqual(self.run_main("--run-started"), [])
+            self.assertEqual(self.run_main("--run-ended"), [])
+        self.assertTrue(os.path.exists(ar.run_mark(self.settings)))
+        ended.assert_called_once_with(self.settings)
+
+
+class RunHold(RunTestCase):
+    """An Ansible run marks its start on each host, and its end after its
+    refresh, so that no daily check mails what the run wrote."""
+
+    commands = RunTestCase.commands + ("systemctl",)
+
+    def test_the_start_marks_the_run(self):
+        self.assertEqual(ar.run_started(self.settings), 0)
+        self.assertTrue(ar.run_pending(self.settings))
+
+    def test_no_mark_no_run(self):
+        self.assertFalse(ar.run_pending(self.settings))
+
+    def test_the_end_clears_the_mark_and_starts_nothing_held_nothing(self):
+        ar.run_started(self.settings)
+        self.assertEqual(ar.run_ended(self.settings), 0)
+        self.assertFalse(ar.run_pending(self.settings))
+        self.assertEqual(self.calls("systemctl"), [])
+
+    def test_the_end_starts_the_check_it_held(self):
+        ar.run_started(self.settings)
+        with mock.patch.object(sys, "stdout"):
+            ar.hold_check(self.settings)
+            self.assertEqual(ar.run_ended(self.settings), 0)
+        self.assertEqual([call["argv"] for call in self.calls("systemctl")],
+                         [["start", "--no-block", "aide-report.service"]])
+        self.assertFalse(os.path.exists(ar.held_mark(self.settings)))
+        self.assertFalse(ar.run_pending(self.settings))
+
+    def test_an_end_without_a_start_is_no_failure(self):
+        self.assertEqual(ar.run_ended(self.settings), 0)
+
+    def test_a_check_that_fails_to_start_fails_the_end(self):
+        self.set_command("systemctl", status=1)
+        ar.run_started(self.settings)
+        with mock.patch.object(sys, "stdout"):
+            ar.hold_check(self.settings)
+        self.assertEqual(ar.run_ended(self.settings), 1)
 
 
 if __name__ == "__main__":
