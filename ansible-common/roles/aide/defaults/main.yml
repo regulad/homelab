@@ -85,6 +85,10 @@ aide_exclude_paths:
   # smartd's record of each disk's attributes, and DHCP clients' leases.
   - /var/lib/smartmontools
   - /var/lib/dhcp
+  # chronyd's state: its drift file, and where ntsdumpdir names the directory,
+  # as Ubuntu's chrony.conf does, each NTS server's cookies, saved as it stops
+  # and as its servers change.
+  - /var/lib/chrony
   # fwupd's copy of the LVFS's catalogue of firmware, with its signature, which
   # fwupd-refresh downloads again as the LVFS changes it.
   - /var/lib/fwupd/metadata
