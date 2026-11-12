@@ -27,22 +27,6 @@
  * See also: https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/config_sample_php_parameters.html#multiple-merged-configuration-files
  */
 $CONFIG = array (
-  'app.mail.accounts.default' => 
-  array (
-    'email' => '%EMAIL%',
-    'imapHost' => 'mail.regulad.xyz',
-    'imapPort' => 993,
-    'imapUser' => '%EMAIL%',
-    'imapSslMode' => 'ssl',
-    'smtpHost' => 'mail.regulad.xyz',
-    'smtpPort' => 587,
-    'smtpUser' => '%EMAIL%',
-    'smtpSslMode' => 'tls',
-  ),
-  'user_backend_sql_raw' => 
-  array (
-    'post_createUser' => '/var/www/nextcloud/user_provisioning.sh $uid',
-  ),
   'htaccess.RewriteBase' => '/',
   'filelocking.enabled' => true,
   'memcache.locking' => '\\OC\\Memcache\\Redis',

@@ -34,3 +34,22 @@
   # It holds Nextcloud's secrets, so neither its content nor its diff is shown.
   no_log: true
   diff: false
+
+- name: Find the config directory's files
+  ansible.builtin.find:
+    paths: "{{ nextcloud_config_mountpoint.stdout }}"
+    hidden: true
+    file_type: any
+  register: nextcloud_config_files
+
+# The image's entrypoint copies its own into an empty directory only, and then
+# warns at each start that they differ from its own.
+- name: Remove the files config.php does not account for
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ nextcloud_config_files.files | rejectattr('path', 'in', nextcloud_config_kept_paths) | list }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  vars:
+    nextcloud_config_kept_paths: "{{ nextcloud_config_kept | map('regex_replace', '^', nextcloud_config_mountpoint.stdout ~ '/') | list }}"

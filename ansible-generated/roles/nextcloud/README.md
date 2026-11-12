@@ -15,6 +15,11 @@ units, are the host's host files.
   own, written by its upgrades and maintenance mode, so each run reads them
   from the live configuration. The file holds Nextcloud's secrets, from SOPS,
   so its writes show no diff; the template's history is the record.
+- **Keeps the config directory to `config.php`**, Nextcloud's `.htaccess` and
+  the image's `config.sample.php` (`nextcloud_config_kept`). Nextcloud merges
+  every `*.config.php` there over `config.php`, and saves the merged result
+  into `config.php` whenever it writes a setting, so another file would be a
+  second owner of the same keys.
 - **Enables the apps Nextcloud would enable by itself**, the shipped ones
   its running code's `core/shipped.json` lists as `defaultEnabled` or
   `alwaysEnabled`, with `nextcloud_apps_enabled` added and

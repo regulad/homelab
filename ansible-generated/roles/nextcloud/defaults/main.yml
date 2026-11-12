@@ -9,6 +9,11 @@ nextcloud_occ: [podman, exec, --user, www-data, "{{ nextcloud_container }}", php
 # <mountpoint>/config.php.j2.
 nextcloud_config_volume: nextcloud_config
 nextcloud_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
+# The only files the config directory keeps: config.php, Nextcloud's own
+# .htaccess, and the sample its code ships. Any other is removed, above all a
+# *.config.php, which Nextcloud merges over config.php, such as the image's
+# copies of its environment-driven files, so config.php is the one source.
+nextcloud_config_kept: [config.php, .htaccess, config.sample.php]
 
 # The apps enabled are the shipped ones Nextcloud enables by itself, those its
 # running code's core/shipped.json lists as defaultEnabled or alwaysEnabled,
