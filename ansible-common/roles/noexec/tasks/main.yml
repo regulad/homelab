@@ -1,8 +1,9 @@
 ---
 # Each of noexec_paths, noexec_paths_packages and noexec_paths_host bound over
 # itself with noexec by its own mount unit, started and enabled for
-# local-fs.target; and /tmp a tmpfs by systemd's own tmp.mount, with noexec.
-# Runs on every Linux host, containers included.
+# local-fs.target, and required by the services that alone use it; and /tmp a
+# tmpfs by systemd's own tmp.mount, with noexec. Runs on every Linux host,
+# containers included.
 - name: Gather the paths
   ansible.builtin.set_fact:
     noexec_bind_paths: "{{ (noexec_paths + noexec_paths_packages + noexec_paths_host) | unique }}"
@@ -51,6 +52,57 @@
   loop: "{{ noexec_units.stdout.split() }}"
   # A check run cannot read what an install still pending would create.
   when: not (ansible_check_mode and noexec_unit_files is changed)
+
+- name: Gather the services that alone use the paths, each with those of its paths bound
+  ansible.builtin.set_fact:
+    noexec_service_paths: >-
+      {{ dict(noexec_services_all.keys()
+              | zip(noexec_services_all.values() | map('intersect', noexec_bind_paths))
+              | selectattr('1')) }}
+  vars:
+    noexec_services_all: "{{ noexec_services | combine(noexec_services_host) }}"
+
+- name: Services' drop-in directories
+  ansible.builtin.file:
+    path: /etc/systemd/system/{{ item }}.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ noexec_service_paths.keys() | list }}"
+
+- name: Services requiring their paths' binds
+  ansible.builtin.template:
+    src: requires.conf.j2
+    dest: /etc/systemd/system/{{ item.key }}.d/noexec-paths.conf
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ noexec_service_paths | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Reload the units
+
+# A service taken off the list keeps requiring its paths until its drop-in
+# goes, which is before any unit is stopped below, as a service requiring a
+# stopped bind would be stopped with it.
+- name: Find the drop-ins the role made
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns: noexec-paths.conf
+    recurse: true
+    depth: 2
+    contains: "^# Managed by Ansible \\(noexec\\)\\. "
+  register: noexec_made_dropins
+
+- name: Drop-ins of services no longer listed removed
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: >-
+    {{ noexec_made_dropins.files | map(attribute='path')
+       | difference(noexec_service_paths.keys() | map('regex_replace', '^(.*)$', '/etc/systemd/system/\1.d/noexec-paths.conf')) }}
+  notify: Reload the units
 
 # A path taken off the lists stays bound until its unit goes: each unit the
 # role made, by the header its template writes, whose path is no longer

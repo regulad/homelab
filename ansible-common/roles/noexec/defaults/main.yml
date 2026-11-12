@@ -14,6 +14,18 @@ noexec_paths_packages: "{{ [] if 'rhel' in group_names else ['/var/backups'] }}"
 # Each host's additions, such as an application's logs.
 noexec_paths_host: []
 
+# Services that alone use a path above, each with the paths it uses. Each
+# requires their binds by a drop-in, RequiresMountsFor=, so it runs only with
+# them bound, mounting them first if need be, and stops before they are
+# unbound; paths not listed above are left out. dpkg's daily backup and apt's
+# daily runs, each of which runs apt.systemd.daily, write /var/backups.
+noexec_services:
+  dpkg-db-backup.service: [/var/backups]
+  apt-daily.service: [/var/backups]
+  apt-daily-upgrade.service: [/var/backups]
+# Each host's additions.
+noexec_services_host: {}
+
 # /tmp a tmpfs by systemd's own tmp.mount, enabled, with noexec added to the
 # unit's options by a drop-in where they lack it. Where /tmp is not a tmpfs
 # yet, it becomes one at the next boot; where the distribution does not mount

@@ -213,6 +213,36 @@ class NoexecUnits(unittest.TestCase):
         self.assertEqual(unit["Mount"]["Options"], "bind,noexec")
         self.assertEqual(unit["Mount"]["LazyUnmount"], "yes")
 
+    def test_services_that_alone_use_a_path_require_its_bind(self):
+        defaults = read("ansible-common/roles/noexec/defaults/main.yml")
+        for service in ("dpkg-db-backup.service", "apt-daily.service", "apt-daily-upgrade.service"):
+            self.assertIn("  %s: [/var/backups]\n" % service, defaults)
+        self.assertIn("noexec_services_host: {}\n", defaults)
+        main = read(self.MAIN)
+        gathered = task(main, "Gather the services that alone use the paths, each with those of its paths bound")
+        self.assertIn("map('intersect', noexec_bind_paths)", gathered)
+        self.assertIn('noexec_services_all: "{{ noexec_services | combine(noexec_services_host) }}"', gathered)
+        dropin = task(main, "Services requiring their paths' binds")
+        self.assertIn("src: requires.conf.j2", dropin)
+        self.assertIn("dest: /etc/systemd/system/{{ item.key }}.d/noexec-paths.conf", dropin)
+        self.assertIn("notify: Reload the units", dropin)
+        template = read("ansible-common/roles/noexec/templates/requires.conf.j2")
+        self.assertTrue(template.startswith("# Managed by Ansible (noexec). "))
+        self.assertRegex(template, r"(?m)^\[Unit\]\nRequiresMountsFor=\{\{ item\.value \| join\(' '\) \}\}$")
+
+    def test_drop_ins_of_services_no_longer_listed_go_before_any_bind_stops(self):
+        # A service requiring a bind that is stopped is stopped with it.
+        main = read(self.MAIN)
+        found = task(main, "Find the drop-ins the role made")
+        self.assertIn("patterns: noexec-paths.conf", found)
+        self.assertIn(r'contains: "^# Managed by Ansible \\(noexec\\)\\. "', found)
+        removed = task(main, "Drop-ins of services no longer listed removed")
+        self.assertIn("state: absent", removed)
+        self.assertIn("difference(noexec_service_paths.keys()", removed)
+        self.assertLess(main.index("- name: Drop-ins of services no longer listed removed"),
+                        main.index("- name: Their units stopped and disabled"))
+        self.assertIn("daemon_reload: true", task(main, "Their units stopped and disabled"))
+
 
 class AuditdSettings(unittest.TestCase):
     def test_space_left_action_out_of_reach_of_oci_linux_configs_rewrite(self):

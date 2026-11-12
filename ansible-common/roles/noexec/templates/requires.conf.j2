@@ -1,0 +1,4 @@
+# Managed by Ansible (noexec). {{ item.key }} runs only with {{ item.value | join(', ') }}
+# bound over itself with noexec, and stops before it is unbound.
+[Unit]
+RequiresMountsFor={{ item.value | join(' ') }}
