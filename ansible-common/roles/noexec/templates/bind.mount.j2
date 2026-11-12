@@ -9,6 +9,9 @@ What={{ item.0 }}
 Where={{ item.0 }}
 Type=none
 Options=bind,noexec
+# Unbound at once, even while something holds the path open: bound over
+# itself, the path shows the same files once unbound.
+LazyUnmount=yes
 
 [Install]
 WantedBy=local-fs.target

@@ -62,18 +62,33 @@
     contains: "^# Managed by Ansible \\(noexec\\)\\. "
   register: noexec_made
 
-- name: Units of paths no longer listed stopped and disabled
+- name: Name the units of paths no longer listed
+  ansible.builtin.set_fact:
+    noexec_stale_units: "{{ noexec_made.files | map(attribute='path') | map('basename') | difference(noexec_units.stdout.split()) }}"
+
+# The template's LazyUnmount=, given to each before its stop, so that one the
+# template rendered without it unbinds at once too: the path shows the same
+# files once unbound, so its unbinding need not wait for what holds it open.
+- name: Their units unmount lazily
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system/{{ item }}
+    line: LazyUnmount=yes
+    insertafter: ^\[Mount\]$
+  loop: "{{ noexec_stale_units }}"
+
+- name: Their units stopped and disabled
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     state: stopped
     enabled: false
-  loop: "{{ noexec_made.files | map(attribute='path') | map('basename') | difference(noexec_units.stdout.split()) }}"
+    daemon_reload: true
+  loop: "{{ noexec_stale_units }}"
 
 - name: Their unit files removed
   ansible.builtin.file:
     path: /etc/systemd/system/{{ item }}
     state: absent
-  loop: "{{ noexec_made.files | map(attribute='path') | map('basename') | difference(noexec_units.stdout.split()) }}"
+  loop: "{{ noexec_stale_units }}"
   notify: Reload the units
 
 - name: /tmp

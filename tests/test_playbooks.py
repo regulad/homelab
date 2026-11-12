@@ -185,15 +185,33 @@ class NoexecUnits(unittest.TestCase):
         found = task(main, "Find the mount units the role made")
         self.assertIn("paths: /etc/systemd/system", found)
         self.assertIn(r'contains: "^# Managed by Ansible \\(noexec\\)\\. "', found)
-        stale = "noexec_made.files | map(attribute='path') | map('basename') | difference(noexec_units.stdout.split())"
-        stopped = task(main, "Units of paths no longer listed stopped and disabled")
-        self.assertRegex(stopped, r"state: stopped\s+enabled: false")
+        named = task(main, "Name the units of paths no longer listed")
+        self.assertIn("noexec_stale_units: \"{{ noexec_made.files | map(attribute='path') | map('basename')"
+                      " | difference(noexec_units.stdout.split()) }}\"", named)
+        stale = 'loop: "{{ noexec_stale_units }}"'
+        # A bind over itself leaves the same files at its path, so it unmounts
+        # lazily rather than failing while something holds it open.
+        lazy = task(main, "Their units unmount lazily")
+        self.assertIn("line: LazyUnmount=yes", lazy)
+        self.assertIn(r"insertafter: ^\[Mount\]$", lazy)
+        self.assertIn(stale, lazy)
+        stopped = task(main, "Their units stopped and disabled")
+        self.assertRegex(stopped, r"state: stopped\s+enabled: false\s+daemon_reload: true")
         self.assertIn(stale, stopped)
         removed = task(main, "Their unit files removed")
         self.assertRegex(removed, r"path: /etc/systemd/system/\{\{ item \}\}\s+state: absent")
         self.assertIn(stale, removed)
-        self.assertLess(main.index("- name: Units of paths no longer listed stopped and disabled"),
-                        main.index("- name: Their unit files removed"))
+        order = [main.index("- name: " + name) for name in (
+            "Name the units of paths no longer listed", "Their units unmount lazily",
+            "Their units stopped and disabled", "Their unit files removed")]
+        self.assertEqual(order, sorted(order))
+
+    def test_binds_unmount_lazily(self):
+        # Bound over itself, a path shows the same files once unbound.
+        unit = configparser.ConfigParser(interpolation=None, strict=False)
+        unit.read_string(read("ansible-common/roles/noexec/templates/bind.mount.j2"))
+        self.assertEqual(unit["Mount"]["Options"], "bind,noexec")
+        self.assertEqual(unit["Mount"]["LazyUnmount"], "yes")
 
 
 class AuditdSettings(unittest.TestCase):
