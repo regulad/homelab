@@ -74,7 +74,7 @@ homelab/
 └── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
     ├── bin/                     # tofu-<root>: the inventory plugin's tofu, with that root's state encryption
-    ├── files/                   # <host>/: byte copies roles place on a host, at their paths there; exempt from the whitespace hooks
+    ├── files/                   # <host>/: byte copies roles place on a host, at their paths there, some of them submodules (a Nextcloud app); exempt from the whitespace hooks
     ├── inventory/               # <root>.terraform_state.yml (OpenTofu state), group_vars/, host_vars/<host>/{main,services}.yml
     ├── playbooks/               # site.yml; maintenance.yml, each importing ansible-common's first
     ├── roles/                   # host_files, podman, resolved, quadlet, pfsense, php_fpm, pterodactyl, matrix, nextcloud
@@ -108,7 +108,7 @@ pre-commit run --all-files
 
 Several agents may work on this repository at once. The [alock](https://github.com/regulad/alock) plugin, pinned in `.claude/settings.json` and configured by `.alock.json`, keeps their applies apart. While a `tofu`, `terraform` or `ansible-playbook` change runs, it locks the OpenTofu root with every host that root's inventory lists, or each host an Ansible run resolves to. It refuses an apply whose HEAD lacks the commit any of those targets was last applied from, so no apply undoes another. Read-only calls, such as `plan` and `--check`, pass straight through.
 
-- **Worktree or main checkout:** when Parker asks for work, ask him whether to do it in a worktree of its own or in the main checkout; never assume either. A worktree lives at `.claude/worktrees/<name>` on a branch of the same name. It starts without the gitignored files: run its roots' `prepare.sh`, and symlink `ansible-*/collections/` and `tofu/*/.terraform/` from the main checkout rather than installing them again (rule 3).
+- **Worktree or main checkout:** when Parker asks for work, ask him whether to do it in a worktree of its own or in the main checkout; never assume either. A worktree lives at `.claude/worktrees/<name>` on a branch of the same name. It starts without the gitignored files: run its roots' `prepare.sh`, and symlink `ansible-*/collections/` and `tofu/*/.terraform/` from the main checkout rather than installing them again (rule 3). It starts without its submodules' contents too: check them out with `git submodule update --init`.
 - **One worktree per agent.** Once an agent has its worktree, it creates no other unless Parker authorizes that one specifically; the work it is asked for next continues in the same worktree.
 - **Pivots mid-iteration:** when Parker redirects an agent before its changes are ready to commit, suggest stashing them, do the new work in the same worktree, and apply the stash on returning. Every worktree and clone shares one stash list, so stash only your own paths under a unique message (`git stash push --include-untracked -m "<worktree>: <what>" -- <paths>`), note the entry's id from `git stash list --format='%H %gs'`, restore it with `git stash apply <id>`, never `pop`, and once it is applied drop the entry, found again by its message.
 - **Apply from a commit.** alock refuses a worktree with uncommitted changes. In a worktree, commit on its branch first (rule 8's exception). In the main checkout, that commit lands on master, so Parker approves it along with the apply.
