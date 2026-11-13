@@ -20,6 +20,14 @@ units, are the host's host files.
   every `*.config.php` there over `config.php`, and saves the merged result
   into `config.php` whenever it writes a setting, so another file would be a
   second owner of the same keys.
+- **Copies in the repository's own apps**, each a directory with an
+  `appinfo/info.xml` under `files/<host>/<apps volume's path>/`, whole, into
+  the `nextcloud_apps` volume, and removes what their sources no longer have.
+  They are enabled like any other, through `nextcloud_apps_enabled`; the App
+  Store has none of them, so `occ app:update` leaves them alone. Raising one's
+  version leaves Nextcloud needing `occ upgrade`, which the role then runs.
+  Each declares in its `max-version` the last major it was checked against,
+  which `maintenance.yml`'s `nextcloud-upgrade` requires to allow the target.
 - **Enables the apps Nextcloud would enable by itself**, the shipped ones
   its running code's `core/shipped.json` lists as `defaultEnabled` or
   `alwaysEnabled`, with `nextcloud_apps_enabled` added and

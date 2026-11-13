@@ -6,6 +6,9 @@
 - name: Config.php
   ansible.builtin.import_tasks: config.yml
 
+- name: The repository's own apps
+  ansible.builtin.import_tasks: own_apps.yml
+
 - name: Apps
   ansible.builtin.import_tasks: apps.yml
 

@@ -1,0 +1,74 @@
+---
+# The repository's own apps, each a directory with an appinfo/info.xml under
+# files/<host>/<the apps volume's path>/, copied whole into that volume beside
+# the App Store's apps. The App Store has none of them, so occ app:update
+# leaves them alone.
+- name: Read the apps volume's mountpoint
+  ansible.builtin.command:
+    argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "{{ nextcloud_apps_volume }}"]
+  register: nextcloud_own_apps_mountpoint
+  changed_when: false
+  check_mode: false
+
+- name: The repository's own apps
+  ansible.builtin.set_fact:
+    nextcloud_own_apps_src: "{{ nextcloud_own_apps_dir }}"
+    nextcloud_own_apps: >-
+      {{ query('community.general.filetree', nextcloud_own_apps_dir)
+         | selectattr('state', 'eq', 'file') | map(attribute='path')
+         | select('match', '^[^/]+/appinfo/info\.xml$') | map('split', '/') | map('first') | sort }}
+  vars:
+    nextcloud_own_apps_dir: "{{ nextcloud_files_dir }}{{ nextcloud_own_apps_mountpoint.stdout }}"
+
+- name: Copy them in
+  ansible.builtin.copy:
+    src: "{{ nextcloud_own_apps_src }}/{{ item }}/"
+    dest: "{{ nextcloud_own_apps_mountpoint.stdout }}/{{ item }}/"
+    owner: "33"
+    group: "33"
+    mode: "0644"
+    directory_mode: "0755"
+  loop: "{{ nextcloud_own_apps }}"
+
+- name: Find what their copies hold
+  ansible.builtin.find:
+    paths: "{{ nextcloud_own_apps | map('regex_replace', '^', nextcloud_own_apps_mountpoint.stdout ~ '/') | list }}"
+    recurse: true
+    hidden: true
+    file_type: any
+  register: nextcloud_own_apps_found
+  when: nextcloud_own_apps | length > 0
+
+- name: Remove what their sources no longer have
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ nextcloud_own_apps_found.files | default([]) | map(attribute='path') | difference(nextcloud_own_apps_wanted) | sort }}"
+  loop_control:
+    label: "{{ item | relpath(nextcloud_own_apps_mountpoint.stdout) }}"
+  vars:
+    nextcloud_own_apps_wanted: >-
+      {%- set out = [] -%}
+      {%- for app in nextcloud_own_apps -%}
+      {%- for entry in query('community.general.filetree', nextcloud_own_apps_src ~ '/' ~ app) -%}
+      {%- set _ = out.append(nextcloud_own_apps_mountpoint.stdout ~ '/' ~ app ~ '/' ~ entry.path) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ out }}
+
+# A newer version of an enabled app leaves Nextcloud needing occ upgrade, which
+# runs its migrations and registers its background jobs anew; until then,
+# Nextcloud serves only its update page.
+- name: Read whether Nextcloud needs an upgrade
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['status', '--exit-code'] }}"
+  register: nextcloud_own_apps_status
+  changed_when: false
+  failed_when: nextcloud_own_apps_status.rc not in [0, 2]
+  check_mode: false
+
+- name: Upgrade it
+  ansible.builtin.command:
+    argv: "{{ nextcloud_occ + ['upgrade', '--no-interaction'] }}"
+  when: nextcloud_own_apps_status.rc == 2
+  changed_when: true

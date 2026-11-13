@@ -15,6 +15,12 @@ nextcloud_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 # copies of its environment-driven files, so config.php is the one source.
 nextcloud_config_kept: [config.php, .htaccess, config.sample.php]
 
+# The named volume of custom_apps, where the App Store installs apps. The
+# repository's own apps are the directories with an appinfo/info.xml in
+# files/<host>/, at the path of that volume's directory on the host: each is
+# copied in whole, and enabled as any other through nextcloud_apps_enabled.
+nextcloud_apps_volume: nextcloud_apps
+
 # The apps enabled are the shipped ones Nextcloud enables by itself, those its
 # running code's core/shipped.json lists as defaultEnabled or alwaysEnabled,
 # with nextcloud_apps_enabled added and nextcloud_apps_disabled taken away.
