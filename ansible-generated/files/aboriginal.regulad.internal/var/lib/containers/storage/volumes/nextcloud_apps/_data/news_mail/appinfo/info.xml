@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>news_mail</id>
+	<name>News Mail</name>
+	<summary>Mails each News user the new entries of their feeds, one mail per feed update, and marks them read</summary>
+	<description>Each time News fetches a feed with new entries, its owner gets a mail listing them, sent from Nextcloud's own address, and the entries are marked read in News once it has gone out. Every News user with an email address gets them; there is no setting.</description>
+	<version>1.0.0</version>
+	<licence>agpl</licence>
+	<author>Parker Wahle</author>
+	<namespace>NewsMail</namespace>
+	<category>tools</category>
+	<bugs>https://github.com/regulad/homelab/issues</bugs>
+	<dependencies>
+		<nextcloud min-version="35" max-version="35"/>
+	</dependencies>
+	<background-jobs>
+		<job>OCA\NewsMail\BackgroundJob\MailNewEntries</job>
+	</background-jobs>
+</info>

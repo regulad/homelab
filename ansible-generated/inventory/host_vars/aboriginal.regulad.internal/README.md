@@ -69,6 +69,11 @@ of their own.
     `<uid>@regulad.xyz` with their own Nextcloud password, which is their
     directory's. regulad, a local user of Nextcloud's own, keeps the account
     he added by hand.
+  - News Mail, an app of the repository's own, in this host's `files/` under
+    the `nextcloud_apps` volume, mails each News user, from Nextcloud's own
+    address, the new unread entries of a feed once News has fetched it: one
+    mail per feed update, whose entries it then marks read in News. Every
+    News user with an address gets them; there is no setting.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
   masked, as `nut.target` would start it to fail. The APC's section in
