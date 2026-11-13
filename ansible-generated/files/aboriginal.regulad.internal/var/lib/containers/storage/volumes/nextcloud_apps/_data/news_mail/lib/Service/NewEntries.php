@@ -8,12 +8,9 @@ namespace OCA\NewsMail\Service;
 
 use OCA\News\Db\Feed;
 use OCA\News\Db\Item;
-use OCA\News\Db\ListType;
 use OCA\News\Service\Exceptions\ServiceNotFoundException;
 use OCA\News\Service\FeedServiceV2;
 use OCA\News\Service\ItemServiceV2;
-use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Config\IUserConfig;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\IUser;
@@ -25,29 +22,18 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Finds the unread entries each News user's feeds gained since the last run,
- * mails them to the user's own address, one mail per feed, from Nextcloud's,
- * and marks each mail's entries read in News once it has gone out.
- *
- * Each user's progress is two values of their own: the highest item ID it has
- * covered, and when it last looked. News's item IDs only grow, so an entry is
- * new when its ID is above the first; News stamps each item it inserts with
- * the time, so only the items stamped since a little before the second are
- * read. News's services are looked up only once News is known to be enabled.
+ * Mails each News user their unread entries, one mail per feed, to their own
+ * address from Nextcloud's, and marks each mail's entries read in News once it
+ * has gone out. Whether an entry is unread is all that decides: News fetches
+ * new entries unread, so each feed update's go out once. News's services are
+ * looked up only once News is known to be enabled.
  */
 class NewEntries {
-	private const APP = 'news_mail';
-	// Seconds before the last look that the next starts from, to cover an
-	// entry stamped before an ID above it was read.
-	private const LOOKBACK = 3600;
-
 	public function __construct(
-		private IUserConfig $userConfig,
 		private IUserManager $userManager,
 		private IMailer $mailer,
 		private IURLGenerator $urlGenerator,
 		private IL10N $l,
-		private ITimeFactory $time,
 		private LoggerInterface $logger,
 	) {
 	}
@@ -68,10 +54,9 @@ class NewEntries {
 			try {
 				$this->mailUser($userId, $userFeeds, $items);
 			} catch (Throwable $e) {
-				// The user's progress stays where it was, so the next run
-				// tries again the entries not mailed yet, which are still
-				// unread.
-				$this->logger->error('Mailing {user} the new entries of their News feeds failed', [
+				// What was not mailed is still unread, so the next run tries
+				// it again.
+				$this->logger->error('Mailing {user} the unread entries of their News feeds failed', [
 					'user' => $userId,
 					'exception' => $e,
 				]);
@@ -83,62 +68,37 @@ class NewEntries {
 	 * @param array<int, Feed> $feeds The user's feeds, by ID
 	 */
 	private function mailUser(string $userId, array $feeds, ItemServiceV2 $items): void {
-		$now = $this->time->getTime();
-		try {
-			$newest = $items->newest($userId)->getId();
-		} catch (ServiceNotFoundException) {
-			return;
-		}
-
-		$covered = $this->userConfig->getValueInt($userId, self::APP, 'covered_item_id', -1);
-		$looked = $this->userConfig->getValueInt($userId, self::APP, 'looked_at', $now);
-		if ($covered < 0) {
-			// A user's first run starts from their newest entry, rather than
-			// mailing every entry they already have.
-			$this->saveProgress($userId, $newest, $now);
-			return;
-		}
-		if ($newest <= $covered) {
-			$this->saveProgress($userId, $covered, $now);
+		$user = $this->userManager->get($userId);
+		$address = $user?->getEMailAddress();
+		if ($user === null || !$user->isEnabled() || $address === null || $address === '') {
 			return;
 		}
 
 		/** @var array<int, Item[]> $entriesByFeed */
 		$entriesByFeed = [];
-		// News stamps its items in microseconds.
-		$since = max(0, $looked - self::LOOKBACK) * 1000000;
-		foreach ($items->findAllAfter($userId, ListType::UNREAD, $since) as $item) {
-			// Items above $newest arrived while this ran; the next run has them.
-			if ($item->getId() > $covered && $item->getId() <= $newest
-				&& !$item->isFiltered() && isset($feeds[$item->getFeedId()])) {
+		foreach ($items->findAllForUser($userId, ['items.unread' => true]) as $item) {
+			// A feed's keyword filter hides the entries it matches.
+			if (!$item->isFiltered() && isset($feeds[$item->getFeedId()])) {
 				$entriesByFeed[$item->getFeedId()][] = $item;
 			}
 		}
 
-		$user = $this->userManager->get($userId);
-		$address = $user?->getEMailAddress();
-		if ($user !== null && $user->isEnabled() && $address !== null && $address !== '') {
-			foreach ($entriesByFeed as $feedId => $entries) {
-				$this->send($user, $address, $feeds[$feedId], $entries);
-				foreach ($entries as $entry) {
-					try {
-						$items->read($userId, $entry->getId(), true);
-					} catch (ServiceNotFoundException) {
-						// Removed since, with its feed or by News's purge.
-					}
+		foreach ($entriesByFeed as $feedId => $entries) {
+			// Newest first, as News lists them.
+			usort($entries, fn (Item $a, Item $b): int => $b->getId() <=> $a->getId());
+			$this->send($user, $address, $feeds[$feedId], $entries);
+			foreach ($entries as $entry) {
+				try {
+					$items->read($userId, $entry->getId(), true);
+				} catch (ServiceNotFoundException) {
+					// Removed since, with its feed or by News's purge.
 				}
 			}
 		}
-		$this->saveProgress($userId, $newest, $now);
-	}
-
-	private function saveProgress(string $userId, int $covered, int $looked): void {
-		$this->userConfig->setValueInt($userId, self::APP, 'covered_item_id', $covered);
-		$this->userConfig->setValueInt($userId, self::APP, 'looked_at', $looked);
 	}
 
 	/**
-	 * @param Item[] $entries Newest first, as News lists them
+	 * @param Item[] $entries
 	 */
 	private function send(IUser $user, string $address, Feed $feed, array $entries): void {
 		$feedTitle = $feed->getTitle() ?: $feed->getUrl();

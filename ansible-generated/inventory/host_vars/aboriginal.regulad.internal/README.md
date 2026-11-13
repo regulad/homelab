@@ -71,9 +71,10 @@ of their own.
     he added by hand.
   - News Mail, an app of the repository's own, in this host's `files/` under
     the `nextcloud_apps` volume, mails each News user, from Nextcloud's own
-    address, the new unread entries of a feed once News has fetched it: one
-    mail per feed update, whose entries it then marks read in News. Every
-    News user with an address gets them; there is no setting.
+    address, their unread entries, one mail per feed, and then marks them
+    read in News; so each feed update's new entries go out once, at the next
+    cron run after News fetches them. Every News user with an address gets
+    them; there is no setting.
 - **NUT**: the UPSes on USB; Home Assistant's `nut` integration reads upsd.
   upsd runs alone: nothing is to act on a power cut for now, so upsmon is
   masked, as `nut.target` would start it to fail. The APC's section in

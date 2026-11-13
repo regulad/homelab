@@ -13,9 +13,10 @@ use OCP\BackgroundJob\IJob;
 use OCP\BackgroundJob\TimedJob;
 
 /**
- * Mails the entries News's feeds gained since the last run. News fetches its
- * feeds in a background job of its own, so this one runs at every cron run,
- * and a feed's new entries go out at the first run after their fetch.
+ * Mails each News user their unread entries, then marks them read. News
+ * fetches its feeds in a background job of its own, so this one runs at every
+ * cron run, and a feed's new entries go out at the first run after their
+ * fetch.
  */
 class MailNewEntries extends TimedJob {
 	public function __construct(
