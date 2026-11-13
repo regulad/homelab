@@ -2446,8 +2446,10 @@
 # newest patch of the one it runs (its manual's rule, which the image's
 # entrypoint enforces), so the play refuses any other target, and a running
 # release behind its major's newest patch. It refuses as well while an enabled
-# app from the App Store has no stable release for the target major, which
-# occ upgrade would disable; the app is to be disabled first. Then, with
+# app has neither a stable App Store release for the target major nor an
+# installed release whose info.xml allows it, which occ upgrade would disable;
+# the app is to be disabled first, or, if it is the repository's own, checked
+# against the target and its max-version raised. Then, with
 # Nextcloud stopped, it copies its database, config, code and apps volumes (a
 # reflink copy where btrfs allows, sharing their blocks until they change; the
 # user data and Redis's cache stay out of it) and the compose file, and starts
@@ -2560,10 +2562,13 @@
       changed_when: false
       check_mode: false
 
-    # occ upgrade disables an app with no release for the new major, and
-    # installs only stable releases. The App Store's listing runs to some
-    # 16 MB, far more than Ansible handles quickly as a variable, so the host
-    # reads it and prints only the enabled apps it has no stable release of.
+    # occ upgrade disables an app that has no release for the new major, and
+    # installs only stable releases, unless the installed release's info.xml
+    # already allows the new major, as the repository's own apps must once
+    # checked against it. The App Store's listing runs to some 16 MB, far more
+    # than Ansible handles quickly as a variable, so the host reads it and
+    # prints only the enabled apps it has no stable release of whose installed
+    # info.xml does not allow the target either.
     - name: The enabled apps the target major has no stable release of
       ansible.builtin.command:
         argv:
@@ -2571,14 +2576,26 @@
           - -I
           - -c
           - |
-            import json, sys, urllib.request
+            import json, subprocess, sys, urllib.request
+            import xml.etree.ElementTree as ElementTree
             with urllib.request.urlopen(sys.argv[1], timeout=120) as response:
                 store = json.load(response)
             stable = {app["id"] for app in store for release in app.get("releases", [])
                       if not release.get("isNightly") and "-" not in release["version"]}
-            print(json.dumps(sorted(set(json.loads(sys.argv[2])) - stable)))
+            target = int(sys.argv[3])
+            def allows_target(app):
+                occ = ["podman", "exec", "--user", "www-data", "nextcloud", "php", "occ"]
+                path = subprocess.run(occ + ["app:getpath", app], check=True, capture_output=True, text=True).stdout.strip()
+                info = subprocess.run(["podman", "exec", "nextcloud", "cat", path + "/appinfo/info.xml"],
+                                      check=True, capture_output=True).stdout
+                nextcloud = ElementTree.fromstring(info).find("dependencies/nextcloud")
+                maximum = None if nextcloud is None else nextcloud.get("max-version")
+                # Nextcloud compares a max-version only to as many parts as it has.
+                return maximum is None or int(maximum.split(".")[0]) >= target
+            print(json.dumps(sorted(app for app in set(json.loads(sys.argv[2])) - stable if not allows_target(app))))
           - "{{ nextcloud_upgrade_store }}"
           - "{{ (nextcloud_upgrade_apps.stdout | from_json).enabled.keys() | list | to_json }}"
+          - "{{ nextcloud_upgrade_major }}"
       register: nextcloud_upgrade_store_check
       changed_when: false
       check_mode: false
@@ -2594,7 +2611,8 @@
           Nextcloud {{ nextcloud_release }} has no stable release of {{ nextcloud_upgrade_unsupported | join(', ') }},
           which occ upgrade would disable. Disable {{ 'it' if nextcloud_upgrade_unsupported | length == 1 else 'them' }}
           first ({% for app in nextcloud_upgrade_unsupported %}occ app:disable {{ app }}{{ '; ' if not loop.last }}{% endfor %}),
-          then run this play again.
+          or, for one of the repository's own apps, check it against Nextcloud {{ nextcloud_release }}, raise the
+          max-version and version its info.xml declares, and run site.yml --tags nextcloud; then run this play again.
         quiet: true
 
     - name: Nextcloud's App Store timeout
