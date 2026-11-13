@@ -21,8 +21,13 @@ units, are the host's host files.
   into `config.php` whenever it writes a setting, so another file would be a
   second owner of the same keys.
 - **Copies in the repository's own apps**, each a directory with an
-  `appinfo/info.xml` under `files/<host>/<apps volume's path>/`, whole, into
-  the `nextcloud_apps` volume, and removes what their sources no longer have.
+  `appinfo/info.xml` under `files/<host>/<apps volume's path>/`, usually a
+  submodule of the app's own repository, file by file into the
+  `nextcloud_apps` volume. What is the repository's rather than the app's,
+  such as a submodule's `.git` file and `.github/`
+  (`nextcloud_own_apps_excluded`), stays out, and anything else in a copy is
+  removed. A directory there with no `appinfo/info.xml`, as a submodule not
+  checked out is, stops the role.
   They are enabled like any other, through `nextcloud_apps_enabled`; the App
   Store has none of them, so `occ app:update` leaves them alone. Raising one's
   version leaves Nextcloud needing `occ upgrade`, which the role then runs.

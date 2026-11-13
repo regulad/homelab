@@ -1,8 +1,9 @@
 ---
 # The repository's own apps, each a directory with an appinfo/info.xml under
-# files/<host>/<the apps volume's path>/, copied whole into that volume beside
-# the App Store's apps. The App Store has none of them, so occ app:update
-# leaves them alone.
+# files/<host>/<the apps volume's path>/, often a submodule, copied file by
+# file into that volume beside the App Store's apps, without what is its
+# repository's rather than the app's (nextcloud_own_apps_excluded). The App
+# Store has none of them, so occ app:update leaves them alone.
 - name: Read the apps volume's mountpoint
   ansible.builtin.command:
     argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "{{ nextcloud_apps_volume }}"]
@@ -10,25 +11,63 @@
   changed_when: false
   check_mode: false
 
-- name: The repository's own apps
+- name: The repository's own apps, and what of each is the app's
   ansible.builtin.set_fact:
     nextcloud_own_apps_src: "{{ nextcloud_own_apps_dir }}"
-    nextcloud_own_apps: >-
-      {{ query('community.general.filetree', nextcloud_own_apps_dir)
-         | selectattr('state', 'eq', 'file') | map(attribute='path')
-         | select('match', '^[^/]+/appinfo/info\.xml$') | map('split', '/') | map('first') | sort }}
+    nextcloud_own_apps: "{{ nextcloud_own_apps_ids }}"
+    nextcloud_own_apps_dirs: >-
+      {{ nextcloud_own_apps_tree | selectattr('state', 'eq', 'directory') | map(attribute='path')
+         | reject('search', '/') | sort }}
+    nextcloud_own_apps_entries: >-
+      {%- set out = [] -%}
+      {%- for entry in nextcloud_own_apps_tree if entry.state in ['directory', 'file'] -%}
+      {%- set parts = entry.path.split('/') -%}
+      {%- if parts[0] in nextcloud_own_apps_ids
+            and not (parts | length > 1 and parts[1] in nextcloud_own_apps_excluded) -%}
+      {%- set _ = out.append({'path': entry.path, 'src': entry.root ~ '/' ~ entry.path, 'state': entry.state}) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
   vars:
     nextcloud_own_apps_dir: "{{ nextcloud_files_dir }}{{ nextcloud_own_apps_mountpoint.stdout }}"
+    nextcloud_own_apps_tree: "{{ query('community.general.filetree', nextcloud_own_apps_dir) }}"
+    nextcloud_own_apps_ids: >-
+      {{ nextcloud_own_apps_tree | selectattr('state', 'eq', 'file') | map(attribute='path')
+         | select('match', '^[^/]+/appinfo/info\.xml$') | map('split', '/') | map('first') | sort }}
 
-- name: Copy them in
+# A submodule not checked out is an empty directory, which would leave the app
+# missing for apps.yml to seek in the App Store.
+- name: Every directory there is an app
+  ansible.builtin.assert:
+    that: nextcloud_own_apps_missing | length == 0
+    fail_msg: >-
+      {{ nextcloud_own_apps_missing | join(', ') }} in {{ nextcloud_own_apps_src }} has no appinfo/info.xml.
+      A submodule is to be checked out first: git submodule update --init.
+    quiet: true
+  vars:
+    nextcloud_own_apps_missing: "{{ nextcloud_own_apps_dirs | difference(nextcloud_own_apps) }}"
+
+- name: Their directories
+  ansible.builtin.file:
+    path: "{{ nextcloud_own_apps_mountpoint.stdout }}/{{ item.path }}"
+    state: directory
+    owner: "33"
+    group: "33"
+    mode: "0755"
+  loop: "{{ nextcloud_own_apps_entries | selectattr('state', 'eq', 'directory') | list }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Their files
   ansible.builtin.copy:
-    src: "{{ nextcloud_own_apps_src }}/{{ item }}/"
-    dest: "{{ nextcloud_own_apps_mountpoint.stdout }}/{{ item }}/"
+    src: "{{ item.src }}"
+    dest: "{{ nextcloud_own_apps_mountpoint.stdout }}/{{ item.path }}"
     owner: "33"
     group: "33"
     mode: "0644"
-    directory_mode: "0755"
-  loop: "{{ nextcloud_own_apps }}"
+  loop: "{{ nextcloud_own_apps_entries | selectattr('state', 'eq', 'file') | list }}"
+  loop_control:
+    label: "{{ item.path }}"
 
 - name: Find what their copies hold
   ansible.builtin.find:
@@ -39,7 +78,7 @@
   register: nextcloud_own_apps_found
   when: nextcloud_own_apps | length > 0
 
-- name: Remove what their sources no longer have
+- name: Remove what is not the app's
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
@@ -48,13 +87,8 @@
     label: "{{ item | relpath(nextcloud_own_apps_mountpoint.stdout) }}"
   vars:
     nextcloud_own_apps_wanted: >-
-      {%- set out = [] -%}
-      {%- for app in nextcloud_own_apps -%}
-      {%- for entry in query('community.general.filetree', nextcloud_own_apps_src ~ '/' ~ app) -%}
-      {%- set _ = out.append(nextcloud_own_apps_mountpoint.stdout ~ '/' ~ app ~ '/' ~ entry.path) -%}
-      {%- endfor -%}
-      {%- endfor -%}
-      {{ out }}
+      {{ nextcloud_own_apps_entries | map(attribute='path')
+         | map('regex_replace', '^', nextcloud_own_apps_mountpoint.stdout ~ '/') | list }}
 
 # A newer version of an enabled app leaves Nextcloud needing occ upgrade, which
 # runs its migrations and registers its background jobs anew; until then,
