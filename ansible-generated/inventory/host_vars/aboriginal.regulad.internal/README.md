@@ -69,8 +69,10 @@ of their own.
     `<uid>@regulad.xyz` with their own Nextcloud password, which is their
     directory's. regulad, a local user of Nextcloud's own, keeps the account
     he added by hand.
-  - News Mail, an app of the repository's own, in this host's `files/` under
-    the `nextcloud_apps` volume, mails each News user, from Nextcloud's own
+  - News Mail, our own app from
+    [`regulad/news_mail`](https://github.com/regulad/news_mail), a submodule
+    in this host's `files/` under the `nextcloud_apps` volume, mails each News
+    user, from Nextcloud's own
     address, their unread entries, one mail per feed, and then marks them
     read in News; so each feed update's new entries go out once, at the next
     cron run after News fetches them. Every News user with an address gets

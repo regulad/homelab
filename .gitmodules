@@ -1,0 +1,3 @@
+[submodule "ansible-generated/files/aboriginal.regulad.internal/var/lib/containers/storage/volumes/nextcloud_apps/_data/news_mail"]
+	path = ansible-generated/files/aboriginal.regulad.internal/var/lib/containers/storage/volumes/nextcloud_apps/_data/news_mail
+	url = https://github.com/regulad/news_mail.git

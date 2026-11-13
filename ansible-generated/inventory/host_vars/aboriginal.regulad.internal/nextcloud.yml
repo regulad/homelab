@@ -40,8 +40,8 @@ nextcloud_apps_enabled:
   - tasks
   - uppush
   - webapppassword
-  # This repository's own, from files/<this host>/: mails each News user their
-  # unread entries, one mail per feed, and marks them read.
+  # Ours, regulad/news_mail, a submodule in files/<this host>/: mails each News
+  # user their unread entries, one mail per feed, and marks them read.
   - news_mail
 nextcloud_apps_disabled:
   - activity
