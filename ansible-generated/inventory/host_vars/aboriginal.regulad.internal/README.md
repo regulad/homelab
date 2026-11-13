@@ -57,9 +57,11 @@ of their own.
     `nextcloud_release`, a major, which only `maintenance.yml`'s
     `nextcloud-upgrade` moves, one major at a time, with a copy to roll back
     to, and only once every enabled app has a release for the next; its
-    background jobs run from `nextcloud-cron.timer`. Pretty URLs are off:
-    its `.htaccess` lacks `occ maintenance:update:htaccess`'s section, so its
-    links go through `index.php`.
+    background jobs run from `nextcloud-cron.timer`. Its URLs leave out
+    `index.php`: its `.htaccess` has `occ maintenance:update:htaccess`'s
+    section, and `config.php`'s `htaccess.IgnoreFrontController` makes links
+    made on the command line, by its background jobs and `occ`, leave it out
+    too, as News's page needs.
   - Its configuration is the `nextcloud` role's, from `nextcloud.yml`:
     `config.php`, whole, alone in its config volume; its apps; their settings,
     its LDAP configuration on wako among them; and Mail's provisioning.
