@@ -8,6 +8,22 @@ kernel_params_sysctl_files:
     fs.file-max: 2097152
     kernel.pid_max: 4194304
 
+# The CPUs, split in two: the first two take the web app's stack, Caddy, the
+# host's own services and logins, and every hard IRQ that can move; the
+# devices' containers take the rest, however many tofu/oracle's shape gives.
+# Counted from /proc/cpuinfo (processor_vcpus), not from the CPUs the gathering
+# process may run on (processor_nproc), which this split narrows to the first
+# two.
+doppelganger_web_cpus: "0-1"
+doppelganger_device_cpus: "2-{{ ansible_processor_vcpus - 1 }}"
+
+# Hard IRQs on the web's CPUs from boot, as on prodingus. Two kinds stay where
+# the kernel puts them: each CPU's own timer, and the disks' virtio-scsi request
+# queues, one per CPU, whose affinity the kernel manages.
+kernel_params_grub_dropins:
+  99-cpu-isolation:
+    - irqaffinity={{ doppelganger_web_cpus }}
+
 # A legacy host: no admin login beside its image's own.
 base_admin_user: ""
 
@@ -40,6 +56,11 @@ docker_registries:
     username: svc-doppelganger
     password: "{{ hostvars[groups['nexus_servers'] | first].nexus_svc_doppelganger_password }}"
 
+# Every container starts in the devices' slice unless it names one of its own,
+# as the app's stack does: the devices are compose projects the app writes.
+docker_daemon_settings:
+  cgroup-parent: doppelganger-devices.slice
+
 # The app's stack, from host_files_list's compose file. Its external network,
 # doppelganger (bridge, 172.18.0.0/16 and fd7b:250b:b33c::/64), which the
 # devices' projects join too, was created by hand in 2025 and stays Docker's
@@ -50,6 +71,10 @@ docker_compose_projects:
 
 host_files_directories:
   - path: /etc/systemd/system/docker.service.d
+    mode: "0755"
+  - path: /etc/systemd/system/system.slice.d
+    mode: "0755"
+  - path: /etc/systemd/system/user.slice.d
     mode: "0755"
   - path: /etc/doppelganger
     mode: "0755"
@@ -83,6 +108,36 @@ host_files_list:
     content: |
       [Unit]
       RequiresMountsFor=/opt/doppelganger
+  # The CPU split, by slice: Docker starts every container in
+  # doppelganger-devices.slice but the app's stack, whose compose file names
+  # doppelganger-web.slice; system.slice and user.slice, the host's own
+  # services and logins, share the web's CPUs.
+  - path: /etc/systemd/system/doppelganger-web.slice
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=The web app's stack, on the web's CPUs
+
+      [Slice]
+      AllowedCPUs={{ doppelganger_web_cpus }}
+  - path: /etc/systemd/system/doppelganger-devices.slice
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=The devices' containers, on the CPUs the web leaves
+
+      [Slice]
+      AllowedCPUs={{ doppelganger_device_cpus }}
+  - path: /etc/systemd/system/system.slice.d/cpus.conf
+    mode: "0644"
+    content: |
+      [Slice]
+      AllowedCPUs={{ doppelganger_web_cpus }}
+  - path: /etc/systemd/system/user.slice.d/cpus.conf
+    mode: "0644"
+    content: |
+      [Slice]
+      AllowedCPUs={{ doppelganger_web_cpus }}
   # The dangling images each newer pull leaves, removed daily at a time drawn
   # afresh for each run in the hour after 04:00, when root's crontab ran it. A
   # fixed offset as well would need systemd 258's RandomizedOffsetSec=; Ubuntu

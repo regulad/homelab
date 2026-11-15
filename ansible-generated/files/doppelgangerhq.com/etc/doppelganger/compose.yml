@@ -1,11 +1,14 @@
 # The app's stack. The devices are compose projects of their own, which the web
 # app writes under /opt/doppelganger, on the external doppelganger network.
+# Each service runs in doppelganger-web.slice, on the web's CPUs, rather than
+# Docker's default, the devices' slice (host_vars' CPU split).
 name: doppelganger
 services:
   web:
     # CI's build of master.
     image: ghcr.io/regulad/doppelganger:web-latest
     restart: unless-stopped
+    cgroup_parent: doppelganger-web.slice
     hostname: doppelganger
     ports:
       # Caddy's upstream, on loopback alone.
@@ -23,6 +26,7 @@ services:
   cron:
     image: ghcr.io/regulad/http-docker-cron:latest
     restart: unless-stopped
+    cgroup_parent: doppelganger-web.slice
     env_file: [/etc/doppelganger/cron.env]
     networks: [doppelganger]
   # The Prisma query cache, which nothing keeps: no snapshots or append-only
@@ -30,6 +34,7 @@ services:
   redis:
     image: redis:8
     restart: unless-stopped
+    cgroup_parent: doppelganger-web.slice
     hostname: redis
     command: [redis-server, --save, "", --appendonly, "no"]
     tmpfs: [/data]
