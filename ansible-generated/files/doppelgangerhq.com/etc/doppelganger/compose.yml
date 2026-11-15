@@ -3,7 +3,8 @@
 name: doppelganger
 services:
   web:
-    image: ghcr.io/regulad/doppelganger:latest
+    # CI's build of master.
+    image: ghcr.io/regulad/doppelganger:web-latest
     restart: unless-stopped
     hostname: doppelganger
     ports:
