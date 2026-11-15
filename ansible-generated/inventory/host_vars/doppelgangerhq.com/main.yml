@@ -76,6 +76,8 @@ host_files_directories:
     mode: "0755"
   - path: /etc/systemd/system/user.slice.d
     mode: "0755"
+  - path: /etc/systemd/network/10-netplan-enp0s6.link.d
+    mode: "0755"
   - path: /etc/doppelganger
     mode: "0755"
 
@@ -138,6 +140,15 @@ host_files_list:
     content: |
       [Slice]
       AllowedCPUs={{ doppelganger_web_cpus }}
+  # One queue pair on the NIC, whose interrupts irqaffinity keeps on the web's
+  # CPUs: virtio_net pins each further pair's to CPUs of its own, the second to
+  # the devices'. A drop-in for the link file netplan writes from Oracle's
+  # configuration, which udev applies as the NIC appears, at the next boot.
+  - path: /etc/systemd/network/10-netplan-enp0s6.link.d/channels.conf
+    mode: "0644"
+    content: |
+      [Link]
+      CombinedChannels=1
   # The dangling images each newer pull leaves, removed daily at a time drawn
   # afresh for each run in the hour after 04:00, when root's crontab ran it. A
   # fixed offset as well would need systemd 258's RandomizedOffsetSec=; Ubuntu
