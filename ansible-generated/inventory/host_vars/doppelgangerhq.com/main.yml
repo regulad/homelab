@@ -17,9 +17,11 @@ kernel_params_sysctl_files:
 doppelganger_web_cpus: "0-1"
 doppelganger_device_cpus: "2-{{ ansible_processor_vcpus - 1 }}"
 
-# Hard IRQs on the web's CPUs from boot, as on prodingus. Two kinds stay where
-# the kernel puts them: each CPU's own timer, and the disks' virtio-scsi request
-# queues, one per CPU, whose affinity the kernel manages.
+# Hard IRQs on the web's CPUs from boot, as on prodingus, until irqbalance
+# starts, which keeps them there: virtio_net sets its queues' affinity itself,
+# over irqaffinity's default. Two kinds stay where the kernel puts them: each
+# CPU's own timer, and the disks' virtio-scsi request queues, one per CPU,
+# whose affinity the kernel manages.
 kernel_params_grub_dropins:
   99-cpu-isolation:
     - irqaffinity={{ doppelganger_web_cpus }}
@@ -37,13 +39,15 @@ base_admin_user: ""
 # Automatic-Reboot, reboots for. rsync copies the devices' data between
 # volumes, keeping hard links, ACLs and extended attributes. Docker's Compose
 # and buildx plugins come from Ubuntu's archive, as Docker itself does through
-# the docker role, and as Caddy, which serves the website, does.
+# the docker role, and as Caddy, which serves the website, does. irqbalance
+# keeps every hard IRQ that can move off the devices' CPUs.
 host_files_packages:
   - linux-image-generic
   - rsync
   - docker-compose-v2
   - docker-buildx
   - caddy
+  - irqbalance
 
 # root's Docker logins: ghcr.io, for the app's images, with regulad's token;
 # and cr.regulad.xyz, Nexus's cr repository, for the devices' images, as
@@ -77,6 +81,8 @@ host_files_directories:
   - path: /etc/systemd/system/user.slice.d
     mode: "0755"
   - path: /etc/systemd/network/10-netplan-enp0s6.link.d
+    mode: "0755"
+  - path: /etc/systemd/system/irqbalance.service.d
     mode: "0755"
   - path: /etc/doppelganger
     mode: "0755"
@@ -140,15 +146,24 @@ host_files_list:
     content: |
       [Slice]
       AllowedCPUs={{ doppelganger_web_cpus }}
-  # One queue pair on the NIC, whose interrupts irqaffinity keeps on the web's
-  # CPUs: virtio_net pins each further pair's to CPUs of its own, the second to
-  # the devices'. A drop-in for the link file netplan writes from Oracle's
-  # configuration, which udev applies as the NIC appears, at the next boot.
+  # One queue pair on the NIC, plenty for the website. A drop-in for the link
+  # file netplan writes from Oracle's configuration, which udev applies as the
+  # NIC appears, at boot. Setting it, virtio_net spreads the online CPUs over
+  # its active pairs and sets each pair's affinity to its share, all four for
+  # one pair, over irqaffinity's default; irqbalance moves them back.
   - path: /etc/systemd/network/10-netplan-enp0s6.link.d/channels.conf
     mode: "0644"
     content: |
       [Link]
       CombinedChannels=1
+  # irqbalance never assigns an interrupt to the devices' CPUs, and rebalances
+  # every ten seconds, so an affinity a driver sets is moved back.
+  - path: /etc/systemd/system/irqbalance.service.d/banned.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment=IRQBALANCE_BANNED_CPULIST={{ doppelganger_device_cpus }}
+    restarts: [irqbalance.service]
   # The dangling images each newer pull leaves, removed daily at a time drawn
   # afresh for each run in the hour after 04:00, when root's crontab ran it. A
   # fixed offset as well would need systemd 258's RandomizedOffsetSec=; Ubuntu
@@ -277,8 +292,8 @@ host_files_trees:
     reloads: [caddy.service]
 
 # Mounted now and at each boot, the prune and the stack's updates scheduled,
-# and Caddy running.
-host_files_units: [opt-doppelganger.mount, docker-image-prune.timer, doppelganger-update.timer, caddy.service]
+# and Caddy and irqbalance running.
+host_files_units: [opt-doppelganger.mount, docker-image-prune.timer, doppelganger-update.timer, caddy.service, irqbalance.service]
 
 # The website, which Caddy serves natively, outside Docker.
 firewalld_zones:
