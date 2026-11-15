@@ -4,7 +4,9 @@
 hass-livingston.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# No cache: Souin holds each response until its upstream finishes, so camera
+	# streams, which never finish, would never arrive, and HLS, TTS audio and
+	# backups would wait in Caddy's memory whole.
 
 	# IPv4 only: ingress's GUA rotates with the delegated prefix, so Home
 	# Assistant cannot list it among its trusted proxies.

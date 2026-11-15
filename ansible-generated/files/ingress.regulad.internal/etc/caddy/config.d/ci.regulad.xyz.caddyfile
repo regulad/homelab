@@ -1,7 +1,14 @@
 ci.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# Souin holds each GET until its upstream finishes, so artifacts, workspace
+	# files and their zips go straight to Jenkins. The global cache block's
+	# other settings still apply here.
+	cache {
+		regex {
+			exclude /(artifact|ws)/|/[*]zip[*]/
+		}
+	}
 
 	reverse_proxy jenkins.regulad.internal:8080 {
 	}

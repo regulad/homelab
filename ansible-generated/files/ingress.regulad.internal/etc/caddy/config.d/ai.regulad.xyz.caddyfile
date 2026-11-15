@@ -1,8 +1,11 @@
 ai.regulad.xyz {
 	import hsts
 	import common
-	import cache
-	
+	# No cache: Souin holds each response until its upstream finishes, so file
+	# downloads would wait in Caddy's memory whole, and a file's processing
+	# status, streamed over a GET, would arrive only once it ended, unless the
+	# request's Accept were exactly text/event-stream.
+
 	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
 	# alone, as ingress's GUA rotates with the delegated prefix.
 	reverse_proxy {

@@ -1,7 +1,14 @@
 repo.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# Souin holds each GET until its upstream finishes, so everything under
+	# /repository/, every component Nexus serves, goes straight to it. The
+	# global cache block's other settings still apply here.
+	cache {
+		regex {
+			exclude ^/repository/
+		}
+	}
 
 	reverse_proxy nexus.regulad.internal:8081 {
 	}

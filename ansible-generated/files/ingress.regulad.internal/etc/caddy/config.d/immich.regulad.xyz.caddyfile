@@ -1,8 +1,10 @@
 immich.regulad.xyz {
 	import hsts
 	import common
-	import cache
 	import mtls
+	# No cache: Immich marks its originals, thumbnails and videos private, so
+	# Souin would store none of them, and would hold each in Caddy's memory until
+	# it ended.
 
 	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
 	# alone, as ingress's GUA rotates with the delegated prefix.

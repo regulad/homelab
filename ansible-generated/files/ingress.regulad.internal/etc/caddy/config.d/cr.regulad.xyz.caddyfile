@@ -4,7 +4,15 @@
 cr.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# Souin holds each GET until its upstream finishes, so image layers go
+	# straight to Nexus. cache runs before rewrite, so the regex sees the
+	# client's /v2/ path. The global cache block's other settings still apply
+	# here.
+	cache {
+		regex {
+			exclude ^/v2/.+/blobs/
+		}
+	}
 
 	@docker path /v2 /v2/*
 	rewrite @docker /repository/cr{uri}

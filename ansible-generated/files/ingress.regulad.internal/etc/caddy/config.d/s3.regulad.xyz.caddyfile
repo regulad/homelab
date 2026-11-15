@@ -1,6 +1,8 @@
 s3.regulad.xyz, *.s3.regulad.xyz {
 	import common
-	import cache
+	# No cache: RGW marks nothing cacheable, and Souin drops a GET's Range and
+	# holds the whole object until it ends, so each ranged read, such as
+	# rclone's, would fetch all of it.
 
 	reverse_proxy prodingus.regulad.internal:7480 {
 		lb_policy round_robin

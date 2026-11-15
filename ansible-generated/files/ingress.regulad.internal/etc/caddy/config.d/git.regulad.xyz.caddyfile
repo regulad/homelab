@@ -1,7 +1,9 @@
 git.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# No cache: Forgejo marks even its assets private, so Souin would store
+	# nothing here, and would hold each archive, release download and LFS object
+	# in Caddy's memory until it ended.
 
 	# IPv4 only: the guest's firewall admits ingress's reserved IPv4 address
 	# alone, as ingress's GUA rotates with the delegated prefix.
