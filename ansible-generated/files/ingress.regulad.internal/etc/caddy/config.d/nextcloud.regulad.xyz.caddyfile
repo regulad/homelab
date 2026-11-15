@@ -1,7 +1,16 @@
 nextcloud.regulad.xyz {
 	import hsts
 	import common
-	import cache
+	# Souin holds each GET until its upstream finishes, and drops a range
+	# request's Range before asking upstream, so a 2-byte probe of a video waits
+	# for the whole file. Files, through WebDAV, direct links or public shares,
+	# come from remote.php and public.php, so those go straight to Nextcloud.
+	# The global cache block's other settings still apply here.
+	cache {
+		regex {
+			exclude ^/(remote|public)[.]php/
+		}
+	}
 
 	@wellknown_dav path /.well-known/carddav /.well-known/caldav
 	redir @wellknown_dav /remote.php/dav/ 301
