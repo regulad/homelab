@@ -54,7 +54,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [ ] `doppelgangerhq.com` (legacy `web`): a special case, its network configuration (hostname and `/etc/hosts` included) furnished by Oracle at install time and left as Oracle wrote it
   - [x] The miner and its tunnel removed, as on tailscalerouter
   - [x] Doppelganger's compose project, with its environment from SOPS, brought up by the `docker` role and its images pulled daily by `doppelganger-update.timer`; the per-device projects under `/opt/doppelganger` are the app's
-  - [ ] The app's image built again by its GitHub Actions workflow: the stack runs `ghcr.io/regulad/doppelganger:latest`, the image recovered from the host
+  - [x] The app's image built again by its GitHub Actions workflow: the stack runs CI's `ghcr.io/regulad/doppelganger:web-latest`
   - [x] Ubuntu's `docker.io` in place of Docker CE from Docker's repository
   - [x] Caddy serves the site, with its own certificates and HSTS, in place of nginx and the certbot snap
   - [x] `binder_linux`, loaded through `/etc/modules-load.d` in place of `/etc/rc.local`
