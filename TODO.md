@@ -204,7 +204,29 @@ Configured by a cloud-init vendor file instead of Ansible, so they need no SSH.
 disabled on both.
 
 - [ ] `unifi` (102): stays a VM, as UniFi OS requires
+  - [ ] Its NIC is `ens18`: `ubuntu-vendor.yaml`'s network config and its
+    mDNS drop-in name `eth0`, which matches nothing, so dracut's default
+    `.network` configures the link and mDNS is off on it
+  - [ ] `ubuntu-vendor.yaml`'s `apt.sources_list` repeats the suites of
+    `ubuntu.sources`, which apt warns about on every run
+  - [ ] Its watchdog daemon has been stopped since unattended-upgrades
+    restarted services for libc6 on 2026-11-13; `wd_keepalive` runs in its
+    place
+  - [ ] Describe UniFi OS Server 5.1.42 as Ubiquiti's installer left it: the
+    `uosserver` user, `/var/lib/uosserver`, its two units,
+    `99-uosserver.conf`, and Podman
 - [ ] `urbackup` (111): stays a VM, for its kernel modules and block devices
+  - [ ] It has no cloud-init drive (`initialization.datastore_id = ""`), so
+    cloud-init is disabled; it last ran on 2026-03-13, from
+    `local:snippets/vendor.yaml`
+  - [ ] It boots a mainline `6.18.0-061800` built on the VM, with the
+    toolchain that built it, while Ubuntu's `6.8.0-149` is installed
+  - [ ] Unattended-upgrades leaves out noble-updates and both PPAs, so
+    updates such as urbackup-server 2.5.38 wait
+  - [ ] Leftovers of 2026-06-25: `/etc/urbackup/luks.key`, the bcache and
+    nbd module, modprobe and udev files, nbdkit and nbd-client, `/root/.aws`
+  - [ ] Describe UrBackup as it runs: `/etc/default/urbackupsrv`, its
+    settings, and the btrfs disk's mount
 
 Not listed: the template `resolute-template` (8000), which is not a host.
 
