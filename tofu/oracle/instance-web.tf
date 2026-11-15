@@ -71,10 +71,13 @@ resource "oci_core_instance" "web" {
     remote_data_volume_type             = "PARAVIRTUALIZED"
   }
 
+  # The first two CPUs take the website and the host, and the devices the rest
+  # (ansible-generated's host_vars); memory for three or four devices, at 2 GB
+  # each, and the page cache that keeps their images off the volumes.
   shape_config {
     baseline_ocpu_utilization = "BASELINE_1_1"
-    memory_in_gbs             = 6
-    ocpus                     = 2
+    memory_in_gbs             = 12
+    ocpus                     = 4
   }
 
   source_details {
@@ -101,7 +104,7 @@ resource "oci_core_boot_volume" "web" {
   availability_domain  = local.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "100"
-  vpus_per_gb          = "10"
+  vpus_per_gb          = "20" # Higher Performance
 
   # The following exists as an artifact of import from the imperative setup.
   source_details {
@@ -129,7 +132,7 @@ resource "oci_core_volume" "web_data" {
   availability_domain  = local.availability_domains.ad_1
   is_auto_tune_enabled = false
   size_in_gbs          = "50"
-  vpus_per_gb          = "10" # Balanced
+  vpus_per_gb          = "20" # Higher Performance
 
   # It holds customers' data, which a replacement would lose.
   lifecycle {
