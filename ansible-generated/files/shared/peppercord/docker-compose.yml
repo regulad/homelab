@@ -1,9 +1,11 @@
-# PepperCord, from regulad/PepperCord's docker-compose.yml at d5d7ce9, run by
-# podman-compose through podman-compose@peppercord.service. Changed from
-# upstream: MongoDB and Redis publish on loopback only, every service carries
-# podman-auto-update's label (which needs fully qualified image names), there
-# is no build context, and the stack is not a pod, so its two networks stay
-# separate.
+# PepperCord's compose file, the one its README links to; it began as the
+# docker-compose.yml regulad/PepperCord kept itself, at d5d7ce9. The homelab
+# runs it with podman-compose from /opt/peppercord, through
+# podman-compose@peppercord.service, on cordpepperer and peppercord
+# (ansible-generated/inventory/group_vars/peppercord.yml), each with its own
+# .env and its own data. MongoDB and Redis publish on loopback only; every
+# service carries podman-auto-update's label, which needs fully qualified image
+# names; and the stack is not a pod, so its two networks stay separate.
 x-podman:
   in_pod: false
 
