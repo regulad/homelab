@@ -20,8 +20,8 @@ One configuration serves both modes, each with its own state in an OpenTofu work
 `sandbox` and `live`. The `sandbox` workspace is precisely what Stripe calls the account's
 **Test mode**, whose keys start `rk_test_`, `sk_test_` and `pk_test_`. It is not one of the
 environments the Dashboard lists under Sandboxes. `live` is the account's live mode. The provider takes the selected workspace's key, so a key never
-meets the other mode's state; the `default` workspace has no key, and a plan there
-fails. Every change goes to `sandbox` first and then to `live`, each from a plan saved at
+meets the other mode's state; the `default` workspace has no key, so a plan there fails
+once the root declares anything for the provider to read. Every change goes to `sandbox` first and then to `live`, each from a plan saved at
 the same commit and named for its workspace, `docs/snapshot/stripe.<workspace>@<commit>.tfplan`.
 
 The selected workspace lives in `.terraform/environment`, and nothing in a `plan` or
