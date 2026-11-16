@@ -23,6 +23,10 @@ auto_updates_unattended_upgrade:
   Automatic-Reboot-Time: "02:00"
   Sender: "{{ auto_updates_mail_from }}"
 
+# The CephFS storage, which timemachine, immich, tvheadend and qb bind paths
+# of, and arawi's hookscript lives on (tofu/gonkputer).
+proxmox_cluster_guest_storages: [cephfs]
+
 tailscale_enabled: true
 tailscale_tags: [server]
 tailscale_settings:

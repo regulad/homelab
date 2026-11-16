@@ -58,3 +58,49 @@
     group: root
     mode: "0644"
   notify: Reload systemd for proxmox_cluster
+
+# Guests start only once the storages they need are active. Proxmox activates
+# the storage of a volume a guest uses, but not a storage that a mount point
+# binds a path of or a hookscript lives on. At boot, the CephFS's first mount
+# fails until Ceph serves it, and the HA manager started the containers that
+# bind it before a later mount succeeded: they bound the empty directory
+# beneath it, with the CephFS stacked over it afterwards. timemachine's
+# service then could not start for ten days, and the stacked mount stalls
+# systemd's shutdown in the container. Each storage in
+# proxmox_cluster_guest_storages gets a pve-storage-active@ unit, which
+# pve-storage.target, and so pve-ha-lrm, pve-guests and each container, waits
+# for.
+- name: Storage wait
+  ansible.builtin.copy:
+    src: pve-storage-active
+    dest: /usr/local/sbin/pve-storage-active
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Local unit directory
+  ansible.builtin.file:
+    path: /usr/local/lib/systemd/system
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Storage wait's unit
+  ansible.builtin.copy:
+    src: pve-storage-active@.service
+    dest: /usr/local/lib/systemd/system/pve-storage-active@.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: proxmox_cluster_storage_unit
+
+- name: Guests wait for their storages at boot
+  ansible.builtin.systemd_service:
+    name: pve-storage-active@{{ item }}.service
+    enabled: true
+    state: started
+    daemon_reload: "{{ proxmox_cluster_storage_unit is changed }}"
+  loop: "{{ proxmox_cluster_guest_storages }}"
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and proxmox_cluster_storage_unit is changed)

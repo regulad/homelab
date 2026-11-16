@@ -1,3 +1,6 @@
 ---
-# Knobs for proxmox_cluster, each defaulted here when its tasks land.
-{}
+# Proxmox storages, by ID, that guests need before they start: storages that
+# mount points bind a path of, or that hookscripts live on. At boot,
+# pve-storage.target, which pve-ha-lrm and pve-guests start after, waits until
+# each is active.
+proxmox_cluster_guest_storages: []

@@ -1,0 +1,17 @@
+#!/bin/sh
+# Managed by Ansible (proxmox_cluster). Waits until Proxmox reports the storage
+# named by its argument active:
+#
+#   pve-storage-active <storage>
+#
+# pve-storage-active@<storage>.service runs it at boot. Each pvesm status first
+# tries to activate the storage, which for a CephFS storage starts its mount, and
+# reports a CephFS storage active only while it is mounted. At boot the first
+# mount fails until Ceph serves the filesystem, so this tries again every 5
+# seconds; the unit's TimeoutStartSec bounds the wait.
+set -u
+
+until pvesm status --storage "$1" 2>/dev/null |
+    awk 'NR == 2 { exit $3 != "active" } END { if (NR < 2) exit 1 }'; do
+    sleep 5
+done

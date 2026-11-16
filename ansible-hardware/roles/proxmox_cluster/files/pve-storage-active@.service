@@ -1,0 +1,20 @@
+# Managed by Ansible (proxmox_cluster). Holds pve-storage.target, and so every
+# unit ordered after it (pve-ha-lrm, pve-guests, each pve-container@), until
+# the Proxmox storage %i is active: guests then never start before a storage
+# their mount points bind or their hookscripts live on.
+[Unit]
+Description=Proxmox storage %i active before guests start
+Wants=network-online.target
+After=network-online.target pve-cluster.service ceph.target
+Before=pve-storage.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/pve-storage-active %i
+# Past this, pve-storage.target is reached without the storage, which only
+# wants this unit, and the guests start as they did before.
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=pve-storage.target
