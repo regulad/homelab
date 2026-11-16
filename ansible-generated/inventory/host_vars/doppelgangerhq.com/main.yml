@@ -59,9 +59,10 @@ doppelganger_web_env:
   # Stripe: the account regulad.xyz's live publishable key and the live webhook
   # endpoint's signing secret, from tofu/stripe's live workspace, and the app's
   # restricted key, made in the Dashboard: Customers and Checkout Sessions to
-  # Write, Subscriptions and Prices to Read, usable only from this host's two
-  # public addresses, tofu/oracle's public_addresses output. Were those to
-  # change, the key's allowed IPs would need the new ones, by hand.
+  # Write, Subscriptions and Prices to Read, usable only from this host's public
+  # IPv4 address, from tofu/oracle's public_addresses output: Stripe's API is
+  # IPv4-only, and so is a key's allowlist. Were the address to change, the
+  # key's allowed IPs would need the new one, by hand.
   NEXT_PUBLIC_STRIPE_PUBLISHABLE: "{{ doppelganger_stripe_outputs.publishable_key.value }}"
   STRIPE_SECRET: "{{ doppelganger_web_secrets.STRIPE_SECRET }}"
   STRIPE_WEBHOOK_SECRET: "{{ doppelganger_stripe_outputs.doppelganger_webhook_secret.value }}"
