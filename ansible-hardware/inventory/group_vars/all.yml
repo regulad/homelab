@@ -1,4 +1,14 @@
 ---
+# Host keys: OpenSSH accepts only each host's keys in this stage's known_hosts,
+# under its inventory name, and reads or writes no other file, so a key missing
+# there or changed fails the connection instead of being trusted. The switches'
+# libssh reads only ~/.ssh/known_hosts.
+ansible_ssh_extra_args: >-
+  -o HostKeyAlias={{ inventory_hostname }}
+  -o UserKnownHostsFile={{ inventory_dir }}/../known_hosts
+  -o GlobalKnownHostsFile=/dev/null
+  -o StrictHostKeyChecking=yes
+
 # Each host's FreeIPA mail account, null-<short hostname> by convention; a
 # host_vars mail_relay_account overrides it where two hosts share a name.
 mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
