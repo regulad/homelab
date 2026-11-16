@@ -48,6 +48,17 @@ resource "proxmox_virtual_environment_container" "peppercord" {
     swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 
+  # MongoDB's data: Podman's named volumes, at its default volume path, so the
+  # images on the root disk cannot fill the database's. Proxmox's backups leave
+  # a volume mount point out unless backup is set.
+  mount_point {
+    backup        = true
+    mount_options = ["discard", "lazytime"]
+    path          = "/var/lib/containers/storage/volumes"
+    size          = "4G"
+    volume        = "rbd"
+  }
+
   network_interface {
     firewall    = true
     mac_address = "BC:24:11:17:49:78"
