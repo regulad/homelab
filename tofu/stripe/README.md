@@ -1,11 +1,13 @@
 # stripe (Stripe)
 
 The `.tf` files are the source of truth for the Stripe account regulad.xyz, in both of
-its modes: its sandbox mirrors live. The account holds nothing yet, so the root declares
-no resources; they start here as they are needed.
+its modes: its sandbox mirrors live, apart from webhook endpoints that only production
+can verify.
 
 | Location | Configuration |
 |---|---|
+| `product-<name>.tf` | One file per product: the product, then its prices |
+| `webhook-<name>.tf` | One file per webhook endpoint, live only where its target is production, with the output that carries its signing secret |
 | `providers.tf`, `versions.tf` | Provider auth, by workspace, and pinned versions |
 | `variables.tf` | Each mode's restricted key |
 | `state.tf` | Enforced state encryption and its passphrase input |
@@ -31,6 +33,22 @@ the two workspaces never apply at once, and its record of the last applied commi
 both.
 
 State sits at `stripe/<workspace>/terraform.tfstate` in the state bucket.
+
+## Doppelganger
+
+Doppelganger bills through this account: the products Doppelganger Plus and Doppelganger
+Pro, each with a monthly USD price the app finds by its lookup key, and, in live only, the
+webhook endpoint that sends doppelgangerhq.com subscription changes. A price's amount
+cannot change, so a new price replaces it, made before the old one goes and taking its
+lookup key over as it is created (`transfer_lookup_key`, which no state keeps).
+
+`ansible-generated` renders the endpoint's signing secret, the `doppelganger_webhook_secret`
+output of the `live` workspace, into doppelgangerhq.com's `web.env` as
+`STRIPE_WEBHOOK_SECRET`, through the `cloud.terraform.tf_output` lookup, which needs this
+root's `prepare.sh` sourced. Stripe returns the secret only when the endpoint is created,
+so a replaced endpoint reaches the app at the next `site.yml` run on that host. The app's
+own key, `STRIPE_SECRET`, is a restricted key made in the Dashboard and kept in that host's
+SOPS file, as no API makes keys.
 
 ## Credentials
 
