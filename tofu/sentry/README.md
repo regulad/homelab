@@ -37,6 +37,21 @@ high-priority triggers have no native form in the provider, which passes them th
 Never set a project's `default_key` to `false`. On creation, the provider then deletes
 every key named `Default`, and every key here has that name.
 
+## DSNs
+
+The `dsn` output gives each project's DSN, from its Default key, by project slug.
+`ansible-generated` reads it as `sentry_dsns`, in its `group_vars/all.yml`, through the
+`cloud.terraform.tf_output` lookup, on the operator's machine, so a run that renders one
+needs this root's `prepare.sh` sourced. It delivers:
+
+| Project | To |
+|---|---|
+| `matrix-synapse` | Synapse's `homeserver.yaml` on matrix |
+| `peppercord` | `PEPPERCORD_SENTRY_DSN` in each PepperCord mirror's `.env` |
+| `doppelganger` | `NEXT_PUBLIC_SENTRY_DSN` in doppelgangerhq.com's `web.env` |
+
+A key replaced here reaches them at the next `site.yml` run on those hosts.
+
 ## Credentials
 
 OpenTofu authenticates as `homelab-tofu`, an internal integration in `regulad`, created
