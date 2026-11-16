@@ -70,7 +70,7 @@ app_service_config_files:
 enable_metrics: true
 sentry:
     environment: "production"
-    dsn: {{ synapse_secrets.sentry_dsn | to_json }}
+    dsn: {{ sentry_dsns['matrix-synapse'] | to_json }}
 report_stats: false
 max_upload_size: "8M"
 email:

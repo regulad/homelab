@@ -44,3 +44,13 @@ mail_relay_freeipa_delegate: "{{ freeipa_server.fqdn }}"
 # freeipa.regulad-verizon-livingston.internal (A and PTR); arawi registers none.
 freeipa_legacy:
   ipv4: 10.23.2.32
+
+# Each Sentry project's DSN, by project slug: tofu/sentry's dsn output, read
+# on the operator's machine wherever a host's configuration uses it, which
+# needs tofu/sentry/prepare.sh sourced. The lookup's binary_path is a path
+# option, which takes a bare name as relative to the working directory, so
+# tofu is resolved on PATH.
+sentry_dsns: >-
+  {{ lookup('cloud.terraform.tf_output', 'dsn',
+            project_path=inventory_dir ~ '/../../tofu/sentry',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
