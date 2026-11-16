@@ -3388,7 +3388,10 @@
 # answers ok; a Discord outage fails the step too. If anything fails after the
 # copy, it puts the copy and the old compose file back, starts the old release
 # again, then fails: revert the mongo image's tag before the next site.yml. It
-# does nothing where the declared release runs.
+# does nothing where the declared release runs. Pause the host's monitor in
+# Uptime Kuma for the run: when the bot's health check fails, as it does while
+# the stack is stopped, its notification reboots the container through
+# prodingus's webhookd, which would cut the run short.
 - name: PepperCord's MongoDB upgrade to its declared release
   hosts: peppercord
   gather_facts: false
