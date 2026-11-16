@@ -18,6 +18,7 @@
         "inventory": ["inventory/oracle.terraform_state.yml"],
         "path": ["bin"]
       }
-    }
+    },
+    "tofu/sentry": {}
   }
 }
