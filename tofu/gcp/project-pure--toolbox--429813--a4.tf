@@ -5,6 +5,13 @@ locals {
   doppelganger_services = toset([
     "telemetry.googleapis.com",
   ])
+
+  # The project's OAuth clients, made in the console (README.md), by slug.
+  doppelganger_oauth_clients = {
+    # "Doppelganger Production": the Supabase project doppelganger's sign-in
+    # with Google.
+    doppelganger-production = "6822405828-jcheqartcigc09111gq22tb6oqnvsrpa.apps.googleusercontent.com"
+  }
 }
 
 resource "google_project" "doppelganger" {
