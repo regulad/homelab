@@ -90,6 +90,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `cordpepperer` (118): a mirror of `peppercord`
   - [ ] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
   - [ ] MongoDB's and Redis's data on a volume of its own, off the 8 GB root disk
+  - [ ] Redis replaced by Valkey, at its newest major
 - [x] `immich` (116)
 - [x] `git` (200): Forgejo, served by Caddy on ingress, with its Cloudflare tunnel for SSH; moved from the git VM (110)
   - [x] Forgejo 15, a long-term support release, from 12, which no longer gets fixes: by `maintenance.yml`'s `forgejo-upgrade`, which moves only between long-term support releases and keeps a copy to roll back to, and `forgejo-upgrade-cleanup`
@@ -108,6 +109,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `peppercord` (126): a mirror of `cordpepperer`
   - [ ] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
   - [ ] MongoDB's and Redis's data on a volume of its own, off the 8 GB root disk
+  - [ ] Redis replaced by Valkey, at its newest major
 - [x] `pihole` (112)
 - [x] `pterodactyl` (120)
 - [x] `tailscalerouter` (122)
