@@ -32,23 +32,53 @@ base_admin_user: ""
 # No ubuntu_release: it stays on Ubuntu 24.04 until it is retired at 24.04's
 # end of standard support, and is never release-upgraded.
 
-# The web app's settings that come from a source of their own, rendered into
-# web.env after the rest, which is doppelganger_web_env in SOPS.
-doppelganger_web_env_managed:
+# The web app's settings: web.env, one KEY=value line for each, in this order.
+# Its secrets are doppelganger_web_secrets, in SOPS; the Stripe and Sentry
+# values come from their OpenTofu roots' outputs.
+doppelganger_web_env:
+  # Supabase: the project's URL and its anon key, which ship to the browser.
+  NEXT_PUBLIC_SUPABASE_URL: https://eopqnjmpgtpcdhfcvvxq.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: >-
+    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvcHFuam1wZ3RwY2RoZmN2dnhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MTUxODgsImV4cCI6MjA3NzA5MTE4OH0.NN8NvJ2Un-J-uhc5ZoOIr5q7e1JFVurU1A8gWHOVYBg
+  SUPABASE_SERVICE_ROLE_KEY: "{{ doppelganger_web_secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+  SUPABASE_JWT_SECRET: "{{ doppelganger_web_secrets.SUPABASE_JWT_SECRET }}"
+  # Postgres, for Prisma.
+  DATABASE_URL: "{{ doppelganger_web_secrets.DATABASE_URL }}"
+  DIRECT_URL: "{{ doppelganger_web_secrets.DIRECT_URL }}"
+  # Where the Android images extract onto the disk.
+  ANDROID_RUNTIME_BASEDIR: /opt/doppelganger
+  DOCKER_HOST: unix:///var/run/docker.sock
+  EXTERNAL_NETWORK_NAME: doppelganger
+  NEXT_TELEMETRY_DISABLED: "1"
+  TURBO_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+  # OneSignal: the Doppelganger app.
+  ONESIGNAL_APP_ID: 5ac065a9-c76c-4c31-8159-85a260832ee6
+  ONESIGNAL_USER_AUTH_KEY: "{{ doppelganger_web_secrets.ONESIGNAL_USER_AUTH_KEY }}"
+  ONESIGNAL_API_KEY: "{{ doppelganger_web_secrets.ONESIGNAL_API_KEY }}"
+  # Stripe: the account regulad.xyz's live publishable key and the live webhook
+  # endpoint's signing secret, from tofu/stripe's live workspace, and the app's
+  # restricted key, made in the Dashboard: Customers and Checkout Sessions to
+  # Write, Subscriptions and Prices to Read, usable only from this host's two
+  # public addresses, tofu/oracle's public_addresses output. Were those to
+  # change, the key's allowed IPs would need the new ones, by hand.
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE: "{{ doppelganger_stripe_outputs.publishable_key.value }}"
+  STRIPE_SECRET: "{{ doppelganger_web_secrets.STRIPE_SECRET }}"
+  STRIPE_WEBHOOK_SECRET: "{{ doppelganger_stripe_outputs.doppelganger_webhook_secret.value }}"
   # The doppelganger project's DSN, from tofu/sentry's output.
   NEXT_PUBLIC_SENTRY_DSN: "{{ sentry_dsns.doppelganger }}"
-  # The live publishable key of the Stripe account regulad.xyz, public by
-  # design: it ships in the browser bundle.
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE: "{{ doppelganger_stripe_publishable }}"
-  # The app's restricted key in that account, made in the Dashboard: Customers
-  # and Checkout Sessions to Write, Subscriptions and Prices to Read.
-  STRIPE_SECRET: "{{ doppelganger_stripe_secret }}"
-  # The live webhook endpoint's signing secret, from tofu/stripe's output.
-  STRIPE_WEBHOOK_SECRET: >-
-    {{ lookup('cloud.terraform.tf_output', 'doppelganger_webhook_secret',
-              project_path=inventory_dir ~ '/../../tofu/stripe', workspace='live',
-              binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
-doppelganger_stripe_publishable: ""
+# tofu/stripe's outputs in its live workspace, each as {sensitive, type, value},
+# read on the operator's machine, which needs tofu/stripe/prepare.sh sourced.
+doppelganger_stripe_outputs: >-
+  {{ lookup('cloud.terraform.tf_output',
+            project_path=inventory_dir ~ '/../../tofu/stripe', workspace='live',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
+
+# The cron container's settings: cron.env, rendered as web.env is. It calls
+# the web app's cron endpoint every minute, on the stack's network.
+doppelganger_cron_env:
+  CRON_SCHEDULE: "* * * * *"
+  ENDPOINT: http://doppelganger:3000/api/cron
 
 # webhookd's own user (webhookd.service below).
 host_files_users: [webhookd]
@@ -220,16 +250,15 @@ host_files_list:
       WantedBy=timers.target
     restarts: [docker-image-prune.timer]
   # The app's stack, which the docker role's compose entry point brings up, with
-  # its environment from SOPS, followed by doppelganger_web_env_managed's lines.
+  # its environment rendered from doppelganger_web_env and doppelganger_cron_env.
   # The compose file is checked with the env files in place, so they come first.
   - path: /etc/doppelganger/web.env
     mode: "0600"
-    content: "{{ doppelganger_web_env }}{% for name, value in doppelganger_web_env_managed.items() %}{{ name }}={{ value }}\n{% endfor %}"
+    content: "{% for name, value in doppelganger_web_env.items() %}{{ name }}={{ value }}\n{% endfor %}"
     secret: true
   - path: /etc/doppelganger/cron.env
     mode: "0600"
-    content: "{{ doppelganger_cron_env }}"
-    secret: true
+    content: "{% for name, value in doppelganger_cron_env.items() %}{{ name }}={{ value }}\n{% endfor %}"
   - path: /etc/doppelganger/compose.yml
     mode: "0644"
     validate: /usr/bin/docker compose --file %s config --quiet
