@@ -1,0 +1,7 @@
+---
+# cachefilesd reads its configuration only as it starts. A restart withdraws
+# the cache and binds it again; the filesystems it caches stay mounted.
+- name: Restart cachefilesd
+  ansible.builtin.systemd_service:
+    name: cachefilesd.service
+    state: restarted

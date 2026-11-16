@@ -1,0 +1,84 @@
+---
+# cachefilesd and its whole configuration: the package, the cache's directory,
+# /etc/cachefilesd.conf, /etc/default/cachefilesd (which the package's init
+# script reads) and the service. Runs on hardware hosts (Phase 2).
+- name: Install cachefilesd
+  ansible.builtin.package:
+    name: cachefilesd
+    state: present
+
+- name: Cache directory
+  ansible.builtin.file:
+    path: "{{ cachefilesd_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# The cache's filesystem is the deepest mount at the cache's directory or above
+# it. Sorted by path, those mounts come shallowest first.
+- name: Size of the cache's filesystem
+  ansible.builtin.set_fact:
+    cachefilesd_fs_size: >-
+      {%- set fs = namespace(size=0) -%}
+      {%- for mount in ansible_facts['mounts'] | sort(attribute='mount') -%}
+      {%- if (cachefilesd_dir ~ '/').startswith(mount['mount'].rstrip('/') ~ '/') -%}
+      {%- set fs.size = mount['size_total'] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ fs.size }}
+
+- name: Block limits that leave the headroom free
+  ansible.builtin.set_fact:
+    cachefilesd_block_rise: >-
+      {{ [0, (cachefilesd_headroom | int * 100 / cachefilesd_fs_size | int) | round(0, 'ceil') | int
+              - cachefilesd_limits['bstop']] | max }}
+
+- name: Limits in cachefilesd's order
+  ansible.builtin.assert:
+    that:
+      - cachefilesd_fs_size | int > 0
+      - 0 <= cachefilesd_limits['bstop'] < cachefilesd_limits['bcull'] < cachefilesd_limits['brun']
+      - cachefilesd_limits['brun'] + cachefilesd_block_rise | int < 100
+      - 0 <= cachefilesd_limits['fstop'] < cachefilesd_limits['fcull'] < cachefilesd_limits['frun'] < 100
+    fail_msg: >-
+      cachefilesd needs 0 <= stop < cull < run < 100 percent; a headroom of
+      {{ cachefilesd_headroom }} bytes raises brun to
+      {{ cachefilesd_limits['brun'] + cachefilesd_block_rise | int }}%.
+    quiet: true
+
+- name: Cache configuration
+  ansible.builtin.copy:
+    dest: /etc/cachefilesd.conf
+    content: |
+      # Managed by Ansible (cachefilesd). See cachefilesd.conf(5).
+      dir {{ cachefilesd_dir }}
+      tag {{ cachefilesd_tag }}
+      {% for limit in ['brun', 'bcull', 'bstop'] %}
+      {{ limit }} {{ cachefilesd_limits[limit] + cachefilesd_block_rise | int }}%
+      {% endfor %}
+      {% for limit in ['frun', 'fcull', 'fstop'] %}
+      {{ limit }} {{ cachefilesd_limits[limit] }}%
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart cachefilesd
+
+- name: Init script settings
+  ansible.builtin.copy:
+    dest: /etc/default/cachefilesd
+    content: |
+      # Managed by Ansible (cachefilesd). Sourced by /etc/init.d/cachefilesd,
+      # which starts the daemon only with RUN=yes.
+      RUN=yes
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart cachefilesd
+
+- name: Cachefilesd service
+  ansible.builtin.systemd_service:
+    name: cachefilesd.service
+    enabled: true
+    state: started

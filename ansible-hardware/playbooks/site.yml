@@ -47,6 +47,15 @@
   roles:
     - usb_port_disable
 
+# cachefilesd, the local cache of fsc-mounted network filesystems, and the space
+# it leaves free on its filesystem; the mounts facts give that space's size.
+- name: CacheFiles daemon
+  hosts: cachefilesd
+  become: true
+  tags: [cachefilesd]
+  roles:
+    - cachefilesd
+
 # Orchard workers, which run the orchard controller's Tart VMs.
 - name: Orchard workers
   hosts: orchard_workers

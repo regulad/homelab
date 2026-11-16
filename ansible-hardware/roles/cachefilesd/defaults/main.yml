@@ -1,0 +1,26 @@
+---
+# cachefilesd, the daemon behind the kernel's CacheFiles: a local cache, in a
+# directory of an ordinary filesystem, for network filesystems mounted with
+# fsc, such as the CephFS storage. It culls the cache to keep that
+# filesystem's free space within its limits.
+
+# The directory the cache keeps its files in, and the cache's tag.
+cachefilesd_dir: /var/cache/fscache
+cachefilesd_tag: mycache
+
+# The limits cachefilesd.conf(5) describes, each a percentage of the cache's
+# filesystem, for its blocks (b*) and its files (f*): below *cull free, the
+# daemon starts culling; above *run, it stops; below *stop, the cache
+# allocates nothing more. These are the package's.
+cachefilesd_limits:
+  brun: 10
+  bcull: 7
+  bstop: 3
+  frun: 10
+  fcull: 7
+  fstop: 3
+
+# Bytes the cache always leaves free on its filesystem for everything else
+# there; 0 asks for no more than bstop. bstop rises to it, rounded up to a
+# whole percent of the filesystem, and bcull and brun rise by as much.
+cachefilesd_headroom: 0

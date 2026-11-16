@@ -32,6 +32,11 @@ hardware:
     usb_port_disable:
       hosts:
         prodingus:
+    # cachefilesd, the local cache of the CephFS storage, which is mounted
+    # with fsc.
+    cachefilesd:
+      hosts:
+        prodingus:
     # Orchard workers, which run the orchard controller's Tart VMs.
     orchard_workers:
       hosts:

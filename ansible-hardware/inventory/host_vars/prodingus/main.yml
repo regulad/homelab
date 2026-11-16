@@ -43,6 +43,21 @@ kdump_crashkernel: 1024M
 kdump_sysctls_host:
   kernel.hardlockup_panic: 1
 
+# The CephFS storage's cache, in /var/cache/fscache on the root filesystem, at
+# the package's limits doubled, as they were set by hand. It leaves free room
+# for two of kdump's dumps in /var/crash, also on the root: the one kdump-tools
+# keeps (the kdump role's KDUMP_NUM_DUMPS) and the next, which it writes before
+# it purges the kept one. A full dump is about 25 GiB: on 2026-11-16 one had
+# reached 35.3% at 8.7 GiB when the cache had left too little room for it.
+cachefilesd_limits:
+  brun: 20
+  bcull: 14
+  bstop: 6
+  frun: 20
+  fcull: 14
+  fstop: 6
+cachefilesd_headroom: "{{ 2 * 25 * 1024**3 }}"
+
 # Memory and CPU topology: boot-time 1 GiB hugepages back the VMs' memory
 # (OpenTofu's hugepages = "1024": aboriginal's and dodo's 32 GiB each), and up
 # to 2048 overcommitted 2 MiB pages serve anonymous hugepages in containers,
