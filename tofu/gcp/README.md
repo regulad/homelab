@@ -3,7 +3,7 @@
 The `.tf` files are to be the source of truth for Google Cloud: every project of Parker's, in
 this one root and state. There is no organization, so the projects stand side by side, and
 each grants `homelab-tofu` Owner in its own IAM policy. This is the first, descriptive pass: it
-mirrors the four projects Parker keeps. Every resource was imported, and the import blocks were
+mirrors the five projects Parker keeps. Every resource was imported, and the import blocks were
 removed after the adoption apply, which changed nothing live; a plan is now a no-op. Every
 adopted resource carries `prevent_destroy = true`. Fixes follow as separate, reviewed changes.
 
@@ -63,7 +63,7 @@ OpenTofu manages only what it declares, so these need no configuration to be lef
 
 | What | Why, or who owns it |
 |---|---|
-| OAuth 2.0 client IDs | No public API lists them and the provider has no resource for them; the console's Google Auth Platform → Clients page is their only list |
+| OAuth 2.0 client IDs | No public API lists them and the provider has no resource for them; the console's Google Auth Platform → Clients page is their only list. `pure-toolbox-429813-a4` (doppelganger) holds the web client behind the Supabase project doppelganger's sign-in with Google, whose ID `tofu/supabase` declares |
 | Service account keys | The provider cannot import them; Google keeps the secrets of its own keys |
 | Google's service accounts and agents, such as Compute Engine's default account and Firebase's `firebase-adminsdk-*` | The services that create them |
 | `home-assistant-311214`'s Firebase project, apps and browser key, and its `firebase=enabled` label | Firebase |

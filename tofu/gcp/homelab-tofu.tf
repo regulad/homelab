@@ -18,6 +18,7 @@ resource "google_project_iam_member" "homelab_tofu" {
     google_project.home_assistant.project_id,
     google_project.regulad_rclone.project_id,
     google_project.matrix_synapse.project_id,
+    google_project.doppelganger.project_id,
   ])
 
   project = each.value
