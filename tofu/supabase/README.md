@@ -61,5 +61,12 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 `supabase/terraform.tfstate`, with S3-native locking. The backend's credentials come from
 `tofu/shared/backend.sops.env`, which `prepare.sh` exports.
 
+## Adoption
+
+The project and its settings were imported into the remote state, and the import blocks
+removed after the adoption apply. Its one live change set the generated `postgres`
+password; the settings' update sent only the declared Auth keys, at their live values. A
+plan is now a no-op. Every adopted resource carries `prevent_destroy = true`.
+
 Discovery output stays local in `docs/snapshot/supabase/`. Every mutation or state change
 needs Parker's explicit approval.
