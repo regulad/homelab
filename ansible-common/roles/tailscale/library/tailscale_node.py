@@ -9,7 +9,9 @@ short_description: Converge a joined Tailscale node's settings and Serve configu
 description:
   - Reads the node's status, preferences and Serve configuration through the
     tailscale CLI. A node that is not logged in is reported with C(joined=false)
-    and left alone, so joining stays an explicit, separate step.
+    and left alone, so joining stays an explicit, separate step; C(up_flags)
+    then holds the declared settings that C(tailscale up) takes too, as its
+    flags, for the join to pass.
   - On a joined node, fails if its tags differ from O(tags), runs
     C(tailscale set) only for the declared settings that differ, and adds or
     removes only the Serve and Funnel ports that differ. Supports check mode.
@@ -61,6 +63,16 @@ SETTINGS = {
     "stateful_filtering": ("--stateful-filtering", lambda p: not p.get("NoStatefulFiltering")),
 }
 
+# The settings `tailscale up` takes as well as `tailscale set` (as of 1.104),
+# which a join passes, so a new node never runs on Tailscale's defaults for
+# them: accept_dns's, on, would send every lookup to the tailnet's resolvers
+# before the settings below could turn it off. auto_update and the relay
+# server's are `tailscale set`'s alone, and follow the join.
+UP_SETTINGS = {
+    "accept_dns", "accept_routes", "advertise_exit_node", "advertise_routes", "hostname",
+    "operator", "shields_up", "snat_subnet_routes", "ssh", "stateful_filtering",
+}
+
 
 def normalize(name, value):
     if name in ("advertise_routes", "relay_server_static_endpoints"):
@@ -109,19 +121,22 @@ def main():
         ),
         supports_check_mode=True,
     )
+    unknown = set(module.params["settings"]) - set(SETTINGS)
+    if unknown:
+        module.fail_json(msg="Unknown settings: %s" % ", ".join(sorted(unknown)))
+
     tailscale = module.get_bin_path("tailscale", required=True)
     status = run_json(module, [tailscale, "status", "--json", "--self", "--peers=false"])
     if status.get("BackendState") != "Running":
-        module.exit_json(changed=False, joined=False, backend_state=status.get("BackendState"))
+        up_flags = ["%s=%s" % (SETTINGS[name][0], render(name, normalize(name, value)))
+                    for name, value in sorted(module.params["settings"].items()) if name in UP_SETTINGS]
+        module.exit_json(changed=False, joined=False, backend_state=status.get("BackendState"), up_flags=up_flags)
 
     tags = sorted(t.replace("tag:", "") for t in ((status.get("Self") or {}).get("Tags") or []))
     if tags != sorted(module.params["tags"]):
         module.fail_json(msg="The node's tags %s differ from the declared %s; fix them in the admin console or re-join deliberately." % (tags, sorted(module.params["tags"])))
 
     prefs = run_json(module, [tailscale, "debug", "prefs"])
-    unknown = set(module.params["settings"]) - set(SETTINGS)
-    if unknown:
-        module.fail_json(msg="Unknown settings: %s" % ", ".join(sorted(unknown)))
     before, after, flags = {}, {}, []
     for name, value in module.params["settings"].items():
         flag, read = SETTINGS[name]

@@ -150,13 +150,15 @@
           become: false
           no_log: true
 
+        # With the declared settings that tailscale up takes too, so the node
+        # never runs on Tailscale's defaults for them; the rest follow below.
         - name: Join with the key
           ansible.builtin.command:
-            argv:
-              - tailscale
-              - up
-              - --auth-key={{ tailscale_key.json.key }}
-              - --advertise-tags={{ tailscale_tags | map('regex_replace', '^', 'tag:') | join(',') }}
+            argv: >-
+              {{ ['tailscale', 'up',
+                  '--auth-key=' ~ tailscale_key.json.key,
+                  '--advertise-tags=' ~ (tailscale_tags | map('regex_replace', '^', 'tag:') | join(','))]
+                 + tailscale_node_result.up_flags }}
           changed_when: true
           no_log: true
 
