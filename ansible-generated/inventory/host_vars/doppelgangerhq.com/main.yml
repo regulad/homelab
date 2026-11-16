@@ -29,6 +29,11 @@ kernel_params_grub_dropins:
 # A legacy host: no admin login beside its image's own.
 base_admin_user: ""
 
+# The public half of the host's machine key, whose private half,
+# machine_ssh_private_key in secrets.sops.yml, ansible-common/bin/with-machine-keys
+# loads.
+machine_ssh_public_key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJfAOm3g5fbsz/ZgtBqd7jy/glYxYPe0q0TRgjQz5joe doppelgangerhq.com machine key
+
 # No ubuntu_release: it stays on Ubuntu 24.04 until it is retired at 24.04's
 # end of standard support, and is never release-upgraded.
 
