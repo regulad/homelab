@@ -23,6 +23,12 @@ locals {
     "storage-component.googleapis.com",
     "storage.googleapis.com",
   ])
+
+  # The project's OAuth clients, made in the console (README.md), by slug.
+  regulad_rclone_oauth_clients = {
+    # "Desktop client 1": rclone's sign-in to Google Drive.
+    desktop-client-1 = "46982684690-92r4npbitph5o8gjcbkfqmbp2a3fpovj.apps.googleusercontent.com"
+  }
 }
 
 resource "google_project" "regulad_rclone" {

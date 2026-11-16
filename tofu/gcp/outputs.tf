@@ -6,6 +6,10 @@ locals {
       number  = google_project.doppelganger.number
       clients = local.doppelganger_oauth_clients
     }
+    (google_project.regulad_rclone.project_id) = {
+      number  = google_project.regulad_rclone.number
+      clients = local.regulad_rclone_oauth_clients
+    }
   }
 }
 
