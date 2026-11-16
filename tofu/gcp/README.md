@@ -63,7 +63,7 @@ OpenTofu manages only what it declares, so these need no configuration to be lef
 
 | What | Why, or who owns it |
 |---|---|
-| OAuth 2.0 client IDs | No public API lists them and the provider has no resource for them; the console's Google Auth Platform → Clients page is their only list. `pure-toolbox-429813-a4` (doppelganger) holds the web client behind the Supabase project doppelganger's sign-in with Google, whose ID `tofu/supabase` declares |
+| OAuth 2.0 clients and the consent screen | No public API creates, lists or updates them, so the provider has no resource for them: IAP's OAuth Admin API, which only ever handled clients of internal brands, was shut down on 2026-03-19, and provider 8.0.0 removed `google_iap_brand` and `google_iap_client`. `google_iam_oauth_client` is Workforce Identity Federation's, not a sign-in client. The console's Google Auth Platform pages are their only home. `pure-toolbox-429813-a4` (doppelganger) holds "Doppelganger Production", the web client behind the Supabase project doppelganger's sign-in with Google, whose ID `tofu/supabase` declares |
 | Service account keys | The provider cannot import them; Google keeps the secrets of its own keys |
 | Google's service accounts and agents, such as Compute Engine's default account and Firebase's `firebase-adminsdk-*` | The services that create them |
 | `home-assistant-311214`'s Firebase project, apps and browser key, and its `firebase=enabled` label | Firebase |
