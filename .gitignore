@@ -53,6 +53,8 @@ alexa/*/.ask/
 # --- Ansible ----------------------------------------------------------------
 ansible-*/collections
 *.retry
+# ssh-agent-mux's build, which bin/with-machine-keys makes on first use.
+ansible-common/ssh-agent-mux/target/
 
 # --- Python / tooling -------------------------------------------------------
 .venv/

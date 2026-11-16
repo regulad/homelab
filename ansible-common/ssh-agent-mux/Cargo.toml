@@ -1,0 +1,18 @@
+# ssh-agent-mux, pinned with every crate it builds from in Cargo.lock, for
+# bin/with-machine-keys. The crate's own binary is a service manager around its
+# library; this package builds only the library's agent, with a main that takes
+# the paths on its command line.
+[package]
+name = "homelab-ssh-agent-mux"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[[bin]]
+name = "ssh-agent-mux"
+path = "main.rs"
+
+[dependencies]
+ssh-agent-mux = "=0.2.0"
+tokio = { version = "1", features = ["macros", "rt"] }

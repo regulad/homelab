@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Run a command (ansible, ansible-playbook or ssh) with every machine key, a
+# host's own SSH key in machine_ssh_private_key of its secrets.sops.yml, loaded
+# into a throwaway ssh-agent and never written to disk. The command's
+# SSH_AUTH_SOCK is ssh-agent-mux's socket, which offers that agent's keys and
+# then the caller's own agent's, so every other host is reached as before; the
+# SSH client configuration chooses which key each host is offered. Run from
+# either stage's folder:
+#   ../ansible-common/bin/with-machine-keys ansible-playbook playbooks/site.yml --limit <host>
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(cd "$here/../.." && pwd)
+mux="$here/../ssh-agent-mux"
+
+# Built from Cargo.lock on first use, and only checked after that.
+cargo build --quiet --locked --release --manifest-path "$mux/Cargo.toml"
+
+# A short private directory: a Unix socket path must stay under ~100 bytes.
+dir=$(mktemp -d /tmp/with-machine-keys.XXXXXX)
+pids=()
+cleanup() {
+  kill "${pids[@]}" 2>/dev/null || true
+  wait 2>/dev/null || true
+  rm -rf "$dir"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+wait_for_socket() {
+  for _ in $(seq 50); do
+    [ -S "$1" ] && return
+    sleep 0.1
+  done
+  echo "with-machine-keys: no socket at $1" >&2
+  exit 1
+}
+
+# Quiet, as -D logs its own shutdown; a failed start shows as a missing socket.
+ssh-agent -D -a "$dir/keys" >/dev/null 2>&1 &
+pids+=("$!")
+wait_for_socket "$dir/keys"
+
+shopt -s nullglob
+for secrets in "$repo"/ansible-*/inventory/host_vars/*/secrets.sops.yml; do
+  # SOPS leaves keys in plaintext, so only the files holding one are decrypted.
+  grep -q '^machine_ssh_private_key:' "$secrets" || continue
+  sops decrypt --extract '["machine_ssh_private_key"]' "$secrets" |
+    SSH_AUTH_SOCK="$dir/keys" ssh-add -q -
+done
+
+upstream=()
+[ -n "${SSH_AUTH_SOCK:-}" ] && upstream+=("$SSH_AUTH_SOCK")
+"$mux/target/release/ssh-agent-mux" "$dir/agent" "$dir/keys" "${upstream[@]}" &
+pids+=("$!")
+wait_for_socket "$dir/agent"
+
+SSH_AUTH_SOCK="$dir/agent" "$@"
