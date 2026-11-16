@@ -1,0 +1,5 @@
+---
+# A reload gives running units their new dependencies too; nothing restarts.
+- name: Reload systemd for proxmox_cluster
+  ansible.builtin.systemd_service:
+    daemon_reload: true

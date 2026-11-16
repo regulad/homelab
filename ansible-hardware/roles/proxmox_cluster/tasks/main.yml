@@ -22,3 +22,39 @@
     owner: root
     group: root
     mode: "0644"
+
+# Containers stop before the storage their disks are on. pve-container@.service
+# leaves out systemd's default dependencies, so a shutdown stops no container
+# itself: it leaves them to pve-guests and pve-ha-lrm, which give up on one that
+# ignores its shutdown request, and then stops the storage beneath it. On
+# 2026-11-16 Ceph stopped under timemachine's mounted root disk, the final sync
+# hung on it, and the hung-task check panicked the node. With this drop-in, a
+# shutdown waits for those two, then stops each container still running through
+# the unit's own ExecStop: lxc-stop, which kills the container after its
+# timeout, and systemd's kill after TimeoutStopSec at the latest. Only then
+# does pve-storage.target, which Ceph's targets stop after, stop. Proxmox stops
+# containers through their command sockets, never systemctl, so pve-guests and
+# pve-ha-lrm never wait on these stop jobs.
+- name: Directory of the container units' drop-ins
+  ansible.builtin.file:
+    path: /etc/systemd/system/pve-container@.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Containers stopped before their storage at shutdown
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/pve-container@.service.d/50-shutdown-order.conf
+    content: |
+      # Managed by Ansible (proxmox_cluster): at shutdown, stop each container
+      # still running after pve-guests and pve-ha-lrm, before the storage that
+      # holds its disks.
+      [Unit]
+      Conflicts=shutdown.target
+      Before=shutdown.target pve-guests.service pve-ha-lrm.service
+      After=pve-storage.target
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd for proxmox_cluster
