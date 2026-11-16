@@ -33,7 +33,8 @@ services:
     volumes:
       - "db:/data/db"
   redis:
-    image: "docker.io/library/redis:8.4-alpine3.22"
+    # The major's tag: Redis reads an older release's data at any later one.
+    image: "docker.io/library/redis:8-alpine"
     labels:
       io.containers.autoupdate: registry
     ports:
