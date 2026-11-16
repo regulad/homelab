@@ -11,6 +11,7 @@ the subscription's role assignments. The subscription holds no resources.
 | `subscription.tf` | The subscription, and Parker's Owner grant on it |
 | `graph.tf` | Microsoft Graph's permission IDs, looked up by name |
 | `locals.tf` | The tenant, subscription and `homelab-tofu` client IDs |
+| `outputs.tf` | The `oauth_client_ids` output: each application's client ID, from state, by slug, for the roots and hosts that name one; it checks that `locals.tf`'s `client_id`, which the providers sign in with before any state is read, is `homelab-tofu`'s |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
