@@ -68,6 +68,14 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 `sentry/terraform.tfstate`, with S3-native locking. The backend's credentials come from
 `tofu/shared/backend.sops.env`, which `prepare.sh` exports.
 
+## Adoption
+
+The team, the eight projects, their keys and the four alerts were imported into the remote
+state, and the import blocks were removed after the adoption apply. Its one live change put
+doppelganger and the three pheidippides projects, which had no team, in `regulad`, as the
+provider requires a team on every project. A plan is now a no-op. Every adopted resource
+carries `prevent_destroy = true`.
+
 ## Not managed here
 
 | What | Why, or who owns it |
