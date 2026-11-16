@@ -3379,14 +3379,16 @@
 # the running one's (its upgrade procedures), so the play refuses any other
 # target, and first raises the FCV to the running release, if behind, as
 # setFeatureCompatibilityVersion does without stopping it: the step this play
-# leaves after its own upgrade, as MongoDB's burn-in advice has it. Then, with
-# the stack stopped, it copies the database's volume and the compose file, and
-# starts the declared release on the same data. It counts the upgrade done once
-# mongod reports the declared release and the bot's health check, which reads
-# and writes through it, answers ok; a Discord outage fails the step too. If
-# anything fails after the copy, it puts the copy and the old compose file
-# back, starts the old release again, then fails: revert the mongo image's tag
-# before the next site.yml. It does nothing where the declared release runs.
+# leaves after its own upgrade, as MongoDB's burn-in advice has it. It removes
+# the images of releases before the running one, which would leave no room for
+# the pull on these hosts' disks. Then, with the stack stopped, it copies the
+# database's volume and the compose file, and starts the declared release on
+# the same data. It counts the upgrade done once mongod reports the declared
+# release and the bot's health check, which reads and writes through it,
+# answers ok; a Discord outage fails the step too. If anything fails after the
+# copy, it puts the copy and the old compose file back, starts the old release
+# again, then fails: revert the mongo image's tag before the next site.yml. It
+# does nothing where the declared release runs.
 - name: PepperCord's MongoDB upgrade to its declared release
   hosts: peppercord
   gather_facts: false
@@ -3493,6 +3495,41 @@
       when: >-
         mongo_upgrade_fcv.version != mongo_upgrade_running_series
         or mongo_upgrade_fcv.targetVersion is defined
+
+    - &mongo_upgrade_in_use
+      name: The image mongod runs from
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}.Image{{ '}}' }}", "{{ mongo_upgrade_container }}"]
+      register: mongo_upgrade_in_use
+      changed_when: false
+      check_mode: false
+
+    - &mongo_upgrade_images
+      name: MongoDB's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ mongo_upgrade_image.rsplit(':', 1) | first }}"]
+      register: mongo_upgrade_images
+      changed_when: false
+      check_mode: false
+
+    # The hosts' disks hold little more than two releases' images, so the
+    # releases before the running one go before the pull, as they do in the
+    # cleanup. The one mongod runs from stays, the way back, and so does the
+    # declared one, by any of its names; the one mongod runs from can be
+    # another name for its release until the compose file is next placed. Each
+    # goes by its names, once: podman removes an image with several by its ID
+    # only with --force, which removes its containers too.
+    - &mongo_upgrade_images_removed
+      name: The images of other releases removed
+      ansible.builtin.command:
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
+      loop: >-
+        {{ mongo_upgrade_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', mongo_upgrade_image)
+           | rejectattr('Id', 'eq', mongo_upgrade_in_use.stdout | trim) | unique(attribute='Id') | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
 
     - name: The declared release, pulled while the old one still serves
       ansible.builtin.command:
@@ -3693,35 +3730,11 @@
         path: "{{ mongo_upgrade_backup }}"
         state: absent
 
-    - name: The image mongod runs from
-      ansible.builtin.command:
-        argv: [podman, container, inspect, --format, "{{ '{{' }}.Image{{ '}}' }}", "{{ mongo_upgrade_container }}"]
-      register: mongo_cleanup_in_use
-      changed_when: false
-      check_mode: false
+    - *mongo_upgrade_in_use
 
-    - name: MongoDB's images
-      ansible.builtin.command:
-        argv: [podman, images, --format, json, --filter, "reference={{ mongo_upgrade_image.rsplit(':', 1) | first }}"]
-      register: mongo_cleanup_images
-      changed_when: false
-      check_mode: false
+    - *mongo_upgrade_images
 
-    # The declared image stays, by any of its names, and so does the one
-    # mongod runs from, which can be another name for the same release until
-    # the compose file is next placed. Each goes by its names, once: podman
-    # removes an image with several by its ID only with --force, which removes
-    # its containers too.
-    - name: The images of other releases removed
-      ansible.builtin.command:
-        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
-      loop: >-
-        {{ mongo_cleanup_images.stdout | from_json | selectattr('Names')
-           | rejectattr('Names', 'contains', mongo_upgrade_image)
-           | rejectattr('Id', 'eq', mongo_cleanup_in_use.stdout | trim) | unique(attribute='Id') | list }}
-      loop_control:
-        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
-      changed_when: true
+    - *mongo_upgrade_images_removed
 
 # Remove what the move from python-matter-server to matterjs-server leaves
 # behind, once matterjs-server has migrated the fabric: the copy of the Python
