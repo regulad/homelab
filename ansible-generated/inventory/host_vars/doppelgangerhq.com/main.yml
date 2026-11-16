@@ -204,9 +204,11 @@ host_files_list:
   # The app's stack, which the docker role's compose entry point brings up, with
   # its environment from SOPS. The compose file is checked with the env files in
   # place, so they come first.
+  # NEXT_PUBLIC_SENTRY_DSN is the doppelganger project's DSN, from tofu/sentry's
+  # output.
   - path: /etc/doppelganger/web.env
     mode: "0600"
-    content: "{{ doppelganger_web_env }}"
+    content: "{{ doppelganger_web_env }}NEXT_PUBLIC_SENTRY_DSN={{ sentry_dsns.doppelganger }}\n"
     secret: true
   - path: /etc/doppelganger/cron.env
     mode: "0600"
