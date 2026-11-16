@@ -3,9 +3,9 @@
 # runs it with podman-compose from /opt/peppercord, through
 # podman-compose@peppercord.service, on cordpepperer and peppercord
 # (ansible-generated/inventory/group_vars/peppercord.yml), each with its own
-# .env and its own data. MongoDB and Redis publish on loopback only; every
-# service carries podman-auto-update's label, which needs fully qualified image
-# names; and the stack is not a pod, so its two networks stay separate.
+# .env and its own data. MongoDB publishes on loopback only; every service
+# carries podman-auto-update's label, which needs fully qualified image names;
+# and the stack is not a pod, so its two networks stay separate.
 x-podman:
   in_pod: false
 
@@ -39,31 +39,6 @@ services:
       - backend
     volumes:
       - "db:/data/db"
-  redis:
-    # The major's tag: Redis reads an older release's data at any later one.
-    image: "docker.io/library/redis:8-alpine"
-    labels:
-      io.containers.autoupdate: registry
-    ports:
-      - "127.0.0.1:6379:6379/tcp"
-      - "[::1]:6379:6379/tcp"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: "256M"
-        reservations:
-          cpus: "0.01"
-          memory: "64M"
-    hostname: "redis"
-    restart: "always"
-    read_only: true
-    tmpfs:
-      - /tmp
-    networks:
-      - backend
-    volumes:
-      - redis:/data
   peppercord:
     # Rolling: PepperCord has to keep up with Discord's API changes.
     image: "ghcr.io/regulad/peppercord:latest"
@@ -94,7 +69,6 @@ services:
     read_only: true
     depends_on:
       - "mongo"
-      - "redis"
     tmpfs:
       - /tmp
     networks:
@@ -108,9 +82,8 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
 volumes:
   db:
-  redis:
 networks:
   backend:
-    internal: true  # databases are fine without internet
+    internal: true  # the database is fine without internet
   frontend:
     internal: false
