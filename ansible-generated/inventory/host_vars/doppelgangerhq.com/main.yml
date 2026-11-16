@@ -32,6 +32,24 @@ base_admin_user: ""
 # No ubuntu_release: it stays on Ubuntu 24.04 until it is retired at 24.04's
 # end of standard support, and is never release-upgraded.
 
+# The web app's settings that come from a source of their own, rendered into
+# web.env after the rest, which is doppelganger_web_env in SOPS.
+doppelganger_web_env_managed:
+  # The doppelganger project's DSN, from tofu/sentry's output.
+  NEXT_PUBLIC_SENTRY_DSN: "{{ sentry_dsns.doppelganger }}"
+  # The live publishable key of the Stripe account regulad.xyz, public by
+  # design: it ships in the browser bundle.
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE: "{{ doppelganger_stripe_publishable }}"
+  # The app's restricted key in that account, made in the Dashboard: Customers
+  # and Checkout Sessions to Write, Subscriptions and Prices to Read.
+  STRIPE_SECRET: "{{ doppelganger_stripe_secret }}"
+  # The live webhook endpoint's signing secret, from tofu/stripe's output.
+  STRIPE_WEBHOOK_SECRET: >-
+    {{ lookup('cloud.terraform.tf_output', 'doppelganger_webhook_secret',
+              project_path=inventory_dir ~ '/../../tofu/stripe', workspace='live',
+              binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
+doppelganger_stripe_publishable: ""
+
 # webhookd's own user (webhookd.service below).
 host_files_users: [webhookd]
 
@@ -202,13 +220,11 @@ host_files_list:
       WantedBy=timers.target
     restarts: [docker-image-prune.timer]
   # The app's stack, which the docker role's compose entry point brings up, with
-  # its environment from SOPS. The compose file is checked with the env files in
-  # place, so they come first.
-  # NEXT_PUBLIC_SENTRY_DSN is the doppelganger project's DSN, from tofu/sentry's
-  # output.
+  # its environment from SOPS, followed by doppelganger_web_env_managed's lines.
+  # The compose file is checked with the env files in place, so they come first.
   - path: /etc/doppelganger/web.env
     mode: "0600"
-    content: "{{ doppelganger_web_env }}NEXT_PUBLIC_SENTRY_DSN={{ sentry_dsns.doppelganger }}\n"
+    content: "{{ doppelganger_web_env }}{% for name, value in doppelganger_web_env_managed.items() %}{{ name }}={{ value }}\n{% endfor %}"
     secret: true
   - path: /etc/doppelganger/cron.env
     mode: "0600"
