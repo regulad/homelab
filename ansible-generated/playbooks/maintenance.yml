@@ -3371,6 +3371,358 @@
         label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
       changed_when: true
 
+# Upgrade PepperCord's MongoDB to the release series its compose file's mongo
+# image declares: move the tag to the next major release, then run this play
+# rather than site.yml, with --limit <host> so alock locks that host alone; the
+# two hosts share the compose file, and each has its own data. MongoDB moves a
+# single major release at a time, its feature compatibility version (FCV) at
+# the running one's (its upgrade procedures), so the play refuses any other
+# target, and first raises the FCV to the running release, if behind, as
+# setFeatureCompatibilityVersion does without stopping it: the step this play
+# leaves after its own upgrade, as MongoDB's burn-in advice has it. Then, with
+# the stack stopped, it copies the database's volume and the compose file, and
+# starts the declared release on the same data. It counts the upgrade done once
+# mongod reports the declared release and the bot's health check, which reads
+# and writes through it, answers ok; a Discord outage fails the step too. If
+# anything fails after the copy, it puts the copy and the old compose file
+# back, starts the old release again, then fails: revert the mongo image's tag
+# before the next site.yml. It does nothing where the declared release runs.
+- name: PepperCord's MongoDB upgrade to its declared release
+  hosts: peppercord
+  gather_facts: false
+  become: true
+  tags: [mongo-upgrade]
+  # Shared with the cleanup play below.
+  vars: &mongo_upgrade_vars
+    mongo_upgrade_compose: /opt/peppercord/docker-compose.yml
+    # The compose file in the repository, which host_files places there.
+    mongo_upgrade_compose_src: >-
+      {{ inventory_dir }}/../files/shared/{{ (host_files_list
+         | selectattr('path', 'eq', mongo_upgrade_compose) | first).shared_src }}
+    mongo_upgrade_image: "{{ (lookup('ansible.builtin.file', mongo_upgrade_compose_src) | from_yaml).services.mongo.image }}"
+    mongo_upgrade_release: "{{ mongo_upgrade_image.rsplit(':', 1) | last }}"
+    mongo_upgrade_unit: podman-compose@peppercord.service
+    # podman-compose's names: the project, its directory's name, then the
+    # service's, then its index.
+    mongo_upgrade_container: peppercord_mongo_1
+    mongo_upgrade_volume: peppercord_db
+    mongo_upgrade_backup: /var/backups/peppercord-mongo-upgrade
+    # The bot's health check, which the compose file publishes: a read, an
+    # upserting write and a read back of the bot's own document, answered 200
+    # with status ok only once its Discord gateway is ready too.
+    mongo_upgrade_health_url: http://127.0.0.1:8080/health
+    # Seconds a check may take: past PyMongo's default 30 s to select a server,
+    # which it waits while mongod is down before answering 500.
+    mongo_upgrade_health_timeout: 40
+    # Seconds each start has to answer.
+    mongo_upgrade_timeout: 600
+  tasks:
+    # The tag follows the release series' patches through podman-auto-update;
+    # a major's tag, or a minor release's, could move it past one by itself.
+    - name: The declared release is a major release series
+      ansible.builtin.assert:
+        that: mongo_upgrade_release is match('^[0-9]+\.0$')
+        fail_msg: >-
+          The compose file's mongo image is {{ mongo_upgrade_image }}; tag it with a major release
+          series, such as 9.0, whose patches podman-auto-update brings in.
+        quiet: true
+
+    - &mongo_upgrade_probe
+      name: The running release and its feature compatibility version
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - "{{ mongo_upgrade_container }}"
+          - mongosh
+          - --quiet
+          - --norc
+          - --eval
+          - >-
+            JSON.stringify({version: db.version(),
+            fcv: db.adminCommand({getParameter: 1, featureCompatibilityVersion: 1}).featureCompatibilityVersion})
+      register: mongo_upgrade_probe
+      changed_when: false
+      check_mode: false
+
+    - &mongo_upgrade_state
+      name: Its release series and FCV
+      ansible.builtin.set_fact:
+        mongo_upgrade_running: "{{ (mongo_upgrade_probe.stdout | from_json).version }}"
+        mongo_upgrade_running_series: "{{ (mongo_upgrade_probe.stdout | from_json).version.split('.')[:2] | join('.') }}"
+        mongo_upgrade_fcv: "{{ (mongo_upgrade_probe.stdout | from_json).fcv }}"
+
+    - name: No downgrade, which data at a later FCV cannot take
+      ansible.builtin.assert:
+        that: mongo_upgrade_release is version(mongo_upgrade_running_series, '>=')
+        fail_msg: The compose file declares MongoDB {{ mongo_upgrade_release }}, older than the running {{ mongo_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared release runs
+      ansible.builtin.meta: end_host
+      when: mongo_upgrade_release == mongo_upgrade_running_series
+
+    - name: One major release at a time
+      ansible.builtin.assert:
+        that:
+          - mongo_upgrade_running_series is match('^[0-9]+\.0$')
+          - mongo_upgrade_release == (mongo_upgrade_running_series.split('.') | first | int + 1) ~ '.0'
+        fail_msg: >-
+          MongoDB runs {{ mongo_upgrade_running }} and moves one major release at a time: tag the mongo
+          image {{ mongo_upgrade_running_series.split('.') | first | int + 1 }}.0, run this play, then go
+          on to the next.
+        quiet: true
+
+    # setFeatureCompatibilityVersion asks for confirm from 7.0 on, and refuses
+    # it before. Its writes are to a system collection, and it can be repeated.
+    - &mongo_upgrade_fcv_raised
+      name: The FCV raised to the running release
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - "{{ mongo_upgrade_container }}"
+          - mongosh
+          - --quiet
+          - --norc
+          - --eval
+          - >-
+            JSON.stringify(db.adminCommand({setFeatureCompatibilityVersion: "{{ mongo_upgrade_running_series }}"{{
+            ', confirm: true' if mongo_upgrade_running_series is version('7.0', '>=') else '' }}}))
+      changed_when: true
+      when: >-
+        mongo_upgrade_fcv.version != mongo_upgrade_running_series
+        or mongo_upgrade_fcv.targetVersion is defined
+
+    - name: The declared release, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ mongo_upgrade_image }}"]
+      changed_when: true
+
+    - name: The pulled image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ mongo_upgrade_image }}"]
+      register: mongo_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The version to upgrade to
+      ansible.builtin.set_fact:
+        mongo_upgrade_target: >-
+          {{ (mongo_upgrade_pulled.stdout | from_json)[0].Config.Env
+             | select('match', '^MONGO_VERSION=') | first | regex_replace('^MONGO_VERSION=', '')
+             if mongo_upgrade_pulled.rc == 0 else mongo_upgrade_release ~ '.0' }}
+
+    - name: The pulled image is the declared release
+      ansible.builtin.assert:
+        that: mongo_upgrade_target.startswith(mongo_upgrade_release ~ '.')
+        fail_msg: "{{ mongo_upgrade_image }} is release {{ mongo_upgrade_target }}."
+        quiet: true
+
+    - name: The database volume's mountpoint
+      ansible.builtin.command:
+        argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "{{ mongo_upgrade_volume }}"]
+      register: mongo_upgrade_mountpoint
+      changed_when: false
+      check_mode: false
+
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ mongo_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: The stack stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: "{{ mongo_upgrade_unit }}"
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ mongo_upgrade_backup }}/db"
+            state: absent
+
+        - name: Copy of the database
+          ansible.builtin.command:
+            argv: [cp, -a, "{{ mongo_upgrade_mountpoint.stdout }}", "{{ mongo_upgrade_backup }}/db"]
+          changed_when: true
+
+        - name: Copy of the compose file
+          ansible.builtin.copy:
+            src: "{{ mongo_upgrade_compose }}"
+            dest: "{{ mongo_upgrade_backup }}/docker-compose.yml"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            mongo_upgrade_copied: true
+
+        - name: The compose file with the declared release
+          ansible.builtin.copy:
+            src: "{{ mongo_upgrade_compose_src }}"
+            dest: "{{ mongo_upgrade_compose }}"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: The stack started on the declared release
+          ansible.builtin.systemd_service:
+            name: "{{ mongo_upgrade_unit }}"
+            state: started
+
+        - name: Wait for mongod on the declared release
+          ansible.builtin.command:
+            argv: [podman, exec, "{{ mongo_upgrade_container }}", mongosh, --quiet, --norc, --eval, db.version()]
+          register: mongo_upgrade_started
+          until: mongo_upgrade_started.stdout | default('') | trim == mongo_upgrade_target
+          retries: "{{ [(mongo_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Wait for the bot
+          ansible.builtin.uri:
+            url: "{{ mongo_upgrade_health_url }}"
+            timeout: "{{ mongo_upgrade_health_timeout }}"
+          register: mongo_upgrade_health
+          until: (mongo_upgrade_health.json | default({})).status | default('') == 'ok'
+          retries: "{{ [(mongo_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              MongoDB runs {{ mongo_upgrade_target }}, from {{ mongo_upgrade_running }}, at FCV
+              {{ mongo_upgrade_running_series }}. The copy to return to is in {{ mongo_upgrade_backup }}.
+              Check the bot, then tag the next major release and run this play again; after the last,
+              run mongo-upgrade-cleanup.
+
+      rescue:
+        - name: The stack stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: "{{ mongo_upgrade_unit }}"
+            state: stopped
+
+        - name: The database put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -a, --delete, "{{ mongo_upgrade_backup }}/db/", "{{ mongo_upgrade_mountpoint.stdout }}/"]
+          changed_when: true
+          when: mongo_upgrade_copied | default(false)
+
+        - name: The old compose file put back
+          ansible.builtin.copy:
+            src: "{{ mongo_upgrade_backup }}/docker-compose.yml"
+            dest: "{{ mongo_upgrade_compose }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: mongo_upgrade_copied | default(false)
+
+        - name: The stack started on the old release
+          ansible.builtin.systemd_service:
+            name: "{{ mongo_upgrade_unit }}"
+            state: started
+
+        - name: Wait for the old release
+          ansible.builtin.command:
+            argv: [podman, exec, "{{ mongo_upgrade_container }}", mongosh, --quiet, --norc, --eval, db.version()]
+          register: mongo_upgrade_rolled_back
+          until: mongo_upgrade_rolled_back.stdout | default('') | trim == mongo_upgrade_running
+          retries: "{{ [(mongo_upgrade_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to MongoDB {{ mongo_upgrade_release }} failed, and it runs {{ mongo_upgrade_running }}
+              again{{ ' from the copy' if mongo_upgrade_copied | default(false) else '' }}. Tag the mongo image
+              {{ mongo_upgrade_running_series }} again before the next site.yml.
+
+# Finish what mongo-upgrade leaves, once the declared release has proven
+# itself: the FCV raised to it, which turns on its features that the release
+# before cannot read, then the copy of the database to roll back to removed,
+# and the images of other releases. It refuses while mongod does not run the
+# declared release, or the bot does not answer, as the copy is then still the
+# way back. Run it with --limit <host>, as the upgrade, after the last.
+- name: PepperCord's MongoDB upgrade finished
+  hosts: peppercord
+  gather_facts: false
+  become: true
+  tags: [mongo-upgrade-cleanup]
+  vars: *mongo_upgrade_vars
+  tasks:
+    - *mongo_upgrade_probe
+
+    - *mongo_upgrade_state
+
+    - name: The declared release runs
+      ansible.builtin.assert:
+        that: mongo_upgrade_running_series == mongo_upgrade_release
+        fail_msg: >-
+          MongoDB runs {{ mongo_upgrade_running }}, not the declared {{ mongo_upgrade_release }}, so its
+          copy may still be needed.
+        quiet: true
+
+    - name: The bot answers
+      ansible.builtin.uri:
+        url: "{{ mongo_upgrade_health_url }}"
+        timeout: "{{ mongo_upgrade_health_timeout }}"
+      register: mongo_cleanup_health
+      failed_when: (mongo_cleanup_health.json | default({})).status | default('') != 'ok'
+      check_mode: false
+
+    - *mongo_upgrade_fcv_raised
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ mongo_upgrade_backup }}"
+        state: absent
+
+    - name: The image mongod runs from
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}.Image{{ '}}' }}", "{{ mongo_upgrade_container }}"]
+      register: mongo_cleanup_in_use
+      changed_when: false
+      check_mode: false
+
+    - name: MongoDB's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ mongo_upgrade_image.rsplit(':', 1) | first }}"]
+      register: mongo_cleanup_images
+      changed_when: false
+      check_mode: false
+
+    # The declared image stays, by any of its names, and so does the one
+    # mongod runs from, which can be another name for the same release until
+    # the compose file is next placed. Each goes by its names, once: podman
+    # removes an image with several by its ID only with --force, which removes
+    # its containers too.
+    - name: The images of other releases removed
+      ansible.builtin.command:
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
+      loop: >-
+        {{ mongo_cleanup_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', mongo_upgrade_image)
+           | rejectattr('Id', 'eq', mongo_cleanup_in_use.stdout | trim) | unique(attribute='Id') | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Remove what the move from python-matter-server to matterjs-server leaves
 # behind, once matterjs-server has migrated the fabric: the copy of the Python
 # server's volume, made by hand before matterjs-server first started on it, the

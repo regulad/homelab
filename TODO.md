@@ -88,6 +88,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `authentik` (201): authentik 2026.8 in podman-compose, served by Caddy on ingress; moved from the authentik VM (109)
 - [ ] `act` (123): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `cordpepperer` (118): a mirror of `peppercord`
+  - [ ] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
 - [x] `immich` (116)
 - [x] `git` (200): Forgejo, served by Caddy on ingress, with its Cloudflare tunnel for SSH; moved from the git VM (110)
   - [x] Forgejo 15, a long-term support release, from 12, which no longer gets fixes: by `maintenance.yml`'s `forgejo-upgrade`, which moves only between long-term support releases and keeps a copy to roll back to, and `forgejo-upgrade-cleanup`
@@ -104,6 +105,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `openwebui` (115)
 - [x] `orchard` (212): the Orchard controller, its pinned release binary under a native unit, for Tart VMs on overture's Orchard worker
 - [x] `peppercord` (126): a mirror of `cordpepperer`
+  - [ ] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
 - [x] `pihole` (112)
 - [x] `pterodactyl` (120)
 - [x] `tailscalerouter` (122)

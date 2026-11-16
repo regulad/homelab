@@ -11,7 +11,12 @@ x-podman:
 
 services:
   mongo:
-    image: "docker.io/library/mongo:5"
+    # A release series' tag, which podman-auto-update follows through its
+    # patches alone: the next series needs the data's feature compatibility
+    # version raised on the way, a major release at a time, so the homelab
+    # moves it with maintenance.yml's mongo-upgrade. A major's tag would not
+    # do: mongo:8 has moved past 8.0, to minor releases with their own.
+    image: "docker.io/library/mongo:5.0"
     labels:
       io.containers.autoupdate: registry
     ports:
