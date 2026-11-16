@@ -2,3 +2,7 @@
 
 # Containers on Podman bridge networks: reflect mDNS to them.
 avahi_enabled: true
+
+# The prefix of PepperCord's message commands on this mirror: PepperCord's
+# default.
+peppercord_prefix: "?"

@@ -1,13 +1,30 @@
 ---
 # The PepperCord mirrors (cordpepperer, peppercord): one podman-compose stack
-# in /opt/peppercord, its compose file shared and each host's .env
-# (peppercord_env) from its own secrets.sops.yml.
+# in /opt/peppercord, its compose file shared and its .env rendered from
+# peppercord_env below.
 #
 # webhookd, from upstream's release archive (azlux's repository has no Ubuntu
 # suites), on loopback alone; Tailscale Serve publishes it on the tailnet with
 # HTTPS (tailscale_serve below). Its one hook, auto-update, which PepperCord's
 # pipeline calls after each image it publishes, starts podman-auto-update at
 # once, as its daily timer would, through a sudo rule for that command alone.
+
+# PepperCord's settings, which its .env.example documents: the stack's .env,
+# one KEY=value line for each, in this order. Each mirror's command prefix is
+# in its host_vars, and its bot token, the one secret, in its secrets.sops.yml.
+peppercord_env:
+  LC_ALL: en_US.UTF-8
+  TZ: America/New_York
+  # The compose file's mongo service, on the stack's internal network.
+  PEPPERCORD_DOCUMENTDB_URI: mongodb://mongo
+  PEPPERCORD_TOKEN: "{{ peppercord_token }}"
+  # Message commands' prefix; PepperCord's default is ?.
+  PEPPERCORD_PREFIX: "{{ peppercord_prefix }}"
+  PEPPERCORD_WEB: https://regulad.github.io/PepperCord
+  # The peppercord project's DSN, from tofu/sentry's output, in place of the
+  # one built into the bot.
+  PEPPERCORD_SENTRY_DSN: "{{ sentry_dsns.peppercord }}"
+
 host_files_users: [webhookd]
 host_files_directories:
   - path: /opt/peppercord
@@ -27,7 +44,7 @@ host_files_list:
     restarts: [podman-compose@peppercord.service]
   - path: /opt/peppercord/.env
     mode: "0600"
-    content: "{{ peppercord_env }}\n"
+    content: "{% for name, value in peppercord_env.items() %}{{ name }}={{ value }}\n{% endfor %}"
     secret: true
     restarts: [podman-compose@peppercord.service]
   - path: /etc/systemd/system/webhookd.service
