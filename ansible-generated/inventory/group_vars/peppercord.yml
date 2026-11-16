@@ -21,3 +21,22 @@ host_files_list:
     restarts: [podman-compose@peppercord.service]
 host_files_packages: [podman-compose]
 host_files_units: [podman-compose@peppercord.service, podman-auto-update.timer]
+
+# On the tailnet as tag:ci-server--peppercord, which PepperCord's pipeline
+# (tag:ci-client--peppercord) may reach on webhookd's port alone. The tailnet's
+# policy, in regulad/tailscale-acls, gives the tag no grant of its own, so
+# nothing on the tailnet is open to the bot through it; the internet-only
+# firewall group sees Tailscale's traffic only encapsulated.
+tailscale_enabled: true
+tailscale_join: true
+tailscale_tags: [ci-server--peppercord]
+tailscale_settings:
+  # Off: the internet-only group lets these hosts query arawi alone, and the
+  # tailnet's DNS would send their lookups to pihole and pihole2, and NC
+  # State's domains to its own resolvers. arawi resolves the tailnet's names in
+  # its stead.
+  accept_dns: false
+  # Off: the routes would carry the bot's connections to the homelab's and the
+  # VCN's addresses through their edge routers, past the internet-only group,
+  # to what the tailnet opens to every node, such as ingress's web.
+  accept_routes: false

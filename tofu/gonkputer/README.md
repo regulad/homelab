@@ -63,6 +63,9 @@ A `-` inside a guest name is written as `--` (`vm-resolute--template.tf`).
   mail's submission port and clamd's port. Over IPv6 it rejects the ULAs and OCI's
   pubsub subnet, and leaves the LAN's GUAs to the firewalls of the hosts holding them.
   The bots' own Podman networks are IPv4-only, so the bots reach no IPv6 address at all.
+  Both hosts are also on the tailnet as `tag:ci-server--peppercord`, whose traffic the
+  group sees only encapsulated: the tailnet's policy gives that tag no grant of its own,
+  and the hosts accept no subnet routes, so nothing internal opens to the bots that way.
 
 ## Running it
 

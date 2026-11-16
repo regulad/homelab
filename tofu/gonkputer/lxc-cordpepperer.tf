@@ -13,6 +13,11 @@ resource "proxmox_virtual_environment_container" "cordpepperer" {
     limit = 2
   }
 
+  # Tailscale's TUN device (tailscale role).
+  device_passthrough {
+    path = "/dev/net/tun"
+  }
+
   disk {
     datastore_id  = "rbd"
     mount_options = ["discard", "lazytime"]
@@ -74,7 +79,8 @@ resource "proxmox_haresource" "cordpepperer" {
 # In: peppercord's 8080 from the homelab's own ranges, for Uptime Kuma's check
 # of its /health, whose failures restart the container. Out: the internet-only
 # group, since anyone on Discord chooses where the bot's downloads and lookups
-# connect.
+# connect. Tailscale's traffic passes it encapsulated, so the tailnet's policy
+# filters that instead (group_vars/peppercord.yml).
 resource "proxmox_virtual_environment_firewall_rules" "cordpepperer" {
   node_name    = proxmox_virtual_environment_container.cordpepperer.node_name
   container_id = proxmox_virtual_environment_container.cordpepperer.vm_id
