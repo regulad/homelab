@@ -8,6 +8,7 @@ can verify.
 |---|---|
 | `account.tf` | The account's publishable keys, one per mode, and the `publishable_key` output of the selected one |
 | `product-<name>.tf` | One file per product: the product, then its prices |
+| `portal-<name>.tf` | One file per customer portal configuration, with the output that carries its ID |
 | `webhook-<name>.tf` | One file per webhook endpoint, live only where its target is production, with the output that carries its signing secret |
 | `providers.tf`, `versions.tf` | Provider auth, by workspace, and pinned versions |
 | `variables.tf` | Each mode's restricted key |
@@ -38,14 +39,16 @@ State sits at `stripe/<workspace>/terraform.tfstate` in the state bucket.
 ## Doppelganger
 
 Doppelganger bills through this account: the products Doppelganger Plus and Doppelganger
-Pro, each with a monthly USD price the app finds by its lookup key, and, in live only, the
-webhook endpoint that sends doppelgangerhq.com subscription changes. A price's amount
+Pro, each with a monthly USD price the app finds by its lookup key; its customer portal
+configuration, in which customers switch between the two; and, in live only, the webhook
+endpoint that sends doppelgangerhq.com subscription changes. A price's amount
 cannot change, so a new price replaces it, made before the old one goes and taking its
 lookup key over as it is created (`transfer_lookup_key`, which no state keeps).
 
-`ansible-generated` renders the `live` workspace's `publishable_key` and
-`doppelganger_webhook_secret` outputs into doppelgangerhq.com's `web.env`, as
-`NEXT_PUBLIC_STRIPE_PUBLISHABLE` and `STRIPE_WEBHOOK_SECRET`, through the
+`ansible-generated` renders the `live` workspace's `publishable_key`,
+`doppelganger_webhook_secret` and `doppelganger_portal_configuration` outputs into
+doppelgangerhq.com's `web.env`, as `NEXT_PUBLIC_STRIPE_PUBLISHABLE`, `STRIPE_WEBHOOK_SECRET`
+and `STRIPE_PORTAL_CONFIGURATION`, through the
 `cloud.terraform.tf_output` lookup, which needs this root's `prepare.sh` sourced. Stripe returns the secret only when the endpoint is created,
 so a replaced endpoint reaches the app at the next `site.yml` run on that host. The app's
 own key, `STRIPE_SECRET`, is a restricted key made in the Dashboard and kept in that host's
