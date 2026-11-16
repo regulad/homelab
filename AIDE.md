@@ -33,6 +33,7 @@ Packages need nothing from a role. aide-report explains what a package installs,
 | `copy`, `template`, `file`, `lineinfile`, `blockinfile`, `replace`, `ini_file`, `get_url`, `xml` | Its `dest` or `path` |
 | `user`, `group`, `hostname`, `timezone`, `locale_gen` | The files that module's code writes, from `MODULE_FILES` in the callback: for `user`, the account files with their `-` backups and `/etc/.pwd.lock` |
 | `selinux` | Its `configfile`, `/etc/selinux/config` by default |
+| `unarchive` given `include` | Each member `include` names, under its `dest`, as `host_files_archives` extracts them |
 | `systemd_service`, `systemd`, `service` with `enabled` or `masked` | The unit; the refresh finds its links in `/etc/systemd/system` from its `[Install]` section |
 | Any task whose `vars` have `aide_writes` | Those paths, besides anything above |
 
@@ -40,7 +41,7 @@ Nothing else is recorded:
 - a result that didn't change;
 - a task run in check mode;
 - a task delegated to another host;
-- every other module: `command`, `shell`, `raw`, `unarchive`, `git`, `pip` and the package modules among them.
+- every other module: `command`, `shell`, `raw`, `unarchive` without `include`, `git`, `pip` and the package modules among them.
 
 A no_log task is recorded like any other. The callback reads only paths and unit names from it.
 

@@ -7,6 +7,7 @@ reported as one nobody explained.
 """
 
 import os
+import posixpath
 import time
 
 from ansible.plugins.callback import CallbackBase
@@ -29,9 +30,12 @@ description:
   - For each changed result of a module that writes files it is not given,
     such as user's /etc/passwd, appends the files its code writes, from
     MODULE_FILES; and for selinux, the configuration file it is given or its
-    default. Modules that write a tree, such as unarchive and git, and those
-    that leave the writing to another tool, such as sefcontext and
-    dnf_config_manager, are not among them.
+    default. Modules that write a tree, such as git and an unarchive not told
+    which members to extract, and those that leave the writing to another
+    tool, such as sefcontext and dnf_config_manager, are not among them.
+  - For each changed result of unarchive given include, appends each member
+    it names under its dest, as those are all it extracts. A member that is
+    absolute or climbs out of dest is left out.
   - For each changed result of a module that enables, disables or masks a
     systemd unit, appends the unit's name to a second file for the host, named
     for it with .units after. The module does not say which links it made or
@@ -82,6 +86,9 @@ MODULE_FILES = {
 # Modules that write a file named by another argument than dest or path, with
 # that argument and its default.
 PATH_ARGUMENTS = {"selinux": ("configfile", "/etc/selinux/config")}
+# Modules that extract an archive into dest, recorded by the members their
+# include names; without it, the tree they wrote is unknown.
+ARCHIVE_MODULES = {"unarchive"}
 # Modules that enable, disable or mask a systemd unit, through links in
 # /etc/systemd/system they do not name.
 UNIT_MODULES = {"systemd_service", "systemd", "service"}
@@ -129,6 +136,16 @@ class CallbackModule(CallbackBase):
             return
         if action in MODULE_FILES:
             self._write(host, MODULE_FILES[action])
+            return
+        if action in ARCHIVE_MODULES:
+            dest, members = arguments.get("dest"), arguments.get("include") or []
+            if not isinstance(dest, str) or not dest.startswith("/") or not isinstance(members, list):
+                return
+            paths = [posixpath.join(dest, member) for member in members
+                     if isinstance(member, str) and member and not member.startswith("/")
+                     and ".." not in member.split("/")]
+            if paths:
+                self._write(host, paths)
             return
         if action in PATH_ARGUMENTS:
             argument, default = PATH_ARGUMENTS[action]

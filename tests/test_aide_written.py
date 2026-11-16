@@ -214,6 +214,38 @@ class FileModules(CallbackTestCase):
         self.assertEqual((self.recorded("one"), self.recorded("two")), (["/etc/a", "/etc/c"], ["/etc/b"]))
 
 
+class Archives(CallbackTestCase):
+    """unarchive given include: the members it names, each under its dest."""
+
+    def test_the_archive_modules(self):
+        self.assertEqual(aw.ARCHIVE_MODULES, {"unarchive"})
+
+    def test_each_member_its_include_names_under_dest(self):
+        self.ok(Result("ansible.builtin.unarchive",
+                       dict(changed=True, **invoked(dest="/usr/local/bin", include=["webhookd", "share/doc/README"]))))
+        self.assertEqual(self.recorded(), ["/usr/local/bin/webhookd", "/usr/local/bin/share/doc/README"])
+
+    def test_under_no_log_by_its_tasks_arguments(self):
+        self.ok(Result("ansible.builtin.unarchive", CENSORED, args={"dest": "/usr/local/bin", "include": ["webhookd"]}))
+        self.assertEqual(self.recorded(), ["/usr/local/bin/webhookd"])
+
+    def test_not_a_member_outside_dest(self):
+        self.ok(Result("ansible.builtin.unarchive", dict(changed=True, **invoked(
+            dest="/usr/local/bin", include=["/etc/passwd", "../sbin/x", "a/../../x", "", 7, "kept"]))))
+        self.assertEqual(self.recorded(), ["/usr/local/bin/kept"])
+
+    def test_not_a_relative_or_missing_dest(self):
+        self.ok(Result("ansible.builtin.unarchive", dict(changed=True, **invoked(dest="relative", include=["x"]))),
+                Result("ansible.builtin.unarchive", dict(changed=True, **invoked(include=["x"]))))
+        self.assertEqual(self.recorded(), [])
+
+    def test_not_unchanged_or_delegated(self):
+        arguments = {"dest": "/usr/local/bin", "include": ["webhookd"]}
+        self.ok(Result("ansible.builtin.unarchive", dict(changed=False, **invoked(**arguments))),
+                Result("ansible.builtin.unarchive", dict(changed=True, **invoked(**arguments)), delegate_to="localhost"))
+        self.assertEqual(self.recorded(), [])
+
+
 class ModulesWithTheirOwnFiles(CallbackTestCase):
     """Modules that write files they are not given, each the files its code writes."""
 
