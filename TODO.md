@@ -88,7 +88,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `authentik` (201): authentik 2026.8 in podman-compose, served by Caddy on ingress; moved from the authentik VM (109)
 - [ ] `act` (123): low priority; currently dormant (HA state `disabled`), so not in the inventory
 - [x] `cordpepperer` (118): a mirror of `peppercord`
-  - [ ] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
+  - [x] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
   - [ ] MongoDB's and Redis's data on a volume of its own, off the 8 GB root disk
   - [ ] Redis replaced by Valkey, at its newest major
 - [x] `immich` (116)
@@ -107,7 +107,7 @@ service; inner services live under `regulad.internal`. FreeIPA moves first.
 - [x] `openwebui` (115)
 - [x] `orchard` (212): the Orchard controller, its pinned release binary under a native unit, for Tart VMs on overture's Orchard worker
 - [x] `peppercord` (126): a mirror of `cordpepperer`
-  - [ ] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
+  - [x] MongoDB 9.0, from 5.0, which no longer gets fixes: by `maintenance.yml`'s `mongo-upgrade`, a major release per run with a copy to roll back to, then `mongo-upgrade-cleanup`
   - [ ] MongoDB's and Redis's data on a volume of its own, off the 8 GB root disk
   - [ ] Redis replaced by Valkey, at its newest major
 - [x] `pihole` (112)
