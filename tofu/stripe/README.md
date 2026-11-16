@@ -6,6 +6,7 @@ can verify.
 
 | Location | Configuration |
 |---|---|
+| `account.tf` | The account's publishable keys, one per mode, and the `publishable_key` output of the selected one |
 | `product-<name>.tf` | One file per product: the product, then its prices |
 | `webhook-<name>.tf` | One file per webhook endpoint, live only where its target is production, with the output that carries its signing secret |
 | `providers.tf`, `versions.tf` | Provider auth, by workspace, and pinned versions |
@@ -22,8 +23,8 @@ One configuration serves both modes, each with its own state in an OpenTofu work
 `sandbox` and `live`. The `sandbox` workspace is precisely what Stripe calls the account's
 **Test mode**, whose keys start `rk_test_`, `sk_test_` and `pk_test_`. It is not one of the
 environments the Dashboard lists under Sandboxes. `live` is the account's live mode. The provider takes the selected workspace's key, so a key never
-meets the other mode's state; the `default` workspace has no key, so a plan there fails
-once the root declares anything for the provider to read. Every change goes to `sandbox` first and then to `live`, each from a plan saved at
+meets the other mode's state; the `default` workspace has neither a key nor a publishable
+key, so a plan there fails. Every change goes to `sandbox` first and then to `live`, each from a plan saved at
 the same commit and named for its workspace, `docs/snapshot/stripe.<workspace>@<commit>.tfplan`.
 
 The selected workspace lives in `.terraform/environment`, and nothing in a `plan` or
@@ -42,10 +43,10 @@ webhook endpoint that sends doppelgangerhq.com subscription changes. A price's a
 cannot change, so a new price replaces it, made before the old one goes and taking its
 lookup key over as it is created (`transfer_lookup_key`, which no state keeps).
 
-`ansible-generated` renders the endpoint's signing secret, the `doppelganger_webhook_secret`
-output of the `live` workspace, into doppelgangerhq.com's `web.env` as
-`STRIPE_WEBHOOK_SECRET`, through the `cloud.terraform.tf_output` lookup, which needs this
-root's `prepare.sh` sourced. Stripe returns the secret only when the endpoint is created,
+`ansible-generated` renders the `live` workspace's `publishable_key` and
+`doppelganger_webhook_secret` outputs into doppelgangerhq.com's `web.env`, as
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE` and `STRIPE_WEBHOOK_SECRET`, through the
+`cloud.terraform.tf_output` lookup, which needs this root's `prepare.sh` sourced. Stripe returns the secret only when the endpoint is created,
 so a replaced endpoint reaches the app at the next `site.yml` run on that host. The app's
 own key, `STRIPE_SECRET`, is a restricted key made in the Dashboard and kept in that host's
 SOPS file, as no API makes keys.
