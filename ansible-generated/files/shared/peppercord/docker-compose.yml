@@ -16,7 +16,7 @@ services:
     # version raised on the way, a major release at a time, so the homelab
     # moves it with maintenance.yml's mongo-upgrade. A major's tag would not
     # do: mongo:8 has moved past 8.0, to minor releases with their own.
-    image: "docker.io/library/mongo:5.0"
+    image: "docker.io/library/mongo:6.0"
     labels:
       io.containers.autoupdate: registry
     ports:
