@@ -9,6 +9,7 @@ Fixes follow as separate, reviewed changes.
 |---|---|
 | `team-regulad.tf` | The organization's one team, which holds every project |
 | `project-<slug>.tf` | One file per project: the project, its client key, and its alert with the default monitor the alert watches, where it has one |
+| `outputs.tf` | The `dsn` output: each project's DSN, from its Default key, by project slug |
 | `locals.tf` | The organization's slug |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
