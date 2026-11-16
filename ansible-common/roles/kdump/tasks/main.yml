@@ -8,3 +8,6 @@
 - name: Kdump on Enterprise Linux
   ansible.builtin.import_tasks: rhel.yml
   when: "'rhel' in group_names"
+
+- name: Crashes mailed at the next boot
+  ansible.builtin.import_tasks: mail.yml

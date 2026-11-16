@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Managed by Ansible (kdump). Mails root each kernel crash kdump saved that is
+# not yet mailed, through the host's mail relay, which delivers every
+# recipient to the homelab's mailbox:
+#
+#   kdump-mail
+#
+# kdump-mail.service runs it once at each boot. Each directory in the dump
+# directory is one crash: kdump-tools' KDUMP_COREDIR on Debian and Ubuntu
+# (/etc/default/kdump-tools), kdump's path on Enterprise Linux
+# (/etc/kdump.conf), /var/crash by default on both. Its mail lists the
+# directory's files, says whether the dump in it is incomplete, and ends with
+# the last lines of the kernel log kdump saved beside it, less its audit
+# records, which can crowd out the crash: kdump-tools' dmesg.<stamp>, or
+# kdump's vmcore-dmesg.txt. A file "mailed" in the directory marks the crash
+# once the relay has its mail, so a run that fails leaves the rest to the next
+# boot; the mark goes with the directory when kdump-tools purges an old dump.
+set -euo pipefail
+
+lines=300
+host=$(hostname --fqdn)
+
+if [[ -r /etc/default/kdump-tools ]]; then
+    # shellcheck source=/dev/null
+    coredir=$(. /etc/default/kdump-tools && printf '%s' "${KDUMP_COREDIR:-/var/crash}")
+elif [[ -r /etc/kdump.conf ]]; then
+    coredir=$(awk '$1 == "path" { path = $2 } END { print (path ? path : "/var/crash") }' /etc/kdump.conf)
+else
+    coredir=/var/crash
+fi
+
+shopt -s nullglob
+for crash in "$coredir"/*/; do
+    crash=${crash%/}
+    [[ -e $crash/mailed ]] && continue
+    logs=("$crash"/dmesg.* "$crash"/vmcore-dmesg.txt)
+    incomplete=("$crash"/*incomplete*)
+    {
+        printf 'kdump saved a kernel crash in %s:\n\n' "$crash"
+        ls -l "$crash"
+        if ((${#incomplete[@]})); then
+            printf '\nIts dump is incomplete.\n'
+        fi
+        if ((${#logs[@]})); then
+            printf '\nThe last %d lines of the kernel log saved with it, %s, less its audit records:\n\n' "$lines" "${logs[0]##*/}"
+            sed '/ audit: type=/d' "${logs[0]}" | tail -n "$lines"
+        else
+            printf '\nNo kernel log was saved with it.\n'
+        fi
+    } | mail -s "Kernel crash on $host: ${crash##*/}" root
+    touch "$crash/mailed"
+done

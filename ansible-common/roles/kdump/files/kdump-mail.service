@@ -1,0 +1,13 @@
+# Managed by Ansible (kdump). Mails the kernel crashes kdump saved that are not
+# yet mailed, once at each boot.
+[Unit]
+Description=Mail the kernel crashes kdump saved through the mail relay
+Documentation=man:kdump-tools(5) man:kdump.conf(5)
+After=postfix.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kdump-mail
+
+[Install]
+WantedBy=multi-user.target

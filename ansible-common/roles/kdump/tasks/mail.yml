@@ -1,0 +1,37 @@
+---
+# The crashes kdump saves, each mailed to root through the mail relay at the
+# first boot after it (kdump-mail). The crash kernel boots only kdump's own
+# unit, so the mailer runs in the boot after it. An apply only enables the
+# unit: crashes saved before it go out at the host's next boot.
+- name: Crash mailer
+  ansible.builtin.copy:
+    src: kdump-mail
+    dest: /usr/local/bin/kdump-mail
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Local unit directory
+  ansible.builtin.file:
+    path: /usr/local/lib/systemd/system
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Crash mailer's unit
+  ansible.builtin.copy:
+    src: kdump-mail.service
+    dest: /usr/local/lib/systemd/system/kdump-mail.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: kdump_mail_unit
+
+- name: Crash mailer at boot
+  ansible.builtin.systemd_service:
+    name: kdump-mail.service
+    enabled: true
+    daemon_reload: "{{ kdump_mail_unit is changed }}"
+  # A check run cannot read what an install still pending would create.
+  when: not (ansible_check_mode and kdump_mail_unit is changed)
