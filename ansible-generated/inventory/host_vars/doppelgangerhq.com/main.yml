@@ -66,6 +66,8 @@ doppelganger_web_env:
   NEXT_PUBLIC_STRIPE_PUBLISHABLE: "{{ doppelganger_stripe_outputs.publishable_key.value }}"
   STRIPE_SECRET: "{{ doppelganger_web_secrets.STRIPE_SECRET }}"
   STRIPE_WEBHOOK_SECRET: "{{ doppelganger_stripe_outputs.doppelganger_webhook_secret.value }}"
+  # The live customer portal configuration the app opens the portal with.
+  STRIPE_PORTAL_CONFIGURATION: "{{ doppelganger_stripe_outputs.doppelganger_portal_configuration.value }}"
   # The doppelganger project's DSN, from tofu/sentry's output.
   NEXT_PUBLIC_SENTRY_DSN: "{{ sentry_dsns.doppelganger }}"
 # tofu/stripe's outputs in its live workspace, each as {sensitive, type, value},
