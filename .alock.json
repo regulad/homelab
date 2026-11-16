@@ -19,6 +19,7 @@
         "path": ["bin"]
       }
     },
-    "tofu/sentry": {}
+    "tofu/sentry": {},
+    "tofu/stripe": {}
   }
 }
