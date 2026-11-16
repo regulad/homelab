@@ -32,6 +32,9 @@ base_admin_user: ""
 # No ubuntu_release: it stays on Ubuntu 24.04 until it is retired at 24.04's
 # end of standard support, and is never release-upgraded.
 
+# webhookd's own user (webhookd.service below).
+host_files_users: [webhookd]
+
 # binder_linux, the one kernel module the Redroid devices need, which Ubuntu's
 # generic kernels ship in linux-modules-extra. linux-image-generic depends on
 # its kernel's, so each generic kernel it brings has binder. A new kernel leaves
@@ -85,6 +88,10 @@ host_files_directories:
   - path: /etc/systemd/system/irqbalance.service.d
     mode: "0755"
   - path: /etc/doppelganger
+    mode: "0755"
+  - path: /etc/webhookd
+    mode: "0755"
+  - path: /etc/webhookd/scripts
     mode: "0755"
 
 host_files_list:
@@ -238,6 +245,49 @@ host_files_list:
       [Install]
       WantedBy=timers.target
     restarts: [doppelganger-update.timer]
+  # webhookd, from upstream's release archive, on loopback alone; Tailscale
+  # Serve publishes it on the tailnet with HTTPS (tailscale_serve below). Its
+  # one hook, auto-update, which doppelganger's pipeline calls after each web
+  # image it publishes, starts doppelganger-update at once, as its daily timer
+  # would, through a sudo rule for that command alone.
+  - path: /etc/systemd/system/webhookd.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=webhookd, doppelganger's pipeline's hooks
+      After=network.target
+
+      [Service]
+      User=webhookd
+      # Loopback alone, behind Tailscale Serve on the same port.
+      Environment=WHD_LISTEN_ADDR={{ doppelganger_webhookd_listen }}
+      Environment=WHD_HOOK_SCRIPTS=/etc/webhookd/scripts
+      # Each request blocks until its hook ends, which maps the hook's exit
+      # status to the response's (0 to 200, 1 to 99 to 500).
+      Environment=WHD_HOOK_DEFAULT_MODE=buffered
+      # Requests and each hook's output, in the journal.
+      Environment=WHD_LOG_MODULES=http,hook
+      ExecStart=/usr/local/bin/webhookd
+      # Hook logs, in webhookd's default, the temporary directory.
+      PrivateTmp=true
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+    restarts: [webhookd.service]
+  # webhookd passes a request's query parameters and headers to the hook as
+  # environment variables, so the hook names each command by its path.
+  - path: /etc/webhookd/scripts/auto-update.sh
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      # Starts doppelganger-update without waiting for it, whatever was sent.
+      exec /usr/bin/sudo -n /usr/bin/systemctl start --no-block doppelganger-update.service
+  - path: /etc/sudoers.d/webhookd
+    mode: "0440"
+    content: |
+      webhookd ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block doppelganger-update.service
+    validate: visudo -cf %s
   # binder_linux at boot, before Docker starts the devices. Ubuntu builds
   # binderfs with no default devices (CONFIG_ANDROID_BINDER_DEVICES=""), so
   # devices= names the ones each binderfs mount, one per Redroid container,
@@ -291,9 +341,45 @@ host_files_trees:
     check: env HOME=/run/caddy-validate /usr/bin/caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
     reloads: [caddy.service]
 
+# webhookd's binary, the arm64 build for the A1 shape.
+host_files_archives:
+  - url: https://github.com/ncarlier/webhookd/releases/download/v1.22.1/webhookd-linux-arm64.tgz
+    checksum: sha256:06c0632d0ca3c88740d0b9027e4d3d91c7093d9977dac328e111392354c0c780
+    dest: /usr/local/bin
+    files: [webhookd]
+    mode: "0755"
+    restarts: [webhookd.service]
+
 # Mounted now and at each boot, the prune and the stack's updates scheduled,
-# and Caddy and irqbalance running.
-host_files_units: [opt-doppelganger.mount, docker-image-prune.timer, doppelganger-update.timer, caddy.service, irqbalance.service]
+# and Caddy, irqbalance and webhookd running.
+host_files_units: [opt-doppelganger.mount, docker-image-prune.timer, doppelganger-update.timer, caddy.service, irqbalance.service, webhookd.service]
+
+# webhookd's port, on loopback and, through Serve, on the tailnet, which the
+# tailnet's policy opens to tag:ci-client-doppelganger alone.
+doppelganger_webhookd_port: 8108
+doppelganger_webhookd_listen: 127.0.0.1:{{ doppelganger_webhookd_port }}
+
+# On the tailnet as tag:ci-server-doppelganger, which doppelganger's pipeline
+# (tag:ci-client-doppelganger) may reach on webhookd's port alone. The
+# tailnet's policy, in regulad/tailscale-acls, gives the tag no grant of its
+# own, so the host reaches only what every node gets. tailscale0 is in
+# firewalld's trusted zone, the firewalld role's default.
+tailscale_enabled: true
+tailscale_join: true
+tailscale_tags: [ci-server-doppelganger]
+tailscale_settings:
+  # The host's own name, doppelgangerhq.com, is not one DNS label; on the
+  # tailnet its dot is a dash, as in OCI's hostname_label.
+  hostname: doppelgangerhq-com
+  # Off: the host is outside the homelab, and keeps Oracle's resolver, from
+  # DHCP, rather than the tailnet's pihole and pihole2.
+  accept_dns: false
+  # Off: nothing on the host needs the homelab's or the VCN's subnets.
+  accept_routes: false
+# webhookd, as HTTPS with the node's Tailscale certificate.
+tailscale_serve:
+  - port: "{{ doppelganger_webhookd_port }}"
+    target: http://{{ doppelganger_webhookd_listen }}
 
 # The website, which Caddy serves natively, outside Docker.
 firewalld_zones:
