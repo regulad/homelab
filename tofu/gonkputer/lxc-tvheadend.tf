@@ -15,6 +15,7 @@ resource "proxmox_virtual_environment_container" "tvheadend" {
   disk {
     datastore_id  = "rbd"
     mount_options = ["discard", "lazytime"]
+    replicate     = false # As set live; the provider's default is true
     size          = 8
   }
 

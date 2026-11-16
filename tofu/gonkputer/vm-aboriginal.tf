@@ -137,9 +137,10 @@ EOT
   #   mapping = proxmox_hardware_mapping_usb.back_ups.name
   # }
 
-  # TODO: declare usb4, which is live as `mapping=CPS` (the CyberPower UPS). The
-  # provider reads only usb0 to usb3, so a usb block for it would plan a change
-  # on every run. Pending https://github.com/bpg/terraform-provider-proxmox/issues/3009.
+  # The CyberPower UPS, live as usb4.
+  usb {
+    mapping = proxmox_hardware_mapping_usb.cps.name
+  }
 
   # FIXME: software-rendered virtio, as the host GPU that virtio-gl rendered on,
   # prodingus's Radeon Pro W5500, died on 2026-11-01. Revisit when it is replaced.

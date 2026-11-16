@@ -86,9 +86,10 @@ tofu -chdir=tofu/gonkputer plan -input=false -detailed-exitcode
 (the provider uploads snippets over SSH as root, through the operator's SSH agent), and the
 GUA /64s of the LAN and of OCI's pubsub subnet, which guest firewalls admit.
 
-The provider is a build pinned in `versions.tf` and served by the mirror in `tofu.rc`.
-`tofu providers lock` ignores the CLI configuration, so lock with
-`-net-mirror=https://opentofu.regulad.xyz/`.
+The provider is pinned in `versions.tf` to a release from the OpenTofu registry, which
+`tofu.rc` lists first. Its mirror, `https://opentofu.regulad.xyz/`, serves a build under
+the official address when the root pins one; `tofu providers lock` ignores the CLI
+configuration, so lock such a build with `-net-mirror=https://opentofu.regulad.xyz/`.
 
 State and saved plans use enforced AES-GCM encryption. Never change or lose the passphrase.
 State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, under the key
