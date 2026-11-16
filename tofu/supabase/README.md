@@ -9,6 +9,7 @@ organization itself, so the organization's own settings and members stay in the 
 | Location | Configuration |
 |---|---|
 | `project-<name>.tf` | One file per project: the project, then its settings |
+| `gcp.tf` | `tofu/gcp`'s outputs, read from its state: the OAuth client IDs of Google's projects |
 | `variables.tf` | The project's database password input |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
@@ -19,7 +20,10 @@ The provider is Supabase's own, `supabase/supabase`. It manages hosted Supabase 
 
 A project's settings declare only what was chosen for it, as `tofu/cloudflare` does for its
 zones: for `doppelganger`, Auth's site URL and redirect allow-list, which are
-doppelgangerhq.com, and sign-in with Google. Everything else is Supabase's default and
+doppelgangerhq.com, and sign-in with Google, whose client ID comes from `tofu/gcp`'s
+`oauth_client_ids` output, read from its state with its passphrase, which `prepare.sh` adds
+to the inputs from `tofu/gcp/secrets.sops.yaml`. After an apply to `tofu/gcp` changes a
+client ID, apply this root for the project to follow. Everything else is Supabase's default and
 undeclared, so a change to it shows in no plan. Its API, database, network, pooler and
 storage groups and its SSL enforcement are wholly undeclared; the provider neither reads
 nor sends a group it is not given, and reads back only the keys a group declares. Auth

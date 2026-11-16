@@ -27,7 +27,7 @@ _homelab_sops() {
 _homelab_supabase_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext provider backend name value
+    local root dir destination plaintext gcp provider backend name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/supabase"
     destination="$dir/secrets.auto.tfvars.json"
@@ -63,6 +63,18 @@ _homelab_supabase_prepare() {
         echo 'prepare.sh: unexpected supabase input file: expected state_encryption_passphrase and database_password inputs.' >&2
         return 1
     fi
+    # tofu/gcp's state passphrase, which gcp.tf needs to read its outputs, joins
+    # the inputs from tofu/gcp's own encrypted file, its only copy. Both pass
+    # through pipes, never a command line.
+    gcp=$(_homelab_sops decrypt --extract '["state_encryption_passphrase"]' "$root/tofu/gcp/secrets.sops.yaml") || return 1
+    if [ -z "$gcp" ]; then
+        echo 'prepare.sh: tofu/gcp/secrets.sops.yaml has no state_encryption_passphrase.' >&2
+        return 1
+    fi
+    plaintext=$({
+        printf '%s\n' "$plaintext"
+        printf '%s' "$gcp" | jq -R -s '{gcp_state_encryption_passphrase: .}'
+    } | jq -s add) || return 1
     if [ -e "$destination" ]; then
         # Compare data, not formatting. Preserve any differing local edits.
         if [ "$(jq -S -c . "$destination")" != "$(printf '%s\n' "$plaintext" | jq -S -c .)" ]; then

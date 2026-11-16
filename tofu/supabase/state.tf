@@ -12,6 +12,14 @@ variable "state_encryption_passphrase" {
   }
 }
 
+# tofu/gcp's own state passphrase, which prepare.sh reads from
+# tofu/gcp/secrets.sops.yaml, to decrypt the outputs gcp.tf reads.
+variable "gcp_state_encryption_passphrase" {
+  type      = string
+  sensitive = true
+  nullable  = false
+}
+
 terraform {
   # Credentials and the endpoint, which names the tenancy, come from the
   # environment that sourcing prepare.sh exports from tofu/shared/backend.sops.env.
@@ -46,6 +54,22 @@ terraform {
     plan {
       method   = method.aes_gcm.supabase
       enforced = true
+    }
+
+    # tofu/gcp's state, for gcp.tf. The key provider keeps tofu/gcp's name,
+    # which its state's encryption metadata records.
+    key_provider "pbkdf2" "gcp" {
+      passphrase = var.gcp_state_encryption_passphrase
+    }
+
+    method "aes_gcm" "gcp" {
+      keys = key_provider.pbkdf2.gcp
+    }
+
+    remote_state_data_sources {
+      remote_state_data_source "gcp" {
+        method = method.aes_gcm.gcp
+      }
     }
   }
 }

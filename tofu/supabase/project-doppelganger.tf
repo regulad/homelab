@@ -19,10 +19,10 @@ resource "supabase_settings" "doppelganger" {
   auth = jsonencode({
     site_url       = "https://doppelgangerhq.com"
     uri_allow_list = "https://doppelgangerhq.com"
-    # Sign-in with Google; its client secret is the API's to keep, as the
-    # provider never reads it back.
+    # Sign-in with Google, through tofu/gcp's "Doppelganger Production" client;
+    # its client secret is the API's to keep, as the provider never reads it back.
     external_google_enabled   = true
-    external_google_client_id = "6822405828-jcheqartcigc09111gq22tb6oqnvsrpa.apps.googleusercontent.com"
+    external_google_client_id = data.terraform_remote_state.gcp.outputs.oauth_client_ids["pure-toolbox-429813-a4"]["doppelganger-production"]
   })
 
   # The following exists as an artifact of import from the imperative setup.
