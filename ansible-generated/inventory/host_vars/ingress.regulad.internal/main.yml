@@ -2,6 +2,15 @@
 # Caddy, built with its plugins by xcaddy each week by caddy-build.timer, and
 # cydia-sync, which mirrors and signs the iOS repository Caddy serves on
 # ios.regulad.xyz.
+
+# kodi-plugins' publisher, which logs in over the tailnet as tag:ci-kodi and
+# replaces kodi.regulad.xyz's tree in /srv/kodi. Its key's private half is
+# kodi-plugins' SSH_KEY_BLOB.
+host_files_login_users:
+  - name: kodi-publish
+    authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKVs7foUj+G6mbapsF7RY4CH/SdNK2R9alSoJD6wT2k regulad@winlite
+
 host_files_directories:
   - path: /etc/caddy
     mode: "0755"
@@ -15,6 +24,12 @@ host_files_directories:
     mode: "0400"
   - path: /srv/cydia
     mode: "0755"
+  # kodi.regulad.xyz's web root, which kodi-publish fills.
+  - path: /srv/kodi
+    owner: kodi-publish
+    group: kodi-publish
+    mode: "0755"
+    recurse: true
 host_files_list:
   # xcaddy's apt repository.
   - path: /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
