@@ -10,6 +10,42 @@
     create_home: false
   loop: "{{ host_files_users }}"
 
+# The users that log in over SSH to do one job: a shell, a home holding only
+# their SSH keys, and no password.
+- name: Host login users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    system: true
+    shell: "{{ item.shell | default('/bin/sh') }}"
+    home: "{{ item.home | default('/var/lib/' ~ item.name) }}"
+    create_home: false
+    password: "*"
+  loop: "{{ host_files_login_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Host login users' homes and SSH directories
+  ansible.builtin.file:
+    path: "{{ item.0.home | default('/var/lib/' ~ item.0.name) }}{{ item.1 }}"
+    state: directory
+    owner: "{{ item.0.name }}"
+    group: "{{ item.0.name }}"
+    mode: "0700"
+  loop: "{{ host_files_login_users | product(['', '/.ssh']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}{{ item.1 }}"
+
+- name: Host login users' SSH keys
+  ansible.builtin.copy:
+    dest: "{{ item.home | default('/var/lib/' ~ item.name) }}/.ssh/authorized_keys"
+    content: "{{ item.authorized_keys | join('\n') }}\n"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0600"
+  loop: "{{ host_files_login_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Host directories
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -17,6 +53,7 @@
     owner: "{{ item.owner | default('root') }}"
     group: "{{ item.group | default('root') }}"
     mode: "{{ item.mode }}"
+    recurse: "{{ item.recurse | default(omit) }}"
   loop: "{{ host_files_directories }}"
   loop_control:
     label: "{{ item.path }}"
