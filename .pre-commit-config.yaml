@@ -87,6 +87,13 @@ repos:
         files: ^tofu/(azure|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-onesignal
+        name: tofu validate (onesignal)
+        language: unsupported
+        entry: tofu -chdir=tofu/onesignal validate -no-color
+        files: ^tofu/(onesignal|shared)/
+        pass_filenames: false
+
       - id: tofu-validate-sentry
         name: tofu validate (sentry)
         language: unsupported

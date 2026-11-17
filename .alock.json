@@ -12,6 +12,7 @@
         "path": ["bin"]
       }
     },
+    "tofu/onesignal": {},
     "tofu/oracle": {
       "hosts": {
         "dir": "ansible-generated",
