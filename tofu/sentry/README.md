@@ -17,7 +17,7 @@ Fixes follow as separate, reviewed changes.
 | `state.tf` | Enforced state encryption and its passphrase input |
 
 A `-` inside a project's slug is written as `--` in its file name
-(`project-matrix--synapse.tf`); resource labels write it as `_`.
+(`project-pheidippides--notify.tf`); resource labels write it as `_`.
 
 The provider is `jianyuan/sentry`, a community provider that Sentry sponsors; Sentry
 publishes none of its own. OpenTofu's registry holds no signing key for it, so `tofu init`
@@ -41,10 +41,9 @@ every key named `Default`, and every key here has that name.
 
 ## Code mappings
 
-Every project but matrix-synapse, an installation of upstream Synapse, has a code
-mapping, which links the project's stack frames to its source in a GitHub repository of
-the integration `regulad`. Sentry generated doppelganger's, peppercord's and
-picture-triangulator's. picture-triangulator's repository is archived on GitHub, and
+Every project has a code mapping, which links the project's stack frames to its source in
+a GitHub repository of the integration `regulad`. Sentry generated doppelganger's,
+peppercord's and picture-triangulator's. picture-triangulator's repository is archived on GitHub, and
 Sentry lists it as disabled.
 
 The three pheidippides projects are Android apps in the doppelganger repository, under
@@ -61,7 +60,6 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 | Project | To |
 |---|---|
-| `matrix-synapse` | Synapse's `homeserver.yaml` on matrix |
 | `peppercord` | `PEPPERCORD_SENTRY_DSN` in each PepperCord mirror's `.env` |
 | `doppelganger` | `NEXT_PUBLIC_SENTRY_DSN` in doppelgangerhq.com's `web.env` |
 
@@ -104,8 +102,9 @@ The team, the eight projects, their keys and the four alerts were imported into 
 state, and the import blocks were removed after the adoption apply. Its one live change put
 doppelganger and the three pheidippides projects, which had no team, in `regulad`, as the
 provider requires a team on every project. The four code mappings and their repositories
-were later imported the same way, changing nothing. A plan is now a no-op. Every adopted
-resource carries `prevent_destroy = true`.
+were later imported the same way, changing nothing. matrix-synapse, which took upstream
+Synapse's errors, was then deleted, as the organization keeps only its own projects. A
+plan is now a no-op. Every adopted resource carries `prevent_destroy = true`.
 
 ## Not managed here
 
