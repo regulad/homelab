@@ -33,8 +33,8 @@ base_admin_user: ""
 # end of standard support, and is never release-upgraded.
 
 # The web app's settings: web.env, one KEY=value line for each, in this order.
-# Its secrets are doppelganger_web_secrets, in SOPS; the Stripe and Sentry
-# values come from their OpenTofu roots' outputs.
+# Its secrets are doppelganger_web_secrets, in SOPS; the Stripe, Sentry and
+# OneSignal API key values come from their OpenTofu roots' outputs.
 doppelganger_web_env:
   # Supabase: the project's URL and its anon key, which ship to the browser.
   NEXT_PUBLIC_SUPABASE_URL: https://eopqnjmpgtpcdhfcvvxq.supabase.co
@@ -52,10 +52,11 @@ doppelganger_web_env:
   NEXT_TELEMETRY_DISABLED: "1"
   TURBO_TELEMETRY_DISABLED: "1"
   DO_NOT_TRACK: "1"
-  # OneSignal: the Doppelganger app.
+  # OneSignal: the Doppelganger app, and its API key doppelgangerhq.com, usable
+  # only from this host's IPv4 and IPv6 addresses, from tofu/onesignal's output.
   ONESIGNAL_APP_ID: 5ac065a9-c76c-4c31-8159-85a260832ee6
   ONESIGNAL_USER_AUTH_KEY: "{{ doppelganger_web_secrets.ONESIGNAL_USER_AUTH_KEY }}"
-  ONESIGNAL_API_KEY: "{{ doppelganger_web_secrets.ONESIGNAL_API_KEY }}"
+  ONESIGNAL_API_KEY: "{{ doppelganger_onesignal_api_key }}"
   # Stripe: the account regulad.xyz's live publishable key and the live webhook
   # endpoint's signing secret, from tofu/stripe's live workspace, and the app's
   # restricted key, made in the Dashboard: Customers and Checkout Sessions to
@@ -75,6 +76,12 @@ doppelganger_web_env:
 doppelganger_stripe_outputs: >-
   {{ lookup('cloud.terraform.tf_output',
             project_path=inventory_dir ~ '/../../tofu/stripe', workspace='live',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
+# The app's OneSignal API key, tofu/onesignal's doppelganger_api_key output,
+# read on the operator's machine, which needs tofu/onesignal/prepare.sh sourced.
+doppelganger_onesignal_api_key: >-
+  {{ lookup('cloud.terraform.tf_output', 'doppelganger_api_key',
+            project_path=inventory_dir ~ '/../../tofu/onesignal',
             binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
 
 # The cron container's settings: cron.env, rendered as web.env is. It calls
