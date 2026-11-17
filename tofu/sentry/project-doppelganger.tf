@@ -4,7 +4,7 @@ resource "sentry_project" "doppelganger" {
   slug         = "doppelganger"
   organization = local.organization
   teams        = [sentry_team.regulad.slug]
-  platform     = "other"
+  platform     = "javascript-nextjs"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
