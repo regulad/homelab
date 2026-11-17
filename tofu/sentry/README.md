@@ -56,7 +56,9 @@ build rewrites neither its source map nor its native debug files. It has a mappi
 checkout: GitHub's runner for store builds, and the vega distrobox for development builds.
 Each checkout's `third_party/UxPlay/`, a submodule whose source GitHub keeps only in
 `regulad/UxPlay`, has a mapping of its own to that repository's `rosella` branch, which
-Sentry tries first as its stack root is longer.
+Sentry tries first as its stack root is longer. Its other submodules are upstream
+repositories, beyond the GitHub integration, which reaches only regulad's own, so their
+frames stay unlinked.
 
 ## DSNs
 

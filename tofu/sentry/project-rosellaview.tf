@@ -107,6 +107,12 @@ resource "sentry_organization_code_mapping" "rosellaview_development" {
 
 # The frames of the UxPlay submodule, which a longer stack root sends to its own
 # repository ahead of the mappings above.
+#
+# WONTFIX: RosellaView's other submodules, ffmpeg, libplist, openssl,
+# node-api-headers and sentry-native, get no mapping. They are upstream
+# repositories, and Sentry links only to repositories its GitHub integration
+# reaches, which is installed on regulad's account alone. Their frames stay
+# unlinked.
 resource "sentry_organization_code_mapping" "rosellaview_uxplay" {
   for_each = local.rosellaview_checkouts
 
