@@ -11,11 +11,6 @@ import {
 }
 
 import {
-  to = tailscale_federated_identity.tailscale_acls
-  id = "TaExUxAvv681CNTRL-kdAAkL5hWY11CNTRL"
-}
-
-import {
   to = tailscale_acl.policy
   id = "acl"
 }

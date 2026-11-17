@@ -12,13 +12,13 @@ retired.
 | `dns.tf` | The whole DNS configuration |
 | `identity-<repository>.tf` | One federated identity per repository whose Actions use the tailnet |
 | `oracle.tf` | `tofu/oracle`'s `tailnet` output: the VCN's services subnet and its resolvers |
-| `outputs.tf` | `oauth_client_ids` and `audiences`, by repository, and `tailnet_id` |
+| `outputs.tf` | `oauth_client_ids` and `audiences`, by repository |
 | `locals.tf` | The tailnet's ID, GitHub's token issuer, and the resolvers' addresses |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
-A `-` inside a repository's name is written as `--` in its file name
-(`identity-tailscale--acls.tf`); resource labels write it as `_`.
+A `-` inside a repository's name is written as `--` in its file name; resource labels
+write it as `_`.
 
 ## Policy and DNS
 
@@ -38,13 +38,15 @@ canonical HuJSON, so indentation never shows as a change, but comments do.
 Each identity trusts GitHub's Actions token issuer, for runs of one repository's default
 branch, by the token's `sub`, which names the repository and its owner by ID as well as by
 name. Each run exchanges its token for a Tailscale access token with the identity's scopes:
-`auth_keys` and its CI tag for doppelganger and PepperCord, which join the tailnet; the
-policy file, DNS and device reads for tailscale-acls. An identity's tags must exist in the
-policy's `tagOwners`, which `tailscale-acls` holds, before the identity can grant them.
+`auth_keys` and its CI tag, for doppelganger and PepperCord, which join the tailnet. An
+identity's tags must exist in the policy's `tagOwners` before the identity can grant them,
+so a new identity's tag goes into `policy.hujson.tftpl` first, or in the same change.
 
-`tofu/github` reads `oauth_client_ids`, `audiences` and `tailnet_id`, and sets them as each
-repository's `TS_OAUTH_ID`, `TS_AUDIENCE` and `TS_TAILNET`. OAuth client IDs are no
-secret.
+tailscale-acls' identity, which applied the policy and DNS from that repository, was
+deleted with the repository's retirement rather than adopted.
+
+`tofu/github` reads `oauth_client_ids` and `audiences`, and sets them as each repository's
+`TS_OAUTH_ID` and `TS_AUDIENCE`. OAuth client IDs are no secret.
 
 ## Credentials
 
