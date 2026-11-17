@@ -33,17 +33,3 @@ output "doppelganger_api_key" {
   value     = onesignal_app_api_key.doppelganger.value
   sensitive = true
 }
-
-# The key made in the dashboard on 2025-10-30, before this root, allow-listed to
-# 150.136.230.241, which no instance here holds. Adopted only to be destroyed,
-# which revokes it.
-resource "onesignal_app_api_key" "doppelganger_dashboard" {
-  app_id       = onesignal_app.doppelganger.id
-  name         = "Doppelganger"
-  ip_allowlist = ["150.136.230.241/32"]
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
