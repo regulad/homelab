@@ -79,5 +79,6 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 
 ## Adoption
 
-Both apps are adopted by the import blocks in `imports.tf`, which go after the adoption
-apply. Every mutation or state change needs Parker's explicit approval.
+Both apps were imported into the remote state, and the import blocks removed after the
+adoption apply, which also created `doppelgangerhq.com`'s key. A plan is now a no-op.
+Every mutation or state change needs Parker's explicit approval.
