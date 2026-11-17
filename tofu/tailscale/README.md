@@ -31,14 +31,17 @@ policy's IP sets, hosts and tests, which open every nameserver to every node. Th
 VCN's come from `tofu/oracle`, derived from its encrypted IPv6 prefix, and arawi's and
 cr1000b's from `ansible-generated`'s `group_vars/all.yml`. The policy holds no public IPv6
 address literally: each is a template expression. The provider compares policies by their
-canonical HuJSON, so indentation never shows as a change, but comments do.
+canonical HuJSON, so indentation never shows as a change, but comments do. The template is
+written in Tailscale's own canonical format, tabs and all, so that a change's plan shows the
+lines it changes and no others.
 
 ## Identities
 
 Each identity trusts GitHub's Actions token issuer, for runs of one repository's default
 branch, by the token's `sub`, which names the repository and its owner by ID as well as by
 name. Each run exchanges its token for a Tailscale access token with the identity's scopes:
-`auth_keys` and its CI tag, for doppelganger and PepperCord, which join the tailnet. An
+`auth_keys` and its CI tag, for doppelganger, PepperCord and kodi-plugins, which join the
+tailnet. An
 identity's tags must exist in the policy's `tagOwners` before the identity can grant them,
 so a new identity's tag goes into `policy.hujson.tftpl` first, or in the same change.
 
@@ -74,7 +77,7 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 
 | What | Why, or who owns it |
 |---|---|
-| kodi-plugins' `ci-kodi` auth key | Hand-made; it is to give way to a federated identity of kodi-plugins' own, with a tag of its own in the policy |
+| kodi-plugins' `ci-kodi` auth key | Hand-made; it gives way to kodi-plugins' federated identity once its workflow uses that, and is then revoked |
 | The `homelab` API access token | This root's own credential |
 | Devices and their settings | Not configured from here |
 
