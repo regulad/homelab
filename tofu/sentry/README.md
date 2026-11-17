@@ -41,10 +41,16 @@ every key named `Default`, and every key here has that name.
 
 ## Code mappings
 
-doppelganger, peppercord, picture-triangulator and rosellaview each have a code mapping,
-which links the project's stack frames to its source in a GitHub repository of the
-integration `regulad`. Sentry generated all but rosellaview's. picture-triangulator's
-repository is archived on GitHub, and Sentry lists it as disabled.
+Every project but matrix-synapse, an installation of upstream Synapse, has a code
+mapping, which links the project's stack frames to its source in a GitHub repository of
+the integration `regulad`. Sentry generated doppelganger's, peppercord's and
+picture-triangulator's. picture-triangulator's repository is archived on GitHub, and
+Sentry lists it as disabled.
+
+The three pheidippides projects are Android apps in the doppelganger repository, under
+`pheidippides/`. Their frames carry a Java module rather than a path, which Sentry turns
+into one by writing each `.` as `/`, so each mapping maps its app's package to the
+package's directory under `app/src/main/java`.
 
 ## DSNs
 

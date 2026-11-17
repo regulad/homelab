@@ -1,4 +1,4 @@
-# pheidippides-locate: the project, named pheidippides-locate, and its client key.
+# pheidippides-locate: the project, named pheidippides-locate, its client key, and its code mapping.
 resource "sentry_project" "pheidippides_locate" {
   name         = "pheidippides-locate"
   slug         = "pheidippides-locate"
@@ -21,4 +21,17 @@ resource "sentry_key" "pheidippides_locate" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The code mapping that links the app's stack frames to its source in the
+# doppelganger repository. A frame's module, with each . as /, is its path
+# under src/main/java.
+resource "sentry_organization_code_mapping" "pheidippides_locate" {
+  organization   = sentry_project.pheidippides_locate.organization
+  integration_id = data.sentry_organization_integration.github.id
+  repository_id  = sentry_organization_repository.doppelganger.id
+  project_id     = sentry_project.pheidippides_locate.internal_id
+  default_branch = "master"
+  stack_root     = "xyz/regulad/pheidippides/locate/"
+  source_root    = "pheidippides/PheidippidesLocate/app/src/main/java/xyz/regulad/pheidippides/locate/"
 }
