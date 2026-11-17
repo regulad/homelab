@@ -32,10 +32,9 @@ platform, and each key's JavaScript loader. A change to one of those shows in no
 The one exception is doppelganger's web-crawler inbound filter, which is declared on
 the app's behalf, so that turning it off shows in a plan.
 
-Every project has an alert. All but doppelganger's are Sentry's default for a new project
-and email the issue's owners, falling back to the project's active members.
-doppelganger's, named `doppelganger-front`, fires at most once a day and emails a team that
-no longer exists, as its FIXME says. Each alert watches its project's default issue-stream
+Every project has an alert, and every alert emails the issue's owners, falling back to the
+project's active members. All but doppelganger's are Sentry's default for a new project;
+doppelganger's, named `doppelganger-front`, fires at most once a day. Each alert watches its project's default issue-stream
 monitor, read through the `sentry_project_issue_stream_monitor` data source. The
 high-priority triggers have no native form in the provider, which passes them through as
 `legacy_trigger_conditions`.

@@ -47,11 +47,8 @@ resource "sentry_alert" "doppelganger" {
       actions = [
         {
           email = {
-            target_type = "team"
-            # FIXME: this team no longer exists; regulad is the organization's
-            # only team, so the alert emails no one. Revisit once Parker picks
-            # its recipients.
-            target_id = "4507672050991104"
+            target_type      = "issue_owners"
+            fallthrough_type = "ActiveMembers"
           }
         },
       ]
