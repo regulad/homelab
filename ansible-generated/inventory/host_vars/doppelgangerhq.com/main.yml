@@ -55,7 +55,6 @@ doppelganger_web_env:
   # OneSignal: the Doppelganger app, and its API key doppelgangerhq.com, usable
   # only from this host's IPv4 and IPv6 addresses, from tofu/onesignal's output.
   ONESIGNAL_APP_ID: 5ac065a9-c76c-4c31-8159-85a260832ee6
-  ONESIGNAL_USER_AUTH_KEY: "{{ doppelganger_web_secrets.ONESIGNAL_USER_AUTH_KEY }}"
   ONESIGNAL_API_KEY: "{{ doppelganger_onesignal_api_key }}"
   # Stripe: the account regulad.xyz's live publishable key and the live webhook
   # endpoint's signing secret, from tofu/stripe's live workspace, and the app's
