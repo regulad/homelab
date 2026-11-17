@@ -22,6 +22,11 @@ terraform {
       # https://github.com/jianyuan/terraform-provider-sentry/issues/164, was
       # closed as not planned in a backlog cleanup on 2026-09-01. Revisit if it is
       # reopened or a release adds such a resource.
+      # FIXME: the provider's sentry_organization holds only an organization's
+      # name and slug, so the organization's settings, which require two-factor
+      # authentication, enable enhanced privacy and hide AI features, are
+      # unmanaged. No upstream request for them exists yet. Revisit when a release
+      # can manage them.
       version = "= 0.16.0"
     }
   }

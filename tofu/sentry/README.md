@@ -129,7 +129,7 @@ plan is now a no-op. Every adopted resource carries `prevent_destroy = true`.
 | "Send a notification when pull requests are ready" | Sentry's default Seer alert; the provider cannot express its `seer_activity_trigger` |
 | Dashboards | All 20 are Sentry's prebuilt dashboards |
 | The uptime monitor Sentry detected for `https://doppelgangerhq.com`, disabled | The provider requires an environment, which the monitor lacks, so adopting it would change it, and its update turns a detected monitor into a manual one |
-| The organization's settings, such as requiring two-factor authentication | The provider's `sentry_organization` holds only an organization's name and slug |
+| The organization's settings, such as requiring two-factor authentication | The provider's `sentry_organization` holds only an organization's name and slug, as the FIXME in `versions.tf` says |
 | Data scrubbing, the organization's and each project's, IP addresses among it | The pinned provider has no resource for it; upstream support awaits a release, as the FIXME in `versions.tf` says |
 | The GitHub integration, and its repositories no code mapping links to | Installed through GitHub; the integration is only read here |
 | Members | Beyond an internal integration's permissions |
