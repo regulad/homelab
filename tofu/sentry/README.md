@@ -54,6 +54,9 @@ package's directory under `app/src/main/java`.
 rosellaview's frames carry the absolute path of the checkout that built the app, as its
 build rewrites neither its source map nor its native debug files. It has a mapping per
 checkout: GitHub's runner for store builds, and the vega distrobox for development builds.
+Each checkout's `third_party/UxPlay/`, a submodule whose source GitHub keeps only in
+`regulad/UxPlay`, has a mapping of its own to that repository's `rosella` branch, which
+Sentry tries first as its stack root is longer.
 
 ## DSNs
 

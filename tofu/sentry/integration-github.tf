@@ -54,3 +54,15 @@ resource "sentry_organization_repository" "rosellaview" {
     prevent_destroy = true
   }
 }
+
+resource "sentry_organization_repository" "uxplay" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/UxPlay"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}

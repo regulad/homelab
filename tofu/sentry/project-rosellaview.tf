@@ -7,6 +7,13 @@ locals {
     # Development builds, in place in the vega distrobox.
     development = "/home/regulad.linux/repositories/RosellaView/"
   }
+
+  # The UxPlay submodule, whose source GitHub keeps in its own repository, and
+  # the branch RosellaView's .gitmodules tracks there.
+  rosellaview_uxplay = {
+    path   = "third_party/UxPlay/"
+    branch = "rosella"
+  }
 }
 
 resource "sentry_project" "rosellaview" {
@@ -96,4 +103,17 @@ resource "sentry_organization_code_mapping" "rosellaview_development" {
   project_id     = sentry_project.rosellaview.internal_id
   default_branch = "master"
   stack_root     = local.rosellaview_checkouts.development
+}
+
+# The frames of the UxPlay submodule, which a longer stack root sends to its own
+# repository ahead of the mappings above.
+resource "sentry_organization_code_mapping" "rosellaview_uxplay" {
+  for_each = local.rosellaview_checkouts
+
+  organization   = sentry_project.rosellaview.organization
+  integration_id = data.sentry_organization_integration.github.id
+  repository_id  = sentry_organization_repository.uxplay.id
+  project_id     = sentry_project.rosellaview.internal_id
+  default_branch = local.rosellaview_uxplay.branch
+  stack_root     = "${each.value}${local.rosellaview_uxplay.path}"
 }
