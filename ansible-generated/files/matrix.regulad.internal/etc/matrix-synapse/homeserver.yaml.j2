@@ -68,9 +68,6 @@ app_service_config_files:
   - "/opt/mautrix-messenger/registration.yaml"
   - "/opt/mautrix-whatsapp/registration.yaml"
 enable_metrics: true
-sentry:
-    environment: "production"
-    dsn: {{ sentry_dsns['matrix-synapse'] | to_json }}
 report_stats: false
 max_upload_size: "8M"
 email:
