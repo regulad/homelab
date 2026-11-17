@@ -1,14 +1,16 @@
 # sentry (Sentry)
 
 The `.tf` files are the source of truth for the Sentry organization `regulad`: its team,
-its projects with their client keys (DSNs), and the projects' alerts. Its adoption is the
+its projects with their client keys (DSNs), the projects' alerts, and their code mappings
+with the GitHub repositories those link to. Its adoption is the
 first, descriptive pass: it mirrors the live organization, so adopting it changes nothing.
 Fixes follow as separate, reviewed changes.
 
 | Location | Configuration |
 |---|---|
 | `team-regulad.tf` | The organization's one team, which holds every project |
-| `project-<slug>.tf` | One file per project: the project, its client key, and its alert with the default monitor the alert watches, where it has one |
+| `project-<slug>.tf` | One file per project: the project, its client key, its alert with the default monitor the alert watches, and its code mapping, each where it has one |
+| `integration-github.tf` | The GitHub integration `regulad`, read through a data source, and the repositories of it that the code mappings link to |
 | `outputs.tf` | The `dsn` output: each project's DSN, from its Default key, by project slug |
 | `locals.tf` | The organization's slug |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
@@ -36,6 +38,13 @@ high-priority triggers have no native form in the provider, which passes them th
 
 Never set a project's `default_key` to `false`. On creation, the provider then deletes
 every key named `Default`, and every key here has that name.
+
+## Code mappings
+
+doppelganger, peppercord, picture-triangulator and rosellaview each have a code mapping,
+which links the project's stack frames to its source in a GitHub repository of the
+integration `regulad`. Sentry generated all but rosellaview's. picture-triangulator's
+repository is archived on GitHub, and Sentry lists it as disabled.
 
 ## DSNs
 
@@ -99,6 +108,8 @@ carries `prevent_destroy = true`.
 | The `homelab-tofu` integration and its token | This root's own credential, kept in `provider.sops.env` |
 | "Send a notification when pull requests are ready" | Sentry's default Seer alert; the provider cannot express its `seer_activity_trigger` |
 | Dashboards | All 20 are Sentry's prebuilt dashboards |
+| Data scrubbing, the organization's and each project's, IP addresses among it | The pinned provider has no resource for it; upstream support awaits a release, as the FIXME in `versions.tf` says |
+| The GitHub integration, and its repositories no code mapping links to | Installed through GitHub; the integration is only read here |
 | Members | Beyond an internal integration's permissions |
 
 Discovery output stays local in `docs/snapshot/sentry/`. Every mutation or state change

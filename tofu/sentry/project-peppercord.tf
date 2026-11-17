@@ -1,4 +1,4 @@
-# peppercord: the project, named peppercord, its client key, and its alert.
+# peppercord: the project, named peppercord, its client key, its alert, and its code mapping.
 resource "sentry_project" "peppercord" {
   name         = "peppercord"
   slug         = "peppercord"
@@ -53,6 +53,21 @@ resource "sentry_alert" "peppercord" {
       ]
     },
   ]
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# The code mapping that links the project's stack frames to its repository.
+resource "sentry_organization_code_mapping" "peppercord" {
+  organization   = sentry_project.peppercord.organization
+  integration_id = data.sentry_organization_integration.github.id
+  repository_id  = sentry_organization_repository.peppercord.id
+  project_id     = sentry_project.peppercord.internal_id
+  default_branch = "main"
+  stack_root     = "/app/"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

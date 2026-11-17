@@ -1,4 +1,4 @@
-# picture-triangulator: the project, named picture-triangulator, its client key, and its alert.
+# picture-triangulator: the project, named picture-triangulator, its client key, its alert, and its code mapping.
 resource "sentry_project" "picture_triangulator" {
   name         = "picture-triangulator"
   slug         = "picture-triangulator"
@@ -53,6 +53,21 @@ resource "sentry_alert" "picture_triangulator" {
       ]
     },
   ]
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# The code mapping that links the project's stack frames to its repository.
+resource "sentry_organization_code_mapping" "picture_triangulator" {
+  organization   = sentry_project.picture_triangulator.organization
+  integration_id = data.sentry_organization_integration.github.id
+  repository_id  = sentry_organization_repository.picture_triangulator.id
+  project_id     = sentry_project.picture_triangulator.internal_id
+  default_branch = "main"
+  stack_root     = "./"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

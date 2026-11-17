@@ -1,4 +1,4 @@
-# rosellaview: the project, named RosellaView, its client key, and its alert.
+# rosellaview: the project, named RosellaView, its client key, its alert, and its code mapping.
 resource "sentry_project" "rosellaview" {
   name         = "RosellaView"
   slug         = "rosellaview"
@@ -53,6 +53,20 @@ resource "sentry_alert" "rosellaview" {
       ]
     },
   ]
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# The code mapping that links the project's stack frames to its repository.
+resource "sentry_organization_code_mapping" "rosellaview" {
+  organization   = sentry_project.rosellaview.organization
+  integration_id = data.sentry_organization_integration.github.id
+  repository_id  = sentry_organization_repository.rosellaview.id
+  project_id     = sentry_project.rosellaview.internal_id
+  default_branch = "master"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
