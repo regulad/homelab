@@ -51,6 +51,10 @@ The three pheidippides projects are Android apps in the doppelganger repository,
 into one by writing each `.` as `/`, so each mapping maps its app's package to the
 package's directory under `app/src/main/java`.
 
+rosellaview's frames carry the absolute path of the checkout that built the app, as its
+build rewrites neither its source map nor its native debug files. It has a mapping per
+checkout: GitHub's runner for store builds, and the vega distrobox for development builds.
+
 ## DSNs
 
 The `dsn` output gives each project's DSN, from its Default key, by project slug.

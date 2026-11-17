@@ -1,4 +1,14 @@
-# rosellaview: the project, named RosellaView, its client key, its alert, and its code mapping.
+# rosellaview: the project, named RosellaView, its client key, its alert, and its code mappings.
+locals {
+  # Where each build of the app checks the repository out.
+  rosellaview_checkouts = {
+    # Store builds, by .github/workflows/release.yml on GitHub's runner.
+    release = "/home/runner/work/RosellaView/RosellaView/"
+    # Development builds, in place in the vega distrobox.
+    development = "/home/regulad.linux/repositories/RosellaView/"
+  }
+}
+
 resource "sentry_project" "rosellaview" {
   name         = "RosellaView"
   slug         = "rosellaview"
@@ -60,16 +70,30 @@ resource "sentry_alert" "rosellaview" {
   }
 }
 
-# The code mapping that links the project's stack frames to its repository.
+# The code mappings that link the app's stack frames to its repository. Its
+# frames carry the absolute paths of the checkout that built it, as neither
+# Metro's source map nor the native debug files are rewritten: a symbolicated
+# JavaScript frame's filename is its source map's source, and a native frame's
+# absolute path its DWARF path.
 resource "sentry_organization_code_mapping" "rosellaview" {
   organization   = sentry_project.rosellaview.organization
   integration_id = data.sentry_organization_integration.github.id
   repository_id  = sentry_organization_repository.rosellaview.id
   project_id     = sentry_project.rosellaview.internal_id
   default_branch = "master"
+  stack_root     = local.rosellaview_checkouts.release
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
   }
+}
+
+resource "sentry_organization_code_mapping" "rosellaview_development" {
+  organization   = sentry_project.rosellaview.organization
+  integration_id = data.sentry_organization_integration.github.id
+  repository_id  = sentry_organization_repository.rosellaview.id
+  project_id     = sentry_project.rosellaview.internal_id
+  default_branch = "master"
+  stack_root     = local.rosellaview_checkouts.development
 }
