@@ -115,6 +115,13 @@ repos:
         files: ^tofu/(supabase|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-tailscale
+        name: tofu validate (tailscale)
+        language: unsupported
+        entry: tofu -chdir=tofu/tailscale validate -no-color
+        files: ^tofu/(tailscale|shared)/
+        pass_filenames: false
+
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
       # resolves the config file per module directory. Recursing from tofu/ keeps the
       # ignored docs/snapshot/ drafts out of the lint.

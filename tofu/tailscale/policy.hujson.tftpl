@@ -1,0 +1,1046 @@
+// regulad's tailnet policy. Applied to the tailnet by
+// .github/workflows/tailscale.yml on every push to master.
+//
+// Access model: whitelist. Nothing is reachable unless a grant below allows
+// it. Grants are allow-only and unioned (there is no deny and no ordering),
+// so restricting access means narrowing or removing the grant that gives it.
+{
+    "tagOwners": {
+        // Generic always-on machines that may host services or reach other
+        // services over the tailnet.
+        "tag:server":     ["autogroup:admin"],
+        // Separate testing tag, left as-is. Its auto-approver (see
+        // "autoApprovers") covers every subnet route.
+        "tag:autorouter": ["autogroup:admin"],
+        // Peer relays: nodes allowed to advertise themselves as a relay that
+        // helps other peers establish connections.
+        "tag:relay":      ["autogroup:admin"],
+        // Exit nodes, auto-approved under "autoApprovers".
+        "tag:autoexit":   ["autogroup:admin"],
+        // GitHub Actions runners that publish kodi-plugins; may reach only
+        // the publish target (and the DNS resolvers).
+        "tag:ci-kodi":    ["autogroup:admin"],
+        // GitHub Actions runners of PepperCord's pipeline, which tell
+        // PepperCord's hosts that a new image is out; may reach only their
+        // webhookd (and what every node gets).
+        "tag:ci-client-peppercord": ["autogroup:admin"],
+        // PepperCord's hosts, peppercord and cordpepperer, which
+        // tag:ci-client-peppercord may reach. No grant of their own.
+        "tag:ci-server-peppercord": ["autogroup:admin"],
+        // GitHub Actions runners of doppelganger's pipeline, which tell
+        // doppelgangerhq.com that a new web image is out; may reach only its
+        // webhookd (and what every node gets).
+        "tag:ci-client-doppelganger": ["autogroup:admin"],
+        // doppelganger's host, doppelgangerhq.com, which
+        // tag:ci-client-doppelganger may reach. No grant of its own.
+        "tag:ci-server-doppelganger": ["autogroup:admin"],
+        // IoT devices: restricted, single-purpose devices. They may reach only
+        // the services they exist for, plus what every node gets (DNS, exit
+        // nodes, the web entry point).
+        "tag:iot":        ["autogroup:admin"],
+        // Tagged nodes that may publish services to the internet with Funnel
+        // (see "nodeAttrs"; admins' devices may without it). It grants no
+        // network access: give a node it alongside the tag that does (e.g.
+        // tag:server).
+        "tag:funnel":     ["autogroup:admin"],
+        // Tagged nodes that may use Mullvad exit nodes (see "nodeAttrs";
+        // members' devices may without it). Tagged nodes aren't members, so
+        // they get Mullvad only through this tag. It grants no network
+        // access: the internet grant every node gets is all Mullvad needs, so
+        // give a node it alongside the tag for anything else (e.g.
+        // tag:server).
+        "tag:mullvad":    ["autogroup:admin"],
+        // Edge routers, one tag per router so each site's routes are bound to
+        // exactly one node. The homelab and VCN routers run with SNAT off, so
+        // devices behind them keep their own addresses on the tailnet.
+        // Homelab edge router; serves ipset:regulad--internal.
+        "tag:edge-regulad--internal":                  ["autogroup:admin"],
+        // Oracle VCN edge router; serves
+        // ipset:pubsub--wahlecloud--oraclevcn--com.
+        "tag:edge-pubsub--wahlecloud--oraclevcn--com": ["autogroup:admin"],
+        // NC State edge router: a node on NC State's VPN that serves the
+        // VPN's routes, ipset:ncstate--net. Unlike the site routers, it DOES
+        // SNAT (NC State routes only the VPN's own address back), so no NC
+        // State address ever appears on the tailnet. There is no return
+        // route: ipset:ncstate--net is never a grant source, and the router
+        // itself has no grant of its own. Through it, NC State is only for
+        // parkeredwardwahle2017@gmail.com's devices, tagged nodes that reach
+        // everything, and the devices behind the site routers; every other
+        // node gets DNS to vrd1/vrd2 through it, and NC State's public ranges
+        // only over the open internet.
+        "tag:edge-ncstate--net":                       ["autogroup:admin"],
+    },
+    // Each site's subnets, and each machine with several addresses, named
+    // after their domain ("--" stands for ".").
+    "ipsets": {
+        // Homelab subnets.
+        "ipset:regulad--internal": [
+            "fd83:b84c:aa57:1::/64",
+            "10.23.0.0/20",
+        ],
+        // Oracle VCN subnets.
+        "ipset:pubsub--wahlecloud--oraclevcn--com": [
+            "${oracle.services.ipv6}",
+            "${oracle.services.ipv4}",
+        ],
+        // NC State's subnets: the split-include routes its VPN pushes, in the
+        // VPN's order. IPv4 only, like all of NC State. The two /32s fall
+        // inside 152.1.0.0/16, but the VPN lists them separately. 10.0.0.0/8
+        // takes in both sites' IPv4 subnets; their routes are longer, so they
+        // stay on their own routers.
+        "ipset:ncstate--net": [
+            "10.0.0.0/8",
+            "152.7.0.0/16",
+            "152.1.0.0/16",
+            "152.14.0.0/16",
+            "172.16.0.0/16",
+            "172.20.0.0/16",
+            "172.23.0.0/16",
+            "172.24.0.0/14",
+            "172.28.0.0/16",
+            "${resolvers.vrd1.ipv4}/32",
+            "152.1.14.69/32",
+        ],
+        // The public ranges behind edge routers, each site's IP set minus its
+        // private ranges (which an exit node would forward into its own LAN).
+        // Every node reaches them through exit nodes, never through their
+        // edge router (see the grant that names them).
+        // The VCN's public IPv6 /64.
+        "ipset:pubsub--wahlecloud--oraclevcn--com-public": [
+            "add ipset:pubsub--wahlecloud--oraclevcn--com",
+            "remove 10.0.0.0/8",
+        ],
+        // NC State's public 152.x ranges.
+        "ipset:ncstate--net-public": [
+            "add ipset:ncstate--net",
+            "remove 10.0.0.0/8",
+            "remove 172.16.0.0/12",
+        ],
+        // The internet, as reached through exit nodes, minus the sites behind
+        // edge routers with public ranges: the VCN and NC State. A grant to
+        // autogroup:internet alone has no "via", so it would also open every
+        // port on those ranges to every node allowed to use exit nodes,
+        // through their edge routers. Their public ranges get their own grant
+        // instead. The homelab's public IPv6 prefix is DHCPv6-assigned and
+        // changes, so it is never listed.
+        "ipset:internet": [
+            "add autogroup:internet",
+            "remove ipset:pubsub--wahlecloud--oraclevcn--com",
+            "remove ipset:ncstate--net",
+        ],
+        // Every node in the tailnet: Tailscale's address ranges, all of
+        // them. New nodes get IPv4 addresses from the IP pool only (see
+        // "nodeAttrs"), but older nodes keep theirs and an admin can give a
+        // node any address in these ranges.
+        "ipset:ts--net": [
+            "fd7a:115c:a1e0::/48",
+            "100.64.0.0/10",
+        ],
+        // Global DNS resolver (homelab). Every device sends its queries here
+        // and to pihole2, since "Override DNS servers" is on (see dns.json5).
+        "ipset:pihole--regulad--internal": [
+            "${resolvers.pihole.ipv6}",
+            "${resolvers.pihole.ipv4}",
+        ],
+        // Global DNS resolver (Oracle VCN), beside pihole: the same blocky,
+        // with the VCN edge router's resolver as its upstream, so DNS keeps
+        // answering while the homelab is down. Reached through the VCN edge
+        // router.
+        "ipset:pihole2--pubsub--wahlecloud--oraclevcn--com": [
+            "${resolvers.pihole2.ipv6}",
+            "${resolvers.pihole2.ipv4}",
+        ],
+        // Split-DNS resolver for regulad.internal (homelab).
+        "ipset:arawi--regulad--internal": [
+            "${resolvers.arawi.ipv6}",
+            "${resolvers.arawi.ipv4}",
+        ],
+        // Oracle VCN edge router (tag:edge-pubsub--wahlecloud--oraclevcn--com);
+        // also the split-DNS resolver for pubsub.wahlecloud.oraclevcn.com.
+        "ipset:tailscalerouter--pubsub--wahlecloud--oraclevcn--com": [
+            "${resolvers.tailscalerouter.ipv6}",
+            "${resolvers.tailscalerouter.ipv4}",
+        ],
+        // Ingress host (homelab, fixed addresses): the web entry point for
+        // every node, and the kodi-plugins publish target.
+        "ipset:ingress--regulad--internal": [
+            "fd83:b84c:aa57:1:be24:11ff:fe4a:25fa",
+            "10.23.2.31",
+        ],
+        // Jellyfin and Home Assistant host, by its homelab address. The same
+        // machine as ipset:aboriginal--tail11540--ts--net, kept separate.
+        "ipset:aboriginal--regulad--internal": [
+            "fd83:b84c:aa57:1:be24:11ff:fe5d:be75",
+            "10.23.2.145",
+        ],
+        // Jellyfin and Home Assistant host, by its Tailscale address. The
+        // same machine as ipset:aboriginal--regulad--internal, kept separate.
+        "ipset:aboriginal--tail11540--ts--net": [
+            "fd7a:115c:a1e0::9701:a814",
+            "100.70.168.20",
+        ],
+        // TVHeadend host (homelab).
+        "ipset:tvheadend--regulad--internal": [
+            "fd83:b84c:aa57:1:be24:11ff:fe83:464b",
+            "10.23.2.72",
+        ],
+        // aameter (tag:server), by its Tailscale addresses. Shared out to
+        // mark@engagent.dev, who may reach HTTPS on it. Grants for sharees
+        // name it by address, not by tag: a grant from shared users to a tag
+        // is reported not to match, while one to the node's addresses does
+        // (open bug, https://github.com/tailscale/tailscale/issues/14445).
+        "ipset:aameter--tail11540--ts--net": [
+            "fd7a:115c:a1e0::e738:392f",
+            "100.112.57.46",
+        ],
+    },
+    // Single-address machines, named after their domain ("--" stands for
+    // ".").
+    "hosts": {
+        // LEGACY host: IPv4 only. Split-DNS resolver for
+        // regulad-verizon-livingston.internal (homelab).
+        "cr1000b--regulad-verizon-livingston--internal": "${resolvers.cr1000b.ipv4}",
+        // LEGACY hosts: IPv4 only, like all of NC State. NC State's
+        // split-DNS resolvers for ncsu.edu and ncstate.net, reached through
+        // the NC State edge router.
+        "vrd1--ddi--ncsu--edu": "${resolvers.vrd1.ipv4}",
+        "vrd2--ddi--ncsu--edu": "${resolvers.vrd2.ipv4}",
+
+        // Test-only addresses, used as sources in "tests" (which can't
+        // reference IP sets); no machine has them. Each sets as many bits as
+        // its subnet allows without being the broadcast address: IPv4 stops
+        // one short of it, and IPv6 has no broadcast (and the all-ones
+        // interface ID isn't reserved, RFC 5453). The plain name is IPv6;
+        // -v4 is the IPv4 counterpart. NC State is IPv4 only, so its plain
+        // name is IPv4 and it has no -v4.
+        // Homelab.
+        "bogus--regulad--internal":                     "fd83:b84c:aa57:1:ffff:ffff:ffff:ffff",
+        "bogus--regulad--internal-v4":                  "10.23.15.254",
+        // Oracle VCN.
+        "bogus--pubsub--wahlecloud--oraclevcn--com":    "${cidrhost(oracle.services.ipv6, -1)}",
+        "bogus--pubsub--wahlecloud--oraclevcn--com-v4": "${cidrhost(oracle.services.ipv4, -2)}",
+        // Tailnet (Tailscale's fd7a:115c:a1e0::/48 and 100.64.0.0/10): a node
+        // with no grant of its own.
+        "bogus--tail11540--ts--net":                    "fd7a:115c:a1e0:ffff:ffff:ffff:ffff:ffff",
+        "bogus--tail11540--ts--net-v4":                 "100.127.255.254",
+        // NC State (IPv4 only), in 172.28.0.0/16, a private range only
+        // reachable through its router. As a destination, it checks who may
+        // use that router: NC State's public ranges are open to every node
+        // through exit nodes, and tests can't tell routers apart ("via"). As
+        // a source, it checks there is no return route (its router SNATs).
+        "bogus--ncstate--net":                          "172.28.255.254",
+    },
+    "nodeAttrs": [
+        {
+            // Every member's devices, and tag:mullvad nodes, may use Mullvad
+            // exit nodes. Each device takes a slot of the Mullvad add-on
+            // (five per license), handed out as devices connect; devices
+            // beyond that get no Mullvad. Using them also takes an internet
+            // grant (ipset:internet).
+            "target": [
+                "autogroup:member",
+                "tag:mullvad",
+            ],
+            "attr":   ["mullvad"],
+        },
+        {
+            // MagicDNS also answers AAAA (IPv6) queries for tailnet names.
+            "target": ["*"],
+            "attr":   ["magicdns-aaaa"],
+        },
+        {
+            // tag:funnel nodes and admins' devices may publish services to the
+            // internet with Funnel. No other node may, servers included.
+            "target": [
+                "tag:funnel",
+                "autogroup:admin",
+            ],
+            "attr":   ["funnel"],
+        },
+        {
+            // IP pool (beta): new nodes get their IPv4 address from
+            // 100.87.0.0/16, which is 100.64.0.0/10 followed by the bits
+            // 010111. Existing nodes keep their addresses. IPv4 only, with
+            // no IPv6 counterpart: Tailscale doesn't support IPv6 pools yet,
+            // so every node's IPv6 address still comes from anywhere in
+            // fd7a:115c:a1e0::/48.
+            "target": ["*"],
+            "ipPool": ["100.87.0.0/16"],
+        },
+    ],
+    // Use a random WireGuard listen port instead of the fixed 41641.
+    "randomizeClientPort": true,
+    "grants": [
+        {
+            // parkeredwardwahle2017@gmail.com's devices reach everything,
+            // NC State through its edge router included. Of user devices,
+            // only these may use that router beyond DNS (grants don't decide
+            // which routes a device installs, only what the router lets
+            // through). Named by user, not autogroup:admin, so a new admin
+            // doesn't get it.
+            "src": ["parkeredwardwahle2017@gmail.com"],
+            "dst": ["*"],
+            "ip":  ["*"],
+        },
+        {
+            // Every admin's devices reach everything in the tailnet except NC
+            // State through its router, which of all users' devices only
+            // parkeredwardwahle2017@gmail.com's reach (above): every node
+            // here, and both sites and the internet through the member and
+            // every-node grants below.
+            "src": ["autogroup:admin"],
+            "dst": ["ipset:ts--net"],
+            "ip":  ["*"],
+        },
+        {
+            // Every member's devices reach every server.
+            "src": ["autogroup:member"],
+            "dst": ["tag:server"],
+            "ip":  ["*"],
+        },
+        {
+            // Exit nodes reach everything.
+            "src": ["tag:autoexit"],
+            "dst": ["*"],
+            "ip":  ["*"],
+        },
+        {
+            // Generic servers reach everything
+            "src": ["tag:server"],
+            "dst": ["*"],
+            "ip":  ["*"],
+        },
+        {
+            // Edge routers, and the devices behind them (SNAT is off, so they
+            // arrive with their own addresses), reach everything, including
+            // the other site. NC State's router and ipset:ncstate--net are
+            // deliberately left out: that router SNATs, and there is no
+            // return route from NC State.
+            "src": [
+                "tag:edge-regulad--internal",
+                "tag:edge-pubsub--wahlecloud--oraclevcn--com",
+                "ipset:regulad--internal",
+                "ipset:pubsub--wahlecloud--oraclevcn--com",
+            ],
+            "dst": ["*"],
+            "ip":  ["*"],
+        },
+        {
+            // Every member reaches the homelab's subnets through its edge
+            // router, and only that one: NC State's 10.0.0.0/8 covers
+            // 10.23.0.0/20 too, so without "via" this would also open NC
+            // State's own 10.23.0.0/20 through the NC State router.
+            "src": ["autogroup:member"],
+            "dst": ["ipset:regulad--internal"],
+            "via": ["tag:edge-regulad--internal"],
+            "ip":  ["*"],
+        },
+        {
+            // Every member reaches the VCN's subnets through its edge router,
+            // and only that one (NC State's 10.0.0.0/8 covers ${oracle.services.ipv4}
+            // too).
+            "src": ["autogroup:member"],
+            "dst": ["ipset:pubsub--wahlecloud--oraclevcn--com"],
+            "via": ["tag:edge-pubsub--wahlecloud--oraclevcn--com"],
+            "ip":  ["*"],
+        },
+        {
+            // Members may use the tailnet's own exit nodes (tag:autoexit).
+            // Redundant while the grant below lets every node use any exit
+            // node; kept so narrowing that grant doesn't cut members off. On
+            // its own it likely excludes Mullvad's exit nodes, which aren't
+            // tag:autoexit.
+            "src": ["autogroup:member"],
+            "dst": ["ipset:internet"],
+            "via": ["tag:autoexit"],
+            "ip":  ["*"],
+        },
+        {
+            // Every node may use any exit node (Mullvad's too, for devices
+            // with the mullvad attribute), for the internet minus the VCN and
+            // NC State.
+            "src": ["*"],
+            "dst": ["ipset:internet"],
+            "ip":  ["*"],
+        },
+        {
+            // Every node may reach the public ranges behind edge routers (the
+            // VCN's /64, NC State's 152.x) over the open internet, through the
+            // tailnet's exit nodes, never through their edge routers. "via"
+            // takes tags only, so Mullvad's exit nodes can't be named
+            // (tailscale/tailscale#15474). A device that installs an edge
+            // router's routes sends those ranges to it instead, where this
+            // doesn't apply; every node sees the NC State router, for DNS.
+            "src": ["*"],
+            "dst": [
+                "ipset:pubsub--wahlecloud--oraclevcn--com-public",
+                "ipset:ncstate--net-public",
+            ],
+            "via": ["tag:autoexit"],
+            "ip":  ["*"],
+        },
+        {
+            // Every node may reach the web entry point.
+            "src": ["*"],
+            "dst": ["ipset:ingress--regulad--internal"],
+            "ip":  [
+                "tcp:80",  // HTTP
+                "tcp:443", // HTTPS
+            ],
+        },
+        {
+            // Every node may query every resolver in dns.json5, so DNS keeps
+            // working for nodes with no other grant to them: pihole and
+            // pihole2 for everything, arawi for regulad.internal, the VCN
+            // edge router for pubsub.wahlecloud.oraclevcn.com, NC State's
+            // vrd1 and vrd2 (through the NC State edge router) for ncsu.edu
+            // and ncstate.net, and the legacy cr1000b for
+            // regulad-verizon-livingston.internal.
+            "src": ["*"],
+            "dst": [
+                "ipset:pihole--regulad--internal",
+                "ipset:pihole2--pubsub--wahlecloud--oraclevcn--com",
+                "ipset:arawi--regulad--internal",
+                "ipset:tailscalerouter--pubsub--wahlecloud--oraclevcn--com",
+                "vrd1--ddi--ncsu--edu",
+                "vrd2--ddi--ncsu--edu",
+                "cr1000b--regulad-verizon-livingston--internal",
+            ],
+            "ip":  [
+                "udp:53", // DNS
+                "tcp:53", // DNS
+            ],
+        },
+        {
+            // kodi-plugins publisher: SSH to the publish target, nothing
+            // else (DNS comes from the resolvers grant above).
+            "src": ["tag:ci-kodi"],
+            "dst": ["ipset:ingress--regulad--internal"],
+            "ip":  [
+                "tcp:22", // SSH (scp)
+            ],
+        },
+        {
+            // PepperCord's pipeline: webhookd on PepperCord's hosts, which it
+            // calls after each image it publishes, and nothing else. The
+            // hosts get no grant back to it.
+            "src": ["tag:ci-client-peppercord"],
+            "dst": ["tag:ci-server-peppercord"],
+            "ip":  [
+                "tcp:8108", // webhookd
+            ],
+        },
+        {
+            // doppelganger's pipeline: webhookd on doppelgangerhq.com, which
+            // it calls after each web image it publishes, and nothing else.
+            // The host gets no grant back to it.
+            "src": ["tag:ci-client-doppelganger"],
+            "dst": ["tag:ci-server-doppelganger"],
+            "ip":  [
+                "tcp:8108", // webhookd
+            ],
+        },
+        {
+            // IoT devices: Jellyfin and Home Assistant, by either of the
+            // host's names.
+            "src": ["tag:iot"],
+            "dst": [
+                "ipset:aboriginal--regulad--internal",
+                "ipset:aboriginal--tail11540--ts--net",
+            ],
+            // No udp:7359 (Jellyfin client discovery): it is broadcast-based,
+            // and the tailnet carries no broadcast or multicast traffic.
+            "ip":  [
+                "tcp:8096", // Jellyfin HTTP
+                "tcp:8920", // Jellyfin HTTPS
+                "tcp:8123", // Home Assistant HTTP
+            ],
+        },
+        {
+            // IoT devices: TVHeadend.
+            "src": ["tag:iot"],
+            "dst": ["ipset:tvheadend--regulad--internal"],
+            "ip":  [
+                "tcp:9981", // TVHeadend HTTP
+                "tcp:9982", // TVHeadend HTSP
+            ],
+        },
+        {
+            // mark@engagent.dev, who aameter is shared with: HTTPS on aameter
+            // and nothing else. A sharee is also a "*" source, but the
+            // every-node grants point at subnets and exit nodes, which
+            // sharing doesn't carry, so this is all they can reach.
+            "src": ["mark@engagent.dev"],
+            "dst": ["ipset:aameter--tail11540--ts--net"],
+            "ip":  [
+                "tcp:443", // HTTPS
+            ],
+        },
+        {
+            // Every node may use the peer relays to help establish
+            // connections. This grants relay use only, not network access to
+            // the relay nodes.
+            "src": ["*"],
+            "dst": ["tag:relay"],
+            "app": {"tailscale.com/cap/relay": []},
+        },
+    ],
+    "autoApprovers": {
+        // Exit-node advertisements from tag:autoexit are approved
+        // automatically.
+        "exitNode": ["tag:autoexit"],
+
+        "routes": {
+            // Each site's subnets are auto-approved for its own edge router.
+            // Route keys must be literal CIDRs (IP sets aren't accepted
+            // here), so keep these in sync with the site's IP set.
+            "fd83:b84c:aa57:1::/64":    ["tag:edge-regulad--internal"],
+            "10.23.0.0/20":             ["tag:edge-regulad--internal"],
+            "${oracle.services.ipv6}": ["tag:edge-pubsub--wahlecloud--oraclevcn--com"],
+            "${oracle.services.ipv4}":           ["tag:edge-pubsub--wahlecloud--oraclevcn--com"],
+            "10.0.0.0/8":               ["tag:edge-ncstate--net"],
+            "152.7.0.0/16":             ["tag:edge-ncstate--net"],
+            "152.1.0.0/16":             ["tag:edge-ncstate--net"],
+            "152.14.0.0/16":            ["tag:edge-ncstate--net"],
+            "172.16.0.0/16":            ["tag:edge-ncstate--net"],
+            "172.20.0.0/16":            ["tag:edge-ncstate--net"],
+            "172.23.0.0/16":            ["tag:edge-ncstate--net"],
+            "172.24.0.0/14":            ["tag:edge-ncstate--net"],
+            "172.28.0.0/16":            ["tag:edge-ncstate--net"],
+            "${resolvers.vrd1.ipv4}/32":           ["tag:edge-ncstate--net"],
+            "152.1.14.69/32":           ["tag:edge-ncstate--net"],
+
+            // Any subnet route advertised by tag:autorouter is approved
+            // automatically (every prefix falls inside these two), the site
+            // subnets above included.
+            "::/0":      ["tag:autorouter"],
+            "0.0.0.0/0": ["tag:autorouter"],
+        },
+    },
+    // Regression tests: Tailscale runs them on every apply and rejects the
+    // policy if one fails. Each principal asserts what it must reach and,
+    // where it is restricted, what it must not. Tests can't reference IP
+    // sets, so destinations are literal addresses (IPv6 first, bracketed);
+    // when a machine's address changes, update it here too. Deny lists probe
+    // SSH (22), NetBIOS (139), SMB (445), AFP (548) and lockdownd (62078).
+    // Without "proto", a test checks TCP and UDP.
+    //
+    // A tag source only matches the every-node ("*") grants over IPv4 in
+    // tests (the test runner matches "*" by address and seems to give a tag
+    // only an IPv4 one), though real tagged devices match over both. So tag
+    // tests check those grants over IPv4, and the bogus tailnet host checks
+    // them over IPv6 and IPv4.
+    "tests": [
+        {
+            // A tailnet node with no grant of its own gets only what every
+            // node gets: DNS, the web entry point, and the internet. The VCN's
+            // and NC State's public ranges it reaches through exit nodes only,
+            // which tests can't tell from their routers ("via"), so the IPv4
+            // test checks the sites' private ranges instead. NC State is IPv4
+            // only, so the IPv4 test also covers its resolvers.
+            "src": "bogus--tail11540--ts--net",
+            "accept": [
+                "[2606:4700:4700::1111]:443",                  // internet (Cloudflare)
+                "[${resolvers.pihole.ipv6}]:53",   // pihole
+                "[${resolvers.pihole2.ipv6}]:53",                // pihole2
+                "[${resolvers.arawi.ipv6}]:53",   // arawi
+                "[${resolvers.tailscalerouter.ipv6}]:53",   // VCN edge router
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:443",  // ingress, HTTPS
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:80",   // ingress, HTTP
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:445",  // ingress, SMB
+                "[${resolvers.pihole.ipv6}]:80",   // pihole, web UI
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:8096", // aboriginal, Jellyfin
+                "[fd7a:115c:a1e0::9701:a814]:62078",           // aboriginal (tailnet), lockdownd
+                "[fd83:b84c:aa57:1:be24:11ff:fe83:464b]:9981", // tvheadend
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+            ],
+        },
+        {
+            "src": "bogus--tail11540--ts--net-v4",
+            "accept": [
+                "1.1.1.1:443",                                 // internet (Cloudflare)
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "10.23.0.254:53",                              // arawi
+                "10.131.80.239:53",                            // VCN edge router
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "cr1000b--regulad-verizon-livingston--internal:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "10.23.2.31:22",                               // ingress, SSH
+                "10.23.2.41:139",                              // pihole, NetBIOS
+                "10.23.2.145:8096",                            // aboriginal, Jellyfin
+                "100.70.168.20:548",                           // aboriginal (tailnet), AFP
+                "10.23.2.72:9982",                             // tvheadend
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal-v4:445",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:548",
+                "bogus--ncstate--net:445",
+            ],
+        },
+        {
+            // DNS to NC State's resolvers, over UDP and TCP explicitly, from a
+            // node with no grant of its own. Their other ports are open to it
+            // over the open internet (exit nodes) but not through the NC State
+            // router, which tests can't tell apart, so they aren't probed.
+            "src": "bogus--tail11540--ts--net-v4",
+            "proto": "udp",
+            "accept": [
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+            ],
+        },
+        {
+            "src": "bogus--tail11540--ts--net-v4",
+            "proto": "tcp",
+            "accept": [
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+            ],
+        },
+        {
+            // parkeredwardwahle2017@gmail.com's devices reach everything,
+            // NC State through its router included.
+            "src": "parkeredwardwahle2017@gmail.com",
+            "accept": [
+                "tag:server:22",
+                "tag:iot:62078",
+                "tag:edge-regulad--internal:22",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:445",
+                "bogus--pubsub--wahlecloud--oraclevcn--com:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:548",
+                "bogus--ncstate--net:445",
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "vrd1--ddi--ncsu--edu:22",
+            ],
+        },
+        {
+            // Servers reach everything, NC State through its router included.
+            "src": "tag:server",
+            "accept": [
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "bogus--ncstate--net:22",
+                "tag:iot:62078",
+                "tag:edge-pubsub--wahlecloud--oraclevcn--com:22",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:445",
+                "bogus--pubsub--wahlecloud--oraclevcn--com:22",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+            ],
+        },
+        {
+            // Exit nodes reach everything.
+            "src": "tag:autoexit",
+            "accept": [
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "tag:server:22",
+                "bogus--regulad--internal:139",
+                "bogus--regulad--internal-v4:139",
+                "bogus--pubsub--wahlecloud--oraclevcn--com:22",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+            ],
+        },
+        {
+            // Homelab edge router reaches the tailnet and the other site.
+            "src": "tag:edge-regulad--internal",
+            "accept": [
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "tag:server:22",
+                "bogus--pubsub--wahlecloud--oraclevcn--com:22",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+            ],
+        },
+        {
+            // VCN edge router reaches the tailnet and the other site.
+            "src": "tag:edge-pubsub--wahlecloud--oraclevcn--com",
+            "accept": [
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "tag:server:22",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:445",
+            ],
+        },
+        {
+            // Homelab devices (SNAT off) reach the tailnet and the VCN.
+            "src": "bogus--regulad--internal",
+            "accept": [
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--pubsub--wahlecloud--oraclevcn--com:22",
+            ],
+        },
+        {
+            // Over IPv4 they also reach NC State through its router.
+            "src": "bogus--regulad--internal-v4",
+            "accept": [
+                "tag:server:22",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+                "bogus--ncstate--net:22",
+            ],
+        },
+        {
+            // VCN devices (SNAT off) reach the tailnet and the homelab.
+            "src": "bogus--pubsub--wahlecloud--oraclevcn--com",
+            "accept": [
+                "tag:server:22",
+                "bogus--regulad--internal:445",
+            ],
+        },
+        {
+            "src": "bogus--pubsub--wahlecloud--oraclevcn--com-v4",
+            "accept": [
+                "tag:server:22",
+                "bogus--regulad--internal-v4:445",
+            ],
+        },
+        {
+            // No return route from NC State: its router SNATs, so its
+            // addresses get no grant as a source. Only the every-node ("*")
+            // grants match them, and with SNAT none ever arrives.
+            "src": "bogus--ncstate--net",
+            "deny": [
+                "10.23.2.31:22",                               // ingress, SSH
+                "10.23.2.145:8096",                            // aboriginal, Jellyfin
+                "100.70.168.20:445",                           // aboriginal (tailnet), SMB
+                "tag:server:22",
+                "tag:iot:62078",
+                "tag:edge-ncstate--net:22",
+                "bogus--regulad--internal-v4:139",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:548",
+            ],
+        },
+        {
+            // kodi-plugins publisher: SSH and web on ingress, DNS, nothing
+            // else.
+            "src": "tag:ci-kodi",
+            "accept": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "10.23.2.31:22",                               // ingress, SSH
+                "10.23.2.31:443",                              // ingress, HTTPS
+                "10.23.2.31:80",                               // ingress, HTTP
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "10.23.0.254:53",                              // arawi
+                "10.131.80.239:53",                            // VCN edge router
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "cr1000b--regulad-verizon-livingston--internal:53",
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:445",  // ingress, SMB
+                "10.23.2.31:548",                              // ingress, AFP
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:62078", // ingress, lockdownd
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:8096", // aboriginal, Jellyfin
+                "10.23.2.145:22",                              // aboriginal, SSH
+                "[fd7a:115c:a1e0::9701:a814]:8123",            // aboriginal (tailnet), HA
+                "10.23.2.72:9981",                             // tvheadend
+                "[${resolvers.pihole.ipv6}]:22",   // pihole, SSH
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:139",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+                "bogus--ncstate--net:22",
+            ],
+        },
+        {
+            // PepperCord's pipeline: webhookd on PepperCord's hosts, and what
+            // every node gets, nothing else.
+            "src": "tag:ci-client-peppercord",
+            "accept": [
+                "tag:ci-server-peppercord:8108",              // webhookd
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "tag:ci-server-peppercord:22",
+                "tag:ci-server-peppercord:8080",              // PepperCord's health check
+                "tag:ci-server-peppercord:445",
+                "tag:ci-server-doppelganger:8108",            // doppelganger's webhookd
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:139",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+                "bogus--ncstate--net:548",
+            ],
+        },
+        {
+            // PepperCord's hosts have no grant of their own: only what every
+            // node gets, and no way back to the pipeline.
+            "src": "tag:ci-server-peppercord",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "tag:ci-client-peppercord:8108",
+                "tag:ci-client-peppercord:22",
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:139",
+                "bogus--ncstate--net:22",
+            ],
+        },
+        {
+            // doppelganger's pipeline: webhookd on doppelgangerhq.com, and
+            // what every node gets, nothing else; not PepperCord's webhookd.
+            "src": "tag:ci-client-doppelganger",
+            "accept": [
+                "tag:ci-server-doppelganger:8108",            // webhookd
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "tag:ci-server-doppelganger:22",
+                "tag:ci-server-doppelganger:443",             // Caddy, the website
+                "tag:ci-server-doppelganger:445",
+                "tag:ci-server-peppercord:8108",              // PepperCord's webhookd
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:139",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+                "bogus--ncstate--net:548",
+            ],
+        },
+        {
+            // doppelgangerhq.com has no grant of its own: only what every node
+            // gets, and no way back to the pipeline.
+            "src": "tag:ci-server-doppelganger",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "tag:ci-client-doppelganger:8108",
+                "tag:ci-client-doppelganger:22",
+                "tag:ci-server-peppercord:8108",              // PepperCord's webhookd
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:139",
+                "bogus--ncstate--net:22",
+            ],
+        },
+        {
+            // IoT devices: their services, the web entry point, DNS, nothing
+            // else.
+            "src": "tag:iot",
+            "accept": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:8096", // aboriginal, Jellyfin HTTP
+                "10.23.2.145:8920",                            // aboriginal, Jellyfin HTTPS
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:8123", // aboriginal, HA
+                "[fd7a:115c:a1e0::9701:a814]:8096",            // aboriginal (tailnet), Jellyfin HTTP
+                "100.70.168.20:8920",                          // aboriginal (tailnet), Jellyfin HTTPS
+                "100.70.168.20:8123",                          // aboriginal (tailnet), HA
+                "[fd83:b84c:aa57:1:be24:11ff:fe83:464b]:9981", // tvheadend, HTTP
+                "10.23.2.72:9982",                             // tvheadend, HTSP
+                "10.23.2.31:443",                              // ingress, HTTPS
+                "10.23.2.31:80",                               // ingress, HTTP
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "10.23.0.254:53",                              // arawi
+                "10.131.80.239:53",                            // VCN edge router
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "cr1000b--regulad-verizon-livingston--internal:53",
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:22",   // aboriginal, SSH
+                "10.23.2.145:445",                             // aboriginal, SMB
+                "[fd7a:115c:a1e0::9701:a814]:548",             // aboriginal (tailnet), AFP
+                "100.70.168.20:62078",                         // aboriginal (tailnet), lockdownd
+                "[fd83:b84c:aa57:1:be24:11ff:fe83:464b]:22",   // tvheadend, SSH
+                "10.23.2.72:139",                              // tvheadend, NetBIOS
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "10.23.2.31:445",                              // ingress, SMB
+                "[${resolvers.pihole.ipv6}]:80",   // pihole, web UI
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+                "bogus--ncstate--net:62078",
+            ],
+        },
+        {
+            // IoT over UDP: DNS yes, Jellyfin client discovery no.
+            "src": "tag:iot",
+            "proto": "udp",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:7359", // aboriginal, Jellyfin discovery
+                "100.70.168.20:7359",                          // aboriginal (tailnet), Jellyfin discovery
+            ],
+        },
+        {
+            // Relays have no grant of their own: only what every node gets.
+            "src": "tag:relay",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:8096", // aboriginal, Jellyfin
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:22",
+                "bogus--ncstate--net:548",
+            ],
+        },
+        {
+            // tag:autorouter has no grant of its own: only what every node
+            // gets.
+            "src": "tag:autorouter",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:80",                               // ingress, HTTP
+            ],
+            "deny": [
+                "10.23.2.31:22",                               // ingress, SSH
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:139",
+                "bogus--regulad--internal-v4:445",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:548",
+                "bogus--ncstate--net:139",
+            ],
+        },
+        {
+            // tag:funnel has no grant of its own (Funnel traffic comes from
+            // the internet, not through grants): only what every node gets.
+            "src": "tag:funnel",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "10.23.2.145:8096",                            // aboriginal, Jellyfin
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:139",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:548",
+                "bogus--ncstate--net:22",
+            ],
+        },
+        {
+            // tag:mullvad has no grant of its own (Mullvad comes from its
+            // nodeAttr, which tests can't check): only what every node gets,
+            // the internet Mullvad needs included.
+            "src": "tag:mullvad",
+            "accept": [
+                "1.1.1.1:443",                                 // internet (Cloudflare)
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "10.23.2.41:139",                              // pihole, NetBIOS
+                "[fd83:b84c:aa57:1:be24:11ff:fe5d:be75]:8096", // aboriginal, Jellyfin
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:139",
+                "bogus--ncstate--net:22",
+            ],
+        },
+        {
+            // NC State edge router has no grant of its own: only what every
+            // node gets.
+            "src": "tag:edge-ncstate--net",
+            "accept": [
+                "10.23.2.41:53",                               // pihole
+                "10.131.80.53:53",                             // pihole2
+                "vrd1--ddi--ncsu--edu:53",
+                "vrd2--ddi--ncsu--edu:53",
+                "10.23.2.31:443",                              // ingress, HTTPS
+            ],
+            "deny": [
+                "[fd83:b84c:aa57:1:be24:11ff:fe4a:25fa]:22",   // ingress, SSH
+                "10.23.2.41:139",                              // pihole, NetBIOS
+                "tag:server:22",
+                "tag:iot:62078",
+                "bogus--regulad--internal:445",
+                "bogus--regulad--internal-v4:548",
+                "bogus--pubsub--wahlecloud--oraclevcn--com-v4:62078",
+            ],
+        },
+        {
+            // mark@engagent.dev (aameter is shared with them): HTTPS on
+            // aameter, nothing else on it, and not NC State through its
+            // router.
+            "src": "mark@engagent.dev",
+            "accept": [
+                "[fd7a:115c:a1e0::e738:392f]:443",             // aameter, HTTPS
+                "100.112.57.46:443",                           // aameter, HTTPS
+            ],
+            "deny": [
+                "[fd7a:115c:a1e0::e738:392f]:80",              // aameter, HTTP
+                "100.112.57.46:80",                            // aameter, HTTP
+                "[fd7a:115c:a1e0::e738:392f]:22",              // aameter, SSH
+                "100.112.57.46:139",                           // aameter, NetBIOS
+                "[fd7a:115c:a1e0::e738:392f]:445",             // aameter, SMB
+                "100.112.57.46:548",                           // aameter, AFP
+                "[fd7a:115c:a1e0::e738:392f]:62078",           // aameter, lockdownd
+                "bogus--ncstate--net:443",
+            ],
+        },
+    ],
+}

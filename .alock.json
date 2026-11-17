@@ -22,6 +22,7 @@
     },
     "tofu/sentry": {},
     "tofu/stripe": {},
-    "tofu/supabase": {}
+    "tofu/supabase": {},
+    "tofu/tailscale": {}
   }
 }

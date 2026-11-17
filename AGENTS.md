@@ -8,7 +8,7 @@ them. Parker supervises and approves.
 - **History:** [`.claude/history/`](.claude/history/) records what was done, one file per entry, each a title and the technical findings likely to help a later session. Add new history there, as a new entry, and nowhere else.
 - **Directory detail:** each `README.md`, starting with [`tofu/oracle/README.md`](tofu/oracle/README.md).
 - **Platform:** Unix-like systems only: Linux (WSL counts) or macOS, with a POSIX shell. Native Windows is not supported; write scripts and documented commands for `sh`/`bash`, never PowerShell or batch.
-- **Managed elsewhere:** the tailnet's ACL policy and DNS live in [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles). Never add or change either from this repository.
+- **Managed elsewhere:** workstation configuration lives in [`regulad/dotfiles`](https://github.com/regulad/dotfiles); never add or change it from this repository. The tailnet's policy file, DNS and federated identities are `tofu/tailscale`'s; [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), which held the policy and DNS before, is to be retired.
 
 Where this file and the plan disagree, this file wins.
 
@@ -55,7 +55,7 @@ homelab/
 ├── tests/                       # unittest tests of AIDE's acceptance system, under Python 3.9; pre-commit's tests hook runs them
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
-│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze, aws, gcp, cloudflare, azure, sentry, stripe, supabase, onesignal)
+│   ├── <root>/                  # one root per provider instance, own state (oracle, gonkputer, backblaze, aws, gcp, cloudflare, azure, sentry, stripe, supabase, onesignal, tailscale)
 │   │   └── *.tf                 # flat: OpenTofu loads no subdirectories into a module, so files group by name prefix
 │   └── modules/                 # reusable child modules, e.g. lxc-guest/, vm-guest/
 ├── ansible-common/
