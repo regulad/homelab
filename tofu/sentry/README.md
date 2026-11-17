@@ -77,8 +77,8 @@ A key replaced here reaches them at the next `site.yml` run on those hosts.
 OpenTofu authenticates as `homelab-tofu`, an internal integration in `regulad`, created
 under Settings → Custom Integrations. Its token belongs to the organization rather than to a
 user, reaches `regulad` alone, and cannot manage members. It holds these permissions:
-Project, Team and Alerts at Read & Write, and Organization at Read. The token is in
-`provider.sops.env`, which `prepare.sh` exports as `SENTRY_AUTH_TOKEN`. Deleting the token,
+Project and Team at Admin, Alerts at Read & Write, and Organization at Read; deleting a key
+or a project needs Project at Admin. The token is in `provider.sops.env`, which `prepare.sh` exports as `SENTRY_AUTH_TOKEN`. Deleting the token,
 or the integration, revokes it. The same file keeps the integration's client secret,
 `SENTRY_CLIENT_SECRET`, which signs the webhooks Sentry sends; nothing uses it yet, and
 `prepare.sh` never exports it.
@@ -119,6 +119,7 @@ plan is now a no-op. Every adopted resource carries `prevent_destroy = true`.
 |---|---|
 | The organization `nefum` | Retired, and queued for deletion |
 | The `homelab-tofu` integration and its token | This root's own credential, kept in `provider.sops.env` |
+| Other custom integrations, such as Vercel's | The provider has no resource for custom integrations; it only reads an installation, through `sentry_app_installation` |
 | "Send a notification when pull requests are ready" | Sentry's default Seer alert; the provider cannot express its `seer_activity_trigger` |
 | Dashboards | All 20 are Sentry's prebuilt dashboards |
 | Data scrubbing, the organization's and each project's, IP addresses among it | The pinned provider has no resource for it; upstream support awaits a release, as the FIXME in `versions.tf` says |
