@@ -28,3 +28,18 @@ output "email_dkim" {
     }
   }
 }
+
+# What tofu/tailscale reads, through its terraform_remote_state data source, for
+# the tailnet's DNS configuration and policy file: the VCN's services subnet,
+# which tailscalerouter routes into the tailnet, and the two hosts there that
+# resolve the tailnet's queries.
+output "tailnet" {
+  description = "The services subnet's prefixes, and pihole2's and tailscalerouter's addresses, by IP family."
+  # The IPv6 values derive from the encrypted /64 prefix.
+  sensitive = true
+  value = {
+    services        = { ipv4 = oci_core_subnet.services.cidr_block, ipv6 = var.ipv6_subnet_cidrs.wahlecloud }
+    pihole2         = { ipv4 = local.pihole2_ipv4_address, ipv6 = local.pihole2_ipv6_address }
+    tailscalerouter = { ipv4 = local.router_ipv4_address, ipv6 = local.router_ipv6_address }
+  }
+}

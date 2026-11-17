@@ -3,6 +3,11 @@
 # upstream, as pihole has arawi. It serves only the tailnet, which the pubsub
 # security list admits, so it has no NSG.
 
+locals {
+  pihole2_ipv4_address = "10.131.80.53"
+  pihole2_ipv6_address = cidrhost(var.ipv6_subnet_cidrs.wahlecloud, parseint("0000000000000053", 16))
+}
+
 resource "oci_core_instance" "pihole2" {
   display_name        = "pihole2"
   compartment_id      = var.tenancy_ocid
@@ -39,11 +44,11 @@ resource "oci_core_instance" "pihole2" {
     # role reads regulad's keys, have no IPv6.
     assign_public_ip       = "true"
     hostname_label         = "pihole2"
-    private_ip             = "10.131.80.53"
+    private_ip             = local.pihole2_ipv4_address
     skip_source_dest_check = false
 
     ipv6address_ipv6subnet_cidr_pair_details {
-      ipv6address     = cidrhost(var.ipv6_subnet_cidrs.wahlecloud, parseint("0000000000000053", 16))
+      ipv6address     = local.pihole2_ipv6_address
       ipv6subnet_cidr = var.ipv6_subnet_cidrs.wahlecloud
     }
   }
