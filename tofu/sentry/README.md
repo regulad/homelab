@@ -119,7 +119,7 @@ plan is now a no-op. Every adopted resource carries `prevent_destroy = true`.
 |---|---|
 | The organization `nefum` | Retired, and queued for deletion |
 | The `homelab-tofu` integration and its token | This root's own credential, kept in `provider.sops.env` |
-| Other custom integrations, such as Vercel's | The provider has no resource for custom integrations; it only reads an installation, through `sentry_app_installation` |
+| Other custom integrations, such as Vercel's | The provider has no resource for custom integrations, as the FIXME in `versions.tf` says; it only reads an installation, through `sentry_app_installation` |
 | "Send a notification when pull requests are ready" | Sentry's default Seer alert; the provider cannot express its `seer_activity_trigger` |
 | Dashboards | All 20 are Sentry's prebuilt dashboards |
 | Data scrubbing, the organization's and each project's, IP addresses among it | The pinned provider has no resource for it; upstream support awaits a release, as the FIXME in `versions.tf` says |

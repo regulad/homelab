@@ -16,6 +16,12 @@ terraform {
       # unmanaged. Upstream merged support for them after this release, in
       # https://github.com/jianyuan/terraform-provider-sentry/commit/6dc306102cbed10a5534238fc0a56c835f1fea34
       # (#995). Revisit at the first release that contains it.
+      # FIXME: the provider has no resource for custom integrations, so the
+      # organization's internal integrations other than homelab-tofu, such as
+      # Vercel's, are unmanaged. The request for one,
+      # https://github.com/jianyuan/terraform-provider-sentry/issues/164, was
+      # closed as not planned in a backlog cleanup on 2026-09-01. Revisit if it is
+      # reopened or a release adds such a resource.
       version = "= 0.16.0"
     }
   }
