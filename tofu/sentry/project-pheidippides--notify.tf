@@ -1,4 +1,4 @@
-# pheidippides-notify: the project, named pheidippides-notify, its client key, and its code mapping.
+# pheidippides-notify: the project, named pheidippides-notify, its client key, its alert, and its code mapping.
 resource "sentry_project" "pheidippides_notify" {
   name         = "pheidippides-notify"
   slug         = "pheidippides-notify"
@@ -16,6 +16,43 @@ resource "sentry_key" "pheidippides_notify" {
   name         = "Default"
   organization = sentry_project.pheidippides_notify.organization
   project      = sentry_project.pheidippides_notify.slug
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# The default monitor of the project's new issues, which Sentry created with
+# the project.
+data "sentry_project_issue_stream_monitor" "pheidippides_notify" {
+  organization = sentry_project.pheidippides_notify.organization
+  project      = sentry_project.pheidippides_notify.slug
+}
+
+resource "sentry_alert" "pheidippides_notify" {
+  name              = "Send a notification for new issues"
+  organization      = sentry_project.pheidippides_notify.organization
+  monitor_ids       = [data.sentry_project_issue_stream_monitor.pheidippides_notify.id]
+  frequency_minutes = 30
+
+  trigger_conditions = [
+    { first_seen_event = {} },
+  ]
+
+  action_filters = [
+    {
+      logic_type = "all"
+      actions = [
+        {
+          email = {
+            target_type      = "issue_owners"
+            fallthrough_type = "ActiveMembers"
+          }
+        },
+      ]
+    },
+  ]
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

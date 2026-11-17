@@ -29,9 +29,13 @@ Each project declares its name, slug, team and platform, and its key only its na
 other setting is Sentry's default, the same across the projects, and is left undeclared:
 digests, resolve age, inbound filters, client security, highlighted tags, which follow the
 platform, and each key's JavaScript loader. A change to one of those shows in no plan.
+The one exception is doppelganger's web-crawler inbound filter, which is declared on
+the app's behalf, so that turning it off shows in a plan.
 
-Every alert is Sentry's default for a new project and emails the issue's owners, falling
-back to the project's active members. Each watches its project's default issue-stream
+Every project has an alert. All but doppelganger's are Sentry's default for a new project
+and email the issue's owners, falling back to the project's active members.
+doppelganger's, named `doppelganger-front`, fires at most once a day and emails a team that
+no longer exists, as its FIXME says. Each alert watches its project's default issue-stream
 monitor, read through the `sentry_project_issue_stream_monitor` data source. The
 high-priority triggers have no native form in the provider, which passes them through as
 `legacy_trigger_conditions`.
@@ -124,6 +128,8 @@ plan is now a no-op. Every adopted resource carries `prevent_destroy = true`.
 | Other custom integrations, such as Vercel's | The provider has no resource for custom integrations, as the FIXME in `versions.tf` says; it only reads an installation, through `sentry_app_installation` |
 | "Send a notification when pull requests are ready" | Sentry's default Seer alert; the provider cannot express its `seer_activity_trigger` |
 | Dashboards | All 20 are Sentry's prebuilt dashboards |
+| The uptime monitor Sentry detected for `https://doppelgangerhq.com`, disabled | The provider requires an environment, which the monitor lacks, so adopting it would change it, and its update turns a detected monitor into a manual one |
+| The organization's settings, such as requiring two-factor authentication | The provider's `sentry_organization` holds only an organization's name and slug |
 | Data scrubbing, the organization's and each project's, IP addresses among it | The pinned provider has no resource for it; upstream support awaits a release, as the FIXME in `versions.tf` says |
 | The GitHub integration, and its repositories no code mapping links to | Installed through GitHub; the integration is only read here |
 | Members | Beyond an internal integration's permissions |
