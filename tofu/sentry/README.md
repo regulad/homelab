@@ -97,8 +97,9 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 The team, the eight projects, their keys and the four alerts were imported into the remote
 state, and the import blocks were removed after the adoption apply. Its one live change put
 doppelganger and the three pheidippides projects, which had no team, in `regulad`, as the
-provider requires a team on every project. A plan is now a no-op. Every adopted resource
-carries `prevent_destroy = true`.
+provider requires a team on every project. The four code mappings and their repositories
+were later imported the same way, changing nothing. A plan is now a no-op. Every adopted
+resource carries `prevent_destroy = true`.
 
 ## Not managed here
 
