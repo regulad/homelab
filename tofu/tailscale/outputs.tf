@@ -3,6 +3,7 @@
 output "oauth_client_ids" {
   value = {
     doppelganger = tailscale_federated_identity.doppelganger.id
+    kodi_plugins = tailscale_federated_identity.kodi_plugins.id
     peppercord   = tailscale_federated_identity.peppercord.id
   }
 }
@@ -11,6 +12,7 @@ output "oauth_client_ids" {
 output "audiences" {
   value = {
     doppelganger = tailscale_federated_identity.doppelganger.audience
+    kodi_plugins = tailscale_federated_identity.kodi_plugins.audience
     peppercord   = tailscale_federated_identity.peppercord.audience
   }
 }
