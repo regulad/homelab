@@ -103,6 +103,21 @@ resource "proxmox_virtual_environment_firewall_rules" "ingress" {
     dport  = "443" # HTTP/3
   }
 
+  # SSH from the tailnet alone, for kodi-plugins' publisher, which the tailnet's
+  # policy lets reach it as tag:ci-kodi. tailscalerouter forwards without SNAT,
+  # so the publisher connects from its tailnet address.
+  dynamic "rule" {
+    for_each = module.shared.tailscale_cidrs
+    iterator = sources
+
+    content {
+      type   = "in"
+      action = "ACCEPT"
+      source = sources.value
+      macro  = "SSH"
+    }
+  }
+
   # mDNS, which systemd-resolved resolves and answers here (resolved role).
   rule {
     security_group = proxmox_virtual_environment_cluster_firewall_security_group.mdns.name
