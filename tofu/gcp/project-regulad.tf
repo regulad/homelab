@@ -1,6 +1,7 @@
 # regulad: the home project, which holds homelab-tofu and bills the APIs it calls.
 locals {
   regulad_services = toset([
+    "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "autoscaling.googleapis.com",
     "bigquery.googleapis.com",
@@ -14,6 +15,7 @@ locals {
     "container.googleapis.com",
     "containerregistry.googleapis.com",
     "datastore.googleapis.com",
+    "developerknowledge.googleapis.com",
     "dns.googleapis.com",
     "domains.googleapis.com",
     "gkebackup.googleapis.com",
@@ -88,4 +90,26 @@ resource "google_recaptcha_enterprise_key" "pterodactyl" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The API key of Google's Developer Knowledge MCP server, which Parker's coding
+# agents send as X-Goog-Api-Key from several machines, so it has no application
+# restriction: it reaches the Developer Knowledge API and nothing else. Its value
+# is the developer_knowledge_api_key output, which Parker keeps in Bitwarden for
+# dotfiles.
+resource "google_apikeys_key" "developer_knowledge" {
+  name         = "developer-knowledge-mcp"
+  display_name = "Developer Knowledge MCP"
+  project      = google_project.regulad.project_id
+
+  restrictions {
+    api_targets {
+      service = "developerknowledge.googleapis.com"
+    }
+  }
+
+  depends_on = [
+    google_project_service.regulad["apikeys.googleapis.com"],
+    google_project_service.regulad["developerknowledge.googleapis.com"],
+  ]
 }

@@ -30,3 +30,10 @@ output "oauth_client_ids" {
     error_message = "Every OAuth client ID must begin with its project's number."
   }
 }
+
+# The Developer Knowledge MCP server's API key, which Parker copies into the
+# Bitwarden item dotfiles reads: never printed here.
+output "developer_knowledge_api_key" {
+  value     = google_apikeys_key.developer_knowledge.key_string
+  sensitive = true
+}

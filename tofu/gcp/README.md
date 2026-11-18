@@ -9,9 +9,9 @@ adopted resource carries `prevent_destroy = true`. Fixes follow as separate, rev
 
 | Location | Configuration |
 |---|---|
-| `project-<id>.tf` | One file per project: the project, the APIs it has enabled, and its service accounts and reCAPTCHA keys |
+| `project-<id>.tf` | One file per project: the project, the APIs it has enabled, and its service accounts, reCAPTCHA keys and API keys |
 | `homelab-tofu.tf` | The service account this root works as, and its Owner grant on every project |
-| `outputs.tf` | The `oauth_client_ids` output: every project's OAuth client IDs, which each project's file lists, by project ID, then by slug |
+| `outputs.tf` | The `oauth_client_ids` output: every project's OAuth client IDs, which each project's file lists, by project ID, then by slug; and the sensitive `developer_knowledge_api_key`, which Parker keeps in Bitwarden for dotfiles |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 | `service-account-tofu.crt` | The certificate of the service account's key, public |
