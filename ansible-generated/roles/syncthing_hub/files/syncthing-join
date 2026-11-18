@@ -19,6 +19,7 @@ Environment:
 
 Standard library only, and Python 3.9-compatible, the version its tests run on.
 """
+import http.client
 import ipaddress
 import json
 import logging
@@ -38,6 +39,10 @@ TAILNET_NETWORKS = (
     ipaddress.ip_network("fd7a:115c:a1e0::/48"),
 )
 EVENTS = "PendingDevicesChanged,PendingFoldersChanged"
+# What a request raises while Syncthing is down or restarting: a refused or
+# broken connection, or a reply cut off mid-body (http.client's IncompleteRead
+# when a restart drops a long poll). The service waits and starts over.
+TRANSIENT_ERRORS = (urllib.error.URLError, http.client.HTTPException, OSError, ValueError)
 # A full pass at least this often, in seconds, whatever the events say.
 FULL_PASS_INTERVAL = 600
 
@@ -203,7 +208,7 @@ def serve(joiner, api):
                 since = newest if newest >= since else 0
                 joiner.run_pass()
                 last_full = time.monotonic()
-        except (urllib.error.URLError, OSError, ValueError) as error:
+        except TRANSIENT_ERRORS as error:
             LOG.warning("Syncthing's API is unavailable (%s); retrying in 30 s", error)
             since = 0
             last_full = 0.0

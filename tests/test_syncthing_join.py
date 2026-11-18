@@ -1,6 +1,8 @@
 """Tests of the Syncthing hub's joining service, syncthing_hub's syncthing-join:
-which pending devices it accepts, and which offered folders it shares."""
+which pending devices it accepts, which offered folders it shares, and that it
+outlasts Syncthing restarting."""
 import copy
+import http.client
 import importlib.machinery
 import importlib.util
 import io
@@ -187,6 +189,42 @@ class ShareFoldersTest(unittest.TestCase):
         # Each PATCH writes back the list the previous one left, so neither is lost.
         self.assertEqual(api.folders["claude"]["devices"], [{"deviceID": WINLITE}, {"deviceID": other}])
         self.assertEqual(len(api.writes), 2)
+
+
+class ServeTest(unittest.TestCase):
+    class Stop(Exception):
+        """Ends serve()'s loop for the test; no transient error is one."""
+
+    def test_a_restart_cutting_off_a_long_poll_is_survived(self):
+        # Syncthing restarting drops the event long poll mid-reply, which
+        # http.client raises as IncompleteRead.
+        calls = []
+        stop = self.Stop
+
+        class Api:
+            def get(self, path):
+                calls.append(path)
+                if len(calls) == 1:
+                    raise http.client.IncompleteRead(b"")
+                raise stop()
+
+        class Joiner:
+            passes = 0
+
+            def run_pass(self):
+                Joiner.passes += 1
+
+        sleep = join.time.sleep
+        join.time.sleep = lambda seconds: None
+        try:
+            with self.assertRaises(self.Stop):
+                join.serve(Joiner(), Api())
+        finally:
+            join.time.sleep = sleep
+        self.assertEqual(len(calls), 2)
+        # Each start over begins with a full pass, events since 0.
+        self.assertEqual(Joiner.passes, 2)
+        self.assertIn("since=0", calls[1])
 
 
 if __name__ == "__main__":
