@@ -29,7 +29,7 @@ _homelab_sops() {
 _homelab_github_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext nexus tailscale provider backend name value user key
+    local root dir destination plaintext nexus tailscale azure provider backend name value user key
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/github"
     destination="$dir/secrets.auto.tfvars.json"
@@ -85,10 +85,17 @@ _homelab_github_prepare() {
         echo 'prepare.sh: tofu/tailscale/secrets.sops.yaml has no state_encryption_passphrase.' >&2
         return 1
     fi
+    # tofu/azure's, likewise, for azure.tf.
+    azure=$(_homelab_sops decrypt --extract '["state_encryption_passphrase"]' "$root/tofu/azure/secrets.sops.yaml") || return 1
+    if [ -z "$azure" ]; then
+        echo 'prepare.sh: tofu/azure/secrets.sops.yaml has no state_encryption_passphrase.' >&2
+        return 1
+    fi
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$nexus" | jq '{nexus_passwords: .}'
         printf '%s' "$tailscale" | jq -R -s '{tailscale_state_encryption_passphrase: .}'
+        printf '%s' "$azure" | jq -R -s '{azure_state_encryption_passphrase: .}'
     } | jq -s add) || return 1
     if [ -e "$destination" ]; then
         # Compare data, not formatting. Preserve any differing local edits.

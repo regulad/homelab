@@ -1,7 +1,9 @@
 # github (GitHub)
 
 The `.tf` files are the source of truth for the GitHub Actions, Dependabot and
-environment secrets of regulad's repositories.
+environment secrets of regulad's repositories, and for the environments that another
+root's credentials trust, with the refs each admits: Warlock's, whose runs sign as
+`tofu/azure`'s applications.
 
 **Only repositories that need secrets are defined here. A repository with no secrets is
 not defined in policy.** A repository that comes to need a secret gets a `repo-<id>.tf`
@@ -9,9 +11,10 @@ here; one whose last secret goes leaves it.
 
 | Location | Configuration |
 |---|---|
-| `repo-<id>.tf` | One file per repository with secrets, by its GitHub repository ID: its Actions secrets, Dependabot secrets and environment secrets |
+| `repo-<id>.tf` | One file per repository with secrets, by its GitHub repository ID: its Actions secrets, Dependabot secrets and environment secrets, and any environments defined here with their deployment policies |
 | `locals.tf` | Nexus's users and ingress's kodi publisher, read from `ansible-generated`'s data |
 | `tailscale.tf` | `tofu/tailscale`'s outputs |
+| `azure.tf` | `tofu/azure`'s outputs |
 | `variables.tf` | The secret values, from `secrets.sops.yaml`, and the Nexus passwords |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
@@ -38,6 +41,10 @@ Every value is derived; none is typed into GitHub.
 - **tofu/tailscale:** the federated identities' client IDs and audiences, `TS_OAUTH_ID`
   and `TS_AUDIENCE`, come from `tofu/tailscale`'s outputs, read in `tailscale.tf`;
   `prepare.sh` adds that root's state passphrase.
+- **tofu/azure:** each environment's Entra client ID, the directory and subscription it signs
+  in to, and the Artifact Signing account and profile it signs with, `AZURE_*` and
+  `ARTIFACT_SIGNING_*`, come from `tofu/azure`'s outputs, read in `azure.tf`; `prepare.sh`
+  adds that root's state passphrase.
 - **Plaintext:** values that are no secret, such as a key alias, are written in the `.tf`
   files.
 
@@ -58,8 +65,10 @@ otherwise.
 ## Credentials
 
 OpenTofu authenticates as the homelab GitHub App, owned by regulad and created by hand. Its
-repository permissions are Secrets, Dependabot secrets and Environments at Read and write,
-and Metadata at Read. It is installed on all of regulad's repositories, including those
+repository permissions are Secrets, Dependabot secrets, Environments and Administration at
+Read and write, and Actions and Metadata at Read. Administration creates environments and
+their deployment policies, and also covers every other repository setting, deleting a
+repository included; Actions reads environments. It is installed on all of regulad's repositories, including those
 created later: an App cannot change its own installation, so a narrower one would need a
 hand-made change for each repository's first secret. Its ID and installation ID are in
 `providers.tf`; its private key is in `provider.sops.env`, which `prepare.sh` exports as

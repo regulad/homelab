@@ -17,6 +17,14 @@ variable "tailscale_state_encryption_passphrase" {
   nullable  = false
 }
 
+# tofu/azure's own state passphrase, which prepare.sh reads from
+# tofu/azure/secrets.sops.yaml, to decrypt the outputs azure.tf reads.
+variable "azure_state_encryption_passphrase" {
+  type      = string
+  sensitive = true
+  nullable  = false
+}
+
 # Personal access tokens, issued by GitHub, each under its name there,
 # terraform-<word>--<word>. tofu/vercel reads them from the same file.
 variable "github_pats" {

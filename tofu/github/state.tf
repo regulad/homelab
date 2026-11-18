@@ -48,9 +48,22 @@ terraform {
       keys = key_provider.pbkdf2.tailscale
     }
 
+    # tofu/azure's state, for azure.tf, likewise under tofu/azure's name.
+    key_provider "pbkdf2" "azure" {
+      passphrase = var.azure_state_encryption_passphrase
+    }
+
+    method "aes_gcm" "azure" {
+      keys = key_provider.pbkdf2.azure
+    }
+
     remote_state_data_sources {
       remote_state_data_source "tailscale" {
         method = method.aes_gcm.tailscale
+      }
+
+      remote_state_data_source "azure" {
+        method = method.aes_gcm.azure
       }
     }
   }
