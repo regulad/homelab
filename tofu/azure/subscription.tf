@@ -6,7 +6,7 @@ data "azurerm_subscription" "this" {}
 resource "azurerm_role_assignment" "parker_owner" {
   scope                = data.azurerm_subscription.this.id
   role_definition_name = "Owner"
-  principal_id         = "c2e80979-83b2-449e-a4ce-487b334bf101" # Parker Wahle, the directory's one user
+  principal_id         = local.parker_object_id
   # Microsoft's, from when it retired Classic Administrators.
   description = "The Classic Admin role was converted to an Azure Owner role on behalf of the user due to Classic Admin retirement."
 

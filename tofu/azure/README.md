@@ -1,17 +1,20 @@
 # azure (Microsoft Azure and Entra ID)
 
 The `.tf` files are the source of truth for the directory `Default Directory` and its one
-subscription, `Pay-As-You-Go`: the directory's applications with their service principals, and
-the subscription's role assignments. The subscription holds no resources.
+subscription, `Pay-As-You-Go`: the directory's applications with their service principals, the
+subscription's role assignments, and its one resource group, `regulad`, which holds the Artifact
+Signing account `regulad`.
 
 | Location | Configuration |
 |---|---|
 | `homelab-tofu.tf` | The application this root signs in as, its service principal, and its Owner grant |
 | `rclone.tf` | `regulad rclone`, the application rclone signs in to OneDrive with, and its service principal |
+| `artifact-signing.tf` | Artifact Signing: its resource provider, the `regulad` resource group and signing account, Parker's Identity Verifier grant on the account, and the names of its hand-made certificate profiles |
+| `warlock.tf` | `warlock-<environment>`, an application per GitHub environment of regulad/Warlock, which its runs there sign as: its service principal, the federated credential that trusts that environment, and its Signer grant on that environment's profile, Public Trust for `release` and Public Trust Test for `testing` |
 | `subscription.tf` | The subscription, and Parker's Owner grant on it |
 | `graph.tf` | Microsoft Graph's permission IDs, looked up by name |
-| `locals.tf` | The tenant, subscription and `homelab-tofu` client IDs |
-| `outputs.tf` | The `oauth_client_ids` output: each application's client ID, from state, by slug, for the roots and hosts that name one; it checks that `locals.tf`'s `client_id`, which the providers sign in with before any state is read, is `homelab-tofu`'s |
+| `locals.tf` | The tenant, subscription and `homelab-tofu` client IDs, and Parker's object ID |
+| `outputs.tf` | The `oauth_client_ids` output: each application's client ID, from state, by slug, for the roots and hosts that name one; it checks that `locals.tf`'s `client_id`, which the providers sign in with before any state is read, is `homelab-tofu`'s. Also the tenant and subscription IDs; `artifact_signing`, the signing account's endpoint and name and its profiles' names; and `warlock_profiles`, each of Warlock's environments with its profile; which `tofu/github` sets for the workflows that sign |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
@@ -70,7 +73,9 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 | Consent to the applications' permissions | `homelab-tofu`'s by hand in the portal (see Credentials); `regulad rclone`'s given at each sign-in |
 | The `sys.mfa-write`, `sys.mfa-delete` and `sys.blockwesteurope` policy assignments | Microsoft's, at the tenant root management group |
 | The subscription, the directory and its user | Billing and identity, outside what this root needs to describe |
-| Resource provider registrations | The provider registers none; the 18 registered were registered by the portal and Cloud Shell |
+| Resource provider registrations, but for `Microsoft.CodeSigning` | The provider registers none; the 18 others registered were registered by the portal and Cloud Shell |
+| Artifact Signing's identity validation | Only the portal can create one; it belongs to the subscription, not the account, so it outlives the account |
+| The certificate profiles `regulad` (Public Trust) and `regulad-test` (Public Trust Test) | `azurerm` has no resource for them ([#27843](https://github.com/hashicorp/terraform-provider-azurerm/issues/27843)); made in the portal, named in `artifact-signing.tf` |
 
 Discovery output stays local in `docs/snapshot/azure/`. Every mutation or state change needs
 Parker's explicit approval.
