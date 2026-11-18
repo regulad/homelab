@@ -133,6 +133,13 @@ repos:
         files: ^(tofu/(github|shared)/|ansible-generated/inventory/group_vars/nexus_servers\.yml$)
         pass_filenames: false
 
+      - id: tofu-validate-vercel
+        name: tofu validate (vercel)
+        language: unsupported
+        entry: tofu -chdir=tofu/vercel validate -no-color
+        files: ^tofu/(vercel|shared)/
+        pass_filenames: false
+
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
       # resolves the config file per module directory. Recursing from tofu/ keeps the
       # ignored docs/snapshot/ drafts out of the lint.
