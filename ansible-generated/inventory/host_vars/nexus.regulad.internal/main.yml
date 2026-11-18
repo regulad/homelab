@@ -1,9 +1,13 @@
 ---
 # Sonatype Nexus Repository, moved here from aboriginal's compose project.
-# Caddy on ingress serves it as repo.regulad.xyz, and as cr.regulad.xyz the cr
-# repository's path, /repository/cr/. Its data directory is on the container's
-# RBD mount point, owned by the image's nexus user: 200 here, 100200 on the
-# node.
+# Caddy on ingress serves it as repo.regulad.xyz, each repository at its path
+# there, /repository/<name>/. A few repositories also have a host of their own
+# serving that path at its root, only for package managers that cannot be
+# pointed at the path (AGENTS.md's "Nexus's addresses"): cr.regulad.xyz,
+# docker-cr.regulad.xyz and ghcr-cr.regulad.xyz for Docker repositories, and
+# ios.regulad.xyz for the ios APT repository. Its data directory is on the
+# container's RBD mount point, owned by the image's nexus user: 200 here,
+# 100200 on the node.
 host_files_directories:
   - path: /mnt/nexus/data
     owner: "200"

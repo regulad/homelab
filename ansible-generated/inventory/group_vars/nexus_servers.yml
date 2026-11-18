@@ -31,10 +31,11 @@ nexus_secrets_file:
 # - svc-doppelganger-ci, with which regulad/doppelganger's Gradle jobs fetch
 #   through the maven-central proxy, may read and browse that repository and
 #   nothing else.
-# - svc-homelab, the user the LAN's hosts pull from cr.regulad.xyz as without
-#   credentials, through the Rut Auth realm (below), may read and browse the cr
-#   repository and nothing else. Its password exists only because Nexus wants
-#   one for a local user.
+# - svc-homelab, the user the LAN's hosts pull as without credentials from
+#   cr.regulad.xyz, docker-cr.regulad.xyz and ghcr-cr.regulad.xyz, through the
+#   Rut Auth realm (below), may read and browse the cr repository and the
+#   docker-io and ghcr-io proxies behind them, and nothing else. Its password
+#   exists only because Nexus wants one for a local user.
 # tofu/github reads the CI users' names here, and their passwords from
 # nexus_servers.sops.yml, to set them as those repositories' secrets.
 nexus_security_roles:
@@ -60,8 +61,14 @@ nexus_security_roles:
     roles: []
   - id: svc-homelab
     name: svc-homelab
-    description: The LAN's hosts, pulling from the cr Docker repository
-    privileges: [nx-repository-view-docker-cr-browse, nx-repository-view-docker-cr-read]
+    description: The LAN's hosts, pulling from the cr Docker repository and the docker-io and ghcr-io proxies
+    privileges:
+      - nx-repository-view-docker-cr-browse
+      - nx-repository-view-docker-cr-read
+      - nx-repository-view-docker-docker-io-browse
+      - nx-repository-view-docker-docker-io-read
+      - nx-repository-view-docker-ghcr-io-browse
+      - nx-repository-view-docker-ghcr-io-read
     roles: []
 nexus_security_users:
   - userId: svc-doppelganger
@@ -101,9 +108,10 @@ nexus_security_users:
     roles: [svc-homelab]
 
 # Rut Auth: Nexus takes the user that the X-Homelab-Peer header names as
-# authenticated. Caddy on ingress sets it to svc-homelab on cr.regulad.xyz's
-# Docker API requests from the LAN that carry no credentials, and drops any
-# copy a client sends on every site in front of Nexus; Nexus's firewall admits
+# authenticated. Caddy on ingress sets it to svc-homelab on Docker API requests
+# to cr.regulad.xyz, docker-cr.regulad.xyz and ghcr-cr.regulad.xyz from the LAN
+# that carry no credentials (its nexus_docker snippet), and drops any copy a
+# client sends on every site in front of Nexus; Nexus's firewall admits
 # ingress alone (tofu/gonkputer's lxc-nexus.tf). Enabling the capability adds
 # the realm to the active ones; Sonatype's guide puts it first.
 nexus_security_capabilities:
