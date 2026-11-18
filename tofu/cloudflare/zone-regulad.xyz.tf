@@ -455,6 +455,15 @@ resource "cloudflare_dns_record" "regulad_xyz_dmarc_txt" {
   }
 }
 
+# Nexus's docker-io proxy, Docker Hub's mirror, which Caddy on ingress serves at its root.
+resource "cloudflare_dns_record" "regulad_xyz_docker_cr_cname" {
+  name    = "docker-cr.${cloudflare_zone.regulad_xyz.name}"
+  zone_id = cloudflare_zone.regulad_xyz.id
+  type    = "CNAME"
+  content = local.regulad_xyz_ingress
+  ttl     = 1 # Automatic
+}
+
 resource "cloudflare_dns_record" "regulad_xyz_em910_noreply_cname" {
   name    = "em910.noreply.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id
@@ -467,6 +476,15 @@ resource "cloudflare_dns_record" "regulad_xyz_em910_noreply_cname" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Nexus's ghcr-io proxy, ghcr.io's mirror, which Caddy on ingress serves at its root.
+resource "cloudflare_dns_record" "regulad_xyz_ghcr_cr_cname" {
+  name    = "ghcr-cr.${cloudflare_zone.regulad_xyz.name}"
+  zone_id = cloudflare_zone.regulad_xyz.id
+  type    = "CNAME"
+  content = local.regulad_xyz_ingress
+  ttl     = 1 # Automatic
 }
 
 resource "cloudflare_dns_record" "regulad_xyz_git_ssh_cname" {
