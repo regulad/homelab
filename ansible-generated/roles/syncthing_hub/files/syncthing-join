@@ -4,9 +4,10 @@ folders with them.
 
 Syncthing auto-accepts folders but never devices. This service waits on the
 hub's REST API for pending devices and pending folders. A pending device whose
-address is on the tailnet, and whose node `tailscale whois` reports as
-untagged and owned by SYNCTHING_JOIN_OWNER, is added with Syncthing's default
-device settings. A folder that a configured device offers, and whose ID is in
+address is on the tailnet is added, with Syncthing's default device settings,
+when `tailscale whois` reports its node either as untagged and owned by
+SYNCTHING_JOIN_OWNER (the owner rule) or as carrying SYNCTHING_JOIN_TAG,
+whoever owns it (the tag rule). A folder that a configured device offers, and whose ID is in
 SYNCTHING_JOIN_FOLDERS, is shared with that device. Everything else stays
 pending. Each pass reads the current state, so the service is idempotent; an
 event only wakes it, as Syncthing's event buffer can drop events.
@@ -14,6 +15,7 @@ event only wakes it, as Syncthing's event buffer can drop events.
 Environment:
   STGUIAPIKEY             the REST API key, which Syncthing takes from the same variable
   SYNCTHING_JOIN_OWNER    the tailnet login whose untagged nodes are accepted
+  SYNCTHING_JOIN_TAG      the tag whose nodes are accepted, whoever owns them (optional)
   SYNCTHING_JOIN_FOLDERS  comma-separated folder IDs to share with accepted devices
   SYNCTHING_API_URL       the REST API (default http://127.0.0.1:8384)
 
@@ -99,18 +101,22 @@ def tailscale_whois(ip):
         return None
 
 
-def vouched_for(whois, owner):
-    """Whether a whois result is an untagged node owned by owner. Returns
-    (decision, reason)."""
+def vouched_for(whois, owner, tag=""):
+    """Whether the hub accepts a whois result's node, by the tag rule (it
+    carries tag, whoever owns it) or the owner rule (it is untagged and owned
+    by owner). Returns (decision, reason), the reason naming the rule."""
     if not whois:
         return False, "no whois result"
     node = whois.get("Node") or {}
+    tags = node.get("Tags") or []
     login = (whois.get("UserProfile") or {}).get("LoginName", "")
-    if node.get("Tags"):
-        return False, "tagged node ({})".format(", ".join(node["Tags"]))
+    if tag and tag in tags:
+        return True, "tag rule: node tagged {}".format(", ".join(tags))
+    if tags:
+        return False, "tagged node ({}), without {}".format(", ".join(tags), tag or "an accepted tag")
     if login != owner:
         return False, "owned by {!r}, not {!r}".format(login, owner)
-    return True, "untagged node owned by {}".format(owner)
+    return True, "owner rule: untagged node owned by {}".format(owner)
 
 
 def magicdns_name(whois):
@@ -119,9 +125,10 @@ def magicdns_name(whois):
 
 
 class Joiner:
-    def __init__(self, api, owner, folders, whois=tailscale_whois):
+    def __init__(self, api, owner, folders, tag="", whois=tailscale_whois):
         self.api = api
         self.owner = owner
+        self.tag = tag
         self.folders = set(folders)
         self.whois = whois
 
@@ -140,7 +147,7 @@ class Joiner:
                          device_id, info.get("name"), address)
                 continue
             whois = self.whois(ip)
-            ok, reason = vouched_for(whois, self.owner)
+            ok, reason = vouched_for(whois, self.owner, self.tag)
             if not ok:
                 LOG.info("device %s (%r) at %s left pending: %s",
                          device_id, info.get("name"), ip, reason)
@@ -223,9 +230,11 @@ def main():
         folders = [f for f in os.environ["SYNCTHING_JOIN_FOLDERS"].split(",") if f]
     except KeyError as missing:
         sys.exit("syncthing-join: {} is not set".format(missing))
+    tag = os.environ.get("SYNCTHING_JOIN_TAG", "")
     api = Api(os.environ.get("SYNCTHING_API_URL", "http://127.0.0.1:8384"), key)
-    LOG.info("accepting untagged nodes of %s; sharing %s", owner, ", ".join(sorted(folders)))
-    serve(Joiner(api, owner, folders), api)
+    LOG.info("accepting untagged nodes of %s%s; sharing %s", owner,
+             " and nodes tagged {}".format(tag) if tag else "", ", ".join(sorted(folders)))
+    serve(Joiner(api, owner, folders, tag), api)
 
 
 if __name__ == "__main__":

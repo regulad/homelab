@@ -28,6 +28,7 @@ def load():
 join = load()
 
 OWNER = "owner@example.com"
+TAG = "tag:syncthing"
 WINLITE = "RJ7FMWU-AAAAAAA"
 NEWMAC = "NEWMAC1-BBBBBBB"
 
@@ -109,6 +110,25 @@ class VouchedForTest(unittest.TestCase):
     def test_no_result_is_refused(self):
         self.assertFalse(join.vouched_for(None, OWNER)[0])
 
+    def test_owner_rule_is_named(self):
+        ok, reason = join.vouched_for(whois(), OWNER, TAG)
+        self.assertTrue(ok)
+        self.assertTrue(reason.startswith("owner rule"), reason)
+
+    def test_the_tag_admits_a_node_whoever_owns_it(self):
+        node = whois(login="tagged-devices", tags=["tag:server", TAG])
+        ok, reason = join.vouched_for(node, OWNER, TAG)
+        self.assertTrue(ok)
+        self.assertTrue(reason.startswith("tag rule"), reason)
+
+    def test_another_tag_is_refused_even_for_the_owner(self):
+        ok, reason = join.vouched_for(whois(tags=["tag:server"]), OWNER, TAG)
+        self.assertFalse(ok)
+        self.assertIn("without " + TAG, reason)
+
+    def test_without_a_tag_configured_no_tagged_node_is_admitted(self):
+        self.assertFalse(join.vouched_for(whois(tags=[TAG]), OWNER, "")[0])
+
 
 class AcceptDevicesTest(unittest.TestCase):
     def joiner(self, api, result=None):
@@ -118,7 +138,16 @@ class AcceptDevicesTest(unittest.TestCase):
             self.whois_calls.append(ip)
             return result
 
-        return join.Joiner(api, OWNER, ["claude"], whois=fake_whois)
+        return join.Joiner(api, OWNER, ["claude"], TAG, whois=fake_whois)
+
+    def test_accepts_a_device_carrying_the_tag_and_logs_the_rule(self):
+        api = FakeApi(pending_devices={NEWMAC: {"name": "overture", "address": "[fd7a:115c:a1e0::5]:22000"}})
+        node = whois(login="tagged-devices", tags=["tag:server", TAG], name="overture.tail0000.ts.net.")
+        with self.assertLogs("syncthing-join", level="INFO") as logs:
+            self.assertEqual(self.joiner(api, node).accept_devices(), [NEWMAC])
+        [(method, path, body)] = api.writes
+        self.assertEqual(body["name"], "overture")
+        self.assertIn("tag rule", "\n".join(logs.output))
 
     def test_accepts_a_vouched_device_with_defaults_and_its_magicdns_address(self):
         api = FakeApi(pending_devices={NEWMAC: {"name": "Mac", "address": "100.70.0.5:22000"}})

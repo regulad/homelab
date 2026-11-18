@@ -18,11 +18,13 @@ pairing by hand.
   joining service reads it too.
 - **Joining service:** `syncthing-join`, a user unit beside Syncthing, enabled
   globally and limited to the user by `ConditionUser=`. It accepts a pending
-  device whose address is on the tailnet and whose node `tailscale whois`
-  reports as untagged and owned by `syncthing_hub_owner`. It shares each folder
-  in `syncthing_hub_folders` that a configured device offers. Everything else
-  stays pending. It logs each decision to the user's journal:
-  `journalctl --user -u syncthing-join` as the user.
+  device whose address is on the tailnet when `tailscale whois` reports its
+  node either as untagged and owned by `syncthing_hub_owner` (the owner rule)
+  or as carrying `syncthing_hub_tag`, whoever owns it (the tag rule). It shares
+  each folder in `syncthing_hub_folders` that a configured device offers.
+  Everything else stays pending. It logs each decision, with the rule that
+  admitted a device, to the user's journal: `journalctl --user -u
+  syncthing-join` as the user.
 
 ## What it leaves alone
 
@@ -33,8 +35,9 @@ other setting in `config.xml`. Discovery and relays stay at Syncthing's
 defaults.
 
 The tailnet's policy lets the owner's devices and `tag:server` hosts reach
-every port, Syncthing's 22000 among them, so the mesh needs no grant of its
-own.
+every port, Syncthing's 22000 among them. A node in the mesh by the tag rule
+reaches the hub on 22000 through `tag:syncthing`'s own grants, in
+`tofu/tailscale`, which also tags the devices no other tool tags.
 
 ## Tests
 

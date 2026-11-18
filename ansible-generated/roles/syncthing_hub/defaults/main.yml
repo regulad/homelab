@@ -9,5 +9,7 @@ syncthing_hub_key_pem: ""
 syncthing_hub_api_key: ""
 # The tailnet login whose untagged nodes the joining service accepts.
 syncthing_hub_owner: ""
+# The tag whose nodes it accepts too, whoever owns them; empty for none.
+syncthing_hub_tag: ""
 # The folder IDs the joining service shares with the devices that offer them.
 syncthing_hub_folders: []

@@ -19,9 +19,11 @@ tailscale_serve:
 
 # The Syncthing mesh's hub (syncthing_hub): regulad's Syncthing, whose GUI is
 # the one served above. Its joining service accepts the untagged nodes of the
-# tailnet's owner, and shares these folders with the devices that offer them;
-# dotfiles declares the folders themselves, on every node.
+# tailnet's owner and the nodes tofu/tailscale tags tag:syncthing, and shares
+# these folders with the devices that offer them; dotfiles declares the
+# folders themselves, on every node.
 syncthing_hub_owner: parkeredwardwahle2017@gmail.com
+syncthing_hub_tag: tag:syncthing
 syncthing_hub_folders: [claude, local-config_rclone, local-state_yt-dlp, prusaslicer]
 
 # The ubuntu group's settings, but never rebooting itself: VM 100's

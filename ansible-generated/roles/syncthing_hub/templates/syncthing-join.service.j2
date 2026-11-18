@@ -10,6 +10,9 @@ ConditionUser={{ syncthing_hub_user }}
 [Service]
 EnvironmentFile=/etc/syncthing-hub/api-key.env
 Environment=SYNCTHING_JOIN_OWNER={{ syncthing_hub_owner }}
+{% if syncthing_hub_tag %}
+Environment=SYNCTHING_JOIN_TAG={{ syncthing_hub_tag }}
+{% endif %}
 Environment=SYNCTHING_JOIN_FOLDERS={{ syncthing_hub_folders | join(',') }}
 ExecStart=/usr/bin/python3 -I -B /usr/local/lib/syncthing-hub/syncthing-join
 Restart=always
