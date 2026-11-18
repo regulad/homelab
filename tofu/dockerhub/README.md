@@ -12,7 +12,9 @@ that serve it, and kept in `dockerhub_pats`.
 | Token | Access | Used by |
 |---|---|---|
 | `terraform-nexus--dockerhub` | Public Repo Read-only | The upstream login of Nexus's `docker-io` proxy (`ansible-generated`'s `group_vars/nexus_servers.yml`, `nexus_repositories` role) |
+| `terraform-doppelgangerhq--dockerhub` | Public Repo Read-only | doppelgangerhq.com's Docker, outside the homelab, which pulls from Docker Hub itself (`host_vars/doppelgangerhq.com/main.yml`, `registry_auth` role) |
 
 To rotate one, issue a new token under the same name, put it in `secrets.sops.yaml`, and deliver
 it as its user says: for Nexus, `maintenance.yml --tags nexus-proxy-logins` from
-`ansible-generated/`, since Nexus never returns a stored password.
+`ansible-generated/`, since Nexus never returns a stored password; for a host,
+`site.yml --tags registry_auth --limit <host>`.
