@@ -13,6 +13,8 @@ repos:
       - id: check-illegal-windows-names
       - id: check-merge-conflict
       - id: check-json
+        # VS Code's settings files are JSON with comments.
+        exclude: ^\.vscode/
       - id: check-yaml
       - id: detect-private-key
       # Snippets, tofu/aws/lambda/ and files/ are byte-exact copies of the files

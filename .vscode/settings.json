@@ -1,0 +1,11 @@
+{
+    // The Mypy Type Checker extension (2026.8.0) dies under Python 3.15, which
+    // VS Code picks as the newest interpreter here: its bundled
+    // typing_extensions touches typing.no_type_check_decorator, which 3.15
+    // removed. Fixed upstream in pre-release 2026.9.13161009 (#636); drop the
+    // interpreter pin once a stable release past 2026.8.0 has it. The server
+    // needs 3.10 or later, so not the tests' 3.9.
+    "mypy-type-checker.interpreter": ["${userHome}/.local/bin/python3.14"],
+    // homelab's interpreter has no mypy of its own: use the extension's.
+    "mypy-type-checker.importStrategy": "useBundled"
+}

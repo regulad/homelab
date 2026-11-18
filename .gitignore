@@ -64,6 +64,9 @@ __pycache__/
 docs/snapshot/
 
 # --- Local editor / OS ------------------------------------------------------
+# The workspace's VS Code settings are committed, whatever a global gitignore
+# says of .vscode/.
+!.vscode/
 .claude/settings.local.json
 # Agents' worktrees (AGENTS.md, Parallel agents), each a checkout of its own branch.
 .claude/worktrees/
