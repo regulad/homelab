@@ -79,8 +79,10 @@ resource "proxmox_haresource" "nexus" {
   state       = "started"
 }
 
-# In: Nexus, for Caddy on ingress, which serves cr.regulad.xyz from the cr
-# repository's path on the same port.
+# In: Nexus from ingress alone (repo.regulad.xyz, cr.regulad.xyz, which serves
+# the cr repository's path on the same port, and ios.regulad.xyz). Nexus takes
+# the user its Rut Auth realm's header names, and the client address in
+# forwarded headers, from whatever reaches it, so only Caddy may.
 resource "proxmox_virtual_environment_firewall_rules" "nexus" {
   node_name    = proxmox_virtual_environment_container.nexus.node_name
   container_id = proxmox_virtual_environment_container.nexus.vm_id
@@ -94,6 +96,7 @@ resource "proxmox_virtual_environment_firewall_rules" "nexus" {
   rule {
     type   = "in"
     action = "ACCEPT"
+    source = local.ingress_ipv4
     proto  = "tcp"
     dport  = "8081" # Nexus
   }
