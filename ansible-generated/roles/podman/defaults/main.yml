@@ -2,6 +2,13 @@
 # Packages that make up Podman on this host.
 podman_packages: [podman]
 
+# Mirrors Podman pulls through, by registry: each registry's images, such as
+# docker.io/library/redis, are pulled from the mirror location with the same
+# path after it, such as <mirror>/library/redis, and from the registry itself
+# when the mirror cannot serve them. Rendered into a drop-in under
+# /etc/containers/registries.conf.d, removed when there are none.
+podman_registry_mirrors: {}
+
 # Podman's storage for root (graphroot in storage.conf), which the role makes
 # no-COW on btrfs.
 podman_storage_root: /var/lib/containers/storage

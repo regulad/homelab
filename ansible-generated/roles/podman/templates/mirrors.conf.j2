@@ -1,0 +1,13 @@
+# Managed by Ansible (podman).
+# Mirrors Podman pulls through, by registry (the podman role's
+# podman_registry_mirrors). Podman tries each mirror first and falls back to the
+# registry itself.
+{% for registry, mirror in podman_registry_mirrors.items() %}
+
+[[registry]]
+prefix = "{{ registry }}"
+location = "{{ registry }}"
+
+[[registry.mirror]]
+location = "{{ mirror }}"
+{% endfor %}

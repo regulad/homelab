@@ -1,0 +1,13 @@
+---
+# Every gonkputer guest, from tofu/gonkputer's state: the homelab's own, on its
+# LAN.
+
+# Podman pulls Docker Hub's and ghcr.io's images through Nexus's docker-io and
+# ghcr-io proxies, which Caddy on ingress serves at the roots of
+# docker-cr.regulad.xyz and ghcr-cr.regulad.xyz. From the LAN, Caddy there
+# names svc-homelab to Nexus's Rut Auth realm, so no host needs a login of its
+# own; Nexus signs in upstream with tokens of its own (nexus_servers.yml).
+# Podman falls back to the registry itself when Nexus cannot serve an image.
+podman_registry_mirrors:
+  docker.io: docker-cr.regulad.xyz
+  ghcr.io: ghcr-cr.regulad.xyz

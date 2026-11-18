@@ -15,6 +15,23 @@
     name: "{{ podman_packages }}"
     state: present
 
+# Podman reads registries.conf and its drop-ins at each command, so nothing
+# restarts for them.
+- name: Podman's registry mirrors
+  ansible.builtin.template:
+    src: mirrors.conf.j2
+    dest: /etc/containers/registries.conf.d/50-mirrors.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: podman_registry_mirrors | length > 0
+
+- name: No registry mirrors
+  ansible.builtin.file:
+    path: /etc/containers/registries.conf.d/50-mirrors.conf
+    state: absent
+  when: podman_registry_mirrors | length == 0
+
 # btrfs's copy-on-write amplifies every write made in place, costing databases
 # and the like their write latency, so Podman's storage on btrfs is no-COW
 # (chattr +C). A file or directory takes the attribute from its directory as it
