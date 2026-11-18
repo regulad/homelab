@@ -1,0 +1,7 @@
+# Nexus's ghcr-io proxy, ghcr.io's mirror, for Docker's API at the root (the
+# Caddyfile's nexus_docker snippet).
+ghcr-cr.regulad.xyz {
+	import hsts
+	import common
+	import nexus_docker ghcr-io
+}

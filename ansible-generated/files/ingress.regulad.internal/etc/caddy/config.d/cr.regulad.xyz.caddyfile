@@ -1,46 +1,7 @@
-# The Docker API, which clients expect at the root, from the cr repository's
-# path on Nexus's one port, as Sonatype's reverse-proxy guide does it. Nexus's
-# token realm, <host>/v2/token, comes through the same rewrite.
+# Nexus's cr Docker repository, for Docker's API at the root (the Caddyfile's
+# nexus_docker snippet).
 cr.regulad.xyz {
 	import hsts
 	import common
-	# Souin holds each GET until its upstream finishes, so image layers go
-	# straight to Nexus. cache runs before rewrite, so the regex sees the
-	# client's /v2/ path. The global cache block's other settings still apply
-	# here.
-	cache {
-		regex {
-			exclude ^/v2/.+/blobs/
-		}
-	}
-
-	@docker path /v2 /v2/*
-	rewrite @docker /repository/cr{uri}
-
-	# The LAN's hosts pull with no credentials of their own: a Docker API
-	# request from the LAN that carries none reaches Nexus with X-Homelab-Peer
-	# naming svc-homelab, whom Nexus's Rut Auth realm takes as its user. A
-	# request that authenticates itself, with a password or Docker's bearer
-	# token, keeps its own user, and Nexus's other paths here, its UI among
-	# them, are left alone. The path is the one rewritten above, as rewrite
-	# runs before route. Only the LAN's IPv4 and ULA ranges match, since its
-	# GUA prefix rotates. Nexus takes whichever user the header names, so any
-	# copy a client sends is dropped first.
-	@local_peer {
-		path /repository/cr/v2 /repository/cr/v2/*
-		remote_ip 10.23.0.0/20 fd83:b84c:aa57:1::/64
-		header !Authorization
-	}
-	route {
-		request_header -X-Homelab-Peer
-		request_header @local_peer X-Homelab-Peer svc-homelab
-	}
-
-	# IPv4 only: Nexus's firewall admits ingress's reserved IPv4 address alone,
-	# as ingress's GUA rotates with the delegated prefix.
-	reverse_proxy {
-		dynamic a nexus.regulad.internal 8081 {
-			versions ipv4
-		}
-	}
+	import nexus_docker cr
 }

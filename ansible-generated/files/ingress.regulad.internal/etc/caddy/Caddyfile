@@ -73,6 +73,53 @@
 	}
 }
 
+# One of Nexus's Docker repositories, named by the import's argument, at the
+# root of a host of its own: Docker's API always starts at <host>/v2/, so it
+# cannot take the repository's path on repo.regulad.xyz. As Sonatype's
+# reverse-proxy guide does it, /v2/ is rewritten to the repository's own
+# /repository/<name>/v2/ on Nexus's one port, the token realm, <host>/v2/token,
+# with it.
+(nexus_docker) {
+	# Souin holds each GET until its upstream finishes, so image layers go
+	# straight to Nexus. cache runs before rewrite, so the regex sees the
+	# client's /v2/ path. The global cache block's other settings still apply.
+	cache {
+		regex {
+			exclude ^/v2/.+/blobs/
+		}
+	}
+
+	@docker path /v2 /v2/*
+	rewrite @docker /repository/{args[0]}{uri}
+
+	# The LAN's hosts pull with no credentials of their own: a Docker API
+	# request from the LAN that carries none reaches Nexus with X-Homelab-Peer
+	# naming svc-homelab, whom Nexus's Rut Auth realm takes as its user. A
+	# request that authenticates itself, with a password or Docker's bearer
+	# token, keeps its own user, and Nexus's other paths, its UI among them,
+	# are left alone. The path is the one rewritten above, as rewrite runs
+	# before route. Only the LAN's IPv4 and ULA ranges match, since its GUA
+	# prefix rotates. Nexus takes whichever user the header names, so any copy
+	# a client sends is dropped first.
+	@local_peer {
+		path /repository/{args[0]}/v2 /repository/{args[0]}/v2/*
+		remote_ip 10.23.0.0/20 fd83:b84c:aa57:1::/64
+		header !Authorization
+	}
+	route {
+		request_header -X-Homelab-Peer
+		request_header @local_peer X-Homelab-Peer svc-homelab
+	}
+
+	# IPv4 only: Nexus's firewall admits ingress's reserved IPv4 address alone,
+	# as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a nexus.regulad.internal 8081 {
+			versions ipv4
+		}
+	}
+}
+
 # Each site, in a file of its own named after its first address. The path is
 # absolute, so validating a copy of this file elsewhere reads them too.
 import /etc/caddy/config.d/*.caddyfile

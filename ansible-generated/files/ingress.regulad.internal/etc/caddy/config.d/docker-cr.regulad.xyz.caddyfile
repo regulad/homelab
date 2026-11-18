@@ -1,0 +1,7 @@
+# Nexus's docker-io proxy, Docker Hub's mirror, for Docker's API at the root
+# (the Caddyfile's nexus_docker snippet).
+docker-cr.regulad.xyz {
+	import hsts
+	import common
+	import nexus_docker docker-io
+}
