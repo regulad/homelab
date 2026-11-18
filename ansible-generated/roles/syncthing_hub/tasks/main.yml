@@ -81,6 +81,7 @@
     owner: root
     group: "{{ syncthing_hub_user }}"
     mode: "0640"
+  register: syncthing_hub_env
   no_log: true
   notify: [Restart syncthing, Restart syncthing-join]
 
@@ -99,6 +100,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: syncthing_hub_dropin
   notify: Restart syncthing
 
 - name: Joining service directory
@@ -151,3 +153,34 @@
   become_user: "{{ syncthing_hub_user }}"
   environment:
     XDG_RUNTIME_DIR: "{{ syncthing_hub_runtime_dir }}"
+
+# Syncthing's own config keeps the key STGUIAPIKEY overrides it with, so a
+# tool that reads config.xml, such as dotfiles' `syncthing cli`, authenticates
+# too. Read and set through the REST API once Syncthing runs with the key.
+- name: Restarts before the API key is read through the API
+  ansible.builtin.meta: flush_handlers
+
+- name: The API key in Syncthing's config
+  when: not (ansible_check_mode and (syncthing_hub_env is changed or syncthing_hub_dropin is changed))
+  block:
+    - name: Read the API key in Syncthing's config
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/gui
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+      register: syncthing_hub_gui
+      check_mode: false
+      no_log: true
+
+    - name: Set it to the key in SOPS
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/gui
+        method: PATCH
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+        body_format: json
+        body:
+          apiKey: "{{ syncthing_hub_api_key }}"
+      when: syncthing_hub_gui.json.apiKey != syncthing_hub_api_key
+      changed_when: true
+      no_log: true

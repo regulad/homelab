@@ -15,7 +15,9 @@ pairing by hand.
   certificate's SHA-256, so a rebuilt hub keeps it.
 - **API key:** `/etc/syncthing-hub/api-key.env` sets `STGUIAPIKEY`, which
   overrides `config.xml`'s key. A drop-in gives it to Syncthing, and the
-  joining service reads it too.
+  joining service reads it too. Each run also sets the key in `config.xml`
+  to it, through the REST API, so a tool reading `config.xml`, such as
+  dotfiles' `syncthing cli`, authenticates with the same key.
 - **Joining service:** `syncthing-join`, a user unit beside Syncthing, enabled
   globally and limited to the user by `ConditionUser=`. It accepts a pending
   device whose address is on the tailnet when `tailscale whois` reports its
