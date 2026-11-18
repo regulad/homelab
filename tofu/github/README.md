@@ -3,7 +3,10 @@
 The `.tf` files are the source of truth for the GitHub Actions, Dependabot and
 environment secrets of regulad's repositories, and for the environments that another
 root's credentials trust, with the refs each admits: Warlock's, whose runs sign as
-`tofu/azure`'s applications.
+`tofu/azure`'s applications. A repository whose environments are defined here declares
+none in its own `.github/settings.yml`. Probot Settings, which applies that file, deletes
+every environment the file does not list, and replaces an environment's deployment
+policies whenever they differ from the file's.
 
 **Only repositories that need secrets are defined here. A repository with no secrets is
 not defined in policy.** A repository that comes to need a secret gets a `repo-<id>.tf`
