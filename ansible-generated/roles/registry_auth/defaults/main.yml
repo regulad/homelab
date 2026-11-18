@@ -1,0 +1,13 @@
+---
+# The container registries root logs in to, each a registry (docker.io for
+# Docker Hub), a username and a password, the password from SOPS. Where any is
+# listed, root's credential file holds these and no others; where none is, the
+# role leaves the host alone.
+registry_auth_logins: []
+
+# The engine whose credential file holds them: docker, /root/.docker/config.json,
+# which Docker's CLI and Compose read; or podman,
+# /root/.config/containers/auth.json, which Podman reads when the file podman
+# login writes under /run has no login for the registry, and which, unlike that
+# one, outlives a reboot.
+registry_auth_engine: "{{ 'docker' if 'docker_hosts' in group_names else 'podman' }}"

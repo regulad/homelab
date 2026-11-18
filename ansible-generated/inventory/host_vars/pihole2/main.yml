@@ -38,3 +38,13 @@ host_files_selinux_fcontexts:
 firewalld_zones:
   public:
     services: [ssh, dhcpv6-client, dns]
+
+# root's Podman login to ghcr.io (registry_auth role), for blocky's image,
+# as regulad with the token issued for this host (tofu/github's
+# secrets.sops.yaml).
+registry_auth_logins:
+  - registry: ghcr.io
+    username: regulad
+    password: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github/secrets.sops.yaml',
+                extract='["github_pats"]["terraform-pihole2--ghcr"]') }}

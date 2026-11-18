@@ -273,3 +273,13 @@ clamav_onaccess_enabled: true
 
 # docker-mailserver's configuration stays watched by AIDE; its data on
 # /mnt/mailserver, another filesystem, AIDE does not walk.
+
+# root's Podman login to ghcr.io (registry_auth role), for docker-mailserver's image,
+# as regulad with the token issued for this host (tofu/github's
+# secrets.sops.yaml).
+registry_auth_logins:
+  - registry: ghcr.io
+    username: regulad
+    password: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github/secrets.sops.yaml',
+                extract='["github_pats"]["terraform-mail--ghcr"]') }}

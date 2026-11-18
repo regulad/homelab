@@ -1,0 +1,35 @@
+---
+# Write root's container registry credentials whole, from registry_auth_logins,
+# so that a login removed there leaves the file. Docker's CLI keys Docker Hub as
+# https://index.docker.io/v1/, Podman as docker.io.
+- name: Registry credentials
+  when: registry_auth_logins | length > 0
+  vars:
+    registry_auth_path: >-
+      {{ '/root/.docker/config.json' if registry_auth_engine == 'docker' else '/root/.config/containers/auth.json' }}
+  block:
+    - name: The credential file's directory
+      ansible.builtin.file:
+        path: "{{ registry_auth_path | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: The credential file
+      ansible.builtin.copy:
+        dest: "{{ registry_auth_path }}"
+        content: "{{ {'auths': registry_auth_entries} | to_nice_json }}\n"
+        owner: root
+        group: root
+        mode: "0600"
+      vars:
+        registry_auth_entries: >-
+          {%- set out = {} -%}
+          {%- for login in registry_auth_logins -%}
+          {%- set key = 'https://index.docker.io/v1/'
+                if login.registry == 'docker.io' and registry_auth_engine == 'docker' else login.registry -%}
+          {%- set _ = out.update({key: {'auth': (login.username ~ ':' ~ login.password) | b64encode}}) -%}
+          {%- endfor -%}
+          {{ out }}
+      no_log: true

@@ -45,6 +45,17 @@
   roles:
     - docker
 
+# root's container registry logins, on the hosts that list any in
+# registry_auth_logins: Docker's credential file on docker_hosts, Podman's on
+# podman_hosts. Before anything here pulls.
+- name: Registry logins
+  hosts: docker_hosts:podman_hosts
+  gather_facts: false
+  become: true
+  tags: [registry_auth]
+  roles:
+    - registry_auth
+
 # Pterodactyl Wings, which runs the panel's game servers.
 - name: Pterodactyl Wings
   hosts: wings

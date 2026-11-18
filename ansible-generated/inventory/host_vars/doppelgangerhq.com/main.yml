@@ -109,13 +109,23 @@ host_files_packages:
   - caddy
   - irqbalance
 
-# root's Docker logins: ghcr.io, for the app's images, with regulad's token;
-# and cr.regulad.xyz, Nexus's cr repository, for the devices' images, as
-# svc-doppelganger, which nexus_servers' nexus_security_users declares.
-docker_registries:
+# root's Docker logins (registry_auth role), each this host's own: Docker Hub,
+# for redis, and ghcr.io, for the app's and cron's images, as regulad with the
+# tokens issued for this host (tofu/dockerhub's and tofu/github's
+# secrets.sops.yaml); and cr.regulad.xyz, Nexus's cr repository, for the
+# devices' images, as svc-doppelganger, which nexus_servers'
+# nexus_security_users declares.
+registry_auth_logins:
+  - registry: docker.io
+    username: regulad
+    password: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/dockerhub/secrets.sops.yaml',
+                extract='["dockerhub_pats"]["terraform-doppelgangerhq--dockerhub"]') }}
   - registry: ghcr.io
     username: regulad
-    password: "{{ docker_ghcr_token }}"
+    password: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github/secrets.sops.yaml',
+                extract='["github_pats"]["terraform-doppelgangerhq--ghcr"]') }}
   - registry: cr.regulad.xyz
     username: svc-doppelganger
     password: "{{ hostvars[groups['nexus_servers'] | first].nexus_svc_doppelganger_password }}"
