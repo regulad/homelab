@@ -10,6 +10,14 @@ repo.regulad.xyz {
 		}
 	}
 
-	reverse_proxy nexus.regulad.internal:8081 {
+	# IPv4 only: Nexus's firewall admits ingress's reserved IPv4 address alone,
+	# as ingress's GUA rotates with the delegated prefix. Nexus's Rut Auth realm
+	# takes whichever user X-Homelab-Peer names, which only cr.regulad.xyz sets,
+	# so a client's copy never reaches it.
+	reverse_proxy {
+		dynamic a nexus.regulad.internal 8081 {
+			versions ipv4
+		}
+		header_up -X-Homelab-Peer
 	}
 }

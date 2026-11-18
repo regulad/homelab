@@ -17,6 +17,30 @@ cr.regulad.xyz {
 	@docker path /v2 /v2/*
 	rewrite @docker /repository/cr{uri}
 
-	reverse_proxy nexus.regulad.internal:8081 {
+	# The LAN's hosts pull with no credentials of their own: a Docker API
+	# request from the LAN that carries none reaches Nexus with X-Homelab-Peer
+	# naming svc-homelab, whom Nexus's Rut Auth realm takes as its user. A
+	# request that authenticates itself, with a password or Docker's bearer
+	# token, keeps its own user, and Nexus's other paths here, its UI among
+	# them, are left alone. The path is the one rewritten above, as rewrite
+	# runs before route. Only the LAN's IPv4 and ULA ranges match, since its
+	# GUA prefix rotates. Nexus takes whichever user the header names, so any
+	# copy a client sends is dropped first.
+	@local_peer {
+		path /repository/cr/v2 /repository/cr/v2/*
+		remote_ip 10.23.0.0/20 fd83:b84c:aa57:1::/64
+		header !Authorization
+	}
+	route {
+		request_header -X-Homelab-Peer
+		request_header @local_peer X-Homelab-Peer svc-homelab
+	}
+
+	# IPv4 only: Nexus's firewall admits ingress's reserved IPv4 address alone,
+	# as ingress's GUA rotates with the delegated prefix.
+	reverse_proxy {
+		dynamic a nexus.regulad.internal 8081 {
+			versions ipv4
+		}
 	}
 }

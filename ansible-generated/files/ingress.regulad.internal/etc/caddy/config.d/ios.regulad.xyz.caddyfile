@@ -21,8 +21,15 @@ http://ios.regulad.xyz, https://ios.regulad.xyz {
 	handle {
 		rewrite * /repository/ios{uri}
 
-		reverse_proxy nexus.regulad.internal:8081 {
+		# IPv4 only, as Nexus's firewall admits ingress's reserved IPv4 address
+		# alone; and never a client's X-Homelab-Peer, whose user Nexus's Rut
+		# Auth realm would take.
+		reverse_proxy {
+			dynamic a nexus.regulad.internal 8081 {
+				versions ipv4
+			}
 			header_up Host repo.regulad.xyz
+			header_up -X-Homelab-Peer
 		}
 	}
 
