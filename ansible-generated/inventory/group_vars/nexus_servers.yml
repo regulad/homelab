@@ -21,15 +21,38 @@ nexus_secrets_file:
     iv: "{{ nexus_fixed_encryption_iv }}"
 
 # Nexus's own roles and users that the nexus_security role converges; the
-# others, such as nx-aaoracled, are left as they are. svc-doppelganger, with
-# which doppelgangerhq.com's Docker pulls from cr.regulad.xyz, may read and
-# browse the cr repository and nothing else, under a role of its own name, as
-# nx-aaoracled has.
+# others are left as they are. Each service user has a role of its own name:
+# - svc-doppelganger, with which doppelgangerhq.com's Docker pulls from
+#   cr.regulad.xyz, may read and browse the cr repository and nothing else.
+# - svc-redroid, with which regulad/redroid-script's CI pushes its images,
+#   administers the cr repository.
+# - nx-aaoracled, with which regulad/aaoracled's CI uploads its packages from
+#   the nexus-ios environment, may read, add and edit in the ios apt repository.
+# - svc-doppelganger-ci, with which regulad/doppelganger's Gradle jobs fetch
+#   through the maven-central proxy, may read and browse that repository and
+#   nothing else.
+# tofu/github reads the CI users' names here, and their passwords from
+# nexus_servers.sops.yml, to set them as those repositories' secrets.
 nexus_security_roles:
   - id: svc-doppelganger
     name: svc-doppelganger
     description: Pulls from the cr Docker repository
     privileges: [nx-repository-view-docker-cr-browse, nx-repository-view-docker-cr-read]
+    roles: []
+  - id: svc-redroid
+    name: svc-redroid
+    description: ""
+    privileges: [nx-repository-admin-docker-cr-*, nx-repository-view-docker-cr-*]
+    roles: []
+  - id: nx-aaoracled
+    name: nx-aaoracled
+    description: ""
+    privileges: [nx-repository-view-apt-ios-read, nx-repository-view-apt-ios-add, nx-repository-view-apt-ios-edit]
+    roles: []
+  - id: svc-doppelganger-ci
+    name: svc-doppelganger-ci
+    description: Reads the maven-central proxy
+    privileges: [nx-repository-view-maven2-maven-central-browse, nx-repository-view-maven2-maven-central-read]
     roles: []
 nexus_security_users:
   - userId: svc-doppelganger
@@ -39,3 +62,24 @@ nexus_security_users:
     password: "{{ nexus_svc_doppelganger_password }}"
     status: active
     roles: [svc-doppelganger]
+  - userId: svc-redroid
+    firstName: Service
+    lastName: Redroid
+    emailAddress: svc-redroid@regulad.xyz
+    password: "{{ nexus_svc_redroid_password }}"
+    status: active
+    roles: [svc-redroid]
+  - userId: nx-aaoracled
+    firstName: Nexus
+    lastName: aaoracled
+    emailAddress: nobody@example.com
+    password: "{{ nexus_nx_aaoracled_password }}"
+    status: active
+    roles: [nx-aaoracled]
+  - userId: svc-doppelganger-ci
+    firstName: Doppelganger
+    lastName: CI
+    emailAddress: svc-doppelganger-ci@regulad.xyz
+    password: "{{ nexus_svc_doppelganger_ci_password }}"
+    status: active
+    roles: [svc-doppelganger-ci]
