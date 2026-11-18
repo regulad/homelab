@@ -19,7 +19,7 @@ tailscale_serve:
 
 # The Syncthing mesh's hub (syncthing_hub): regulad's Syncthing, whose GUI is
 # the one served above. Its joining service accepts the untagged nodes of the
-# tailnet's owner and the nodes tofu/tailscale tags tag:syncthing, and shares
+# tailnet's owner and the nodes tagged tag:syncthing, and shares
 # these folders with the devices that offer them; dotfiles declares the
 # folders themselves, on every node.
 syncthing_hub_owner: parkeredwardwahle2017@gmail.com

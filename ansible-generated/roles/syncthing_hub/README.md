@@ -37,7 +37,7 @@ defaults.
 The tailnet's policy lets the owner's devices and `tag:server` hosts reach
 every port, Syncthing's 22000 among them. A node in the mesh by the tag rule
 reaches the hub on 22000 through `tag:syncthing`'s own grants, in
-`tofu/tailscale`, which also tags the devices no other tool tags.
+`tofu/tailscale`'s policy; each host's `tailscale_tags` gives it the tag.
 
 ## Tests
 
