@@ -51,6 +51,12 @@
 		// give a node it alongside the tag for anything else (e.g.
 		// tag:server).
 		"tag:mullvad": ["autogroup:admin"],
+		// Tagged members of regulad's Syncthing mesh. Its hub, aboriginal,
+		// accepts a device carrying it whoever owns it (ansible-generated's
+		// syncthing_hub), as it does the owner's untagged devices. It grants
+		// only Syncthing to and from the hub: give a node it alongside the tag
+		// for anything else (e.g. tag:server).
+		"tag:syncthing": ["autogroup:admin"],
 		// Edge routers, one tag per router so each site's routes are bound to
 		// exactly one node. The homelab and VCN routers run with SNAT off, so
 		// devices behind them keep their own addresses on the tailnet.
@@ -439,6 +445,25 @@
 			"dst": ["tag:ci-server-doppelganger"],
 			"ip": [
 				"tcp:8108", // webhookd
+			],
+		},
+		{
+			// Syncthing's tagged members: the hub, aboriginal, by its tailnet
+			// addresses, and nothing else.
+			"src": ["tag:syncthing"],
+			"dst": ["ipset:aboriginal--tail11540--ts--net"],
+			"ip": [
+				"tcp:22000", // Syncthing
+				"udp:22000", // Syncthing (QUIC)
+			],
+		},
+		{
+			// And the hub back to them, as either side may dial.
+			"src": ["ipset:aboriginal--tail11540--ts--net"],
+			"dst": ["tag:syncthing"],
+			"ip": [
+				"tcp:22000", // Syncthing
+				"udp:22000", // Syncthing (QUIC)
 			],
 		},
 		{

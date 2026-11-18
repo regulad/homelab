@@ -1,8 +1,9 @@
 # tailscale (Tailscale)
 
 The `.tf` files are the source of truth for the tailnet regulad's configuration: its policy
-file, its DNS configuration, and its federated identities, the trust credentials with which
-GitHub Actions runs act on the tailnet without a secret. They moved here from
+file, its DNS configuration, its federated identities, the trust credentials with which
+GitHub Actions runs act on the tailnet without a secret, and the tags of the devices no
+other tool tags. They moved here from
 [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), which is to be
 retired.
 
@@ -11,6 +12,7 @@ retired.
 | `acl.tf`, `policy.hujson.tftpl` | The policy file: the template is the policy, comments and all, with addresses filled in |
 | `dns.tf` | The whole DNS configuration |
 | `identity-<repository>.tf` | One federated identity per repository whose Actions use the tailnet |
+| `device-<host>.tf` | One device's tags, for a device whose Tailscale no other tool configures |
 | `oracle.tf` | `tofu/oracle`'s `tailnet` output: the VCN's services subnet and its resolvers |
 | `outputs.tf` | `oauth_client_ids` and `audiences`, by repository |
 | `locals.tf` | The tailnet's ID, GitHub's token issuer, and the resolvers' addresses |
@@ -51,6 +53,14 @@ deleted with the repository's retirement rather than adopted.
 `tofu/github` reads `oauth_client_ids` and `audiences`, and sets them as each repository's
 `TS_OAUTH_ID` and `TS_AUDIENCE`. OAuth client IDs are no secret.
 
+## Device tags
+
+A node the `tailscale` role joins advertises its own tags, its `tailscale_tags`, and gets no
+file here. A device whose Tailscale no tool configures, such as overture, gets its tags
+from a `device-<host>.tf`, which looks the device up by its short hostname. A tag must be
+in the policy's `tagOwners` before a device can carry it, so each device's tags depend
+on the policy.
+
 ## Credentials
 
 The provider authenticates with the tailnet's `homelab` API access token, the
@@ -79,6 +89,6 @@ State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, 
 |---|---|
 | kodi-plugins' `ci-kodi` auth key | Hand-made; it gives way to kodi-plugins' federated identity once its workflow uses that, and is then revoked |
 | The `homelab` API access token | This root's own credential |
-| Devices and their settings | Not configured from here |
+| Devices and their settings | Not configured from here, but for the tags in a `device-<host>.tf` |
 
 Every mutation or state change needs Parker's explicit approval.
