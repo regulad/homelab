@@ -22,6 +22,7 @@
   ansible.builtin.set_fact:
     docker_daemon: >-
       {{ ({'ipv6': true, 'fixed-cidr-v6': docker_ula_prefix, 'ip6tables': true} if docker_ula_prefix else {})
+         | combine({'registry-mirrors': docker_registry_mirrors} if docker_registry_mirrors else {})
          | combine(docker_daemon_settings) }}
 
 - name: Read the daemon settings
@@ -30,8 +31,21 @@
   register: docker_daemon_file
   failed_when: false
 
+- name: The daemon settings that differ
+  ansible.builtin.set_fact:
+    docker_daemon_changed: >-
+      {%- set live = docker_daemon_file.content | default('e30=') | b64decode | from_json -%}
+      {%- set out = [] -%}
+      {%- for key in live.keys() | list | union(docker_daemon.keys() | list) -%}
+      {%- if (key in live) != (key in docker_daemon) or live.get(key) != docker_daemon.get(key) -%}
+      {%- set _ = out.append(key) -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+
 # Rewritten only when the parsed settings differ, so the file's formatting never
-# restarts Docker and every container with it.
+# restarts Docker and every container with it. A change to reloadable settings
+# alone only reloads it.
 - name: Daemon settings
   ansible.builtin.copy:
     dest: /etc/docker/daemon.json
@@ -39,6 +53,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: >-
-    (docker_daemon_file.content | default('e30=') | b64decode | from_json) != docker_daemon
-  notify: Restart Docker
+  when: docker_daemon_changed | length > 0
+  notify: >-
+    {{ 'Reload Docker' if docker_daemon_changed | difference(docker_reloadable_settings) | length == 0
+       else 'Restart Docker' }}

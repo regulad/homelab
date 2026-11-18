@@ -11,3 +11,7 @@
 podman_registry_mirrors:
   docker.io: docker-cr.regulad.xyz
   ghcr.io: ghcr-cr.regulad.xyz
+
+# Docker, which mirrors Docker Hub alone, the same: the docker role's daemon
+# settings on dodo, and vkasm's own daemon.json (its host_vars).
+docker_registry_mirrors: ["https://{{ podman_registry_mirrors['docker.io'] }}"]

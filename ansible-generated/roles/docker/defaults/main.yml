@@ -3,8 +3,33 @@
 # with Docker's ip6tables rules; each host takes its own prefix.
 docker_ula_prefix: ""
 
-# Other daemon.json settings, by name, which override the IPv6 ones.
+# Mirrors Docker pulls Docker Hub's images through, as URLs (registry-mirrors):
+# Docker mirrors Docker Hub alone, and pulls from it when no mirror can serve an
+# image.
+docker_registry_mirrors: []
+
+# Other daemon.json settings, by name, which override the IPv6 ones and the
+# mirrors.
 docker_daemon_settings: {}
+
+# The daemon.json settings Docker takes on a reload (SIGHUP), as its
+# "Configuration reload behavior" lists them. A change to these alone reloads
+# Docker; any other restarts it, and every container with it.
+docker_reloadable_settings:
+  - debug
+  - labels
+  - live-restore
+  - max-concurrent-downloads
+  - max-concurrent-uploads
+  - max-download-attempts
+  - default-runtime
+  - default-stop-timeout
+  - runtimes
+  - authorization-plugin
+  - insecure-registries
+  - registry-mirrors
+  - shutdown-timeout
+  - features
 
 # Compose projects tasks_from: compose brings up, each a name and its files'
 # absolute paths in one directory, such as those host_files places.
