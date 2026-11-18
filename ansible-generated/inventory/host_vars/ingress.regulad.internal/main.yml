@@ -4,12 +4,12 @@
 # ios.regulad.xyz.
 
 # kodi-plugins' publisher, which logs in over the tailnet as tag:ci-kodi and
-# replaces kodi.regulad.xyz's tree in /srv/kodi. Its key's private half is
-# kodi-plugins' SSH_KEY_BLOB.
+# replaces kodi.regulad.xyz's tree in /srv/kodi. Its key's private half is in
+# kodi-plugins' publish.sops.yaml.
 host_files_login_users:
   - name: kodi-publish
     authorized_keys:
-      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKVs7foUj+G6mbapsF7RY4CH/SdNK2R9alSoJD6wT2k regulad@winlite
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHd2VD8v22ozxo7g2ufW1BNX0ThukoJFjN0xxLSY6o+S kodi-plugins publish
 
 host_files_directories:
   - path: /etc/caddy
@@ -24,11 +24,13 @@ host_files_directories:
     mode: "0400"
   - path: /srv/cydia
     mode: "0755"
-  # kodi.regulad.xyz's web root, which kodi-publish fills.
+  # kodi.regulad.xyz's web root, which kodi-publish fills. The mode applies to
+  # everything under it: X keeps directories searchable without making the
+  # files each publish writes executable.
   - path: /srv/kodi
     owner: kodi-publish
     group: kodi-publish
-    mode: "0755"
+    mode: u=rwX,go=rX
     recurse: true
 host_files_list:
   # xcaddy's apt repository.
