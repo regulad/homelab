@@ -526,6 +526,11 @@ pfsense_aliases:
     address: 500 4500
     descr: Wi-Fi Calling
     detail: IPsec - IKE||IPsec - NAT Traversal
+  - name: web_gui
+    type: port
+    address: 80 443
+    descr: Web GUI
+    detail: HTTP, redirecting to HTTPS||HTTPS
   - name: home_ipv6
     type: network
     address: '{{ arawi_ipv6_prefixes.verizon_56 }}::/56'
@@ -594,6 +599,16 @@ pfsense_rules:
     protocol: any
     source: NET:GUEST
     destination: NET:LAN2
+  # Guests' HTTP and HTTPS go to `any`, which in pfSense includes arawi's own
+  # addresses, so without this they reach the web GUI.
+  - name: Block GUEST to web GUI
+    action: block
+    interface: GUEST
+    ipprotocol: inet46
+    protocol: tcp
+    source: NET:GUEST
+    destination: (self)
+    destination_port: web_gui
   - name: Allow GUEST DNS
     action: pass
     interface: GUEST
