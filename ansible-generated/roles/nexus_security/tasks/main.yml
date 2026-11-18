@@ -214,13 +214,14 @@
       register: nexus_security_realms_live
       check_mode: false
 
+    # Nexus answers 204, though its OpenAPI document lists only 200.
     - name: Active realms
       ansible.builtin.uri:
         url: "{{ nexus_url }}/service/rest/v1/security/realms/active"
         method: PUT
         body_format: json
         body: "{{ nexus_security_realms }}"
-        status_code: 200
+        status_code: 204
       when: nexus_security_realms | length > 0 and nexus_security_realms_live.json != nexus_security_realms
       changed_when: true
 
