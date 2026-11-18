@@ -11,7 +11,7 @@ locals {
   # The environments tofu/azure's warlock_profiles names, with the branches and
   # tags each admits.
   repository_1463115679_environments = {
-    release = { branches = ["main"], tags = ["v*"] }
+    release = { branches = ["master"], tags = ["v*"] }
     testing = { branches = ["master", "testing"], tags = [] }
   }
 
