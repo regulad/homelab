@@ -148,3 +148,15 @@ pfsense_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 # and php-fpm restarts when they change. Empty applies no stopgap.
 pfsense_php_stopgap_until: ""
 pfsense_php_stopgap_files: []
+
+# A stopgap for an HTTP/2 vulnerability pfSense's nginx does not fix yet: while
+# nginx's own version (from nginx -v; the package version's epoch would sort
+# above any upstream release) is older than pfsense_nginx_http2_stopgap_until
+# (compared by pkg version), the web GUI is served without HTTP/2. pfSense
+# writes `http2 on;` into the GUI's nginx configuration unconditionally, from
+# system_generate_nginx_config() in /etc/inc/system.inc, so the stopgap turns
+# that line to `http2 off;` and turns it back once nginx is fixed; the web GUI
+# restarts when either changes. A pfSense upgrade replaces system.inc, and the
+# next run applies the stopgap again if nginx is still older. Empty applies no
+# stopgap.
+pfsense_nginx_http2_stopgap_until: ""

@@ -16,3 +16,11 @@
 - name: Restart PHP-FPM
   ansible.builtin.command: /etc/rc.php-fpm_restart
   changed_when: true
+
+# Restart nginx through pfSense's own script, which stops every nginx by its
+# pidfile, so no worker of the old configuration is left, then regenerates the
+# web GUI's configuration from system.inc and starts it. The web GUI drops for a
+# few seconds.
+- name: Restart the web GUI
+  ansible.builtin.command: /etc/rc.restart_webgui
+  changed_when: true

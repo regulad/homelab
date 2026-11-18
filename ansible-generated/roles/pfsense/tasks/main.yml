@@ -240,6 +240,54 @@
   when: not pfsense_php_stopgap
   notify: Restart PHP-FPM
 
+- name: Read nginx's version
+  ansible.builtin.command: /usr/local/sbin/nginx -v
+  register: pfsense_nginx_version
+  changed_when: false
+  check_mode: false
+  when: pfsense_nginx_http2_stopgap_until | length > 0
+
+- name: Compare it with the fixed version
+  ansible.builtin.command: >-
+    pkg version -t
+    {{ pfsense_nginx_version.stderr | regex_search('nginx/([0-9.]+)', '\1') | first | quote }}
+    {{ pfsense_nginx_http2_stopgap_until | quote }}
+  register: pfsense_nginx_compare
+  changed_when: false
+  check_mode: false
+  when: pfsense_nginx_http2_stopgap_until | length > 0
+
+- name: Decide whether the nginx HTTP/2 stopgap applies
+  ansible.builtin.set_fact:
+    pfsense_nginx_http2_stopgap: "{{ pfsense_nginx_http2_stopgap_until | length > 0 and pfsense_nginx_compare.stdout == '<' }}"
+
+- name: Serve the web GUI without HTTP/2 while nginx is vulnerable
+  ansible.builtin.replace:
+    path: /etc/inc/system.inc
+    regexp: '^(\s*\$nginx_config \.= "\\t\\thttp2 )on(;\\n";)$'
+    replace: '\1off\2'
+  when: pfsense_nginx_http2_stopgap
+  notify: Restart the web GUI
+
+# A pfSense release that writes HTTP/2 some other way would leave the stopgap
+# above matching nothing, so every mention of http2 left must be the stopgap's.
+- name: Check that system.inc enables HTTP/2 nowhere else
+  ansible.builtin.command: grep -n http2 /etc/inc/system.inc
+  register: pfsense_nginx_http2_lines
+  changed_when: false
+  failed_when: >-
+    pfsense_nginx_http2_lines.rc > 1
+    or pfsense_nginx_http2_lines.stdout_lines | reject('search', 'http2 off;') | list | length > 0
+  when: pfsense_nginx_http2_stopgap and not ansible_check_mode
+
+- name: Serve the web GUI over HTTP/2 again once nginx is fixed
+  ansible.builtin.replace:
+    path: /etc/inc/system.inc
+    regexp: '^(\s*\$nginx_config \.= "\\t\\thttp2 )off(;\\n";)$'
+    replace: '\1on\2'
+  when: not pfsense_nginx_http2_stopgap
+  notify: Restart the web GUI
+
 - name: Render sections with no pfsensible module
   ansible.builtin.set_fact:
     pfsense_rendered_sections: >-
