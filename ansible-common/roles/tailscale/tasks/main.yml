@@ -1,8 +1,10 @@
 ---
-# Install Tailscale and converge a joined node's settings and Serve; join only
-# when tailscale_join is set and the node is not protected. Runs on hardware
-# hosts (Phase 2) and generated hosts (Phase 4). Its play runs unprivileged,
-# as Homebrew on macOS needs, so it becomes root everywhere else.
+# Install Tailscale and converge a joined node's settings, Serve and tags; join
+# only when tailscale_join is set and the node is not protected. Runs on
+# hardware hosts (Phase 2) and generated hosts (Phase 4): on Linux, the
+# package and its systemd unit; on macOS, Homebrew's open-source tailscaled
+# under its launchd job. Its play runs unprivileged, as Homebrew on macOS
+# needs, so it becomes root everywhere else, and wherever tailscale needs root.
 - name: Tailscale
   when: tailscale_enabled
   become: "{{ 'macos' not in group_names }}"
@@ -70,47 +72,101 @@
       ansible.builtin.package:
         name: tailscale
         state: present
+      when: "'macos' not in group_names"
 
-    - name: Tailscale start order directory
-      ansible.builtin.file:
-        path: /etc/systemd/system/tailscaled.service.d
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-      when: tailscale_after | length > 0
+    - name: Tailscale's systemd unit
+      when: "'macos' not in group_names"
+      block:
+        - name: Tailscale start order directory
+          ansible.builtin.file:
+            path: /etc/systemd/system/tailscaled.service.d
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+          when: tailscale_after | length > 0
 
-    - name: Tailscale start order
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/tailscaled.service.d/50-after.conf
-        content: |
-          [Unit]
-          After={{ tailscale_after | join(' ') }}
-        owner: root
-        group: root
-        mode: "0644"
-      when: tailscale_after | length > 0
-      notify: Reload systemd for Tailscale
+        - name: Tailscale start order
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/tailscaled.service.d/50-after.conf
+            content: |
+              [Unit]
+              After={{ tailscale_after | join(' ') }}
+            owner: root
+            group: root
+            mode: "0644"
+          when: tailscale_after | length > 0
+          notify: Reload systemd for Tailscale
 
-    - name: No Tailscale start order
-      ansible.builtin.file:
-        path: /etc/systemd/system/tailscaled.service.d/50-after.conf
-        state: absent
-      when: tailscale_after | length == 0
-      notify: Reload systemd for Tailscale
+        - name: No Tailscale start order
+          ansible.builtin.file:
+            path: /etc/systemd/system/tailscaled.service.d/50-after.conf
+            state: absent
+          when: tailscale_after | length == 0
+          notify: Reload systemd for Tailscale
 
-    - name: Tailscale daemon
-      ansible.builtin.systemd_service:
-        name: tailscaled
-        enabled: true
-        state: started
+        - name: Tailscale daemon
+          ansible.builtin.systemd_service:
+            name: tailscaled
+            enabled: true
+            state: started
 
+    # macOS: Homebrew's open-source tailscaled, which runs as root under its
+    # launchd job in the system domain. Homebrew installs as the user, never
+    # root; `sudo brew services start` writes and loads the job.
+    - name: Tailscale on macOS
+      when: "'macos' in group_names"
+      block:
+        - name: Install Tailscale with Homebrew
+          community.general.homebrew:
+            name: tailscale
+            state: present
+            path: "{{ tailscale_homebrew_prefix }}/bin"
+
+        - name: Read Tailscale's launchd job
+          ansible.builtin.command:
+            argv: [launchctl, print, "system/{{ tailscale_launchd_label }}"]
+          register: tailscale_launchd
+          changed_when: false
+          failed_when: false
+          check_mode: false
+          become: true
+
+        - name: Start Tailscale's launchd job
+          ansible.builtin.command:
+            argv: ["{{ tailscale_homebrew_prefix }}/bin/brew", services, start, tailscale]
+          when: tailscale_launchd.rc != 0
+          changed_when: true
+          become: true
+
+    # As root, which tailscale set needs on macOS as on Linux.
     - name: Tailscale settings and Serve
       tailscale_node:
         tags: "{{ tailscale_tags }}"
         settings: "{{ tailscale_settings }}"
         serve: "{{ tailscale_serve }}"
       register: tailscale_node_result
+      become: true
+
+    # A joined node's tags change only through Tailscale's API, by the node's
+    # ID; tailscale up --advertise-tags would re-authenticate it.
+    - name: Retag the node through Tailscale's API
+      when:
+        - tailscale_node_result.joined
+        - tailscale_node_result.tags | sort != tailscale_tags | sort
+      ansible.builtin.uri:
+        url: https://api.tailscale.com/api/v2/device/{{ tailscale_node_result.node_id }}/tags
+        method: POST
+        headers:
+          Authorization: Bearer {{ tailscale_api_token }}
+        body_format: json
+        body:
+          tags: "{{ tailscale_tags | map('regex_replace', '^', 'tag:') | list }}"
+        status_code: 200
+      changed_when: true
+      delegate_to: localhost
+      become: false
+      no_log: true
 
     - name: Join the tailnet
       when: not tailscale_node_result.joined
@@ -155,11 +211,12 @@
         - name: Join with the key
           ansible.builtin.command:
             argv: >-
-              {{ ['tailscale', 'up',
+              {{ [tailscale_node_result.tailscale, 'up',
                   '--auth-key=' ~ tailscale_key.json.key,
                   '--advertise-tags=' ~ (tailscale_tags | map('regex_replace', '^', 'tag:') | join(','))]
                  + tailscale_node_result.up_flags }}
           changed_when: true
+          become: true
           no_log: true
 
         - name: Tailscale settings and Serve after joining
@@ -167,3 +224,4 @@
             tags: "{{ tailscale_tags }}"
             settings: "{{ tailscale_settings }}"
             serve: "{{ tailscale_serve }}"
+          become: true

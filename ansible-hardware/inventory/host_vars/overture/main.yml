@@ -11,6 +11,13 @@ ansible_ssh_common_args: -o RemoteCommand=none -o RequestTTY=no
 # The interpreter macOS ships, rather than whichever Python discovery finds.
 ansible_python_interpreter: /usr/bin/python3
 
+# Homebrew's open-source tailscaled, under its launchd job, joined by hand:
+# never joined, re-authenticated or logged out by Ansible. tag:syncthing
+# makes it a member of regulad's Syncthing mesh, whose hub is aboriginal.
+tailscale_enabled: true
+tailscale_protected: true
+tailscale_tags: [server, syncthing]
+
 # The Orchard worker's VMs, two macOS guests at most by Apple's licence, share
 # 6 of the Mac's 8 cores and 6 GiB of its 8 GiB, leaving macOS the rest. Which
 # cores run them is macOS's choice, not Tart's. A VM that sets no CPU or memory

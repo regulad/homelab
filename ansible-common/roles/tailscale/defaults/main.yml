@@ -10,8 +10,9 @@ tailscale_dnf_path: >-
 # release, as pkgs.tailscale.com served it on 2026-10-28.
 tailscale_apt_key_sha256: 3e03dacf222698c60b8e2f990b809ca1b3e104de127767864284e6c228f1fb39
 
-# The node's tags, without "tag:". A joined node whose tags differ fails the run;
-# a new node joins with a one-off, pre-approved key carrying exactly these tags.
+# The node's tags, without "tag:". A joined node whose tags differ is retagged
+# through Tailscale's API; a new node joins with a one-off, pre-approved key
+# carrying exactly these tags.
 tailscale_tags: []
 
 # Settings converged with `tailscale set`, by name (see the tailscale_node
@@ -34,6 +35,11 @@ tailscale_tailnet: "-"
 # whatever tailscale_join says; a protected node that is not logged in fails the
 # run instead. Settings and Serve are still converged.
 tailscale_protected: false
+
+# macOS: Homebrew's prefix, and the label of the launchd job that
+# `sudo brew services start tailscale` writes for tailscaled.
+tailscale_homebrew_prefix: /opt/homebrew
+tailscale_launchd_label: sh.brew.tailscale
 
 # Units tailscaled starts after, as a tailscaled.service.d drop-in; empty
 # removes it. A Proxmox node lists pveproxy.service: once Serve holds the

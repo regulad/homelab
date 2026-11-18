@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Copyright: Parker Wahle
 # AGPL-3.0
-"""Converge an already-joined Tailscale node's tags check, settings and Serve."""
+"""Converge an already-joined Tailscale node's settings and Serve, and report its tags."""
 
 DOCUMENTATION = r"""
 module: tailscale_node
@@ -12,9 +12,14 @@ description:
     and left alone, so joining stays an explicit, separate step; C(up_flags)
     then holds the declared settings that C(tailscale up) takes too, as its
     flags, for the join to pass.
-  - On a joined node, fails if its tags differ from O(tags), runs
-    C(tailscale set) only for the declared settings that differ, and adds or
-    removes only the Serve and Funnel ports that differ. Supports check mode.
+  - On a joined node, runs C(tailscale set) only for the declared settings
+    that differ, and adds or removes only the Serve and Funnel ports that
+    differ. Supports check mode.
+  - Reports the node's ID (C(node_id)) and its tags (C(tags), without the
+    C(tag:) prefix), and shows tags that differ from O(tags) in its diff. It
+    changes no tags itself: a node retags only through Tailscale's API, which
+    the role calls with the node's ID.
+  - Finds the tailscale CLI on the PATH, or under Homebrew's prefixes.
 options:
   tags:
     description: The node's tags, without the C(tag:) prefix.
@@ -125,19 +130,22 @@ def main():
     if unknown:
         module.fail_json(msg="Unknown settings: %s" % ", ".join(sorted(unknown)))
 
-    tailscale = module.get_bin_path("tailscale", required=True)
+    # Homebrew's prefixes, which a macOS host's PATH under sudo lacks.
+    tailscale = module.get_bin_path("tailscale", required=True, opt_dirs=["/opt/homebrew/bin", "/usr/local/bin"])
     status = run_json(module, [tailscale, "status", "--json", "--self", "--peers=false"])
     if status.get("BackendState") != "Running":
         up_flags = ["%s=%s" % (SETTINGS[name][0], render(name, normalize(name, value)))
                     for name, value in sorted(module.params["settings"].items()) if name in UP_SETTINGS]
-        module.exit_json(changed=False, joined=False, backend_state=status.get("BackendState"), up_flags=up_flags)
+        module.exit_json(changed=False, joined=False, backend_state=status.get("BackendState"), up_flags=up_flags,
+                         tailscale=tailscale)
 
-    tags = sorted(t.replace("tag:", "") for t in ((status.get("Self") or {}).get("Tags") or []))
-    if tags != sorted(module.params["tags"]):
-        module.fail_json(msg="The node's tags %s differ from the declared %s; fix them in the admin console or re-join deliberately." % (tags, sorted(module.params["tags"])))
+    self_status = status.get("Self") or {}
+    tags = sorted(t.replace("tag:", "") for t in (self_status.get("Tags") or []))
 
     prefs = run_json(module, [tailscale, "debug", "prefs"])
     before, after, flags = {}, {}, []
+    if tags != sorted(module.params["tags"]):
+        before["tags"], after["tags"] = tags, sorted(module.params["tags"])
     for name, value in module.params["settings"].items():
         flag, read = SETTINGS[name]
         want, have = normalize(name, value), normalize(name, read(prefs))
@@ -170,7 +178,8 @@ def main():
             rc, out, err = module.run_command(cmd)
             if rc != 0:
                 module.fail_json(msg="%s failed: %s" % (" ".join(cmd[1:]), err.strip() or out.strip()))
-    module.exit_json(changed=changed, joined=True, set_flags=flags,
+    module.exit_json(changed=changed, joined=True, set_flags=flags, tailscale=tailscale,
+                     node_id=self_status.get("ID", ""), tags=tags,
                      diff=dict(before=json.dumps(before, indent=2, sort_keys=True) + "\n",
                                after=json.dumps(after, indent=2, sort_keys=True) + "\n"))
 
