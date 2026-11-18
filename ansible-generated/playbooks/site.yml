@@ -220,8 +220,8 @@
   roles:
     - qbittorrent
 
-# Nexus's own roles and users, through its REST API as svc-ansible, once its
-# Quadlet runs.
+# Nexus's own roles and users, capabilities and active realms, through its REST
+# API as svc-ansible, once its Quadlet runs.
 - name: Nexus security
   hosts: nexus_servers
   gather_facts: false

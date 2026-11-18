@@ -1,8 +1,10 @@
 ---
-# Converge Nexus's own roles and users through its REST API at nexus_url, as
-# svc-ansible (nexus_api_user, with its password from nexus_servers.sops.yml).
-# Only what nexus_security_roles and nexus_security_users name changes. uri has
-# no check mode, so a check run reports what a run would change instead.
+# Converge Nexus's own roles and users, its capabilities and its active realms
+# through its REST API at nexus_url, as svc-ansible (nexus_api_user, with its
+# password from nexus_servers.sops.yml). Only what nexus_security_roles,
+# nexus_security_users, nexus_security_capabilities and nexus_security_realms
+# name changes. uri has no check mode, so a check run reports what a run would
+# change instead.
 - name: Nexus security
   module_defaults:
     ansible.builtin.uri:
@@ -156,6 +158,72 @@
       no_log: true
       changed_when: true
 
+    # After the users, so that a realm a capability brings in, such as Rut
+    # Auth's, finds the users it names.
+    - name: Read Nexus's capabilities
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/capabilities"
+      register: nexus_security_capabilities_live
+      check_mode: false
+
+    - name: Capabilities to create or update
+      ansible.builtin.set_fact:
+        nexus_security_capabilities_new: >-
+          {{ nexus_security_capabilities
+             | rejectattr('type', 'in', nexus_security_capabilities_live.json | map(attribute='type') | list) | list }}
+        nexus_security_capabilities_changed: >-
+          {%- set out = [] -%}
+          {%- for capability in nexus_security_capabilities -%}
+          {%- for live in nexus_security_capabilities_live.json if live.type == capability.type -%}
+          {%- if live.enabled != capability.enabled
+                or live.properties | default({}) != capability.properties | default({}) -%}
+          {%- set _ = out.append(capability | combine({'id': live.id, 'notes': live.notes | default('')})) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {%- endfor -%}
+          {{ out }}
+
+    - name: Create capabilities
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/capabilities"
+        method: POST
+        body_format: json
+        body: "{{ {'notes': '', 'properties': {}} | combine(item) }}"
+        status_code: 200
+      loop: "{{ nexus_security_capabilities_new }}"
+      loop_control:
+        label: "{{ item.type }}"
+      changed_when: true
+
+    - name: Update capabilities
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/capabilities/{{ item.id }}"
+        method: PUT
+        body_format: json
+        body: "{{ {'properties': {}} | combine(item) }}"
+        status_code: 200
+      loop: "{{ nexus_security_capabilities_changed }}"
+      loop_control:
+        label: "{{ item.type }}"
+      changed_when: true
+
+    # After the capabilities, since enabling one can add a realm.
+    - name: Read Nexus's active realms
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/realms/active"
+      register: nexus_security_realms_live
+      check_mode: false
+
+    - name: Active realms
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/security/realms/active"
+        method: PUT
+        body_format: json
+        body: "{{ nexus_security_realms }}"
+        status_code: 200
+      when: nexus_security_realms | length > 0 and nexus_security_realms_live.json != nexus_security_realms
+      changed_when: true
+
     - name: What a run would change
       ansible.builtin.debug:
         msg:
@@ -166,8 +234,16 @@
           passwords_set: >-
             {{ nexus_security_passwords.results | default([]) | selectattr('status', 'equalto', 401)
                | map(attribute='item.userId') | list }}
+          capabilities_created: "{{ nexus_security_capabilities_new | map(attribute='type') | list }}"
+          capabilities_updated: "{{ nexus_security_capabilities_changed | map(attribute='type') | list }}"
+          realms: >-
+            {{ {'from': nexus_security_realms_live.json, 'to': nexus_security_realms}
+               if nexus_security_realms | length > 0 and nexus_security_realms_live.json != nexus_security_realms
+               else 'unchanged' }}
       when: ansible_check_mode
       changed_when: >-
         (nexus_security_roles_new + nexus_security_roles_changed + nexus_security_users_new
-         + nexus_security_users_changed) | length > 0
+         + nexus_security_users_changed + nexus_security_capabilities_new
+         + nexus_security_capabilities_changed) | length > 0
         or nexus_security_passwords.results | default([]) | selectattr('status', 'equalto', 401) | list | length > 0
+        or (nexus_security_realms | length > 0 and nexus_security_realms_live.json != nexus_security_realms)

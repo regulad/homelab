@@ -9,3 +9,13 @@ nexus_security_roles: []
 # password from SOPS. A user whose password Nexus rejects gets the listed one.
 # Users Nexus has that are not listed are left as they are.
 nexus_security_users: []
+
+# Nexus's capabilities, each as its REST API takes one: type, enabled and
+# properties, whose values are strings. The capabilities of each listed type
+# take the listed settings, and one is created where Nexus has none.
+# Capabilities of other types are left as they are.
+nexus_security_capabilities: []
+
+# Nexus's active security realms, by id, in the order Nexus tries them. Empty
+# leaves them as they are.
+nexus_security_realms: []

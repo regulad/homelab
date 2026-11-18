@@ -31,6 +31,10 @@ nexus_secrets_file:
 # - svc-doppelganger-ci, with which regulad/doppelganger's Gradle jobs fetch
 #   through the maven-central proxy, may read and browse that repository and
 #   nothing else.
+# - svc-homelab, the user the LAN's hosts pull from cr.regulad.xyz as without
+#   credentials, through the Rut Auth realm (below), may read and browse the cr
+#   repository and nothing else. Its password exists only because Nexus wants
+#   one for a local user.
 # tofu/github reads the CI users' names here, and their passwords from
 # nexus_servers.sops.yml, to set them as those repositories' secrets.
 nexus_security_roles:
@@ -53,6 +57,11 @@ nexus_security_roles:
     name: svc-doppelganger-ci
     description: Reads the maven-central proxy
     privileges: [nx-repository-view-maven2-maven-central-browse, nx-repository-view-maven2-maven-central-read]
+    roles: []
+  - id: svc-homelab
+    name: svc-homelab
+    description: The LAN's hosts, pulling from the cr Docker repository
+    privileges: [nx-repository-view-docker-cr-browse, nx-repository-view-docker-cr-read]
     roles: []
 nexus_security_users:
   - userId: svc-doppelganger
@@ -83,3 +92,29 @@ nexus_security_users:
     password: "{{ nexus_svc_doppelganger_ci_password }}"
     status: active
     roles: [svc-doppelganger-ci]
+  - userId: svc-homelab
+    firstName: Homelab
+    lastName: Hosts
+    emailAddress: svc-homelab@regulad.xyz
+    password: "{{ nexus_svc_homelab_password }}"
+    status: active
+    roles: [svc-homelab]
+
+# Rut Auth: Nexus takes the user that the X-Homelab-Peer header names as
+# authenticated. Caddy on ingress sets it to svc-homelab on cr.regulad.xyz's
+# Docker API requests from the LAN that carry no credentials, and drops any
+# copy a client sends on every site in front of Nexus; Nexus's firewall admits
+# ingress alone (tofu/gonkputer's lxc-nexus.tf). Enabling the capability adds
+# the realm to the active ones; Sonatype's guide puts it first.
+nexus_security_capabilities:
+  - type: rutauth
+    enabled: true
+    properties:
+      httpHeader: X-Homelab-Peer
+nexus_security_realms:
+  - rutauth-realm
+  - NexusAuthenticatingRealm
+  - DockerToken
+  - NpmToken
+  - NuGetApiKey
+  - LdapRealm
