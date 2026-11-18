@@ -229,6 +229,15 @@
   roles:
     - nexus_security
 
+# The settings of Nexus's repositories that nexus_servers.yml lists, such as its
+# proxies' upstream logins, through its REST API as svc-ansible.
+- name: Nexus repositories
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus_repositories]
+  roles:
+    - nexus_repositories
+
 # Last: AIDE's baseline moved for the files this run wrote.
 - name: File integrity baseline for this run's files
   ansible.builtin.import_playbook: ../../ansible-common/playbooks/aide-refresh.yml

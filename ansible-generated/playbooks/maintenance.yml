@@ -1211,6 +1211,19 @@
         quiet: true
       when: not ansible_check_mode
 
+# Send the upstream logins of the Nexus repositories nexus_servers.yml lists,
+# with their other listed settings, whether or not Nexus already has them. Run
+# after rotating one of their tokens: Nexus never returns a stored password, so
+# site.yml cannot tell a new token from the old one.
+- name: Nexus proxy logins
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus-proxy-logins]
+  roles:
+    - role: nexus_repositories
+      vars:
+        nexus_repositories_force: true
+
 # Upgrade Forgejo to the long-term support major services.yml declares: bump
 # its image's tag there, with whatever its release notes ask of the unit, then
 # run this play rather than site.yml, with --limit <host> so alock locks that

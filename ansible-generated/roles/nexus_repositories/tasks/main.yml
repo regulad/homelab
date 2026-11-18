@@ -1,0 +1,73 @@
+---
+# Converge the listed settings and upstream logins of Nexus's listed
+# repositories through its REST API at nexus_url, as svc-ansible
+# (nexus_api_user, with its password from nexus_servers.sops.yml). A
+# repository is written whole, as Nexus has it with the listed settings and
+# login merged in, where what Nexus returns differs from that, or always with
+# nexus_repositories_force. uri has no check mode, so a check run reports what a
+# run would change instead.
+- name: Nexus repositories
+  module_defaults:
+    ansible.builtin.uri:
+      url_username: "{{ nexus_api_user }}"
+      url_password: "{{ nexus_api_password }}"
+      force_basic_auth: true
+  block:
+    # Once, so that a login from OpenTofu's outputs is looked up once.
+    - name: The listed repositories
+      ansible.builtin.set_fact:
+        nexus_repositories_resolved: "{{ nexus_repositories_managed }}"
+      no_log: true
+
+    - name: Read the listed repositories
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/repositories/{{ item.format }}/{{ item.type }}/{{ item.name }}"
+      loop: "{{ nexus_repositories_resolved }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: nexus_repositories_live
+      check_mode: false
+      no_log: true
+
+    # Each repository as a write would leave it, compared without the password,
+    # which Nexus never returns; the write sends it. The format, type and url
+    # Nexus returns are not settings its API takes.
+    - name: Repositories to write
+      ansible.builtin.set_fact:
+        nexus_repositories_writes: >-
+          {%- set out = [] -%}
+          {%- for result in nexus_repositories_live.results -%}
+          {%- set live = result.json -%}
+          {%- set login = {'httpClient': {'authentication': {'type': 'username', 'username': result.item.login.username}}}
+                if result.item.login is defined else {} -%}
+          {%- set wanted = live | combine(result.item.settings | default({}), login, recursive=True) -%}
+          {%- if wanted != live or nexus_repositories_force -%}
+          {%- set body = wanted | dict2items | rejectattr('key', 'in', ['format', 'type', 'url']) | items2dict -%}
+          {%- if result.item.login is defined -%}
+          {%- set body = body | combine({'httpClient': {'authentication': {'password': result.item.login.password}}}, recursive=True) -%}
+          {%- endif -%}
+          {%- set _ = out.append({'item': result.item, 'body': body}) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {{ out }}
+      no_log: true
+
+    - name: Write repositories
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/service/rest/v1/repositories/{{ item.item.format }}/{{ item.item.type }}/{{ item.item.name }}"
+        method: PUT
+        body_format: json
+        body: "{{ item.body }}"
+        status_code: [200, 204]
+      loop: "{{ nexus_repositories_writes }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      no_log: true
+      changed_when: true
+
+    - name: What a run would change
+      ansible.builtin.debug:
+        msg:
+          repositories_written: "{{ nexus_repositories_writes | map(attribute='item.name') | list }}"
+      when: ansible_check_mode
+      changed_when: nexus_repositories_writes | length > 0

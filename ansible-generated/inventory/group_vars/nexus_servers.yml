@@ -118,3 +118,37 @@ nexus_security_realms:
   - NpmToken
   - NuGetApiKey
   - LdapRealm
+
+# The upstream logins of Nexus's proxies, which the nexus_repositories role
+# sets, each with a personal access token of its own as regulad. Docker Hub and
+# GitHub issue none through an API to an account with two-factor
+# authentication, so they are issued by hand, each under its name there,
+# terraform-<word>--<word>, and kept with the others each service issued: in
+# tofu/dockerhub's and tofu/github's secrets.sops.yaml, their only copies.
+# - docker-io signs in to Docker Hub with a Public Repo Read-only token, which
+#   reaches no private repository.
+# - ghcr-io signs in to ghcr.io with a classic token, the only kind ghcr.io
+#   takes, with read:packages alone. A classic token reads every package
+#   regulad can, private ones and regulad's organizations' included, so
+#   whoever reads ghcr-io through Nexus, anonymous users and knownguest among
+#   them, can too.
+# To rotate one, issue a new token under the same name, put it in its file, and
+# run maintenance.yml --tags nexus-proxy-logins: Nexus never returns a stored
+# password, so site.yml cannot tell it changed.
+nexus_repositories_managed:
+  - format: docker
+    type: proxy
+    name: docker-io
+    login:
+      username: regulad
+      password: >-
+        {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/dockerhub/secrets.sops.yaml',
+                  extract='["dockerhub_pats"]["terraform-nexus--dockerhub"]') }}
+  - format: docker
+    type: proxy
+    name: ghcr-io
+    login:
+      username: regulad
+      password: >-
+        {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github/secrets.sops.yaml',
+                  extract='["github_pats"]["terraform-nexus--ghcr"]') }}

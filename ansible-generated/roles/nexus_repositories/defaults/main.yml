@@ -1,0 +1,16 @@
+---
+# Nexus's repositories whose settings this role converges, each with:
+#   format, type, name   the repository, as its REST API addresses it:
+#                        /v1/repositories/<format>/<type>/<name>
+#   settings             settings to merge into what Nexus has, as that API
+#                        takes them; those not listed are left as they are
+#   login                a proxy's upstream login, a username and a password
+# Repositories not listed are left as they are. Nexus's API never returns a
+# stored password, and a repository is written whole, so a repository whose
+# upstream login is stored in Nexus lists it here.
+nexus_repositories_managed: []
+
+# Whether to write each listed repository even where Nexus already has its
+# settings: Nexus never returns a password, so a run sends a changed one only
+# this way. maintenance.yml's nexus-proxy-logins sets it.
+nexus_repositories_force: false
