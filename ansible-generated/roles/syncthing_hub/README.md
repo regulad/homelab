@@ -1,0 +1,43 @@
+# syncthing_hub
+
+The hub of regulad's Syncthing mesh: aboriginal, always on, holding a copy of
+every shared folder. Every other node, configured by
+[`regulad/dotfiles`](https://github.com/regulad/dotfiles), marks the hub as its
+introducer, so a device the hub accepts reaches the rest of the mesh without
+pairing by hand.
+
+## What it does
+
+- **Syncthing** is the `syncthing` package's own user unit, run by
+  `syncthing_hub_user` from boot through lingering.
+- **Identity:** `cert.pem` and `key.pem`, from the host's `secrets.sops.yml`,
+  go into the user's Syncthing state directory. The device ID is the
+  certificate's SHA-256, so a rebuilt hub keeps it.
+- **API key:** `/etc/syncthing-hub/api-key.env` sets `STGUIAPIKEY`, which
+  overrides `config.xml`'s key. A drop-in gives it to Syncthing, and the
+  joining service reads it too.
+- **Joining service:** `syncthing-join`, a user unit beside Syncthing, enabled
+  globally and limited to the user by `ConditionUser=`. It accepts a pending
+  device whose address is on the tailnet and whose node `tailscale whois`
+  reports as untagged and owned by `syncthing_hub_owner`. It shares each folder
+  in `syncthing_hub_folders` that a configured device offers. Everything else
+  stays pending. It logs each decision to the user's journal:
+  `journalctl --user -u syncthing-join` as the user.
+
+## What it leaves alone
+
+Everything else in the user's home belongs to dotfiles, on the hub as on every
+node: the folders and their paths, `~/.claude/.stignore`, the folders'
+permissions, and usage and crash reporting. The role writes no folder and no
+other setting in `config.xml`. Discovery and relays stay at Syncthing's
+defaults.
+
+The tailnet's policy lets the owner's devices and `tag:server` hosts reach
+every port, Syncthing's 22000 among them, so the mesh needs no grant of its
+own.
+
+## Tests
+
+`tests/test_syncthing_join.py`, under Python 3.9 with the repository's other
+tests, checks which devices the service accepts and which folders it shares,
+against a stand-in for Syncthing's REST API and for `tailscale whois`.

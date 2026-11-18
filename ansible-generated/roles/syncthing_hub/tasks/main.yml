@@ -1,0 +1,153 @@
+---
+# The Syncthing hub. The user's Syncthing, the syncthing package's user unit,
+# keeps its identity from SOPS and takes its REST API key from it too.
+# syncthing-join, a user unit beside it, accepts the devices the tailnet
+# vouches for and shares the hub's folders with them. Everything else in the
+# user's home, such as the folders, their paths and .stignore, is dotfiles'.
+- name: Check the identity, API key, owner and folders are set
+  ansible.builtin.assert:
+    that:
+      - syncthing_hub_cert_pem is search('BEGIN CERTIFICATE')
+      - syncthing_hub_key_pem is search('PRIVATE KEY')
+      - syncthing_hub_api_key | length >= 32
+      - syncthing_hub_owner | length > 0
+      - syncthing_hub_folders | length > 0
+    quiet: true
+  no_log: true
+
+- name: Package
+  ansible.builtin.apt:
+    name: syncthing
+    state: present
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: The user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ syncthing_hub_user }}"
+
+# getent_passwd's fields: password, UID, GID, GECOS, home, shell.
+- name: Its home and runtime directory
+  ansible.builtin.set_fact:
+    syncthing_hub_home: "{{ getent_passwd[syncthing_hub_user][4] }}"
+    syncthing_hub_runtime_dir: /run/user/{{ getent_passwd[syncthing_hub_user][1] }}
+
+# Its user units run from boot, without a login.
+- name: Lingering
+  ansible.builtin.command:
+    cmd: loginctl enable-linger {{ syncthing_hub_user }}
+    creates: /var/lib/systemd/linger/{{ syncthing_hub_user }}
+  vars:
+    aide_writes: [/var/lib/systemd/linger/*]
+
+- name: State directory
+  ansible.builtin.file:
+    path: "{{ syncthing_hub_home }}/.local/state/syncthing"
+    state: directory
+    owner: "{{ syncthing_hub_user }}"
+    group: "{{ syncthing_hub_user }}"
+    mode: "0700"
+
+# The device ID is the SHA-256 of cert.pem, so a rebuilt hub keeps it.
+- name: Identity
+  ansible.builtin.copy:
+    dest: "{{ syncthing_hub_home }}/.local/state/syncthing/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: "{{ syncthing_hub_user }}"
+    group: "{{ syncthing_hub_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - {name: cert.pem, content: "{{ syncthing_hub_cert_pem }}", mode: "0664"}
+    - {name: key.pem, content: "{{ syncthing_hub_key_pem }}", mode: "0600"}
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  notify: Restart syncthing
+
+- name: API key directory
+  ansible.builtin.file:
+    path: /etc/syncthing-hub
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Read by the user's manager for both units, so the user's group reads it.
+- name: API key
+  ansible.builtin.copy:
+    dest: /etc/syncthing-hub/api-key.env
+    content: "STGUIAPIKEY={{ syncthing_hub_api_key }}\n"
+    owner: root
+    group: "{{ syncthing_hub_user }}"
+    mode: "0640"
+  no_log: true
+  notify: [Restart syncthing, Restart syncthing-join]
+
+- name: Drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/user/syncthing.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Syncthing's API key from the environment
+  ansible.builtin.template:
+    src: syncthing-hub.conf.j2
+    dest: /etc/systemd/user/syncthing.service.d/syncthing-hub.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart syncthing
+
+- name: Joining service directory
+  ansible.builtin.file:
+    path: /usr/local/lib/syncthing-hub
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Joining service
+  ansible.builtin.copy:
+    src: syncthing-join
+    dest: /usr/local/lib/syncthing-hub/syncthing-join
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart syncthing-join
+
+- name: Joining service unit
+  ansible.builtin.template:
+    src: syncthing-join.service.j2
+    dest: /etc/systemd/user/syncthing-join.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: syncthing_hub_unit
+  notify: Restart syncthing-join
+
+# Enabled for every user's manager, as `systemctl --global enable` would, with
+# its link in /etc/systemd/user rather than the user's home; ConditionUser=
+# leaves it to the hub's user alone. systemd_service cannot query the global
+# scope, so the link is made directly.
+- name: Joining service enabled
+  ansible.builtin.file:
+    src: /etc/systemd/user/syncthing-join.service
+    dest: /etc/systemd/user/default.target.wants/syncthing-join.service
+    state: link
+    force: "{{ ansible_check_mode }}"
+
+# A check run cannot start a unit its unit file isn't written for yet.
+- name: Joining service running
+  when: not (ansible_check_mode and syncthing_hub_unit is changed)
+  ansible.builtin.systemd_service:
+    name: syncthing-join.service
+    scope: user
+    state: started
+    daemon_reload: true
+  become: true
+  become_user: "{{ syncthing_hub_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ syncthing_hub_runtime_dir }}"

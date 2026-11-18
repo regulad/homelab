@@ -1,0 +1,13 @@
+---
+# The user whose Syncthing is the hub: the syncthing package's user unit,
+# running from boot through lingering.
+syncthing_hub_user: regulad
+# The hub's identity, cert.pem and key.pem, whose certificate's SHA-256 is its
+# device ID, and its REST API key: from the host's secrets.sops.yml.
+syncthing_hub_cert_pem: ""
+syncthing_hub_key_pem: ""
+syncthing_hub_api_key: ""
+# The tailnet login whose untagged nodes the joining service accepts.
+syncthing_hub_owner: ""
+# The folder IDs the joining service shares with the devices that offer them.
+syncthing_hub_folders: []

@@ -1,0 +1,19 @@
+# syncthing_hub: accepts the Syncthing devices the tailnet vouches for, and
+# shares the hub's folders with them. A user unit, run by {{ syncthing_hub_user }} alone.
+[Unit]
+Description=Syncthing joining service
+Documentation=file:///usr/local/lib/syncthing-hub/syncthing-join
+Wants=syncthing.service
+After=syncthing.service
+ConditionUser={{ syncthing_hub_user }}
+
+[Service]
+EnvironmentFile=/etc/syncthing-hub/api-key.env
+Environment=SYNCTHING_JOIN_OWNER={{ syncthing_hub_owner }}
+Environment=SYNCTHING_JOIN_FOLDERS={{ syncthing_hub_folders | join(',') }}
+ExecStart=/usr/bin/python3 -I -B /usr/local/lib/syncthing-hub/syncthing-join
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target

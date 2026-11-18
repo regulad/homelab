@@ -176,6 +176,15 @@
   roles:
     - lime
 
+# regulad's Syncthing on aboriginal, the mesh's hub, and its joining service.
+- name: Syncthing hubs
+  hosts: syncthing_hubs
+  gather_facts: false
+  become: true
+  tags: [syncthing_hub]
+  roles:
+    - syncthing_hub
+
 # Installs the panel where none exists and keeps its .env; upgrades are
 # playbooks/maintenance.yml.
 - name: Pterodactyl panel

@@ -1,0 +1,4 @@
+# syncthing_hub: Syncthing takes its REST API key from STGUIAPIKEY, which
+# overrides config.xml's, so the key in SOPS is the one in force.
+[Service]
+EnvironmentFile=/etc/syncthing-hub/api-key.env

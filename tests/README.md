@@ -7,6 +7,8 @@ These are the tests of AIDE's acceptance system:
 - the aide role's refresh tasks, which move the baseline for those writes;
 - how the playbooks and each stage's `ansible.cfg` wire them together.
 
+And one test of a service a role installs: the Syncthing hub's joining service.
+
 They use the standard library's `unittest` and need nothing installed beyond the Python they run under: Python 3.9, the oldest a host runs aide-report with (Oracle Linux 9's). `uv python install 3.9` provides it. Pre-commit's `tests` hook runs them; by hand, from the repository root:
 
 ```sh
@@ -27,6 +29,7 @@ uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest 
 | `test_aide_written.py` | The callback's own logic, with a stand-in for ansible-core |
 | `test_ansible.py` | The callback and the refresh tasks in ansible-core itself, and what ansible-core hands callbacks |
 | `test_playbooks.py` | The playbooks' and `ansible.cfg`'s wiring, read from their text |
+| `test_syncthing_join.py` | syncthing_hub's `syncthing-join`: which pending devices it accepts and which offered folders it shares, against a stand-in for Syncthing's REST API and `tailscale whois` |
 | `support.py` | Shared helpers: loading the code, a stand-in `Packages`, AIDE report builders, and stand-in commands |
 | `playbooks/`, `callback_plugins/` | The playbook `test_ansible.py` runs, and the callback that records each result for it |
 

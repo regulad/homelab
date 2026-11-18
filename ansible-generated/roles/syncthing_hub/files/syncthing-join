@@ -1,0 +1,227 @@
+#!/usr/bin/python3
+"""Accept the Syncthing devices the tailnet vouches for, and share the hub's
+folders with them.
+
+Syncthing auto-accepts folders but never devices. This service waits on the
+hub's REST API for pending devices and pending folders. A pending device whose
+address is on the tailnet, and whose node `tailscale whois` reports as
+untagged and owned by SYNCTHING_JOIN_OWNER, is added with Syncthing's default
+device settings. A folder that a configured device offers, and whose ID is in
+SYNCTHING_JOIN_FOLDERS, is shared with that device. Everything else stays
+pending. Each pass reads the current state, so the service is idempotent; an
+event only wakes it, as Syncthing's event buffer can drop events.
+
+Environment:
+  STGUIAPIKEY             the REST API key, which Syncthing takes from the same variable
+  SYNCTHING_JOIN_OWNER    the tailnet login whose untagged nodes are accepted
+  SYNCTHING_JOIN_FOLDERS  comma-separated folder IDs to share with accepted devices
+  SYNCTHING_API_URL       the REST API (default http://127.0.0.1:8384)
+
+Standard library only, and Python 3.9-compatible, the version its tests run on.
+"""
+import ipaddress
+import json
+import logging
+import os
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+LOG = logging.getLogger("syncthing-join")
+
+# Tailscale's CGNAT range and its ULA prefix: the addresses its nodes have.
+TAILNET_NETWORKS = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("fd7a:115c:a1e0::/48"),
+)
+EVENTS = "PendingDevicesChanged,PendingFoldersChanged"
+# A full pass at least this often, in seconds, whatever the events say.
+FULL_PASS_INTERVAL = 600
+
+
+class Api:
+    """Syncthing's REST API, with the X-API-Key header."""
+
+    def __init__(self, url, key, timeout=90):
+        self.url = url.rstrip("/")
+        self.key = key
+        self.timeout = timeout
+
+    def request(self, method, path, body=None):
+        data = None if body is None else json.dumps(body).encode()
+        req = urllib.request.Request(self.url + path, data=data, method=method)
+        req.add_header("X-API-Key", self.key)
+        if data is not None:
+            req.add_header("Content-Type", "application/json")
+        with urllib.request.urlopen(req, timeout=self.timeout) as response:
+            raw = response.read()
+        return json.loads(raw) if raw.strip() else None
+
+    def get(self, path):
+        return self.request("GET", path)
+
+
+def tailnet_ip(address):
+    """The IP of a pending device's address ("ip:port" or "[ipv6]:port") if it
+    is on the tailnet, else None."""
+    host = address.strip()
+    if "://" in host:
+        host = host.split("://", 1)[1]
+    if host.startswith("["):
+        host = host[1:].split("]", 1)[0]
+    elif host.count(":") == 1:
+        host = host.rsplit(":", 1)[0]
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return None
+    return str(ip) if any(ip in network for network in TAILNET_NETWORKS) else None
+
+
+def tailscale_whois(ip):
+    """`tailscale whois --json <ip>`, parsed, or None if it fails."""
+    try:
+        out = subprocess.run(
+            ["tailscale", "whois", "--json", ip],
+            check=True, capture_output=True, text=True, timeout=30,
+        ).stdout
+        return json.loads(out)
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        LOG.warning("whois %s failed: %s", ip, error)
+        return None
+
+
+def vouched_for(whois, owner):
+    """Whether a whois result is an untagged node owned by owner. Returns
+    (decision, reason)."""
+    if not whois:
+        return False, "no whois result"
+    node = whois.get("Node") or {}
+    login = (whois.get("UserProfile") or {}).get("LoginName", "")
+    if node.get("Tags"):
+        return False, "tagged node ({})".format(", ".join(node["Tags"]))
+    if login != owner:
+        return False, "owned by {!r}, not {!r}".format(login, owner)
+    return True, "untagged node owned by {}".format(owner)
+
+
+def magicdns_name(whois):
+    """The node's MagicDNS name, without its trailing dot."""
+    return ((whois.get("Node") or {}).get("Name") or "").rstrip(".")
+
+
+class Joiner:
+    def __init__(self, api, owner, folders, whois=tailscale_whois):
+        self.api = api
+        self.owner = owner
+        self.folders = set(folders)
+        self.whois = whois
+
+    def configured_devices(self):
+        return {d["deviceID"] for d in self.api.get("/rest/config/devices")}
+
+    def accept_devices(self):
+        """Add every pending device the tailnet vouches for. Returns the IDs added."""
+        added = []
+        pending = self.api.get("/rest/cluster/pending/devices") or {}
+        for device_id, info in sorted(pending.items()):
+            address = info.get("address", "")
+            ip = tailnet_ip(address)
+            if ip is None:
+                LOG.info("device %s (%r) left pending: address %s is not on the tailnet",
+                         device_id, info.get("name"), address)
+                continue
+            whois = self.whois(ip)
+            ok, reason = vouched_for(whois, self.owner)
+            if not ok:
+                LOG.info("device %s (%r) at %s left pending: %s",
+                         device_id, info.get("name"), ip, reason)
+                continue
+            name = magicdns_name(whois)
+            device = self.api.get("/rest/config/defaults/device")
+            device["deviceID"] = device_id
+            device["name"] = name.split(".", 1)[0] or info.get("name", "")
+            device["addresses"] = ["dynamic", "tcp://{}:22000".format(name)] if name else ["dynamic"]
+            self.api.request("POST", "/rest/config/devices", device)
+            LOG.info("device %s accepted as %r: %s, at %s", device_id, device["name"], reason, ip)
+            added.append(device_id)
+        return added
+
+    def share_folders(self):
+        """Share each allowed folder a configured device offers with that
+        device, one device at a time. Returns (folder, device) pairs shared."""
+        shared = []
+        configured = self.configured_devices()
+        pending = self.api.get("/rest/cluster/pending/folders") or {}
+        for folder_id, offer in sorted(pending.items()):
+            for device_id in sorted((offer.get("offeredBy") or {})):
+                if device_id not in configured:
+                    continue
+                if folder_id not in self.folders:
+                    LOG.info("folder %r from %s left pending: not one the hub shares",
+                             folder_id, device_id)
+                    continue
+                try:
+                    folder = self.api.get("/rest/config/folders/" + urllib.parse.quote(folder_id))
+                except urllib.error.HTTPError as error:
+                    if error.code != 404:
+                        raise
+                    LOG.info("folder %r from %s left pending: the hub has no such folder yet",
+                             folder_id, device_id)
+                    continue
+                devices = folder.get("devices") or []
+                if any(d.get("deviceID") == device_id for d in devices):
+                    continue
+                # PATCH replaces lists whole: write back the list just read, plus one.
+                devices.append({"deviceID": device_id})
+                self.api.request("PATCH", "/rest/config/folders/" + urllib.parse.quote(folder_id),
+                                 {"devices": devices})
+                LOG.info("folder %r shared with %s", folder_id, device_id)
+                shared.append((folder_id, device_id))
+        return shared
+
+    def run_pass(self):
+        self.accept_devices()
+        self.share_folders()
+
+
+def serve(joiner, api):
+    since = 0
+    last_full = 0.0
+    while True:
+        try:
+            if time.monotonic() - last_full >= FULL_PASS_INTERVAL:
+                joiner.run_pass()
+                last_full = time.monotonic()
+            events = api.get("/rest/events?events={}&since={}&timeout=60".format(EVENTS, since)) or []
+            if events:
+                newest = max(e["id"] for e in events)
+                # Syncthing numbers events from 1 again after it restarts.
+                since = newest if newest >= since else 0
+                joiner.run_pass()
+                last_full = time.monotonic()
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            LOG.warning("Syncthing's API is unavailable (%s); retrying in 30 s", error)
+            since = 0
+            last_full = 0.0
+            time.sleep(30)
+
+
+def main():
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
+    try:
+        key = os.environ["STGUIAPIKEY"]
+        owner = os.environ["SYNCTHING_JOIN_OWNER"]
+        folders = [f for f in os.environ["SYNCTHING_JOIN_FOLDERS"].split(",") if f]
+    except KeyError as missing:
+        sys.exit("syncthing-join: {} is not set".format(missing))
+    api = Api(os.environ.get("SYNCTHING_API_URL", "http://127.0.0.1:8384"), key)
+    LOG.info("accepting untagged nodes of %s; sharing %s", owner, ", ".join(sorted(folders)))
+    serve(Joiner(api, owner, folders), api)
+
+
+if __name__ == "__main__":
+    main()
