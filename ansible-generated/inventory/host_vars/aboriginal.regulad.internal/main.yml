@@ -17,6 +17,13 @@ tailscale_serve:
   - port: 8384
     target: http://localhost:8384
 
+# The Syncthing mesh's hub (syncthing_hub): regulad's Syncthing, whose GUI is
+# the one served above. Its joining service accepts the untagged nodes of the
+# tailnet's owner, and shares these folders with the devices that offer them;
+# dotfiles declares the folders themselves, on every node.
+syncthing_hub_owner: parkeredwardwahle2017@gmail.com
+syncthing_hub_folders: [claude, local-config_rclone, local-state_yt-dlp, prusaslicer]
+
 # The ubuntu group's settings, but never rebooting itself: VM 100's
 # passed-through GPU does not survive the VM restarting on its own.
 auto_updates_unattended_upgrade:
