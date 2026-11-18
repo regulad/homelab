@@ -124,6 +124,15 @@ repos:
         files: ^tofu/(tailscale|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-github
+        name: tofu validate (github)
+        language: unsupported
+        # The provider requires its App key to be set, even to validate, and
+        # validate never reads it: prepare.sh exports the real one for plans.
+        entry: env GITHUB_APP_PEM_FILE=unused tofu -chdir=tofu/github validate -no-color
+        files: ^(tofu/(github|shared)/|ansible-generated/inventory/group_vars/nexus_servers\.yml$)
+        pass_filenames: false
+
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
       # resolves the config file per module directory. Recursing from tofu/ keeps the
       # ignored docs/snapshot/ drafts out of the lint.

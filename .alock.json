@@ -5,6 +5,7 @@
     "tofu/backblaze": {},
     "tofu/cloudflare": {},
     "tofu/gcp": {},
+    "tofu/github": {},
     "tofu/gonkputer": {
       "hosts": {
         "dir": "ansible-generated",
