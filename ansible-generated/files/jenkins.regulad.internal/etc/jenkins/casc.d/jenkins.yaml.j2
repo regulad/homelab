@@ -47,10 +47,12 @@ jenkins:
       allowAnonymousRead: false
   # The agents: a container for each build, under rootless Podman as
   # jenkins-agents, whose API socket the controller mounts (services.yml). Each
-  # has its own network namespace and reaches the controller on this
-  # container's port 8080 through Podman's host.containers.internal, over
-  # WebSocket, so the inbound agent port is never used. ^${...} passes the
-  # docker-plugin's own variables through Configuration as Code unexpanded.
+  # has a network namespace of its own from pasta, with this container's
+  # addresses in both families; the Docker API's default, Podman's bridge,
+  # would give it IPv4 alone. Each reaches the controller on this container's
+  # port 8080 through Podman's host.containers.internal, over WebSocket, so the
+  # inbound agent port is never used. ^${...} passes the docker-plugin's own
+  # variables through Configuration as Code unexpanded.
   clouds:
     - docker:
         name: "podman"
@@ -69,7 +71,10 @@ jenkins:
             removeVolumes: true
             dockerTemplateBase:
               image: "docker.io/jenkins/inbound-agent:{{ jenkins_agent_image_tag }}"
-              environmentsString: "JENKINS_WEB_SOCKET=true"
+              network: "pasta"
+              # The image's entry point passes JENKINS_AGENT_WORKDIR to the agent
+              # as its work directory, which otherwise has none.
+              environmentsString: "JENKINS_WEB_SOCKET=true\nJENKINS_AGENT_WORKDIR=/home/jenkins/agent"
             connector:
               jnlp:
                 jenkinsUrl: "http://host.containers.internal:8080/"
