@@ -71,20 +71,28 @@
   loop_control:
     label: "{{ item.name }}"
 
-# A check run cannot reach a user manager that lingering has yet to start.
-- name: Their API sockets listening
-  ansible.builtin.systemd_service:
-    name: podman.socket
-    scope: user
-    state: started
-  become: true
-  become_user: "{{ item.0.name }}"
-  environment:
-    XDG_RUNTIME_DIR: /run/user/{{ item.0.uid }}
+# Root reaches each user's own service manager as <user>@.host, not by becoming
+# the user: a Proxmox container's ansible_become is off, and a user's bus
+# refuses root's connection. A check run cannot reach a user manager that
+# lingering has yet to start. is-active exits 3 for a unit not running.
+- name: Their API sockets' state
+  ansible.builtin.command: systemctl --user --machine={{ item.0.name }}@.host is-active podman.socket  # noqa: command-instead-of-module
+  register: podman_rootless_sockets
+  changed_when: false
+  failed_when: podman_rootless_sockets.rc not in [0, 3]
+  check_mode: false
   when: not (ansible_check_mode and item.1 is changed)
   loop: "{{ podman_rootless_users | zip(podman_rootless_linger.results) | list }}"
   loop_control:
     label: "{{ item.0.name }}"
+
+- name: Their API sockets listening
+  ansible.builtin.command: systemctl --user --machine={{ item.item.0.name }}@.host start podman.socket  # noqa: command-instead-of-module
+  changed_when: true
+  when: item.rc | default(0) == 3
+  loop: "{{ podman_rootless_sockets.results }}"
+  loop_control:
+    label: "{{ item.item.0.name }}"
 
 - name: AppArmor's profile for pasta disabled
   ansible.builtin.file:
