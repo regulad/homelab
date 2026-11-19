@@ -11,7 +11,8 @@
 #   read_only       ReadOnly, true unless set false; Podman then mounts
 #                   tmpfs on /tmp, /var/tmp, /run and /dev. A service whose
 #                   image must write its own root sets false and says why
-#   container_name, user, auto_update, drop_capabilities
+#   container_name, user, group_add (GroupAdd, supplementary groups),
+#   auto_update, drop_capabilities
 #   (DropCapability), no_new_privileges (NoNewPrivileges), network
 #   (Network, such as host), ports (PublishPort), volumes (Volume), tmpfs
 #   (Tmpfs), ulimits (Ulimit, as name=soft:hard), exec (Exec, the arguments

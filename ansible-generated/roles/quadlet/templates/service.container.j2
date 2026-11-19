@@ -15,6 +15,9 @@ ContainerName={{ item.container_name }}
 {% if item.user is defined %}
 User={{ item.user }}
 {% endif %}
+{% for group in item.group_add | default([]) %}
+GroupAdd={{ group }}
+{% endfor %}
 {% if item.hostname is defined %}
 HostName={{ item.hostname }}
 {% endif %}
