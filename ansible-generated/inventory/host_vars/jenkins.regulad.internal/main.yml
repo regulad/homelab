@@ -31,9 +31,10 @@ jenkins_freeipa_host: "{{ freeipa_server.fqdn }}"
 jenkins_freeipa_delegate: "{{ freeipa_server.fqdn }}"
 jenkins_freeipa_password: "{{ mail_relay_freeipa_password }}"
 
-# Every plugin, pinned at the version Jenkins 2.580.2 ran on 2026-11-18, and
-# Configuration as Code and Job DSL, their latest for it then, whose
-# dependencies were all already among these.
+# Every plugin Jenkins 2.580.2 loaded on 2026-11-18, pinned at its version
+# then, and Configuration as Code and Job DSL, their latest for it then, whose
+# dependencies were all already among these. jenkins_home/plugins also holds
+# github-organization-folder 1.6 unpacked, without the .jpi Jenkins loads.
 jenkins_plugins:
   ant: "520.vd082ecfb_16a_9"
   antisamy-markup-formatter: "173.v680e3a_b_69ff3"
@@ -74,7 +75,6 @@ jenkins_plugins:
   github: "1.47.0"
   github-api: "1.330-492.v3941a_032db_2a_"
   github-branch-source: "1986.v801e40614d00"
-  github-organization-folder: "1.6"
   github-pullrequest: "0.7.5"
   gradle: "2.20.1259.v6355c2b_e38c7"
   gson-api: "2.15.0-212.v085f60a_8093b_"
