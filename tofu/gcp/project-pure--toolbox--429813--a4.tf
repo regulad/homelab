@@ -1,4 +1,4 @@
-# pure-toolbox-429813-a4: doppelganger, home of the OAuth client behind the
+# pure-toolbox-429813-a4: doppelganger, home of the OAuth clients behind the
 # Supabase project doppelganger's sign-in with Google, which no resource
 # manages (README.md). It has no billing account.
 locals {
@@ -6,11 +6,14 @@ locals {
     "telemetry.googleapis.com",
   ])
 
-  # The project's OAuth clients, made in the console (README.md), by slug.
+  # The project's OAuth clients, made in the console (README.md), by slug:
+  # each client's ID, from the file Google gave for it in
+  # oauth-clients.sops.json, where SOPS encrypts only the secret.
+  # doppelganger: doppelgangerhq.com; doppelganger-test: local development,
+  # on localhost.
   doppelganger_oauth_clients = {
-    # "Doppelganger Production": the Supabase project doppelganger's sign-in
-    # with Google.
-    doppelganger-production = "6822405828-jcheqartcigc09111gq22tb6oqnvsrpa.apps.googleusercontent.com"
+    for slug, client in jsondecode(file("${path.module}/oauth-clients.sops.json"))[google_project.doppelganger.project_id] :
+    slug => client.web.client_id
   }
 }
 

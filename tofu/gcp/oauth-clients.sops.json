@@ -1,0 +1,49 @@
+{
+	"pure-toolbox-429813-a4": {
+		"doppelganger": {
+			"web": {
+				"client_id": "6822405828-jc8o3u9fm617pa6c867t6r5j9bftubtk.apps.googleusercontent.com",
+				"project_id": "pure-toolbox-429813-a4",
+				"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+				"token_uri": "https://oauth2.googleapis.com/token",
+				"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+				"client_secret": "ENC[AES256_GCM,data:n2W3Ehr/49w/vNPDQu12zLPxexlM/KnKdfGlSEKLtbai9pY=,iv:nABzDpRLdvojLQhrMpiqaBCyopAUARMO2wCT8VoDqww=,tag:XpjnGVdH4emtrEv+tzxe7g==,type:str]",
+				"redirect_uris": [
+					"https://eopqnjmpgtpcdhfcvvxq.supabase.co/auth/v1/callback"
+				],
+				"javascript_origins": [
+					"https://doppelgangerhq.com"
+				]
+			}
+		},
+		"doppelganger-test": {
+			"web": {
+				"client_id": "6822405828-4e4qj7706qv0o9pb7ef5oe422fq30336.apps.googleusercontent.com",
+				"project_id": "pure-toolbox-429813-a4",
+				"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+				"token_uri": "https://oauth2.googleapis.com/token",
+				"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+				"client_secret": "ENC[AES256_GCM,data:vDutnOmHL/r4OIGqjfrQuqFS1e+/0/uU/pTyJmaMB79Q9QY=,iv:c7DfezLyL2JzPCmdG9D3ZWnlMJOC7+geVkfE6oyr68A=,tag:W8LFEUnDHQaM+cmxvvjiqQ==,type:str]",
+				"redirect_uris": [
+					"https://eopqnjmpgtpcdhfcvvxq.supabase.co/auth/v1/callback"
+				],
+				"javascript_origins": [
+					"http://localhost",
+					"http://localhost:3000"
+				]
+			}
+		}
+	},
+	"sops": {
+		"age": [
+			{
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBNclRhaGZPV0xGdDVaSHg4\nVTQraXlQa2hQcitMMUk2T1dzYkw1dUwwWEI0CmdtR3M1a1hQMDdibzFQNVppZThh\nQ1lWREgrRUlrUFZMZlRoRVZkTml2dHcKLS0tIGFuejZHaWZDbVU0MkkxZDEySUdK\nVk9sYlMrZTVZWmp1YXJSUjlVOXQ2aGMKCVMx15M17igGoIr5qHqHUwxPoUVj5C/H\nDrNEQfXuNeP4Ogfths7XbmsU8EqiY7k3URubh+PpC9T99hr05m1kXQ==\n-----END AGE ENCRYPTED FILE-----\n",
+				"recipient": "age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep"
+			}
+		],
+		"encrypted_regex": "^client_secret$",
+		"lastmodified": "2026-11-19T20:26:09Z",
+		"mac": "ENC[AES256_GCM,data:o9JdxI58dyFYxkoJdObxci4nq/XjpcY5+6PHhEE/hMgiyKDiPgQxIsgsH1KtPl01hBiwmcpoO30BMKA0jZRQyjeS9er/cMa2cQUCvMXtu0LO0xM7uzt8cl9+8A7wvL+OMc46kPQ2aqWf+SNWBIaclBjhKUXATQMmPq/TSX5yJUE=,iv:KiodGmEbD0IkqOKPoFGm/7gaqa/5LIYG3Y76+5lOpfI=,tag:VHkCQR2aPCy9BzoML/V2qg==,type:str]",
+		"version": "3.13.3"
+	}
+}

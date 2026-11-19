@@ -10,6 +10,7 @@ adopted resource carries `prevent_destroy = true`. Fixes follow as separate, rev
 | Location | Configuration |
 |---|---|
 | `project-<id>.tf` | One file per project: the project, the APIs it has enabled, and its service accounts, reCAPTCHA keys and API keys |
+| `oauth-clients.sops.json` | OAuth clients' files, as the console downloads them, by project ID, then by slug. SOPS encrypts only each `client_secret` (`.sops.yaml`), so a project's file reads its clients' IDs from it without decrypting, and `tofu/supabase`'s `prepare.sh` decrypts the secrets it sets. Its MAC covers every value, so edit it only through `sops` |
 | `homelab-tofu.tf` | The service account this root works as, and its Owner grant on every project |
 | `outputs.tf` | The `oauth_client_ids` output: every project's OAuth client IDs, which each project's file lists, by project ID, then by slug; and the sensitive `developer_knowledge_api_key`, which Parker keeps in Bitwarden for dotfiles |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
@@ -64,7 +65,7 @@ OpenTofu manages only what it declares, so these need no configuration to be lef
 
 | What | Why, or who owns it |
 |---|---|
-| OAuth 2.0 clients and the consent screen | No public API creates, lists or updates them, so the provider has no resource for them: IAP's OAuth Admin API, which only ever handled clients of internal brands, was shut down on 2026-03-19, and provider 8.0.0 removed `google_iap_brand` and `google_iap_client`. `google_iam_oauth_client` is Workforce Identity Federation's, not a sign-in client. The console's Google Auth Platform pages are their only home. Their IDs, which are public, are still this root's to give: each project's file lists its clients' IDs in a `locals` map, and `oauth_client_ids` exports them to every root and host that names one, such as `tofu/supabase`, so no client ID is written anywhere else. An ID begins with its project's number, which the output checks |
+| OAuth 2.0 clients and the consent screen | No public API creates, lists or updates them, so the provider has no resource for them: IAP's OAuth Admin API, which only ever handled clients of internal brands, was shut down on 2026-03-19, and provider 8.0.0 removed `google_iap_brand` and `google_iap_client`. `google_iam_oauth_client` is Workforce Identity Federation's, not a sign-in client. The console's Google Auth Platform pages are their only home. Their IDs, which are public, are still this root's to give: each project's file lists its clients' IDs in a `locals` map, read from each client's file in `oauth-clients.sops.json` where one is kept, and `oauth_client_ids` exports them to every root and host that names one, such as `tofu/supabase`, so no client ID is written anywhere else. An ID begins with its project's number, which the output checks |
 | Service account keys | The provider cannot import them; Google keeps the secrets of its own keys |
 | Google's service accounts and agents, such as Compute Engine's default account and Firebase's `firebase-adminsdk-*` | The services that create them |
 | `home-assistant-311214`'s Firebase project, apps and browser key, and its `firebase=enabled` label | Firebase |

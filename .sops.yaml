@@ -1,5 +1,12 @@
 # Files named *.sops.<json|yaml|yml|env> are encrypted to these age recipients.
 # Decrypt with `sops decrypt <file>`; the matching identity lives in the sops age keys file, never in git.
 creation_rules:
+  # Google's OAuth client files, as the console downloads them: only each
+  # client's secret is encrypted, so the IDs, origins and redirect URIs stay
+  # readable, and tofu/gcp reads its client IDs from the file. The MAC still
+  # covers every value, so edit the file only through sops.
+  - path_regex: tofu/gcp/oauth-clients\.sops\.json$
+    encrypted_regex: ^client_secret$
+    age: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
   - path_regex: \.sops\.(json|ya?ml|env)$
     age: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
