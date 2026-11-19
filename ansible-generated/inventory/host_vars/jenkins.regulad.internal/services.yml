@@ -2,8 +2,10 @@
 quadlet_services:
   - name: jenkins
     description: Jenkins
-    after: [network-online.target]
-    wants: [network-online.target]
+    # After jenkins-agents's user manager, which lingering starts at boot, so
+    # that its API socket is there to mount.
+    after: [network-online.target, user@1001.service]
+    wants: [network-online.target, user@1001.service]
     image: docker.io/jenkins/jenkins:lts-jdk21
     container_name: jenkins
     auto_update: registry
@@ -18,6 +20,12 @@ quadlet_services:
       # where Configuration as Code looks for them (host_vars main.yml).
       - /etc/jenkins/casc.d:/etc/jenkins/casc.d:ro
       - /etc/jenkins/secrets:/run/secrets:ro
+      # The Podman API of jenkins-agents (host_vars main.yml), for the cloud
+      # that starts the agents, its directory rather than its socket so that
+      # a socket made anew is seen. A socket's connect is unaffected by :ro.
+      - /run/user/1001/podman:/run/podman-agents:ro
+    # jenkins-agents's group, which may write to that socket.
+    group_add: ["1001"]
     tmpfs:
       - /tmp
     environment:

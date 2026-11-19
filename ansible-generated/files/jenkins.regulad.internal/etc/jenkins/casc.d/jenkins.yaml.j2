@@ -45,6 +45,35 @@ jenkins:
   authorizationStrategy:
     loggedInUsersCanDoAnything:
       allowAnonymousRead: false
+  # The agents: a container for each build, under rootless Podman as
+  # jenkins-agents, whose API socket the controller mounts (services.yml). Each
+  # has its own network namespace and reaches the controller on this
+  # container's port 8080 through Podman's host.containers.internal, over
+  # WebSocket, so the inbound agent port is never used. ^${...} passes the
+  # docker-plugin's own variables through Configuration as Code unexpanded.
+  clouds:
+    - docker:
+        name: "podman"
+        containerCap: 2
+        dockerApi:
+          dockerHost:
+            uri: "unix:///run/podman-agents/podman.sock"
+        templates:
+          - name: "inbound-agent"
+            labelString: "podman"
+            mode: EXCLUSIVE
+            instanceCapStr: "2"
+            remoteFs: "/home/jenkins/agent"
+            pullStrategy: PULL_LATEST
+            pullTimeout: 300
+            removeVolumes: true
+            dockerTemplateBase:
+              image: "docker.io/jenkins/inbound-agent:{{ jenkins_agent_image_tag }}"
+              environmentsString: "JENKINS_WEB_SOCKET=true"
+            connector:
+              jnlp:
+                jenkinsUrl: "http://host.containers.internal:8080/"
+                entryPointArgumentsString: "-url\n^${JENKINS_URL}\n-secret\n^${JNLP_SECRET}\n-name\n^${NODE_NAME}"
 
 credentials:
   system:

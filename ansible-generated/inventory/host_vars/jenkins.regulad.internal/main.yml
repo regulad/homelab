@@ -46,6 +46,25 @@ host_files_list:
     secret: true
     restarts: [jenkins.service]
 
+# Jenkins's agents: containers of rootless Podman as jenkins-agents, which
+# Jenkins's Podman cloud starts through that user's API socket, mounted into
+# the controller with the user's group (services.yml). The agents run as a user
+# of their own, not as the controller's 1000, so one escaping its container
+# cannot read the controller's secrets. Their user namespaces map onto the rest
+# of this container's 65,536 IDs, short of nobody's 65534; their storage is
+# runtime data, kept from AIDE. Each agent has its own network namespace from
+# pasta, whose AppArmor profile breaks it here.
+podman_rootless_users:
+  - name: jenkins-agents
+    uid: 1001
+    subids: {start: 1002, count: 64532}
+podman_pasta_apparmor_disabled: true
+aide_exclude_paths_host: [/home/jenkins-agents/.local/share/containers]
+# The agents' image, docker.io/jenkins/inbound-agent, at its JDK 21 build of
+# remoting 3395 published 2026-11-12. The cloud pulls it once, through the LAN's
+# mirror of Docker Hub; a new tag here is how it updates.
+jenkins_agent_image_tag: 3395.v6e5377b_0fb_3c-5-jdk21
+
 # Java's copy of the system trust store, /etc/ssl/certs/java/cacerts, which the
 # Jenkins container reads for its LDAP server's certificate.
 ca_trust_java: true
