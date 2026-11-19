@@ -1,0 +1,43 @@
+---
+# Converge who may sign in to Jenkins and its plugins. Jenkins itself runs as a
+# Quadlet (the quadlet role); its configuration is Jenkins's own until
+# Configuration as Code takes it.
+
+# First, so that jenkins_api_user can sign in for the plugin manager.
+- name: The LDAP realm's group
+  community.general.ipa_group:
+    name: "{{ jenkins_freeipa_group }}"
+    user: "{{ jenkins_freeipa_members }}"
+    append: false
+    state: present
+    ipa_host: "{{ jenkins_freeipa_host }}"
+    ipa_user: "{{ jenkins_freeipa_user }}"
+    ipa_pass: "{{ jenkins_freeipa_password }}"
+    validate_certs: true
+  delegate_to: "{{ jenkins_freeipa_delegate }}"
+  become: false
+  when: jenkins_freeipa_members | length > 0
+  no_log: true
+
+# Each plugin's .jpi in jenkins_home/plugins, which Jenkins unpacks at its next
+# start, so a new or changed plugin restarts it. What the unpacking writes is
+# too much to declare; AIDE mails it once (AIDE.md).
+- name: Plugins
+  community.general.jenkins_plugin:
+    name: "{{ item.key }}"
+    version: "{{ item.value }}"
+    with_dependencies: false
+    jenkins_home: "{{ jenkins_home }}"
+    owner: "{{ jenkins_owner }}"
+    group: "{{ jenkins_owner }}"
+    url: "{{ jenkins_url }}"
+    url_username: "{{ jenkins_api_user }}"
+    url_password: "{{ jenkins_api_password }}"
+    force_basic_auth: true
+    timeout: 120
+  loop: "{{ jenkins_plugins | dict2items }}"
+  loop_control:
+    label: "{{ item.key }} {{ item.value }}"
+  vars:
+    aide_writes: [/mnt/jenkins/plugins/*.jpi]
+  notify: Restart Jenkins

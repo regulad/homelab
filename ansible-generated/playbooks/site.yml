@@ -249,6 +249,16 @@
   roles:
     - nexus_repositories
 
+# Who may sign in to Jenkins, through FreeIPA, and its pinned plugins, once its
+# Quadlet runs.
+- name: Jenkins controllers
+  hosts: jenkins_controllers
+  gather_facts: false
+  become: true
+  tags: [jenkins]
+  roles:
+    - jenkins
+
 # Last: AIDE's baseline moved for the files this run wrote.
 - name: File integrity baseline for this run's files
   ansible.builtin.import_playbook: ../../ansible-common/playbooks/aide-refresh.yml

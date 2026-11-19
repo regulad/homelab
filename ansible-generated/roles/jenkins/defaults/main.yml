@@ -1,0 +1,29 @@
+---
+# Jenkins's API, for the plugin manager, as jenkins_api_user with
+# jenkins_api_password, its LDAP password: the realm admits only
+# jenkins_freeipa_group's members, and every member administers Jenkins.
+jenkins_url: http://localhost:8080
+jenkins_api_user: ""
+jenkins_api_password: ""
+
+# The Jenkins container's home on the host, which it mounts as
+# /var/jenkins_home, and the image's jenkins user, which owns it.
+jenkins_home: /mnt/jenkins
+jenkins_owner: "1000"
+
+# Plugins, by name, each at its pinned version, every dependency listed
+# alongside, as a pinned version installs none of its own. Jenkins restarts
+# when one is installed or changed. Plugins installed but not listed are left as
+# they are.
+jenkins_plugins: {}
+
+# The FreeIPA group whose members the LDAP realm admits, and its members: the
+# group is converged to exactly these users, through FreeIPA's API on
+# jenkins_freeipa_host, called from jenkins_freeipa_delegate, as
+# jenkins_freeipa_user with jenkins_freeipa_password.
+jenkins_freeipa_group: jenkinsusers
+jenkins_freeipa_members: []
+jenkins_freeipa_host: ""
+jenkins_freeipa_delegate: "{{ inventory_hostname }}"
+jenkins_freeipa_user: svc-ansible
+jenkins_freeipa_password: ""

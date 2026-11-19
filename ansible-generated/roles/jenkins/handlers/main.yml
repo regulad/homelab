@@ -1,0 +1,18 @@
+---
+# Jenkins loads plugins only at its start. Its Quadlet unit stops it with
+# SIGTERM, which it exits 143 on.
+- name: Restart Jenkins
+  ansible.builtin.systemd_service:
+    name: jenkins.service
+    state: restarted
+  notify: Jenkins answers
+
+# Its login page, which answers once Jenkins has loaded its plugins and jobs.
+- name: Jenkins answers
+  ansible.builtin.uri:
+    url: "{{ jenkins_url }}/login"
+    status_code: 200
+  register: jenkins_up
+  until: jenkins_up.status == 200
+  retries: 60
+  delay: 5
