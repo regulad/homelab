@@ -1,6 +1,7 @@
 # jenkins: container, its HA resource and its Ansible host: the Jenkins
 # controller, moved here from aboriginal's compose project, behind Caddy on
-# ingress. jenkins_home is on its own mount point.
+# ingress, and its agents, containers of rootless Podman beside it.
+# jenkins_home is on its own mount point.
 
 resource "proxmox_virtual_environment_container" "jenkins" {
   node_name = "prodingus"
@@ -14,6 +15,12 @@ resource "proxmox_virtual_environment_container" "jenkins" {
   cpu {
     cores = local.cpu_threads
     limit = 2
+  }
+
+  # The TUN device pasta opens in each agent container's own network namespace,
+  # for Jenkins's agents under rootless Podman (podman role, rootless).
+  device_passthrough {
+    path = "/dev/net/tun"
   }
 
   disk {
@@ -40,8 +47,9 @@ resource "proxmox_virtual_environment_container" "jenkins" {
     }
   }
 
+  # The controller, with a 1 GiB heap, and its agent containers.
   memory {
-    dedicated = 2048
+    dedicated = 4096
     swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 
