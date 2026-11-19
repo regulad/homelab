@@ -11,3 +11,10 @@ ca_trust_java: true
 # ClamAV's weekly scan also reads the container's data disk, its RBD mount
 # point (tofu/gonkputer's lxc-jenkins.tf).
 clamav_scan_paths_host: [/mnt/jenkins]
+
+# Jenkins's GitHub App, regulad-jenkins, and its installation on regulad's
+# account, which covers all of its repositories. Neither ID is secret; the
+# App's private key and its webhook's secret are in github-app.sops.env, with
+# the App's permissions and events.
+jenkins_github_app_id: "5826423"
+jenkins_github_app_installation_id: "183530243"
