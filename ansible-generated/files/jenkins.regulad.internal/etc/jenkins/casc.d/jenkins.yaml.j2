@@ -1,0 +1,136 @@
+# Managed by Ansible (host_files), from Jenkins's own export on 2026-11-18.
+# Jenkins's configuration as code: the Configuration as Code plugin applies it
+# at each start, from CASC_JENKINS_CONFIG. ${name} is the content of
+# /run/secrets/name, a file host_files writes from SOPS; settings left out keep
+# Jenkins's defaults.
+jenkins:
+  numExecutors: 0
+  mode: EXCLUSIVE
+  slaveAgentPort: 50000
+  quietPeriod: 5
+  scmCheckoutRetryCount: 0
+  markupFormatter: "plainText"
+  crumbIssuer: "standard"
+  disableRememberMe: false
+  projectNamingStrategy: "standard"
+  remotingSecurity:
+    enabled: true
+  disabledAdministrativeMonitors:
+    - "jenkins.monitor.JavaVersionRecommendationAdminMonitor-21-2027-09-30-WARNING"
+    - "hudson.util.DoubleLaunchChecker"
+    - "jenkins.diagnostics.ControllerExecutorsAgents"
+    - "hudson.diagnosis.ReverseProxySetupMonitor"
+  # wako's directory, which admits jenkinsusers' members alone; every one of
+  # them administers Jenkins.
+  securityRealm:
+    ldap:
+      configurations:
+        - server: "ldaps://wako.regulad.internal"
+          rootDN: "dc=regulad,dc=internal"
+          inhibitInferRootDN: false
+          userSearchBase: "cn=users,cn=accounts"
+          userSearch: "(&(uid={0})(memberOf=cn=jenkinsusers,cn=groups,cn=accounts,dc=regulad,dc=internal))"
+          groupSearchBase: "cn=groups,cn=accounts"
+          groupSearchFilter: "(& (cn={0}) (| (objectclass=groupOfNames) (objectclass=groupOfUniqueNames) (objectclass=posixGroup)))"
+          groupMembershipStrategy:
+            fromUserRecord:
+              attributeName: "memberOf"
+          managerDN: "uid=svc-jenkins,cn=users,cn=accounts,dc=regulad,dc=internal"
+          managerPasswordSecret: "${ldap_manager_password}"
+          displayNameAttributeName: "displayname"
+          mailAddressAttributeName: "mail"
+          ignoreIfUnavailable: false
+      disableMailAddressResolver: false
+      disableRolePrefixing: true
+      userIdStrategy: "caseInsensitive"
+      groupIdStrategy: "caseInsensitive"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # regulad-jenkins, the GitHub App the regulad folder scans with
+          # (host_vars main.yml, github-app.sops.env).
+          - gitHubApp:
+              id: "regulad-jenkins"
+              description: "regulad-jenkins, Jenkins's GitHub App"
+              appID: "{{ jenkins_github_app_id }}"
+              owner: "regulad"
+              privateKey: "${github_app_private_key}"
+          # The secret GitHub signs the App's webhook deliveries with.
+          - string:
+              id: "github-webhook-secret"
+              scope: SYSTEM
+              description: "The GitHub App's webhook secret"
+              secret: "${github_webhook_secret}"
+
+unclassified:
+  location:
+    adminAddress: "regulad@regulad.xyz"
+    url: "https://ci.regulad.xyz/"
+  gitHubConfiguration:
+    apiRateLimitChecker: ThrottleForNormalize
+  gitHubPluginConfig:
+    hookUrl: "https://ci.regulad.xyz/github-webhook/"
+    hookSecretConfigs:
+      - credentialsId: "github-webhook-secret"
+
+# Items, as Job DSL scripts. The regulad folder builds every Jenkinsfile in
+# regulad's repositories, as it did before this file.
+jobs:
+  - script: |
+      organizationFolder('regulad') {
+        organizations {
+          github {
+            repoOwner('regulad')
+            apiUri('https://api.github.com')
+            credentialsId('regulad-jenkins')
+            enableAvatar(true)
+            traits {
+              gitHubBranchDiscovery {
+                strategyId(1)
+              }
+              gitHubPullRequestDiscovery {
+                strategyId(2)
+              }
+              gitHubForkDiscovery {
+                strategyId(2)
+                trust {
+                  gitHubTrustPermissions()
+                }
+              }
+            }
+          }
+        }
+        projectFactories {
+          workflowMultiBranchProjectFactory {
+            scriptPath('Jenkinsfile')
+          }
+        }
+        // Children rescan daily, as the live folder had it. Job DSL cannot describe
+        // that property's list of triggers, so it is written as Jenkins's own XML.
+        configure { folder ->
+          // No folder-level health metric, as the live folder had none.
+          (folder / 'healthMetrics').value = []
+          folder / 'properties' << 'jenkins.branch.OrganizationChildTriggersProperty' {
+            templates {
+              'com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger' {
+                spec('H H/4 * * *')
+                interval('86400000')
+              }
+            }
+          }
+        }
+        triggers {
+          periodicFolderTrigger {
+            interval('1d')
+          }
+        }
+        orphanedItemStrategy {
+          discardOldItems {
+          }
+        }
+      }

@@ -1,8 +1,50 @@
 ---
 # The Jenkins controller, moved here from aboriginal. jenkins_home is the
 # container's own mount point, owned by the image's jenkins user (1000).
+# /etc/jenkins holds its configuration as code, casc.d, and the secrets that
+# configuration names, which the container mounts read-only at /run/secrets,
+# where Configuration as Code looks for ${name} as a file name.
 host_files_directories:
   - {path: /mnt/jenkins, owner: "1000", group: "1000", mode: "0755"}
+  - {path: /etc/jenkins, mode: "0755"}
+  - {path: /etc/jenkins/casc.d, mode: "0755"}
+  - {path: /etc/jenkins/secrets, owner: "1000", group: "1000", mode: "0500"}
+
+# Jenkins applies its configuration as code at its start, so a change to it or
+# to a secret restarts Jenkins. Each secret is a file without a final newline,
+# as Configuration as Code reads a file's content as it is.
+host_files_list:
+  - path: /etc/jenkins/casc.d/jenkins.yaml
+    template: true
+    mode: "0644"
+    restarts: [jenkins.service]
+  - path: /etc/jenkins/secrets/ldap_manager_password
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: "{{ jenkins_ldap_manager_password }}"
+    secret: true
+    restarts: [jenkins.service]
+  # The App's key is kept on one line, each newline written as \n, which the
+  # file gets back.
+  - path: /etc/jenkins/secrets/github_app_private_key
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/host_vars/jenkins.regulad.internal/github-app.sops.env',
+                input_type='dotenv', extract='["JENKINS_GITHUB_APP_PRIVATE_KEY"]') | replace('\\n', '\n') }}
+    secret: true
+    restarts: [jenkins.service]
+  - path: /etc/jenkins/secrets/github_webhook_secret
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/host_vars/jenkins.regulad.internal/github-app.sops.env',
+                input_type='dotenv', extract='["JENKINS_GITHUB_APP_WEBHOOK_SECRET"]') }}
+    secret: true
+    restarts: [jenkins.service]
 
 # Java's copy of the system trust store, /etc/ssl/certs/java/cacerts, which the
 # Jenkins container reads for its LDAP server's certificate.

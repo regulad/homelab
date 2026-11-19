@@ -14,9 +14,14 @@ quadlet_services:
       # The host's trust store, which the ca_trust role maintains, with the Java
       # keystore that ca-certificates-java builds from it.
       - /etc/ssl/certs:/etc/ssl/certs:ro
+      # Its configuration as code, and the secrets that configuration names,
+      # where Configuration as Code looks for them (host_vars main.yml).
+      - /etc/jenkins/casc.d:/etc/jenkins/casc.d:ro
+      - /etc/jenkins/secrets:/run/secrets:ro
     tmpfs:
       - /tmp
     environment:
+      CASC_JENKINS_CONFIG: /etc/jenkins/casc.d
       # The image's JDK keeps its own keystore, without the homelab's CAs.
       JAVA_OPTS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts
       # The controller's heap. Inside Podman inside the container, the JVM sees
