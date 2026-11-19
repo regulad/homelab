@@ -1211,9 +1211,9 @@
         quiet: true
       when: not ansible_check_mode
 
-# Send the upstream logins of the Nexus repositories nexus_servers.yml lists,
-# with their other listed settings, whether or not Nexus already has them. Run
-# after rotating one of their tokens: Nexus never returns a stored password, so
+# Send the upstream logins of the Nexus proxies nexus_servers.yml lists, with
+# their other listed settings, whether or not Nexus already has them. Run after
+# rotating one of their tokens: Nexus never returns a stored password, so
 # site.yml cannot tell a new token from the old one.
 - name: Nexus proxy logins
   hosts: nexus_servers
@@ -1222,6 +1222,8 @@
   roles:
     - role: nexus_repositories
       vars:
+        nexus_repositories_managed: "{{ nexus_repositories_proxies }}"
+        nexus_repositories_raw_files: []
         nexus_repositories_force: true
 
 # Set svc-jenkins's FreeIPA password, the one Jenkins's LDAP realm binds with,

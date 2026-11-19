@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Parker Wahle
-  description: Settings of Nexus's repositories, such as its proxies' upstream logins, through its REST API as svc-ansible
+  description: Nexus's repositories, created where missing, their settings, keys and logins, and raw files, through its REST API
   license: AGPL-3.0
   min_ansible_version: "2.21"
 dependencies: []

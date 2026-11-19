@@ -36,7 +36,10 @@ nexus_secrets_file:
 #   Rut Auth realm (below), may read and browse the cr repository and the
 #   docker-io and ghcr-io proxies behind them, and nothing else. Its password
 #   exists only because Nexus wants one for a local user.
-# tofu/github reads the CI users' names here, and their passwords from
+# - svc-pam-rssh-ci, with which Jenkins's pam_rssh pipeline uploads, may read,
+#   browse, add and edit in pam_rssh's hosted repositories (below), and
+#   nothing else.
+# tofu/github reads the GitHub CI users' names here, and their passwords from
 # nexus_servers.sops.yml, to set them as those repositories' secrets.
 nexus_security_roles:
   - id: svc-doppelganger
@@ -69,6 +72,18 @@ nexus_security_roles:
       - nx-repository-view-docker-docker-io-read
       - nx-repository-view-docker-ghcr-io-browse
       - nx-repository-view-docker-ghcr-io-read
+    roles: []
+  - id: svc-pam-rssh-ci
+    name: svc-pam-rssh-ci
+    description: Uploads pam_rssh's packages
+    privileges: >-
+      {%- set out = [] -%}
+      {%- for repository in nexus_pam_rssh_repositories if repository.type == 'hosted' -%}
+      {%- for action in ['add', 'browse', 'edit', 'read'] -%}
+      {%- set _ = out.append('nx-repository-view-' ~ repository.format ~ '-' ~ repository.name ~ '-' ~ action) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ out }}
     roles: []
 nexus_security_users:
   - userId: svc-doppelganger
@@ -106,6 +121,13 @@ nexus_security_users:
     password: "{{ nexus_svc_homelab_password }}"
     status: active
     roles: [svc-homelab]
+  - userId: svc-pam-rssh-ci
+    firstName: pam_rssh
+    lastName: CI
+    emailAddress: svc-pam-rssh-ci@regulad.xyz
+    password: "{{ nexus_svc_pam_rssh_ci_password }}"
+    status: active
+    roles: [svc-pam-rssh-ci]
 
 # Rut Auth: Nexus takes the user that the X-Homelab-Peer header names as
 # authenticated. Caddy on ingress sets it to svc-homelab on Docker API requests
@@ -143,7 +165,7 @@ nexus_security_realms:
 # To rotate one, issue a new token under the same name, put it in its file, and
 # run maintenance.yml --tags nexus-proxy-logins: Nexus never returns a stored
 # password, so site.yml cannot tell it changed.
-nexus_repositories_managed:
+nexus_repositories_proxies:
   - format: docker
     type: proxy
     name: docker-io
@@ -160,3 +182,223 @@ nexus_repositories_managed:
       password: >-
         {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github/secrets.sops.yaml',
                   extract='["github_pats"]["terraform-nexus--ghcr"]') }}
+
+# Every repository the nexus_repositories role creates where missing and
+# converges: the proxies above, keys, and pam_rssh's (below).
+nexus_repositories_managed: "{{ nexus_repositories_proxies + nexus_repositories_keys + nexus_pam_rssh_repositories }}"
+
+# keys: each signed repository's public key, at
+# <nexus_url>/repository/keys/<repository>.asc, which the nexus_repositories
+# role uploads from nexus_public_keys (below).
+nexus_repositories_keys:
+  - format: raw
+    type: hosted
+    name: keys
+    settings:
+      online: true
+      storage: {blobStoreName: default, strictContentTypeValidation: true, writePolicy: ALLOW}
+      raw: {contentDisposition: INLINE}
+nexus_repositories_raw_files: >-
+  {%- set out = [] -%}
+  {%- for repository, key in nexus_public_keys.items() -%}
+  {%- set _ = out.append({'repository': 'keys', 'path': repository ~ '.asc', 'content': key}) -%}
+  {%- endfor -%}
+  {{ out }}
+
+# pam_rssh's packages, from z4yx/pam_rssh's GitHub releases, which Jenkins's
+# pam_rssh pipeline uploads as svc-pam-rssh-ci: a release's to the release
+# repositories, and a pre-release's, any whose tag has a SemVer pre-release
+# part whatever GitHub's flag says, to the testing ones. Each signed
+# repository has a key and passphrase of its own, nexus_signing_keys in
+# nexus_servers.sops.yml.
+#
+# Its Debian packages, in an APT repository per target and channel, each
+# serving its target's suite: pam-rssh-<target> for releases, whose files are
+# never written over, and pam-rssh-<target>-testing for pre-releases, where a
+# build replaces an earlier one of the same version.
+# FIXME: one APT repository per suite is a workaround: Nexus's hosted APT
+# repositories serve a single distribution, and none merges several. Fold them
+# into one, with a distribution per suite, once Community Edition meets
+# https://github.com/sonatype/nexus-public/issues/309, as
+# https://github.com/sonatype/nexus-public/pull/1038 would, first checking
+# that it pools apart the builds pam_rssh names alike across suites. Revisit
+# when #1038 merges.
+nexus_pam_rssh_apt_suites:
+  debian-bookworm: bookworm
+  debian-trixie: trixie
+  ubuntu-jammy: jammy
+  ubuntu-noble: noble
+  ubuntu-resolute: resolute
+nexus_pam_rssh_repositories: >-
+  {%- set out = [] -%}
+  {%- for target, suite in nexus_pam_rssh_apt_suites.items() -%}
+  {%- for suffix, write_policy in [['', 'ALLOW_ONCE'], ['-testing', 'ALLOW']] -%}
+  {%- set repository = 'pam-rssh-' ~ target ~ suffix -%}
+  {%- set _ = out.append({'format': 'apt', 'type': 'hosted', 'name': repository, 'signing': nexus_signing_keys[repository],
+                          'settings': {'online': true, 'apt': {'distribution': suite},
+                                       'storage': {'blobStoreName': 'default', 'strictContentTypeValidation': true,
+                                                   'writePolicy': write_policy}}}) -%}
+  {%- endfor -%}
+  {%- endfor -%}
+  {{ out + nexus_pam_rssh_rpm_repositories }}
+
+# Its RPMs, in one hosted repository at <channel>/<target>/<arch>/, such as
+# stable/el9/x86_64 and testing/fc44/aarch64, each directory with repodata of
+# its own, and written over in place, as the testing channel needs. Clients use
+# the group, whose metadata Nexus signs: it never signs a hosted repository's,
+# nor the RPMs, which upstream leaves unsigned too. So clients set
+# repo_gpgcheck=1 and gpgcheck=0, and dnf checks each RPM against the checksum
+# in the signed metadata.
+nexus_pam_rssh_rpm_repositories:
+  - format: yum
+    type: hosted
+    name: pam-rssh-rpm-hosted
+    settings:
+      online: true
+      storage: {blobStoreName: default, strictContentTypeValidation: true, writePolicy: ALLOW}
+      yum: {repodataDepth: 3, deployPolicy: STRICT}
+  - format: yum
+    type: group
+    name: pam-rssh-rpm
+    settings:
+      online: true
+      storage: {blobStoreName: default, strictContentTypeValidation: true}
+      group: {memberNames: [pam-rssh-rpm-hosted]}
+    signing: "{{ nexus_signing_keys['pam-rssh-rpm'] }}"
+
+# The signed repositories' public keys, by repository: Ed25519 keys made
+# 2026-11-19 with GnuPG 2.4.9, whose private halves are nexus_signing_keys in
+# nexus_servers.sops.yml.
+nexus_public_keys:
+  # pam-rssh-debian-bookworm at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 5174F095439C7F66A8EA661F1B84509B94A9627B.
+  pam-rssh-debian-bookworm: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGBYJKwYBBAHaRw8BAQdAHNZBYKAhFtU9YSpt55ZogAJa4x2BBW077zAg
+    7Fet47G0QnBhbS1yc3NoLWRlYmlhbi1ib29rd29ybSBhdCByZXBvLnJlZ3VsYWQu
+    eHl6IDxyZWd1bGFkQHJlZ3VsYWQueHl6PoiTBBMWCgA7FiEEUXTwlUOcf2ao6mYf
+    G4RQm5SpYnsFAmr/YRgCGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQ
+    G4RQm5SpYnvZPAD/RZy/mlBq22eOtIdaf/G47W3FQid14U6svhhH4szcnkEBAKWY
+    ZJS0hfEAf0Sowz+IGsIhq+9hBAYqHb/OiycdHSwP
+    =XKWT
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-debian-bookworm-testing at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 11E12389280BC2054893C1F632048ADE38A46AE5.
+  pam-rssh-debian-bookworm-testing: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGRYJKwYBBAHaRw8BAQdADUG6Fk5+ib+wCPYJV3GK2DbcNk5jiUImWDS9
+    dpoHWHu0SnBhbS1yc3NoLWRlYmlhbi1ib29rd29ybS10ZXN0aW5nIGF0IHJlcG8u
+    cmVndWxhZC54eXogPHJlZ3VsYWRAcmVndWxhZC54eXo+iJMEExYKADsWIQQR4SOJ
+    KAvCBUiTwfYyBIreOKRq5QUCav9hGQIbAwULCQgHAgIiAgYVCgkICwIEFgIDAQIe
+    BwIXgAAKCRAyBIreOKRq5a+pAQCvrRgXeg+ymRLC6UCpI1tT7Ih/XWjudA7hvSex
+    1vkbtgD+P2CWuu9oDdPDWS4FD2i71z5AtHQXD8xUH9BEM/WBdws=
+    =gzRj
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-debian-trixie at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 773F77761F2A7F882B345F9ED2336ABC1C9ADC42.
+  pam-rssh-debian-trixie: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGhYJKwYBBAHaRw8BAQdAopipLVoxv24NYZJR40Ad++HH6/aFV6WCBS+m
+    DzcX+dW0QHBhbS1yc3NoLWRlYmlhbi10cml4aWUgYXQgcmVwby5yZWd1bGFkLnh5
+    eiA8cmVndWxhZEByZWd1bGFkLnh5ej6IkwQTFgoAOxYhBHc/d3YfKn+IKzRfntIz
+    arwcmtxCBQJq/2EaAhsDBQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJENIz
+    arwcmtxCyAgA/A220L7wkbLGiHO2vPZNgE6Sz8HYsyR0nnmN2zgz9v+sAPoC8GsC
+    QvQcVpebZkPwGXh1D3mMtCstMGctviRdbXEJAg==
+    =SEMs
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-debian-trixie-testing at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint C7C88899C72A95F3CE1F4701FF49F81A84E98444.
+  pam-rssh-debian-trixie-testing: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGhYJKwYBBAHaRw8BAQdAQX5Z+i5ybxavOn23BRq6De8s73EXF8ikstXq
+    rorhne20SHBhbS1yc3NoLWRlYmlhbi10cml4aWUtdGVzdGluZyBhdCByZXBvLnJl
+    Z3VsYWQueHl6IDxyZWd1bGFkQHJlZ3VsYWQueHl6PoiTBBMWCgA7FiEEx8iImccq
+    lfPOH0cB/0n4GoTphEQFAmr/YRoCGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcC
+    F4AACgkQ/0n4GoTphESOUAEApHZ1itFXfr+rof+kTYbh9ipuNcRZfuzeP3+CsLhG
+    otgBAOxl2TuEbUsJzVlXJsFTZVFpGpcWaXtKA05QeFz8yqQA
+    =N/sg
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-ubuntu-jammy at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint B3C060D09317A9CBFCF9C7DCF2F495EAC2F2E571.
+  pam-rssh-ubuntu-jammy: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGhYJKwYBBAHaRw8BAQdAHR9nnyTLWdd9YklyCshF6cxI0xumpN07lWqa
+    +7RtgFG0P3BhbS1yc3NoLXVidW50dS1qYW1teSBhdCByZXBvLnJlZ3VsYWQueHl6
+    IDxyZWd1bGFkQHJlZ3VsYWQueHl6PoiTBBMWCgA7FiEEs8Bg0JMXqcv8+cfc8vSV
+    6sLy5XEFAmr/YRoCGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQ8vSV
+    6sLy5XFAGwD+IZUhMfE2pdkVvHjrUUNcNequXlOmPYTBqzMx7jOROK0A/RD0TZBa
+    WFuImn3+i1QaN2uLoiecyOAlScgV+GFHTQ4J
+    =/Isl
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-ubuntu-jammy-testing at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 74896A98AAACB6250CE81BFCFF04075FB5B30B49.
+  pam-rssh-ubuntu-jammy-testing: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGxYJKwYBBAHaRw8BAQdAmBowkqBPvDX7Ui7s/dOAoBSt1VgfAx8KtgNQ
+    +QY/aH60R3BhbS1yc3NoLXVidW50dS1qYW1teS10ZXN0aW5nIGF0IHJlcG8ucmVn
+    dWxhZC54eXogPHJlZ3VsYWRAcmVndWxhZC54eXo+iJMEExYKADsWIQR0iWqYqqy2
+    JQzoG/z/BAdftbMLSQUCav9hGwIbAwULCQgHAgIiAgYVCgkICwIEFgIDAQIeBwIX
+    gAAKCRD/BAdftbMLSfpAAP0QDBKxgDQ1ysVPt8hS1kcHllGCQwsKEmytTdxN8Rt+
+    xQEAuqF4git3zyOF1yPrlbvnR3RpgQIKMgV+oBJFkLWMXwY=
+    =XS74
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-ubuntu-noble at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 6BCD2B2B5ADE28AA79FF63D5B95253151CE29087.
+  pam-rssh-ubuntu-noble: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGxYJKwYBBAHaRw8BAQdAbXjU7sE6/meLV0kpQLbCTGZOrsF6KkD9BZzR
+    wc/A9lG0P3BhbS1yc3NoLXVidW50dS1ub2JsZSBhdCByZXBvLnJlZ3VsYWQueHl6
+    IDxyZWd1bGFkQHJlZ3VsYWQueHl6PoiTBBMWCgA7FiEEa80rK1reKKp5/2PVuVJT
+    FRzikIcFAmr/YRsCGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQuVJT
+    FRzikIcY1wD/e6i9Tqz0jj+dpJeC85LtIueKCQL0ZqHINIqs2zBZhBEA/3n++klD
+    b5BGuxPYtYr7dvw/IO3KBonBYcVGlf8K+4wI
+    =xDbs
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-ubuntu-noble-testing at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 699E240248E2F187246ADB28F1F7A669E4B4E775.
+  pam-rssh-ubuntu-noble-testing: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hGxYJKwYBBAHaRw8BAQdA2yFeSym+vlktML9h9JnNEB4Rek7FKLKwHx3p
+    eA3/Tey0R3BhbS1yc3NoLXVidW50dS1ub2JsZS10ZXN0aW5nIGF0IHJlcG8ucmVn
+    dWxhZC54eXogPHJlZ3VsYWRAcmVndWxhZC54eXo+iJMEExYKADsWIQRpniQCSOLx
+    hyRq2yjx96Zp5LTndQUCav9hGwIbAwULCQgHAgIiAgYVCgkICwIEFgIDAQIeBwIX
+    gAAKCRDx96Zp5LTndT8pAP0dnkce1Cae/ELkd8rfoHFZCBvoYBSpn3IaKywg0orA
+    RAD/QfwCHTKd2woWR0ngFiphg8K/4h7ccrAOQKMFaRbWTQY=
+    =8ZMp
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-ubuntu-resolute at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 78E0EADBD0F1DD795BC2545CB932890A70FA6DB9.
+  pam-rssh-ubuntu-resolute: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hHBYJKwYBBAHaRw8BAQdArXHTIWO7zvRpwGiERw2Uze/GBH48YqnjNk5Q
+    OPQ4JYG0QnBhbS1yc3NoLXVidW50dS1yZXNvbHV0ZSBhdCByZXBvLnJlZ3VsYWQu
+    eHl6IDxyZWd1bGFkQHJlZ3VsYWQueHl6PoiTBBMWCgA7FiEEeODq29Dx3XlbwlRc
+    uTKJCnD6bbkFAmr/YRwCGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQ
+    uTKJCnD6bbkb8gEAoJcLFenI7EhQz2QSr87iBmeCYP7ajdFCYGqFpkfAUmgA/RWK
+    EHm/B/Ltthfe8aWWb5fawG3VwoRUWyzNSYQnjygP
+    =6Qmf
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-ubuntu-resolute-testing at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 90E5F9EF825BC632F519E3E618D29F73C7FB26F1.
+  pam-rssh-ubuntu-resolute-testing: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hHBYJKwYBBAHaRw8BAQdAHc3RBP4/a0+hf/GTfGvKOgG/hFnrKAqfKMnJ
+    8Vqxqci0SnBhbS1yc3NoLXVidW50dS1yZXNvbHV0ZS10ZXN0aW5nIGF0IHJlcG8u
+    cmVndWxhZC54eXogPHJlZ3VsYWRAcmVndWxhZC54eXo+iJMEExYKADsWIQSQ5fnv
+    glvGMvUZ4+YY0p9zx/sm8QUCav9hHAIbAwULCQgHAgIiAgYVCgkICwIEFgIDAQIe
+    BwIXgAAKCRAY0p9zx/sm8eC4APwM9tfLWyZBPm8jSL7pqDbJBFxWKYukt5rPqMrk
+    tb+0RQEA6Lmq4VeneIXEN725enasyezzSvovhkz5hWfzooKl8wQ=
+    =6vC0
+    -----END PGP PUBLIC KEY BLOCK-----
+  # pam-rssh-rpm at repo.regulad.xyz <regulad@regulad.xyz>, fingerprint 0646556A5A5A02FF79995D0D10E199D27AFA1EED.
+  pam-rssh-rpm: |
+    -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    mDMEav9hHRYJKwYBBAHaRw8BAQdALi/uEmdHJbsMIeAj2i5I5cWziMOEAd7glHyB
+    nwZDr1m0NnBhbS1yc3NoLXJwbSBhdCByZXBvLnJlZ3VsYWQueHl6IDxyZWd1bGFk
+    QHJlZ3VsYWQueHl6PoiTBBMWCgA7FiEEBkZValpaAv95mV0NEOGZ0nr6Hu0FAmr/
+    YR0CGwMFCwkIBwICIgIGFQoJCAsCBBYCAwECHgcCF4AACgkQEOGZ0nr6Hu2+5wEA
+    sZpZhONc1r1fnSZ/NR7Nksih4t9hTvJ2FgSm3HHwc+kA/ibmdwMifvbPXWk7aCt4
+    MxkmnGWaqrGUDEKiGsu0fbYG
+    =fWG9
+    -----END PGP PUBLIC KEY BLOCK-----

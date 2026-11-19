@@ -1,9 +1,10 @@
 ---
-# Converge the listed settings and upstream logins of Nexus's listed
-# repositories through its REST API at nexus_url, as svc-ansible
-# (nexus_api_user, with its password from nexus_servers.sops.yml). A
-# repository is written whole, as Nexus has it with the listed settings and
-# login merged in, where what Nexus returns differs from that, or always with
+# Create Nexus's listed repositories where missing, converge their listed
+# settings, signing keys and upstream logins, and keep the listed raw files,
+# through its REST API at nexus_url, as svc-ansible (nexus_api_user, with its
+# password from nexus_servers.sops.yml). A repository Nexus has is written
+# whole, as Nexus has it with the listed settings, key and login merged in,
+# where what Nexus returns differs from that, or always with
 # nexus_repositories_force. uri has no check mode, so a check run reports what a
 # run would change instead.
 - name: Nexus repositories
@@ -19,9 +20,11 @@
         nexus_repositories_resolved: "{{ nexus_repositories_managed }}"
       no_log: true
 
+    # What Nexus returns includes an APT repository's private signing key.
     - name: Read the listed repositories
       ansible.builtin.uri:
         url: "{{ nexus_url }}/service/rest/v1/repositories/{{ item.format }}/{{ item.type }}/{{ item.name }}"
+        status_code: [200, 404]
       loop: "{{ nexus_repositories_resolved }}"
       loop_control:
         label: "{{ item.name }}"
@@ -29,24 +32,34 @@
       check_mode: false
       no_log: true
 
-    # Each repository as a write would leave it, compared without the password,
-    # which Nexus never returns; the write sends it. The format, type and url
-    # Nexus returns are not settings its API takes.
+    # Each repository as a write would leave it, compared without the login's
+    # password and the signing key's passphrase, which Nexus never returns; the
+    # write sends them. A missing repository is created from its listed
+    # settings alone. The format, type and url Nexus returns are not settings
+    # its API takes.
     - name: Repositories to write
       ansible.builtin.set_fact:
         nexus_repositories_writes: >-
           {%- set out = [] -%}
           {%- for result in nexus_repositories_live.results -%}
-          {%- set live = result.json -%}
+          {%- set create = result.status == 404 -%}
+          {%- set live = {} if create else result.json -%}
+          {%- set signing_attribute = result.item.format ~ 'Signing' -%}
+          {%- set signing = {signing_attribute: {'keypair': result.item.signing.keypair}}
+                if result.item.signing is defined else {} -%}
           {%- set login = {'httpClient': {'authentication': {'type': 'username', 'username': result.item.login.username}}}
                 if result.item.login is defined else {} -%}
-          {%- set wanted = live | combine(result.item.settings | default({}), login, recursive=True) -%}
-          {%- if wanted != live or nexus_repositories_force -%}
+          {%- set wanted = live | combine({'name': result.item.name}, result.item.settings | default({}), signing, login,
+                                          recursive=True) -%}
+          {%- if create or wanted != live or nexus_repositories_force -%}
           {%- set body = wanted | dict2items | rejectattr('key', 'in', ['format', 'type', 'url']) | items2dict -%}
           {%- if result.item.login is defined -%}
           {%- set body = body | combine({'httpClient': {'authentication': {'password': result.item.login.password}}}, recursive=True) -%}
           {%- endif -%}
-          {%- set _ = out.append({'item': result.item, 'body': body}) -%}
+          {%- if result.item.signing is defined -%}
+          {%- set body = body | combine({signing_attribute: {'passphrase': result.item.signing.passphrase}}, recursive=True) -%}
+          {%- endif -%}
+          {%- set _ = out.append({'item': result.item, 'body': body, 'create': create}) -%}
           {%- endif -%}
           {%- endfor -%}
           {{ out }}
@@ -54,20 +67,57 @@
 
     - name: Write repositories
       ansible.builtin.uri:
-        url: "{{ nexus_url }}/service/rest/v1/repositories/{{ item.item.format }}/{{ item.item.type }}/{{ item.item.name }}"
-        method: PUT
+        url: >-
+          {{ nexus_url }}/service/rest/v1/repositories/{{ item.item.format }}/{{ item.item.type }}{{
+          '' if item.create else '/' ~ item.item.name }}
+        method: "{{ 'POST' if item.create else 'PUT' }}"
         body_format: json
         body: "{{ item.body }}"
-        status_code: [200, 204]
+        status_code: [200, 201, 204]
       loop: "{{ nexus_repositories_writes }}"
       loop_control:
         label: "{{ item.item.name }}"
       no_log: true
       changed_when: true
 
+    - name: Read the listed raw files
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/repository/{{ item.repository }}/{{ item.path }}"
+        return_content: true
+        status_code: [200, 404]
+      loop: "{{ nexus_repositories_raw_files }}"
+      loop_control:
+        label: "{{ item.repository }}/{{ item.path }}"
+      register: nexus_repositories_raw_live
+      check_mode: false
+
+    - name: Raw files to write
+      ansible.builtin.set_fact:
+        nexus_repositories_raw_writes: >-
+          {%- set out = [] -%}
+          {%- for result in nexus_repositories_raw_live.results -%}
+          {%- if result.status == 404 or result.content != result.item.content -%}
+          {%- set _ = out.append(result.item) -%}
+          {%- endif -%}
+          {%- endfor -%}
+          {{ out }}
+
+    - name: Write raw files
+      ansible.builtin.uri:
+        url: "{{ nexus_url }}/repository/{{ item.repository }}/{{ item.path }}"
+        method: PUT
+        body: "{{ item.content }}"
+        status_code: [200, 201, 204]
+      loop: "{{ nexus_repositories_raw_writes }}"
+      loop_control:
+        label: "{{ item.repository }}/{{ item.path }}"
+      changed_when: true
+
     - name: What a run would change
       ansible.builtin.debug:
         msg:
-          repositories_written: "{{ nexus_repositories_writes | map(attribute='item.name') | list }}"
+          repositories_created: "{{ nexus_repositories_writes | selectattr('create') | map(attribute='item.name') | list }}"
+          repositories_written: "{{ nexus_repositories_writes | rejectattr('create') | map(attribute='item.name') | list }}"
+          raw_files_written: "{{ nexus_repositories_raw_writes | map(attribute='path') | list }}"
       when: ansible_check_mode
-      changed_when: nexus_repositories_writes | length > 0
+      changed_when: nexus_repositories_writes | length > 0 or nexus_repositories_raw_writes | length > 0

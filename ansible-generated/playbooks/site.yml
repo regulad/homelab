@@ -242,23 +242,25 @@
   roles:
     - qbittorrent
 
-# Nexus's own roles and users, capabilities and active realms, through its REST
-# API as svc-ansible, once its Quadlet runs.
-- name: Nexus security
-  hosts: nexus_servers
-  gather_facts: false
-  tags: [nexus_security]
-  roles:
-    - nexus_security
-
-# The settings of Nexus's repositories that nexus_servers.yml lists, such as its
-# proxies' upstream logins, through its REST API as svc-ansible.
+# The Nexus repositories that nexus_servers.yml lists, created where missing,
+# with their settings, such as proxies' upstream logins and signing keys, and
+# the files of its raw repositories, through its REST API as svc-ansible, once
+# its Quadlet runs. Before the security roles, whose privileges name them.
 - name: Nexus repositories
   hosts: nexus_servers
   gather_facts: false
   tags: [nexus_repositories]
   roles:
     - nexus_repositories
+
+# Nexus's own roles and users, capabilities and active realms, through its REST
+# API as svc-ansible.
+- name: Nexus security
+  hosts: nexus_servers
+  gather_facts: false
+  tags: [nexus_security]
+  roles:
+    - nexus_security
 
 # Who may sign in to Jenkins, through FreeIPA, and its pinned plugins, once its
 # Quadlet runs.
