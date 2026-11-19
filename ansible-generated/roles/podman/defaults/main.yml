@@ -31,3 +31,22 @@ podman_volatile_stores:
 # storage.conf names the overlay driver: the aide role installs the package
 # beside Podman before 5.2, and Ubuntu 26.04's Podman depends on it.
 podman_storage_driver_unnamed: false
+
+# Users who run rootless Podman here (tasks_from: rootless), each from boot
+# through lingering, with its user manager's podman.socket, the Docker-
+# compatible API, at /run/user/<uid>/podman/podman.sock, writable by the
+# user's group. Each is
+#   name     the user and its group
+#   uid      their ID, the same for both
+#   subids   start and count of the subordinate user and group IDs its
+#            containers map to, which must lie among the host's own, such as a
+#            Proxmox container's 65,536. A user whose subids change runs
+#            `podman system migrate` before its containers start again.
+podman_rootless_users: []
+
+# Whether Ubuntu's AppArmor profile for pasta, rootless Podman's network, is
+# disabled and unloaded. Inside a Proxmox container that profile denies pasta
+# mapping its own binary, so pasta dies as it starts, and the profile has no
+# local include to amend it with. pasta still runs within the container's own
+# confinement.
+podman_pasta_apparmor_disabled: false

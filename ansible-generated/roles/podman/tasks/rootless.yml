@@ -1,0 +1,111 @@
+---
+# Rootless Podman for podman_rootless_users: each user and its group, its
+# subordinate IDs, lingering, and its user manager's podman.socket, for a
+# Docker API client such as Jenkins's docker-plugin.
+- name: Rootless users' groups
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    gid: "{{ item.uid }}"
+  loop: "{{ podman_rootless_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# useradd also gives a new user subordinate IDs from SUB_UID_MIN, 100000, which
+# lie outside a Proxmox container's own; the next task replaces them.
+- name: Rootless users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    uid: "{{ item.uid }}"
+    group: "{{ item.name }}"
+    shell: /usr/sbin/nologin
+  loop: "{{ podman_rootless_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Their subordinate IDs
+  ansible.builtin.lineinfile:
+    path: /etc/{{ item.0 }}
+    regexp: "^{{ item.1.name }}:"
+    line: "{{ item.1.name }}:{{ item.1.subids.start }}:{{ item.1.subids.count }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ ['subuid', 'subgid'] | product(podman_rootless_users) | list }}"
+  loop_control:
+    label: "{{ item.0 }} {{ item.1.name }}"
+
+# Their user managers run from boot, without a login.
+- name: Lingering
+  ansible.builtin.command:
+    cmd: loginctl enable-linger {{ item.name }}
+    creates: /var/lib/systemd/linger/{{ item.name }}
+  loop: "{{ podman_rootless_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: podman_rootless_linger
+  vars:
+    aide_writes: [/var/lib/systemd/linger/*]
+
+- name: Their user units' directories
+  ansible.builtin.file:
+    path: /home/{{ item.1.name }}/{{ item.0 }}
+    state: directory
+    owner: "{{ item.1.name }}"
+    group: "{{ item.1.name }}"
+    mode: "0755"
+  loop: "{{ ['.config', '.config/systemd', '.config/systemd/user', '.config/systemd/user/sockets.target.wants']
+            | product(podman_rootless_users) | list }}"
+  loop_control:
+    label: "{{ item.1.name }} {{ item.0 }}"
+
+# Enabled for the user alone, as `systemctl --user enable` would link it.
+- name: Their API sockets enabled
+  ansible.builtin.file:
+    src: /usr/lib/systemd/user/podman.socket
+    dest: /home/{{ item.name }}/.config/systemd/user/sockets.target.wants/podman.socket
+    state: link
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    force: "{{ ansible_check_mode }}"
+  loop: "{{ podman_rootless_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# A check run cannot reach a user manager that lingering has yet to start.
+- name: Their API sockets listening
+  ansible.builtin.systemd_service:
+    name: podman.socket
+    scope: user
+    state: started
+  become: true
+  become_user: "{{ item.0.name }}"
+  environment:
+    XDG_RUNTIME_DIR: /run/user/{{ item.0.uid }}
+  when: not (ansible_check_mode and item.1 is changed)
+  loop: "{{ podman_rootless_users | zip(podman_rootless_linger.results) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}"
+
+- name: AppArmor's profile for pasta disabled
+  ansible.builtin.file:
+    src: /etc/apparmor.d/usr.bin.pasta
+    dest: /etc/apparmor.d/disable/usr.bin.pasta
+    state: link
+    force: "{{ ansible_check_mode }}"
+  when: podman_pasta_apparmor_disabled
+
+- name: The AppArmor profiles loaded
+  ansible.builtin.slurp:
+    src: /sys/kernel/security/apparmor/profiles
+  register: podman_apparmor_profiles
+  when: podman_pasta_apparmor_disabled
+
+# AppArmor compiles no cache here (the aide role's skip-cache), so unloading
+# writes nothing.
+- name: AppArmor's profile for pasta unloaded
+  ansible.builtin.command:
+    cmd: apparmor_parser -R /etc/apparmor.d/usr.bin.pasta
+  changed_when: true
+  when:
+    - podman_pasta_apparmor_disabled
+    - podman_apparmor_profiles.content | b64decode is search('^pasta \\(', multiline=True)

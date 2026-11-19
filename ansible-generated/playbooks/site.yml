@@ -215,6 +215,17 @@
     - role: avahi
       tags: [avahi]
 
+# Before the Quadlets, which may mount a rootless user's API socket.
+- name: Rootless Podman
+  hosts: podman_hosts
+  become: true
+  tags: [podman, podman_rootless]
+  tasks:
+    - name: Rootless users and their API sockets
+      ansible.builtin.include_role:
+        name: podman
+        tasks_from: rootless
+
 # Rendered from host_vars/<host>/services.yml.
 - name: Quadlet services
   hosts: podman_hosts
