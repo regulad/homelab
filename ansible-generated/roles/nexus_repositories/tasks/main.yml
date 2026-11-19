@@ -102,11 +102,15 @@
           {%- endfor -%}
           {{ out }}
 
+    # uri labels a raw body as form data unless told otherwise, and Nexus
+    # stores a PUT so labelled as an empty file.
     - name: Write raw files
       ansible.builtin.uri:
         url: "{{ nexus_url }}/repository/{{ item.repository }}/{{ item.path }}"
         method: PUT
         body: "{{ item.content }}"
+        headers:
+          Content-Type: application/octet-stream
         status_code: [200, 201, 204]
       loop: "{{ nexus_repositories_raw_writes }}"
       loop_control:
