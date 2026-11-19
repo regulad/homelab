@@ -1224,6 +1224,19 @@
       vars:
         nexus_repositories_force: true
 
+# Set svc-jenkins's FreeIPA password, the one Jenkins's LDAP realm binds with,
+# to jenkins_ldap_manager_password, after site.yml has given Jenkins the same
+# password through its configuration as code. Run with --limit.
+- name: Jenkins's LDAP bind password
+  hosts: jenkins_controllers
+  gather_facts: false
+  tags: [jenkins-ldap-password]
+  tasks:
+    - name: Set it in FreeIPA
+      ansible.builtin.include_role:
+        name: jenkins
+        tasks_from: ldap_password
+
 # Upgrade Forgejo to the long-term support major services.yml declares: bump
 # its image's tag there, with whatever its release notes ask of the unit, then
 # run this play rather than site.yml, with --limit <host> so alock locks that
