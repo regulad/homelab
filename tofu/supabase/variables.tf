@@ -10,3 +10,12 @@ variable "database_password" {
     error_message = "Use the generated database password from the encrypted inputs."
   }
 }
+
+# Google's OAuth client secrets, by project, then by slug, which prepare.sh
+# reads from tofu/gcp/oauth-clients.sops.json, their only copy. The API returns
+# only their hashes, so the provider keeps them from state.
+variable "google_oauth_client_secrets" {
+  type      = map(map(string))
+  sensitive = true
+  nullable  = false
+}

@@ -1,8 +1,9 @@
 # shellcheck shell=sh
 # Prepare the calling shell to run OpenTofu in tofu/supabase: export the
 # homelab-tofu scoped access token and the state backend's credentials, and
-# decrypt the OpenTofu inputs, the state passphrase and the database password,
-# into the gitignored secrets.auto.tfvars.json file.
+# decrypt the OpenTofu inputs, the state passphrase, the database password,
+# tofu/gcp's state passphrase and Google's OAuth client secrets, into the
+# gitignored secrets.auto.tfvars.json file.
 #
 # Source it from anywhere in the clone; do not execute it:
 #
@@ -27,7 +28,7 @@ _homelab_sops() {
 _homelab_supabase_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext gcp provider backend name value
+    local root dir destination plaintext gcp clients provider backend name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/supabase"
     destination="$dir/secrets.auto.tfvars.json"
@@ -71,9 +72,19 @@ _homelab_supabase_prepare() {
         echo 'prepare.sh: tofu/gcp/secrets.sops.yaml has no state_encryption_passphrase.' >&2
         return 1
     fi
+    # Google's OAuth client secrets, by project, then by slug, join them from
+    # tofu/gcp/oauth-clients.sops.json, their only copy.
+    clients=$(_homelab_sops decrypt --output-type json "$root/tofu/gcp/oauth-clients.sops.json") || return 1
+    if ! clients=$(printf '%s\n' "$clients" |
+        jq -e -c '{google_oauth_client_secrets: map_values(map_values(.web.client_secret))} |
+            select(all(.google_oauth_client_secrets[][]; type == "string" and . != ""))'); then
+        echo 'prepare.sh: tofu/gcp/oauth-clients.sops.json has a client without a client_secret.' >&2
+        return 1
+    fi
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$gcp" | jq -R -s '{gcp_state_encryption_passphrase: .}'
+        printf '%s\n' "$clients"
     } | jq -s add) || return 1
     if [ -e "$destination" ]; then
         # Compare data, not formatting. Preserve any differing local edits.

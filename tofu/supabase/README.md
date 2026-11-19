@@ -20,15 +20,23 @@ The provider is Supabase's own, `supabase/supabase`. It manages hosted Supabase 
 
 A project's settings declare only what was chosen for it, as `tofu/cloudflare` does for its
 zones: for `doppelganger`, Auth's site URL and redirect allow-list, which are
-doppelgangerhq.com, and sign-in with Google, whose client ID comes from `tofu/gcp`'s
-`oauth_client_ids` output, read from its state with its passphrase, which `prepare.sh` adds
-to the inputs from `tofu/gcp/secrets.sops.yaml`. After an apply to `tofu/gcp` changes a
-client ID, apply this root for the project to follow. Everything else is Supabase's default and
-undeclared, so a change to it shows in no plan. Its API, database, network, pooler and
-storage groups and its SSL enforcement are wholly undeclared; the provider neither reads
-nor sends a group it is not given, and reads back only the keys a group declares. Auth
-sends with Supabase's own email, no SMTP of its own. Secrets the API keeps, such as Google's
-client secret, are never read back, so they stay the Dashboard's.
+doppelgangerhq.com, and sign-in with Google, through `tofu/gcp`'s client `doppelganger`,
+with `doppelganger-test` as an additional client ID for local development, which signs in to
+this project too. Their IDs come from `tofu/gcp`'s `oauth_client_ids` output, read from its
+state with its passphrase, which `prepare.sh` adds to the inputs from
+`tofu/gcp/secrets.sops.yaml`; `doppelganger`'s secret comes from
+`tofu/gcp/oauth-clients.sops.json`, whose secrets `prepare.sh` adds too. After an apply to
+`tofu/gcp` changes a client ID, apply this root for the project to follow. Everything else is
+Supabase's default and undeclared, so a change to it shows in no plan. Its API, database,
+network, pooler and storage groups and its SSL enforcement are wholly undeclared; the
+provider neither reads nor sends a group it is not given, and reads back only the keys a
+group declares. Auth sends with Supabase's own email, no SMTP of its own.
+
+The API returns only a hash of each secret it keeps, so the provider keeps a declared secret
+from state: a change to it in the Dashboard shows in no plan, and a change in SOPS is applied.
+Google's client secret makes the whole `auth` group sensitive, so a plan shows its diff only
+as `(sensitive value)`; review it in `tofu show -json` of the saved plan, with the secret
+taken out.
 
 ## Credentials
 
@@ -58,7 +66,8 @@ tofu -chdir=tofu/supabase plan -input=false -detailed-exitcode
 
 `prepare.sh` must be sourced, not executed, so its exports reach the shell that runs
 `tofu`. It needs `sops`, `jq` and `git`. It decrypts `secrets.sops.yaml` into the ignored
-`secrets.auto.tfvars.json`, which holds the state passphrase and the database password.
+`secrets.auto.tfvars.json`, which holds the state passphrase and the database password, with
+`tofu/gcp`'s state passphrase and Google's OAuth client secrets from that root's files.
 
 State and saved plans use enforced AES-GCM encryption. Never change or lose the passphrase.
 State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, under the key
