@@ -189,14 +189,16 @@ nexus_repositories_managed: "{{ nexus_repositories_proxies + nexus_repositories_
 
 # keys: each signed repository's public key, at
 # <nexus_url>/repository/keys/<repository>.asc, which the nexus_repositories
-# role uploads from nexus_public_keys (below).
+# role uploads from nexus_public_keys (below). Without content type validation:
+# Nexus expects a .asc file to hold a signature, detects an armored key as
+# text/plain, and refuses it; and only svc-ansible writes here.
 nexus_repositories_keys:
   - format: raw
     type: hosted
     name: keys
     settings:
       online: true
-      storage: {blobStoreName: default, strictContentTypeValidation: true, writePolicy: ALLOW}
+      storage: {blobStoreName: default, strictContentTypeValidation: false, writePolicy: ALLOW}
       raw: {contentDisposition: INLINE}
 nexus_repositories_raw_files: >-
   {%- set out = [] -%}
