@@ -128,7 +128,7 @@ resource "ansible_host" "jenkins" {
 
   name = "${proxmox_virtual_environment_container.jenkins.initialization[0].hostname}.${local.guest_domain}"
   groups = sort(setunion(
-    ["gonkputer", "podman_hosts", "proxmox_containers", "ubuntu"],
+    ["gonkputer", "jenkins_controllers", "podman_hosts", "proxmox_containers", "ubuntu"],
     setintersection(proxmox_virtual_environment_container.jenkins.tags, local.ansible_group_tags),
     [proxmox_virtual_environment_container.jenkins.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
