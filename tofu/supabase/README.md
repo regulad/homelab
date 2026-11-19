@@ -21,8 +21,10 @@ The provider is Supabase's own, `supabase/supabase`. It manages hosted Supabase 
 A project's settings declare only what was chosen for it, as `tofu/cloudflare` does for its
 zones: for `doppelganger`, Auth's site URL and redirect allow-list, which are
 doppelgangerhq.com, and sign-in with Google, through `tofu/gcp`'s client `doppelganger`,
-with `doppelganger-test` as an additional client ID for local development, which signs in to
-this project too. Their IDs come from `tofu/gcp`'s `oauth_client_ids` output, read from its
+then `doppelganger-test`, for local development, which signs in to this project too. Their
+IDs are one comma-separated list, web client first, as Supabase keeps them: the API folds
+`external_google_additional_client_ids` into that list, so it reads back differently and is
+not used. The IDs come from `tofu/gcp`'s `oauth_client_ids` output, read from its
 state with its passphrase, which `prepare.sh` adds to the inputs from
 `tofu/gcp/secrets.sops.yaml`; `doppelganger`'s secret comes from
 `tofu/gcp/oauth-clients.sops.json`, whose secrets `prepare.sh` adds too. After an apply to

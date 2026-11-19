@@ -27,14 +27,18 @@ resource "supabase_settings" "doppelganger" {
   auth = jsonencode({
     site_url       = "https://doppelgangerhq.com"
     uri_allow_list = "https://doppelgangerhq.com"
-    # Sign-in with Google, through the doppelganger client. Doppelganger signs
-    # in with Google's ID tokens, which Supabase accepts for each client ID
-    # here; the secret serves only Supabase's own redirect sign-in. Local
-    # development signs in to this project too, through doppelganger-test.
-    external_google_enabled               = true
-    external_google_client_id             = local.doppelganger_google_client_ids["doppelganger"]
-    external_google_secret                = local.doppelganger_google_client_secrets["doppelganger"]
-    external_google_additional_client_ids = local.doppelganger_google_client_ids["doppelganger-test"]
+    # Sign-in with Google. Doppelganger signs in with Google's ID tokens, which
+    # Supabase accepts for each client ID in this comma-separated list: the
+    # doppelganger client, first, as Supabase's own redirect sign-in uses the
+    # first with the secret, then doppelganger-test, for local development,
+    # which signs in to this project too. The API folds
+    # external_google_additional_client_ids into this list, so it is not used.
+    external_google_enabled = true
+    external_google_client_id = join(",", [
+      local.doppelganger_google_client_ids["doppelganger"],
+      local.doppelganger_google_client_ids["doppelganger-test"],
+    ])
+    external_google_secret = local.doppelganger_google_client_secrets["doppelganger"]
   })
 
   # The following exists as an artifact of import from the imperative setup.
