@@ -10,6 +10,7 @@ import pathlib
 import sys
 import unittest
 import urllib.error
+from unittest import mock
 
 sys.dont_write_bytecode = True
 
@@ -224,6 +225,41 @@ class ServeTest(unittest.TestCase):
     class Stop(Exception):
         """Ends serve()'s loop for the test; no transient error is one."""
 
+    def setUp(self):
+        # serve()'s clock, in seconds since boot: 5, as on a host just booted,
+        # whatever the uptime of the one running the tests.
+        self.clock = [5.0]
+        for patcher in (mock.patch.object(join.time, "monotonic", lambda: self.clock[0]),
+                        mock.patch.object(join.time, "sleep", lambda seconds: None)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_a_full_pass_runs_at_start_and_then_each_interval(self):
+        calls = []
+        stop = self.Stop
+        clock = self.clock
+
+        class Api:
+            def get(self, path):
+                # Each long poll returns no events after 300 s.
+                calls.append(path)
+                if len(calls) == 4:
+                    raise stop()
+                clock[0] += 300
+                return []
+
+        class Joiner:
+            passes = 0
+
+            def run_pass(self):
+                Joiner.passes += 1
+
+        with self.assertRaises(self.Stop):
+            join.serve(Joiner(), Api())
+        # At 5 s, then at 605 s, FULL_PASS_INTERVAL after the first; not at 305
+        # or 905 s.
+        self.assertEqual(Joiner.passes, 2)
+
     def test_a_restart_cutting_off_a_long_poll_is_survived(self):
         # Syncthing restarting drops the event long poll mid-reply, which
         # http.client raises as IncompleteRead.
@@ -243,13 +279,8 @@ class ServeTest(unittest.TestCase):
             def run_pass(self):
                 Joiner.passes += 1
 
-        sleep = join.time.sleep
-        join.time.sleep = lambda seconds: None
-        try:
-            with self.assertRaises(self.Stop):
-                join.serve(Joiner(), Api())
-        finally:
-            join.time.sleep = sleep
+        with self.assertRaises(self.Stop):
+            join.serve(Joiner(), Api())
         self.assertEqual(len(calls), 2)
         # Each start over begins with a full pass, events since 0.
         self.assertEqual(Joiner.passes, 2)

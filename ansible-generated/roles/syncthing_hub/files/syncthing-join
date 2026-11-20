@@ -202,10 +202,13 @@ class Joiner:
 
 def serve(joiner, api):
     since = 0
-    last_full = 0.0
+    # None until the first pass, which runs at once: time.monotonic() counts
+    # from boot, so a 0.0 here would hold that pass back while the host has been
+    # up for less than FULL_PASS_INTERVAL.
+    last_full = None
     while True:
         try:
-            if time.monotonic() - last_full >= FULL_PASS_INTERVAL:
+            if last_full is None or time.monotonic() - last_full >= FULL_PASS_INTERVAL:
                 joiner.run_pass()
                 last_full = time.monotonic()
             events = api.get("/rest/events?events={}&since={}&timeout=60".format(EVENTS, since)) or []
@@ -218,7 +221,7 @@ def serve(joiner, api):
         except TRANSIENT_ERRORS as error:
             LOG.warning("Syncthing's API is unavailable (%s); retrying in 30 s", error)
             since = 0
-            last_full = 0.0
+            last_full = None
             time.sleep(30)
 
 
