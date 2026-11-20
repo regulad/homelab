@@ -5,6 +5,9 @@ locals {
     "pw@nefumllc.com",
     "pw@regulad.net",
   ]
+
+  # mail's IAM user, made outside OpenTofu, from the tenancy's users below.
+  svc_mail_user_id = one([for user in data.oci_identity_users.tenancy.users : user.id if user.name == "svc-mail@regulad.xyz"])
 }
 
 resource "oci_email_dkim" "primary" {
@@ -63,9 +66,9 @@ resource "oci_email_sender" "sender" {
   }
 }
 
-# The tenancy's users, from which the credential below picks
-# svc-mail@regulad.xyz by its name. ListUsers' own name filter returns no user
-# here, under that name or as svc-mail.
+# The tenancy's users, from which svc_mail_user_id picks svc-mail@regulad.xyz by
+# its name. ListUsers' own name filter returns no user here, under that name or
+# as svc-mail.
 data "oci_identity_users" "tenancy" {
   compartment_id = var.tenancy_ocid
 }
@@ -80,8 +83,44 @@ data "oci_identity_users" "tenancy" {
 # `tofu show` prints the current one: review such a plan only through its JSON,
 # as the README sets out.
 resource "oci_identity_smtp_credential" "mail" {
-  user_id     = one([for user in data.oci_identity_users.tenancy.users : user.id if user.name == "svc-mail@regulad.xyz"])
+  user_id     = local.svc_mail_user_id
   description = "mail's Postfix, relaying through Email Delivery"
+}
+
+# svc-mail: the group the policy below lets send, its one user, which mail's
+# Postfix signs in to Email Delivery as, and that user's membership. Oracle
+# requires a description on a user and a group, which these had none of.
+resource "oci_identity_group" "mail" {
+  name           = "svc-mail"
+  compartment_id = var.tenancy_ocid
+  description    = "Email Delivery senders"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "oci_identity_user" "mail" {
+  name           = "svc-mail@regulad.xyz"
+  compartment_id = var.tenancy_ocid
+  description    = "mail's Postfix, relaying through Email Delivery"
+  email          = "svc-mail@regulad.xyz"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "oci_identity_user_group_membership" "mail" {
+  group_id = oci_identity_group.mail.id
+  user_id  = oci_identity_user.mail.id
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "oci_identity_policy" "mail" {

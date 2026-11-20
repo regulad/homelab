@@ -9,7 +9,8 @@ subdirectories into a module, so its files are grouped by name prefix instead.
 |---|---|
 | `network-legacy.tf`, `subnet-subnet--20230331--2242.tf`, `instance-web.tf` | The legacy VCN and its networking, and the web instance with its boot and data volumes, their backup-policy assignments, the data volume's attachment, and its IPv6 assignment (13 resources) |
 | `network-wahlecloud.tf`, `subnet-public.tf`, `instance-{bailout,livekit,mail,pihole2,riko,router}.tf` | The wahlecloud VCN and its networking, and the bailout, livekit, mail, pihole2, riko and router hosts with their volumes, mail's data volume with its attachment and backup-policy assignment, IPv6 assignments and NSGs (77 resources) |
-| `email.tf` | Email Delivery: the `regulad.xyz`, `nefumllc.com` and `regulad.net` domains, their DKIM keys and senders, `svc-mail@regulad.xyz`'s SMTP credential, and the `svc-mail` policy |
+| `email.tf` | Email Delivery: the `regulad.xyz`, `nefumllc.com` and `regulad.net` domains, their DKIM keys and senders, and the `svc-mail` group, its user `svc-mail@regulad.xyz` with its membership and SMTP credential, and the group's policy |
+| `network-path-analyzer.tf` | The policy that lets Network Path Analyzer read the network, which the console made |
 | `state-bucket.tf`, `state-identity.tf` | The `homelab-tofu-state` bucket, and the `svc-tofu-state` user, group and policy the backend authenticates with (6 resources) |
 | `main.tf` | The availability-domain lookup and the `tofu/shared` module call |
 | `outputs.tf` | The instances' public addresses and the DKIM key's CNAME record, which `tofu/cloudflare` reads for its DNS records, and mail's SMTP credential, which mail's host_vars read |
@@ -78,8 +79,7 @@ of `email.tf`. One sender resource uses `for_each` over that list, keyed
 by email address so reordering the list does not change resource identities.
 
 mail's Postfix relays through Email Delivery as `svc-mail@regulad.xyz`, an IAM
-user made outside OpenTofu that `email.tf` picks from the tenancy's users by
-name. Its SMTP
+user made by hand and adopted, with its group and membership. Its SMTP
 credential is a resource here, and the sensitive `mail_smtp_credential` output
 passes the username and password to mail's host_vars through the `tf_output`
 lookup. Oracle shows the password only as it creates the credential, so a
