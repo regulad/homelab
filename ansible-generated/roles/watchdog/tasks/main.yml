@@ -67,3 +67,33 @@
     name: watchdog
     enabled: true
     state: started
+
+# The crash kernel boots only kdump-tools-dump.service, so the watchdog daemon
+# is not running there and nothing loads the device's module, which Ubuntu
+# blacklists from udev: the timer the crashed kernel armed runs out, and the VM
+# resets about 60 s after the crash, before the dump is written. The package's
+# keepalive daemon, which loads watchdog_module and pings the device, runs
+# alongside the dump.
+- name: Crash dump unit drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/kdump-tools-dump.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: "'kdump' in group_names"
+
+- name: Watchdog kept alive during a crash dump
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/kdump-tools-dump.service.d/watchdog.conf
+    content: |
+      # Managed by Ansible (watchdog). Pings the VM's watchdog while the crash
+      # kernel saves its dump.
+      [Unit]
+      Wants=wd_keepalive.service
+      After=wd_keepalive.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: "'kdump' in group_names"
+  notify: Reload systemd
