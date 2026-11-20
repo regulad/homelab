@@ -1,0 +1,7 @@
+---
+galaxy_info:
+  author: Parker Wahle
+  description: LUKS volumes in /etc/crypttab, unlocked at boot by clevis from a key sealed to the TPM
+  license: AGPL-3.0
+  min_ansible_version: "2.21"
+dependencies: []

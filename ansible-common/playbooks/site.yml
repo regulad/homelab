@@ -132,6 +132,15 @@
   roles:
     - netplan
 
+# LUKS volumes unlocked from the TPM at boot, on the hosts in the luks group.
+- name: Encrypted volumes
+  hosts: luks
+  gather_facts: false
+  become: true
+  tags: [luks]
+  roles:
+    - luks
+
 # Kernel crash dumps on the hosts in the kdump group.
 - name: Kernel crash dumps
   hosts: kdump

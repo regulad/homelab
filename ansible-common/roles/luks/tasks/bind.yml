@@ -1,0 +1,63 @@
+---
+# Seal each LUKS volume's key to the TPM, from maintenance.yml (--tags
+# luks-bind). A volume keeps a tpm2 binding that has luks_tpm2_config's policy
+# and unseals now; otherwise its tpm2 bindings are removed and a new one is
+# made, as after a change to Secure Boot's state or a move to another TPM. The
+# host's recovery passphrase, from SOPS, opens the volume for clevis. A check
+# run binds nothing.
+#
+# The binding's keyslot is marked prefer, so that an unlock tries it first.
+# The recovery passphrase's keyslot is argon2id, which asks for up to 1 GiB of
+# memory, more than the crash kernel has; clevis's own is PBKDF2, at 1000
+# iterations, as its secret is random.
+- name: Seal each volume's key to the TPM
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -euo pipefail
+      device=/dev/disk/by-uuid/{{ item.uuid }}
+      want={{ luks_tpm2_config | to_json | quote }}
+      prefer() {
+        if ! cryptsetup luksDump --dump-json-metadata "$device" |
+          python3 -I -B -c 'import json, sys
+      sys.exit(json.load(sys.stdin)["keyslots"][sys.argv[1]].get("priority", 1) != 2)' "$1"; then
+          cryptsetup config --priority prefer --key-slot "$1" "$device"
+          echo "slot $1 preferred"
+        fi
+      }
+      stale=()
+      while IFS= read -r line; do
+        [[ $line =~ ^([0-9]+):\ tpm2\ \'(.*)\'$ ]] || continue
+        slot=${BASH_REMATCH[1]}
+        if python3 -I -B -c 'import json, sys
+      have, want = (json.loads(arg) for arg in sys.argv[1:])
+      sys.exit(any(have.get(key) != value for key, value in want.items()))' "${BASH_REMATCH[2]}" "$want" &&
+          clevis luks pass -d "$device" -s "$slot" </dev/null >/dev/null 2>&1; then
+          prefer "$slot"
+          exit 0
+        fi
+        stale+=("$slot")
+      done < <(clevis luks list -d "$device" </dev/null 2>/dev/null || true)
+      for slot in "${stale[@]}"; do
+        clevis luks unbind -f -d "$device" -s "$slot" </dev/null
+        echo "unbound slot $slot"
+      done
+      clevis luks bind -y -k - -d "$device" tpm2 "$want"
+      echo bound
+      prefer "$(clevis luks list -d "$device" </dev/null | sed -n 's/^\([0-9]*\): tpm2 .*/\1/p' | head -n 1)"
+    stdin: "{{ luks_recovery_passphrase }}"
+    stdin_add_newline: false
+  loop: "{{ luks_volumes }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: luks_bound
+  changed_when: luks_bound.stdout | length > 0
+  no_log: true
+
+- name: Report what changed
+  ansible.builtin.debug:
+    msg: "{{ item.item.name }}: {{ (item.stdout_lines | default([])) | join('; ') or 'kept its binding' }}"
+  loop: "{{ luks_bound.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: not ansible_check_mode

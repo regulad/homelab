@@ -1,0 +1,6 @@
+# Managed by Ansible (luks). The volumes clevis unlocks from the TPM at boot,
+# or the recovery passphrase at the console.
+# <target name> <source device> <key file> <options>
+{% for volume in luks_volumes %}
+{{ volume.name }} UUID={{ volume.uuid }} none {{ luks_crypttab_options | join(',') }}
+{% endfor %}

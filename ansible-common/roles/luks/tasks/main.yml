@@ -1,0 +1,42 @@
+---
+# LUKS volumes unlocked at boot from the TPM, on the Debian and Ubuntu hosts in
+# the luks group. Each volume is formatted by hand first, with the UUID its
+# host_vars give it (docs/runbooks/encrypt-a-vm-disk.md); maintenance.yml's
+# luks-bind then seals its key to the TPM.
+- name: Install clevis
+  ansible.builtin.package:
+    name: "{{ luks_packages }}"
+    state: present
+  notify:
+    - Update the initramfs
+    - Rebuild the crash kernel's initramfs
+
+# A crypttab line for a volume not yet formatted would hold the next boot at
+# the initramfs, waiting for it.
+- name: Find each volume's LUKS header
+  ansible.builtin.stat:
+    path: /dev/disk/by-uuid/{{ item.uuid }}
+  loop: "{{ luks_volumes }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: luks_headers
+
+- name: Refuse a volume not yet formatted
+  ansible.builtin.assert:
+    that: luks_headers.results | rejectattr('stat.exists') | list | length == 0
+    fail_msg: >-
+      No LUKS header has the UUID of
+      {{ luks_headers.results | rejectattr('stat.exists') | map(attribute='item.name') | join(', ') }};
+      format it first.
+    quiet: true
+
+- name: Crypttab
+  ansible.builtin.template:
+    src: crypttab.j2
+    dest: /etc/crypttab
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Update the initramfs
+    - Rebuild the crash kernel's initramfs

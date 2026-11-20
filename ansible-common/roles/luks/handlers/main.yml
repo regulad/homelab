@@ -1,0 +1,32 @@
+---
+- name: Update the initramfs
+  ansible.builtin.command: update-initramfs -u -k all
+  changed_when: true
+  # The images and initramfs-tools' record of each, for AIDE's refresh at the
+  # end of the run (aide_written callback).
+  vars:
+    aide_writes: [/boot/initrd.img-*, /var/lib/initramfs-tools/*]
+
+# kdump-tools builds its crash initramfs only when a kernel is installed, from
+# a copy of /etc/initramfs-tools; its kernel hook builds it again for each.
+- name: Rebuild the crash kernel's initramfs
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      for version in $(linux-version list); do
+        /etc/kernel/postinst.d/kdump-tools "$version"
+      done
+  changed_when: true
+  when: "'kdump' in group_names"
+  notify: Reload the crash kernel
+  # Its images, their sizes, and its copy of /etc/initramfs-tools, two levels
+  # deep.
+  vars:
+    aide_writes: [/var/lib/kdump/*initrd.img-*, /var/lib/kdump/initramfs-tools, /var/lib/kdump/initramfs-tools/*, /var/lib/kdump/initramfs-tools/*/*]
+
+# Where kdump-tools has loaded the crash kernel, load it again with the new
+# image.
+- name: Reload the crash kernel
+  ansible.builtin.command:
+    argv: [systemctl, try-restart, kdump-tools.service]
+  changed_when: true

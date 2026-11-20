@@ -102,3 +102,17 @@
       ansible.builtin.include_role:
         name: aide
         tasks_from: repair
+
+# Seal the LUKS volumes' keys to the TPM, on the hosts in the luks group: after
+# a volume is formatted, after a change to Secure Boot's state leaves its
+# binding unable to unseal, or after a move to another TPM.
+- name: LUKS volumes bound to the TPM
+  hosts: luks
+  gather_facts: false
+  become: true
+  tags: [luks-bind]
+  tasks:
+    - name: Seal each volume's key
+      ansible.builtin.include_role:
+        name: luks
+        tasks_from: bind

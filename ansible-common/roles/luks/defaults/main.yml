@@ -1,0 +1,25 @@
+---
+# clevis's tpm2 pin, its LUKS bindings, and its initramfs-tools hook, which
+# unlocks the volumes in the initramfs, kdump's crash initramfs among them.
+# initramfs-tools rather than dracut, because kdump-tools builds its crash
+# initramfs only with mkinitramfs.
+luks_packages:
+  - clevis
+  - clevis-luks
+  - clevis-tpm2
+  - clevis-initramfs
+
+# The host's LUKS volumes, from its host_vars: each one's dm-crypt name and the
+# UUID its LUKS header was formatted with (cryptsetup luksFormat --uuid). The
+# role owns /etc/crypttab, which lists these and nothing else.
+luks_volumes: []
+
+# Every volume's /etc/crypttab options: LUKS, discards passed down to the
+# drive, and opened in the initramfs whatever the hook finds mounted on it.
+luks_crypttab_options: [luks, discard, initramfs]
+
+# The policy the luks-bind maintenance play seals each volume's key to: PCR 7,
+# Secure Boot's state, in the SHA-256 bank, as clevis's own default is SHA-1.
+luks_tpm2_config:
+  pcr_bank: sha256
+  pcr_ids: "7"
