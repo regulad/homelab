@@ -85,3 +85,12 @@ variable "nexus_passwords" {
   sensitive = true
   nullable  = false
 }
+
+# The Jenkins service users' passwords, by user name, which prepare.sh reads
+# from ansible-generated's jenkins.regulad.internal secrets.sops.yml, their only
+# copy.
+variable "jenkins_passwords" {
+  type      = map(string)
+  sensitive = true
+  nullable  = false
+}

@@ -2,8 +2,9 @@
 # Prepare the calling shell to run OpenTofu in tofu/github: export the homelab
 # GitHub App's private key and the state backend's credentials, and decrypt the
 # OpenTofu inputs, with the Nexus CI users' passwords from
-# ansible-generated/inventory/group_vars/nexus_servers.sops.yml, their only
-# copy, and tofu/tailscale's state passphrase, into the gitignored
+# ansible-generated/inventory/group_vars/nexus_servers.sops.yml and the Jenkins
+# service users' from jenkins.regulad.internal's secrets.sops.yml, their only
+# copies, and tofu/tailscale's state passphrase, into the gitignored
 # secrets.auto.tfvars.json file.
 #
 # Source it from anywhere in the clone; do not execute it:
@@ -78,6 +79,19 @@ _homelab_github_prepare() {
         fi
         nexus=$(printf '%s' "$value" | jq -R -s --argjson n "$nexus" --arg u "$user" '$n + {($u): .}') || return 1
     done
+    # The Jenkins service users' passwords, by user name, from their only copy,
+    # likewise.
+    jenkins='{}'
+    for user in svc-jobs; do
+        key="jenkins_$(printf '%s' "$user" | tr '-' '_')_password"
+        value=$(_homelab_sops decrypt --extract "[\"$key\"]" \
+            "$root/ansible-generated/inventory/host_vars/jenkins.regulad.internal/secrets.sops.yml") || return 1
+        if [ -z "$value" ]; then
+            echo "prepare.sh: jenkins.regulad.internal's secrets.sops.yml has no $key." >&2
+            return 1
+        fi
+        jenkins=$(printf '%s' "$value" | jq -R -s --argjson n "$jenkins" --arg u "$user" '$n + {($u): .}') || return 1
+    done
     # tofu/tailscale's state passphrase, which tailscale.tf needs to read its
     # outputs, from tofu/tailscale's own encrypted file, its only copy.
     tailscale=$(_homelab_sops decrypt --extract '["state_encryption_passphrase"]' "$root/tofu/tailscale/secrets.sops.yaml") || return 1
@@ -94,6 +108,7 @@ _homelab_github_prepare() {
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$nexus" | jq '{nexus_passwords: .}'
+        printf '%s' "$jenkins" | jq '{jenkins_passwords: .}'
         printf '%s' "$tailscale" | jq -R -s '{tailscale_state_encryption_passphrase: .}'
         printf '%s' "$azure" | jq -R -s '{azure_state_encryption_passphrase: .}'
     } | jq -s add) || return 1

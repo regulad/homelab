@@ -17,4 +17,10 @@ locals {
     for user in yamldecode(file("${path.module}/../../ansible-generated/inventory/group_vars/nexus_servers.yml")).nexus_security_users :
     user.userId => user
   }
+
+  # Jenkins's service users as Ansible declares them, by name, likewise.
+  jenkins_users = {
+    for user in yamldecode(file("${path.module}/../../ansible-generated/inventory/host_vars/jenkins.regulad.internal/main.yml")).jenkins_freeipa_service_users :
+    user.name => user
+  }
 }
