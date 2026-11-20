@@ -104,6 +104,19 @@ unclassified:
     hookSecretConfigs:
       - credentialsId: "github-webhook-secret"
 
+# Maven, for builds that name it (tools { maven 'maven' }): the agents' image
+# has a JDK but no Maven, so Jenkins downloads this release onto each agent
+# whose build asks for it, from the list Jenkins's update site serves.
+tool:
+  maven:
+    installations:
+      - name: "maven"
+        properties:
+          - installSource:
+              installers:
+                - maven:
+                    id: "3.9.16"
+
 # Job DSL runs its scripts without script security's approval, which would
 # otherwise be needed again for each edit. Its only scripts are this file's and
 # regulad/jobs's, which that repository's seed workflow applies at each push to
@@ -255,4 +268,12 @@ jobs:
             }
           }
         }
+      }
+  # mcMMO-Dev: the folder of regulad/jobs's jobs for mcMMO-Dev's projects. Its
+  # jobs read public repositories alone and keep what they build as their
+  # artifacts, so it holds no credentials; it is defined here, as every folder
+  # of regulad/jobs's is.
+  - script: |
+      folder('mcMMO-Dev') {
+        description("Builds of mcMMO-Dev's projects, kept as each build's artifacts. regulad/jobs defines its jobs; regulad/homelab, the folder.")
       }
