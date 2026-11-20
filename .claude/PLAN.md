@@ -5,10 +5,11 @@ across a home Proxmox cluster and an OCI tenancy. This file holds the goals, the
 phases, and each phase's current status. The rules agents follow, the model
 architecture, and the conventions are in [`AGENTS.md`](../AGENTS.md).
 
-Two neighbouring areas are already declarative in their own repositories and stay
-out of this one: the tailnet's ACL policy and DNS in
-[`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), and
-workstation configuration in [`regulad/dotfiles`](https://github.com/regulad/dotfiles).
+Workstation configuration is declarative in its own repository,
+[`regulad/dotfiles`](https://github.com/regulad/dotfiles), and stays out of this
+one. The tailnet's policy file, DNS and federated identities are `tofu/tailscale`'s;
+[`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), which held
+the policy and DNS before, is to be retired.
 
 Ansible runs in two phases, one on each side of OpenTofu, each in its own folder.
 The order is `tofu/backblaze`, the hardware hosts, the other OpenTofu roots, then the
@@ -25,13 +26,13 @@ generated hosts:
 
 | Phase | Status |
 |---|---|
-| 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, OCI version pins, pre-commit (file hygiene, OpenTofu, privacy guards), and the Ansible scaffold for both stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
-| 1. Discovery | OCI done, with snapshots kept locally. Proxmox: the `gonkputer` crawl is done, including cluster and Ceph settings, and its open questions are answered (local snapshot and `SUMMARY.md`). Hardware hosts and the per-host service inventory are not started. |
-| 2. Ansible: hardware hosts | Started: `hardware.yml` lists the initial hardware hosts, seeded from the operator's SSH configuration. The roles are skeletons. Network switches are Ansible hosts in a `switches` group, all three adopted with no diff; the SG300s' pushes are implemented but not yet tried on a real change. |
-| 3. OpenTofu | OCI done: the agreed scope (74 resources) is adopted in `tofu/oracle`, its plan is a no-op, and state is remote in the `homelab-tofu-state` bucket that `tofu/oracle` manages. Proxmox: the first, descriptive pass of `tofu/gonkputer` is adopted (86 resources, Ceph included, plus its snippets) on provider build `0.118.0-pr3204.pr3207.pr3209.1`, its plan is a no-op, and its state is in the same bucket. Fixes to the live configuration follow as separate, reviewed changes. Backblaze B2: the whole account is adopted in `tofu/backblaze` (3 buckets, 1 key), with its state in the same bucket; it runs before Phase 2. |
-| 4. Ansible: generated hosts | Started: `ansible-generated/` reads both roots' state through the `terraform_state` inventory plugin, as one inventory that `site.yml` runs over once: the five OCI instances, which Ansible reaches, and the requested gonkputer guests Ansible manages. Proxmox VMs are moving to cloud-init where they can, and containers will be reached through `proxmox_pct_remote`. The roles are skeletons. |
-| 5. Portability proof | Not started. |
-| 6. Drift and CI (optional) | Not started. |
+| 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, version pins, pre-commit (file hygiene, OpenTofu, privacy guards, and the `tests` hook), and both Ansible stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
+| 1. Discovery | OCI and the `gonkputer` crawl are done, including cluster and Ceph settings, with snapshots kept locally. The hardware hosts were seeded from the operator's SSH configuration; they and the services on every host were surveyed host by host as each was adopted, and no summary covers them. |
+| 2. Ansible: hardware hosts | In progress. `hardware.yml` lists prodingus, turk and overture, and the three switches. Besides the shared roles, Ansible applies the Proxmox and Ceph settings it owns (`proxmox_cluster`), the RADOS Gateway (`ceph_rgw`), and host roles such as `webhookd`, `cachefilesd` and `orchard_worker`. The switches' committed configurations are adopted, and the SG300s take pushed changes. |
+| 3. OpenTofu | Adopted, one root per provider, each with its state encrypted in the `homelab-tofu-state` bucket. `tofu/oracle` holds the agreed OCI scope; `tofu/gonkputer` the Proxmox guests, the cluster-wide settings its provider supports, and the Ceph objects, on `bpg/proxmox` 0.122.0; `tofu/backblaze` the B2 account, run before Phase 2. The other roots are aws, azure, cloudflare, gcp, github, onesignal, sentry, stripe, supabase, tailscale and vercel. Docker Hub has no root: its tokens are issued by hand (`tofu/dockerhub/README.md`). Fixes to adopted configuration follow as separate, reviewed changes. |
+| 4. Ansible: generated hosts | In progress. `ansible-generated/` builds one inventory from `tofu/oracle`'s and `tofu/gonkputer`'s state: the seven OCI instances and the requested gonkputer guests, with containers reached through `proxmox_pct_remote`. The VMs that boot with cloud-init, unifi and urbackup, are configured by their vendor files. Services on Podman run as Quadlets from the `quadlet` role; hosts not already on Podman keep their runtime. |
+| 5. Portability proof | Not started. Services have moved between guests by hand (git, authentik and matrix, each from a VM into a container), but none by a data-only edit, and `docs/runbooks/` does not exist yet. |
+| 6. Drift and CI | Out of scope: the repository is operated only from Parker's workstation. |
 
 Each phase ends with its acceptance criteria met and a check-in with Parker. Do
 not start the next phase without it. The OCI part of Phase 3 was done before this
@@ -51,8 +52,8 @@ Parker asks.
 **Non-goals (for now)**
 - Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
 - Migrating data inside containers automatically. Parker plans data movement per service.
-- CI/drift automation (optional Phase 6).
-- Operational playbooks. Each Ansible stage has only `site.yml`, which converges hosts and is safe to rerun. Rolling reboots, release upgrades and similar deliberate operations stay manual, and package updates come from each host's automatic updater (unattended-upgrades, dnf-automatic).
+- Operating the repository from anywhere but Parker's workstation. No runner, CI job or Jenkins job plans, checks or applies it, and no other machine holds its credentials; drift is found by running plans and check runs there.
+- Operational playbooks beyond maintenance. Each Ansible stage's `site.yml` converges hosts and is safe to rerun; its `maintenance.yml` holds only the maintenance that cannot be automated, one play per task, run by hand (see Ansible scope in `AGENTS.md`). Rolling reboots, key rotation, restores and similar deliberate operations stay manual, and package updates come from each host's automatic updater (unattended-upgrades, dnf-automatic).
 - The VMware guests on `turk`, an Ubuntu 24.04 host that runs VMware Workstation so its Windows guests get hardware-accelerated graphics. Bringing them into OpenTofu is a far-future addition; `turk` itself is a hardware host.
 
 ## Inputs from Parker
@@ -61,13 +62,12 @@ Parker asks.
 |---|---|---|
 | Phase 0 | `age` public key(s) for `.sops.yaml` | Provided |
 | Phase 0 | Python/tool manager | `uv` |
-| Phase 1 | OCI access | Provided: Parker's session token in the `DEFAULT` profile |
+| Phase 1 | OCI access | Provided: an API signing key of Parker's user in `tofu/oracle/provider.sops.env` for OpenTofu, and his session token in the `oci` CLI's `DEFAULT` profile |
 | Phase 1 | Proxmox access | Provided: `ssh prodingus` as root, and a read/write `root@pam` API token in `tofu/gonkputer/provider.sops.env`; rule 1 in `AGENTS.md` gates every write |
-| Phase 2 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node and network switch before any cluster firewall, network, Ceph, or switch change | Needed |
+| Phase 2 | Confirmation of an out-of-band path (LAN/console) to every Proxmox node and network switch before any cluster firewall, network, Ceph, or switch change | Provided: a console path to every node and switch. A LAN path should work too, as the JetKVM is on the tailnet and takes a second, ULA address from the ISP router, but it has been unreliable |
 | Phase 3 | Remote state backend choice and credentials | Provided: OCI Object Storage through the s3 backend, with `svc-tofu-state`'s key in `tofu/shared/backend.sops.env`, used by every root |
 | Phase 3 | Proxmox management credentials | Provided: the same read/write token |
 | Phase 3 | Proxmox credentials for cluster-wide settings | Provided: the same read/write token |
-| Phase 6 | A non-expiring OCI credential (API-key user or instance principal) | Needed |
 
 ## Phases
 
@@ -154,7 +154,7 @@ key and with its own enforced encryption passphrase, before any import.
 - **Note:** the adopted boot volumes are not a from-scratch recreation recipe: creating a new volume needs a separately reviewed source. The state bucket and its service user live in `tofu/oracle`'s `state-bucket.tf` and `state-identity.tf`.
 
 #### Proxmox guests (`tofu/gonkputer`)
-- **Status:** adopted. The first, descriptive pass pins `bpg/proxmox` `0.118.0-pr3204.pr3207.pr3209.1`, served by the provider mirror, covers the Ceph objects (see Ceph scope in `AGENTS.md`), and plans no changes. The import blocks are removed.
+- **Status:** adopted. The root pins the official `bpg/proxmox` 0.122.0, covers the Ceph objects (see Ceph scope in `AGENTS.md`), and its import blocks are removed.
 - `tofu/gonkputer`: `versions.tf` (pin `bpg/proxmox`), `providers.tf`, `state.tf` (the shared s3 backend under the key `gonkputer/terraform.tfstate`, and encryption), `variables.tf`, and readable HCL following the conventions in `AGENTS.md`, including its Proxmox HCL section.
 - Auth: API token via environment variables only; SSH for the provider via ssh-agent.
 - Adoption:
@@ -185,12 +185,12 @@ resources, without a manual inventory edit.
   - `provider_mapping` names the resource types that become hosts. The plugin maps only AWS, Azure and GCP by itself.
   - `compose` sets `ansible_host` with `strict: true` where a source needs it, so an expression error fails the inventory instead of leaving a host on an ambiguous short name.
   - Every attribute of a mapped resource becomes a host variable. Services and other variables Ansible owns stay in `host_vars/` in git.
-- `tofu/oracle`: the five `oci_core_instance` resources, named by display name.
+- `tofu/oracle`: the seven `oci_core_instance` resources, named by display name.
   - The wahlecloud instances are reached at their VCN DNS names, `<hostname label>.pubsub.wahlecloud.oraclevcn.com`, which resolve over the tailnet. Short names do not work: `tailscalerouter` resolves elsewhere first.
   - Legacy `web` is reached at its public name, `doppelgangerhq.com`, because the legacy VCN's DNS names do not reach the tailnet.
   - Each host's login user comes from the operator's SSH configuration for that name, or from `host_vars` where it differs (`bailout` logs in as `opc`).
-- `tofu/gonkputer`: one `ansible_host` resource (`ansible/ansible` provider) per requested guest that Ansible manages, which `gonkputer.terraform_state.yml` maps: the containers, the VMs that can't use cloud-init (`arawi`, `vkasm`), and the quasi-hardware VMs, first installed on hardware and later imaged into VMs (`aboriginal`, `dodo`). VMs on cloud-init (`freeipa`, `softether`, `unifi`, `urbackup`) are configured by their vendor file and left out.
-  - Containers use `ansible_connection: community.proxmox.proxmox_pct_remote`, with `ansible_host` set to their node and `proxmox_vmid` to their VMID, so one SSH connection to `prodingus` reaches all of them. The `community.proxmox` collection gets pinned in `requirements.yml`, and the plugin needs `paramiko` on the control node.
+- `tofu/gonkputer`: one `ansible_host` resource (`ansible/ansible` provider) per requested guest that Ansible manages, which `gonkputer.terraform_state.yml` maps: the containers, the VMs that can't use cloud-init (`arawi`, `vkasm`), and the quasi-hardware VMs, first installed on hardware and later imaged into VMs (`aboriginal`, `dodo`). VMs on cloud-init (`unifi`, `urbackup`) are configured by their vendor file and left out.
+  - Containers use `ansible_connection: community.proxmox.proxmox_pct_remote`, with `ansible_host` set to their node and `proxmox_vmid` to their VMID, so one SSH connection to `prodingus` reaches all of them. The `community.proxmox` collection is pinned in `requirements.yml`, and the plugin needs `paramiko` on the control node.
   - `proxmox_pct_remote` uses Paramiko, which keeps no persistent connections, so container runs are slow; turn fact gathering down where it isn't needed.
   - A guest is requested when its HA resource is `started`, or, without an HA resource, when it starts on boot. Each guest file computes this as the `ansible_host`'s `count`, so the inventory follows the HA and boot settings without a manual edit.
   - Hosts are named by their DNS name, `<name>.regulad.internal` (`local.guest_domain`), which every guest resolves as from the control node. The name keeps them apart from OCI hosts of the same short name (both roots have a `tailscalerouter`).
@@ -231,15 +231,13 @@ resources, without a manual inventory edit.
 - Document, per service, a data strategy (restic restore, shared mount, or stateless) in `docs/runbooks/move-a-service.md`.
 - **Accept:** the service runs on host B, is gone from host A, and the runbook reflects exactly what was done.
 
-### Phase 6 — Optional: drift and CI
-- Scheduled `tofu plan -detailed-exitcode` and `ansible-playbook --check` (hardware and generated hosts) from a runner on the tailnet, alerting on drift. Plans only; never auto-apply.
-- Needs a non-expiring OCI credential, because the current session token lasts at most 24 hours. It also needs the state backend's key.
+### Phase 6 — Drift and CI: out of scope
+The repository is operated only from Parker's workstation (see Non-goals), so no
+runner plans, checks or applies it, and nothing elsewhere holds its credentials.
 
 ## Known uncertainties (verify, do not assume)
-- bpg/proxmox: current resource type names and the import ID format (believed `node/vmid`; resource naming has been shifting). The provider uses SSH for some actions; HA-managed guests can migrate without the provider knowing.
-- bpg/proxmox coverage of cluster-wide settings (datacenter options, firewall, HA, storage, SDN, access control, backup and replication jobs) and whether it covers any Ceph configuration; verify each before choosing between OpenTofu and Ansible.
+- bpg/proxmox: HA-managed guests can migrate between nodes without the provider knowing.
 - `-generate-config-out`: documented as potentially changing output format between minor versions; no config generation for `for_each` imports; may emit plaintext secrets.
-- Podman-in-LXC: requires `nesting=1` (sometimes `keyctl=1`); rootless inside unprivileged LXC can be fiddly with subuid/subgid ranges.
 - Third-party MCP server `mcp-proxmox` (`proxmox_generate_terraform`) is unevaluated and includes mutating operations; use it only with a read-only token and after reading its source.
 
 ## Risks and rollback
