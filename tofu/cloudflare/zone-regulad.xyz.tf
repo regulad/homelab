@@ -696,21 +696,6 @@ resource "cloudflare_dns_record" "regulad_xyz_livekit_aaaa" {
   }
 }
 
-# FIXME: selector mail's key was exposed on 2026-11-19 and is replaced by
-# mail20261119's. Revisit once mail signs with that: remove this record.
-resource "cloudflare_dns_record" "regulad_xyz_mail_domainkey_txt" {
-  name    = "mail._domainkey.${cloudflare_zone.regulad_xyz.name}"
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "TXT"
-  content = "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAj6XmtOVX8Mx+aPsbh7PU8MEIMOLvnvIH1I0OwsVXlvvzp5kxWmNxPPYuDXZBQog0qcVEmtXHEpZ0zxA9h1kVXyFsi2mQq1ETR1OBRT3ShOxkZcThNKXptP9h0oy++EwrUvyIXDFJCTVVo60eb0N4RYwph2L3ZAxGZ2U6sIXdlG+3s25AOyENZIrC7TI5o5OOM\" \"rARsCIteNbAbICuhX/T2ASj2/xTRz6qGZlaJO9Ob0J2vULppJxSvL8YucIMOLJWNm50to99RizXd+v3tgZGUY9RICeUE6xSx+2wSgdfD7bYmhSRWOJSLU74EFUqUe4/wahFgRZybB+CwnXrfLNbywIDAQAB\""
-  ttl     = 1 # Automatic
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 # regulad.xyz's DKIM key under selector mail20261119, which mail's Rspamd signs
 # and ARC-seals with.
 resource "cloudflare_dns_record" "regulad_xyz_mail20261119_domainkey_txt" {
