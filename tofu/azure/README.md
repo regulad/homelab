@@ -11,10 +11,11 @@ Signing account `regulad`.
 | `rclone.tf` | `regulad rclone`, the application rclone signs in to OneDrive with, and its service principal |
 | `artifact-signing.tf` | Artifact Signing: its resource provider, the `regulad` resource group and signing account, Parker's Identity Verifier grant on the account, and the names of its hand-made certificate profiles |
 | `warlock.tf` | `warlock-<environment>`, an application per GitHub environment of regulad/Warlock, which its runs there sign as: its service principal, the federated credential that trusts that environment, and its Signer grant on that environment's profile, Public Trust for `release` and Public Trust Test for `testing` |
+| `koala.tf` | `koala-<environment>`, the same for regulad/Koala's `release` and `testing` |
 | `subscription.tf` | The subscription, and Parker's Owner grant on it |
 | `graph.tf` | Microsoft Graph's permission IDs, looked up by name |
 | `locals.tf` | The tenant, subscription and `homelab-tofu` client IDs, and Parker's object ID |
-| `outputs.tf` | The `oauth_client_ids` output: each application's client ID, from state, by slug, for the roots and hosts that name one; it checks that `locals.tf`'s `client_id`, which the providers sign in with before any state is read, is `homelab-tofu`'s. Also the tenant and subscription IDs; `artifact_signing`, the signing account's endpoint and name and its profiles' names; and `warlock_profiles`, each of Warlock's environments with its profile; which `tofu/github` sets for the workflows that sign |
+| `outputs.tf` | The `oauth_client_ids` output: each application's client ID, from state, by slug, for the roots and hosts that name one; it checks that `locals.tf`'s `client_id`, which the providers sign in with before any state is read, is `homelab-tofu`'s. Also the tenant and subscription IDs; `artifact_signing`, the signing account's endpoint and name and its profiles' names; and `warlock_profiles` and `koala_profiles`, each of Warlock's and Koala's environments with its profile; which `tofu/github` sets for the workflows that sign |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 

@@ -7,6 +7,7 @@ output "oauth_client_ids" {
       regulad-rclone = azuread_application.regulad_rclone.client_id
     },
     { for environment, application in azuread_application.warlock : "warlock-${environment}" => application.client_id },
+    { for environment, application in azuread_application.koala : "koala-${environment}" => application.client_id },
   )
 
   # The providers sign in as homelab-tofu before any state can be read, so its
@@ -40,4 +41,9 @@ output "artifact_signing" {
 # with; each signs in as oauth_client_ids' warlock-<environment>.
 output "warlock_profiles" {
   value = local.warlock_profiles
+}
+
+# Koala's, likewise; each signs in as oauth_client_ids' koala-<environment>.
+output "koala_profiles" {
+  value = local.koala_profiles
 }
