@@ -29,6 +29,17 @@ output "email_dkim" {
   }
 }
 
+# Read by mail's host_vars through the tf_output lookup, for Postfix's login to
+# Email Delivery.
+output "mail_smtp_credential" {
+  description = "svc-mail's SMTP credential, mail's login to Email Delivery: its username and password."
+  value = {
+    username = oci_identity_smtp_credential.mail.username
+    password = oci_identity_smtp_credential.mail.password
+  }
+  sensitive = true
+}
+
 # What tofu/tailscale reads, through its terraform_remote_state data source, for
 # the tailnet's DNS configuration and policy file: the VCN's services subnet,
 # which tailscalerouter routes into the tailnet, and the two hosts there that

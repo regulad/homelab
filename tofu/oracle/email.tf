@@ -63,6 +63,27 @@ resource "oci_email_sender" "sender" {
   }
 }
 
+# The tenancy's users, from which the credential below picks
+# svc-mail@regulad.xyz by its name. ListUsers' own name filter returns no user
+# here, under that name or as svc-mail.
+data "oci_identity_users" "tenancy" {
+  compartment_id = var.tenancy_ocid
+}
+
+# svc-mail@regulad.xyz's SMTP credential. mail's Postfix signs in to Email
+# Delivery as that IAM user, made outside OpenTofu, which the svc-mail group's
+# policy below lets send; mail's host_vars read the credential from the
+# mail_smtp_credential output. Oracle shows the password only as it creates the
+# credential, so a rotation replaces it: `tofu apply -replace`, then mail's
+# host_files. A user holds at most two. The provider does not mark the password
+# sensitive, so a plan that replaces the credential prints the old one, and
+# `tofu show` prints the current one: review such a plan only through its JSON,
+# as the README sets out.
+resource "oci_identity_smtp_credential" "mail" {
+  user_id     = one([for user in data.oci_identity_users.tenancy.users : user.id if user.name == "svc-mail@regulad.xyz"])
+  description = "mail's Postfix, relaying through Email Delivery"
+}
+
 resource "oci_identity_policy" "mail" {
   name           = "svc-mail"
   compartment_id = var.tenancy_ocid
