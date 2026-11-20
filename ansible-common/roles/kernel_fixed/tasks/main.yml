@@ -1,0 +1,121 @@
+---
+# Whether the running kernel carries a fix, for the stopgap role that imports
+# this one with its bug's tables (meta/argument_specs.yml), as the fact
+# kernel_fixed_vulnerable. Every task only reads the host, in check runs too.
+- name: Read the running kernel's release
+  ansible.builtin.slurp:
+    src: /proc/sys/kernel/osrelease
+  register: kernel_fixed_osrelease
+
+- name: Note the running kernel's release
+  ansible.builtin.set_fact:
+    kernel_fixed_release: "{{ kernel_fixed_osrelease.content | b64decode | trim }}"
+
+# A kernel no package owns, such as one built by hand, has no entry and is
+# judged by the upstream table.
+- name: Read the running kernel's package (dpkg)
+  ansible.builtin.command:
+    argv: [dpkg-query, --search, "/boot/vmlinuz-{{ kernel_fixed_release }}"]
+  register: kernel_fixed_owner
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: "'rhel' not in group_names"
+
+- name: Read the package's source and version (dpkg)
+  ansible.builtin.command:
+    argv:
+      - dpkg-query
+      - --show
+      - --showformat=${source:Package} ${Version}
+      - "{{ kernel_fixed_owner.stdout.split(':')[0] }}"
+  register: kernel_fixed_dpkg
+  changed_when: false
+  check_mode: false
+  when:
+    - "'rhel' not in group_names"
+    - kernel_fixed_owner.rc == 0
+
+- name: Read the running kernel's package and version (rpm)
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --query
+      - --file
+      - --queryformat=%{NAME} %{VERSION}-%{RELEASE}
+      - /lib/modules/{{ kernel_fixed_release }}/vmlinuz
+  register: kernel_fixed_rpm
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: "'rhel' in group_names"
+
+# Debian's and Ubuntu's signed kernels come from linux-signed[-<flavour>] and
+# Debian's from linux-signed-<arch>; their trackers name the unsigned source.
+- name: Find the distribution's fixed version for the running kernel
+  ansible.builtin.set_fact:
+    kernel_fixed_package: "{{ package }}"
+    kernel_fixed_version: "{{ version }}"
+    kernel_fixed_entry: >-
+      {{ kernel_fixed_distribution | selectattr('package', 'eq', package)
+         | selectattr('version', 'match', '^' ~ (version | regex_search('^\d+\.\d+') | regex_escape) ~ '[.-]')
+         | first | default(none) if version else none }}
+  vars:
+    # rpm reports a file no package owns on stdout, so only a success counts.
+    queried: >-
+      {{ (kernel_fixed_rpm.stdout if kernel_fixed_rpm.rc == 0 else '') if 'rhel' in group_names
+         else kernel_fixed_dpkg.stdout | default('') }}
+    package: >-
+      {{ (queried.split(' ')[0] if queried else '')
+         | regex_replace('-signed', '') | regex_replace('-(amd64|arm64|i386)$', '') }}
+    version: "{{ queried.split(' ')[1] if queried else '' }}"
+
+- name: Compare with the fixed version (dpkg)
+  ansible.builtin.command:
+    argv: [dpkg, --compare-versions, "{{ kernel_fixed_version }}", lt, "{{ kernel_fixed_entry.version }}"]
+  register: kernel_fixed_dpkg_older
+  changed_when: false
+  failed_when: kernel_fixed_dpkg_older.rc not in [0, 1]
+  check_mode: false
+  when:
+    - kernel_fixed_entry is not none
+    - "'rhel' not in group_names"
+
+- name: Compare with the fixed version (rpm)
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --eval
+      - '%{lua: print(rpm.vercmp("{{ kernel_fixed_version }}", "{{ kernel_fixed_entry.version }}"))}'
+  register: kernel_fixed_rpm_older
+  changed_when: false
+  check_mode: false
+  when:
+    - kernel_fixed_entry is not none
+    - "'rhel' in group_names"
+
+# Without an entry, the upstream release in the kernel's own version decides:
+# affected from kernel_fixed_introduced, unless a fixed stable release of its
+# series, or kernel_fixed_from, is reached.
+- name: Decide whether the stopgap applies
+  ansible.builtin.set_fact:
+    kernel_fixed_vulnerable: >-
+      {%- if kernel_fixed_entry is not none -%}
+      {{ kernel_fixed_dpkg_older.rc == 0 if 'rhel' not in group_names
+         else kernel_fixed_rpm_older.stdout | trim == '-1' }}
+      {%- else -%}
+      {%- set upstream = kernel_fixed_release | regex_search('^\d+(\.\d+)+') -%}
+      {%- set series = upstream | regex_search('^\d+\.\d+') -%}
+      {%- set fixed = kernel_fixed_stable | select('match', '^' ~ series | regex_escape ~ '\.') | list -%}
+      {{ upstream is version(kernel_fixed_introduced, '>=')
+         and upstream is version(kernel_fixed_from, '<')
+         and not (fixed | length > 0 and upstream is version(fixed | first, '>=')) }}
+      {%- endif -%}
+
+- name: Report the decision
+  ansible.builtin.debug:
+    msg: >-
+      {{ kernel_fixed_name }}: {{ kernel_fixed_release }}
+      {{- (' (' ~ kernel_fixed_package ~ ' ' ~ kernel_fixed_version ~ ')') if kernel_fixed_version else '' }}
+      is {{ 'vulnerable' if kernel_fixed_vulnerable | bool else 'fixed' }}, by
+      {{ (kernel_fixed_package ~ ' ' ~ kernel_fixed_entry.version) if kernel_fixed_entry is not none else 'the upstream table' }}

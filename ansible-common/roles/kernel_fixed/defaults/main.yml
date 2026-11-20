@@ -1,0 +1,6 @@
+---
+# The tables a stopgap role passes in its import's vars, as
+# meta/argument_specs.yml describes; kernel_fixed_name, kernel_fixed_introduced
+# and kernel_fixed_from have no default.
+kernel_fixed_distribution: []
+kernel_fixed_stable: []

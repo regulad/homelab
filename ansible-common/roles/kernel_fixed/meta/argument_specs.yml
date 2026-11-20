@@ -1,0 +1,48 @@
+---
+argument_specs:
+  main:
+    short_description: Decide whether the running kernel carries a fix
+    description:
+      - Reads the running kernel's release and the dpkg or rpm package that installed it, and sets the
+        fact kernel_fixed_vulnerable. A stopgap role imports this role with its bug's tables in the
+        import's vars, then acts on that fact. It only reads the host.
+      - An entry of kernel_fixed_distribution for the kernel's package and series decides, compared by
+        dpkg or rpm; without one, the upstream release in the kernel's own version decides, by
+        kernel_fixed_introduced, kernel_fixed_stable and kernel_fixed_from.
+    options:
+      kernel_fixed_name:
+        description: The bug's name, such as its CVE ID, for the report.
+        type: str
+        required: true
+      kernel_fixed_distribution:
+        description:
+          - The first fixed version of a distribution's kernel package, one entry per package and series.
+          - The package is the running kernel's source package without "-signed" on Debian and Ubuntu,
+            and its binary package on Enterprise Linux.
+          - An entry applies only to kernels of its own series (major.minor), so Ubuntu's mainline
+            builds, whose source is also linux, never match Ubuntu's own.
+        type: list
+        elements: dict
+        options:
+          package:
+            description: The package's name.
+            type: str
+            required: true
+          version:
+            description: Its first fixed version, compared by dpkg or rpm.
+            type: str
+            required: true
+      kernel_fixed_introduced:
+        description: The upstream release from which kernels no entry covers are affected.
+        type: str
+        required: true
+      kernel_fixed_stable:
+        description:
+          - Upstream stable releases with the fix, at most one per series; a kernel of that series is
+            fixed from it on. A series with no listed release stays affected until kernel_fixed_from.
+        type: list
+        elements: str
+      kernel_fixed_from:
+        description: The upstream release from which every kernel is fixed.
+        type: str
+        required: true

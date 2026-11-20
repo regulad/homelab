@@ -5,12 +5,9 @@
 # options, on every interface; once the host runs a fixed kernel, the table is
 # removed. A host stays on the stopgap until it reboots into a fixed kernel.
 
-# The first fixed version of a distribution's kernel package, each its package
-# (the running kernel's source package without "-signed" on Debian and Ubuntu,
-# its binary package on Enterprise Linux) and that version, compared by dpkg or
-# rpm. An entry applies only to kernels of its own series (major.minor), so
-# Ubuntu's mainline builds, whose source is also linux, never match Ubuntu's
-# own. Only released fixes are listed: Ubuntu's are still in progress
+# The first fixed version of each distribution's kernel package, as the
+# kernel_fixed role takes them (its meta/argument_specs.yml). Only released
+# fixes are listed: Ubuntu's are still in progress
 # (linux 6.8.0-149.149 and linux-lowlatency 6.8.0-149.149.1 on 24.04, linux
 # 7.0.0-43.43 on 26.04, per its tracker on 2026-10-29), so Ubuntu hosts keep the
 # stopgap until those ship and are added here.
@@ -30,10 +27,11 @@ cve_2026_98432_fixed_kernels:
   - package: linux-6.12
     version: 6.12.113-1~deb12u1
 
-# The kernel CVE team's table, for kernels no entry above covers: introduced in
-# 4.4, fixed in each listed stable release and its later releases of the same
-# series, and in every release from cve_2026_98432_fixed_from on. A series with
-# no listed release, such as 4.19, 6.8 or 7.0, stays affected.
+# The kernel CVE team's table, for kernels no entry above covers, as
+# kernel_fixed takes it: introduced in 4.4, fixed in each listed stable release
+# and its later releases of the same series, and in every release from
+# cve_2026_98432_fixed_from on. A series with no listed release, such as 4.19,
+# 6.8 or 7.0, stays affected.
 cve_2026_98432_introduced: "4.4"
 cve_2026_98432_fixed_stable:
   - 5.10.272
