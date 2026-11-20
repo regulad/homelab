@@ -163,6 +163,12 @@
     label: "{{ item.path }}"
   changed_when: false
 
+- name: Host files removed
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ host_files_removed_files }}"
+
 - name: Host links
   ansible.builtin.file:
     path: "{{ item.path }}"

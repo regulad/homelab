@@ -65,6 +65,9 @@ host_files_list: []
 # units restart or reload, such as a check of the whole configuration it is
 # part of. Any other file in the directory is removed.
 host_files_trees: []
+# Paths the host must not have, such as a file an entry above wrote under a
+# name it no longer has, each removed where it exists.
+host_files_removed_files: []
 host_files_dir: "{{ inventory_dir }}/../files/{{ inventory_hostname }}"
 # Files several hosts share, for an item's shared_src (relative to this
 # directory), such as those a group's group_vars place; with template: true,
