@@ -135,9 +135,13 @@ host_files_list:
   - path: "{{ mailserver_dir }}/config/postfix-reply-filter.regexp"
     mode: "0644"
     restarts: [mailserver]
-  # The relays' logins: OCI Email Delivery and Gmail.
+  # The fallback relays' logins, as postfix-main.cf lists them: Email
+  # Delivery's, svc-mail's SMTP credential from tofu/oracle, and Gmail's, from
+  # secrets.sops.yml.
   - path: "{{ mailserver_dir }}/config/postfix-sasl-password.cf"
-    content: "{{ mailserver_postfix_sasl_password }}"
+    content: |
+      [smtp.email.us-ashburn-1.oci.oraclecloud.com]:587 {{ mailserver_oci_smtp_credential.username }}:{{ mailserver_oci_smtp_credential.password }}
+      [smtp.gmail.com]:587 {{ mailserver_gmail_login }}
     secret: true
     mode: "0644"
     restarts: [mailserver]
@@ -148,19 +152,19 @@ host_files_list:
     mode: "0644"
     restarts: [mailserver]
   # Rspamd's DKIM keys, owned by its user in the container (112:114).
-  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail20261119-regulad.xyz.private.txt"
     content: "{{ mailserver_dkim_private_keys['regulad.xyz'] }}"
     secret: true
     owner: "112"
     group: "114"
     mode: "0600"
     restarts: [mailserver]
-  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail20261119-regulad.xyz.public.txt"
     owner: "112"
     group: "114"
     mode: "0644"
     restarts: [mailserver]
-  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail20261119-regulad.xyz.public.dns.txt"
     owner: "112"
     group: "114"
     mode: "0644"
@@ -228,6 +232,13 @@ host_files_list:
   - path: /usr/local/sbin/restart-mailserver.sh
     mode: "0755"
 
+# regulad.xyz's DKIM key under its former selector, mail, replaced on
+# 2026-11-19 by mail20261119's.
+host_files_removed_files:
+  - "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.private.txt"
+  - "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.txt"
+  - "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-regulad.xyz.public.dns.txt"
+
 # Mounted now and at each boot.
 host_files_units: [mnt-mailserver.mount]
 
@@ -262,6 +273,13 @@ mailserver_dir: /etc/mailserver
 # mail keeps its users while the homelab is down.
 mailserver_ldap_server: "{{ hostvars['riko'].freeipa_server_hostname }}"
 mailserver_ldap_suffix: "{{ freeipa_server.domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
+# svc-mail's SMTP credential, Postfix's login to Email Delivery: tofu/oracle's
+# mail_smtp_credential output, read on the operator's machine through the
+# stage's tofu-oracle, which needs tofu/oracle/prepare.sh run first.
+mailserver_oci_smtp_credential: >-
+  {{ lookup('cloud.terraform.tf_output', 'mail_smtp_credential',
+            project_path=inventory_dir ~ '/../../tofu/oracle',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu-oracle')) }}
 # The domain of the address each user logs in with, <uid>@ it, and which LMTP
 # delivers each of their addresses to: Dovecot keeps the mailbox under it.
 mailserver_mailbox_domain: regulad.xyz

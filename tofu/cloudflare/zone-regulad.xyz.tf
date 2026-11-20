@@ -696,6 +696,8 @@ resource "cloudflare_dns_record" "regulad_xyz_livekit_aaaa" {
   }
 }
 
+# FIXME: selector mail's key was exposed on 2026-11-19 and is replaced by
+# mail20261119's. Revisit once mail signs with that: remove this record.
 resource "cloudflare_dns_record" "regulad_xyz_mail_domainkey_txt" {
   name    = "mail._domainkey.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id
@@ -707,6 +709,16 @@ resource "cloudflare_dns_record" "regulad_xyz_mail_domainkey_txt" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# regulad.xyz's DKIM key under selector mail20261119, which mail's Rspamd signs
+# and ARC-seals with.
+resource "cloudflare_dns_record" "regulad_xyz_mail20261119_domainkey_txt" {
+  name    = "mail20261119._domainkey.${cloudflare_zone.regulad_xyz.name}"
+  zone_id = cloudflare_zone.regulad_xyz.id
+  type    = "TXT"
+  content = "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApYXdHPn7n5R+f3tL2o07uaOJUqdd7QEwnfFlyDYMrTcGwDQAgzSoOibQIfJ7U8hs1Ag+x2xTV2go/aI/wVQlwZKuYiy+QqA5+r3Is/zy1wifdzHbiutykwmEDNGGRc/iqqPpUVAGxkdUy8DQh8b/LnW9270qVKIFbEUWGV06VtluibxuRPsuoj5IoFUjVwP9A\" \"4z4RT86v9o9VkjFmNinvWFG/y1ImjivmoU4+CemlQleb7PnEuoVjDUpsKxLNPq3YSS51r7T3snl3jBqOzPtqR67Q9jN42uE8fp1W1aHZXTsV71o994KBNNcj9yP6zaa7jltt87GPRB4tDs5lRLbmQIDAQAB\""
+  ttl     = 1 # Automatic
 }
 
 resource "cloudflare_dns_record" "regulad_xyz_mail_a" {
