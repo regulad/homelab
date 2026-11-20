@@ -136,12 +136,12 @@ host_files_list:
     mode: "0644"
     restarts: [mailserver]
   # The fallback relays' logins, as postfix-main.cf lists them: Email
-  # Delivery's, svc-mail's SMTP credential from tofu/oracle, and Gmail's, from
-  # secrets.sops.yml.
+  # Delivery's, svc-mail's SMTP credential from tofu/oracle, and Gmail's, the
+  # address in secrets.sops.yml with its app password from tofu/google.
   - path: "{{ mailserver_dir }}/config/postfix-sasl-password.cf"
     content: |
       [smtp.email.us-ashburn-1.oci.oraclecloud.com]:587 {{ mailserver_oci_smtp_credential.username }}:{{ mailserver_oci_smtp_credential.password }}
-      [smtp.gmail.com]:587 {{ mailserver_gmail_login }}
+      [smtp.gmail.com]:587 {{ mailserver_gmail_address }}:{{ mailserver_gmail_app_password }}
     secret: true
     mode: "0644"
     restarts: [mailserver]
@@ -280,6 +280,11 @@ mailserver_oci_smtp_credential: >-
   {{ lookup('cloud.terraform.tf_output', 'mail_smtp_credential',
             project_path=inventory_dir ~ '/../../tofu/oracle',
             binary_path=lookup('ansible.builtin.pipe', 'command -v tofu-oracle')) }}
+# The Google Account's terraform-dms app password, Postfix's login to Gmail with
+# mailserver_gmail_address: issued by hand, and kept in tofu/google.
+mailserver_gmail_app_password: >-
+  {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/google/secrets.sops.yaml',
+            extract='["google_app_passwords"]["terraform-dms"]') }}
 # The domain of the address each user logs in with, <uid>@ it, and which LMTP
 # delivers each of their addresses to: Dovecot keeps the mailbox under it.
 mailserver_mailbox_domain: regulad.xyz
