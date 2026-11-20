@@ -28,10 +28,20 @@ jenkins_freeipa_delegate: "{{ inventory_hostname }}"
 jenkins_freeipa_user: svc-ansible
 jenkins_freeipa_password: ""
 
+# When a password the role sets in FreeIPA expires: 2038-01-19 03:14:07 UTC,
+# FreeIPA's latest, so it never does. FreeIPA expires a password an
+# administrator sets at once.
+jenkins_freeipa_password_expiration: "20380119031407"
+
+# FreeIPA users for Jenkins's own clients, each also a member of
+# jenkins_freeipa_group, so each administers Jenkins: name, givenname and sn,
+# and password, from SOPS. Each is created with its password; where Jenkins
+# refuses the password, as after it changes in SOPS, the role sets it again.
+jenkins_freeipa_service_users: []
+
 # The account Jenkins's LDAP realm binds as, its password from SOPS, and when
-# that expires: 2038-01-19 03:14:07 UTC, FreeIPA's latest, so the bind never
-# expires. maintenance.yml's jenkins-ldap-password sets both in FreeIPA; the
-# configuration as code gives Jenkins the same password.
+# that expires. maintenance.yml's jenkins-ldap-password sets both in FreeIPA;
+# the configuration as code gives Jenkins the same password.
 jenkins_ldap_manager_user: svc-jenkins
 jenkins_ldap_manager_password: ""
-jenkins_ldap_manager_password_expiration: "20380119031407"
+jenkins_ldap_manager_password_expiration: "{{ jenkins_freeipa_password_expiration }}"

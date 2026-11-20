@@ -45,6 +45,16 @@ host_files_list:
                 input_type='dotenv', extract='["JENKINS_GITHUB_APP_WEBHOOK_SECRET"]') }}
     secret: true
     restarts: [jenkins.service]
+  # svc-pam-rssh-ci's Nexus password, from the file nexus_security sets it from.
+  - path: /etc/jenkins/secrets/nexus_svc_pam_rssh_ci_password
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/group_vars/nexus_servers.sops.yml',
+                extract='["nexus_svc_pam_rssh_ci_password"]') }}
+    secret: true
+    restarts: [jenkins.service]
 
 # Jenkins's agents: containers of rootless Podman as jenkins-agents, which
 # Jenkins's Podman cloud starts through that user's API socket, mounted into
@@ -88,6 +98,14 @@ jenkins_github_app_installation_id: "183530243"
 jenkins_api_user: svc-ansible
 jenkins_api_password: "{{ mail_relay_freeipa_password }}"
 jenkins_freeipa_members: [regulad, svc-ansible]
+# svc-jobs, which regulad/jobs's seed workflow signs in to Jenkins as, from
+# GitHub Actions, with its password, which tofu/github sets as that
+# repository's secret.
+jenkins_freeipa_service_users:
+  - name: svc-jobs
+    givenname: Jobs
+    sn: Service
+    password: "{{ jenkins_svc_jobs_password }}"
 jenkins_freeipa_host: "{{ freeipa_server.fqdn }}"
 jenkins_freeipa_delegate: "{{ freeipa_server.fqdn }}"
 jenkins_freeipa_password: "{{ mail_relay_freeipa_password }}"

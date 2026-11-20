@@ -3,7 +3,29 @@
 # Quadlet (the quadlet role); its configuration is Jenkins's own until
 # Configuration as Code takes it.
 
-# First, so that jenkins_api_user can sign in for the plugin manager.
+# Before the group, which lists them.
+- name: Service users in FreeIPA
+  community.general.ipa_user:
+    name: "{{ item.name }}"
+    givenname: "{{ item.givenname }}"
+    sn: "{{ item.sn }}"
+    password: "{{ item.password }}"
+    update_password: on_create
+    krbpasswordexpiration: "{{ jenkins_freeipa_password_expiration }}"
+    state: present
+    ipa_host: "{{ jenkins_freeipa_host }}"
+    ipa_user: "{{ jenkins_freeipa_user }}"
+    ipa_pass: "{{ jenkins_freeipa_password }}"
+    validate_certs: true
+  loop: "{{ jenkins_freeipa_service_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  delegate_to: "{{ jenkins_freeipa_delegate }}"
+  become: false
+  no_log: true
+
+# Before the plugins, so that jenkins_api_user can sign in for the plugin
+# manager.
 # FIXME: community.general 13.5.0's IPA client fails a member change that
 # succeeded, as FreeIPA's result lists no failures as a dict of empty lists
 # (fixed in PR 13188, backported to stable-13 as PR 13206). Revisit at the
@@ -11,7 +33,7 @@
 - name: The LDAP realm's group
   community.general.ipa_group:
     name: "{{ jenkins_freeipa_group }}"
-    user: "{{ jenkins_freeipa_members }}"
+    user: "{{ jenkins_freeipa_members + jenkins_freeipa_service_users | map(attribute='name') | list }}"
     append: false
     state: present
     ipa_host: "{{ jenkins_freeipa_host }}"
@@ -20,7 +42,59 @@
     validate_certs: true
   delegate_to: "{{ jenkins_freeipa_delegate }}"
   become: false
-  when: jenkins_freeipa_members | length > 0
+  when: jenkins_freeipa_members | length > 0 or jenkins_freeipa_service_users | length > 0
+  no_log: true
+
+# A service user whose password Jenkins refuses, as after it changes in SOPS,
+# gets it set again. A check run cannot reach a user it has yet to create.
+- name: Test the service users' passwords
+  ansible.builtin.uri:
+    url: "{{ jenkins_url }}/whoAmI/api/json"
+    url_username: "{{ item.name }}"
+    url_password: "{{ item.password }}"
+    force_basic_auth: true
+    status_code: [200, 401]
+  loop: "{{ jenkins_freeipa_service_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: jenkins_service_user_logins
+  check_mode: false
+  no_log: true
+
+- name: The passwords Jenkins refuses
+  community.general.ipa_user:
+    name: "{{ item.item.name }}"
+    password: "{{ item.item.password }}"
+    update_password: always
+    state: present
+    ipa_host: "{{ jenkins_freeipa_host }}"
+    ipa_user: "{{ jenkins_freeipa_user }}"
+    ipa_pass: "{{ jenkins_freeipa_password }}"
+    validate_certs: true
+  loop: "{{ jenkins_service_user_logins.results | selectattr('status', 'eq', 401) | list }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  delegate_to: "{{ jenkins_freeipa_delegate }}"
+  become: false
+  no_log: true
+
+# FreeIPA expires a password an administrator sets at once, even in the call
+# that creates its user with an expiry, so each service user's expiry is set
+# after its password.
+- name: The service users' password expiry
+  community.general.ipa_user:
+    name: "{{ item.name }}"
+    krbpasswordexpiration: "{{ jenkins_freeipa_password_expiration }}"
+    state: present
+    ipa_host: "{{ jenkins_freeipa_host }}"
+    ipa_user: "{{ jenkins_freeipa_user }}"
+    ipa_pass: "{{ jenkins_freeipa_password }}"
+    validate_certs: true
+  loop: "{{ jenkins_freeipa_service_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  delegate_to: "{{ jenkins_freeipa_delegate }}"
+  become: false
   no_log: true
 
 # The plugin manager's view of each plugin's version. jenkins_plugin downloads
