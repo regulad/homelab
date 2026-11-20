@@ -97,12 +97,18 @@ swap_files:
     priority: 10
     discard: true
 
+# The root's btrfs, on LUKS (luks role), unlocked from the vTPM at boot; the
+# recovery passphrase is luks_recovery_passphrase in secrets.sops.yml.
+luks_volumes:
+  - name: root
+    uuid: dc39e0ee-71f4-4174-8618-f9bb49681dec
+
 # Backups: the root's btrfs, its top-level subvolume, from a snapshot.
 # aboriginal's forget is the only one.
 restic_jobs:
   snapshot:
     period: weekly
-    paths: [/, /boot/efi]
+    paths: [/, /boot, /boot/efi]
 restic_retired_scripts:
   - /root/backup.sh
 
