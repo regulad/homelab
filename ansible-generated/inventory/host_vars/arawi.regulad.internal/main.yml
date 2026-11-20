@@ -782,9 +782,10 @@ pfsense_files:
     mode: "0755"
     src: usr/local/bin/unbound-rpz-restore.sh
 
-# PHP2Shell stopgaps while pfSense's PHP 8.5 is older than 8.5.12, the release
-# that fixes CVE-2026-109618 and CVE-2026-109619.
-pfsense_php_stopgap_until: "8.5.12"
+# PHP2Shell stopgaps while pfSense's PHP 8.5 is older than 8.5.13. 8.5.12 fixes
+# CVE-2026-109618 and CVE-2026-109619, but upload progress, which the stopgaps
+# turn off, stays the way into CVE-2026-115560 and CVE-2026-126714 until 8.5.13.
+pfsense_php_stopgap_until: "8.5.13"
 pfsense_php_stopgap_files:
   - path: /usr/local/etc/php/99-php2shell.ini
     mode: "0644"
