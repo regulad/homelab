@@ -1,0 +1,46 @@
+---
+# The SCTP double free's stopgap on hosts with their own kernel, hardware
+# (Phase 2) and generated (Phase 4): decide from the running kernel (the
+# kernel_fixed role), then block and unload sctp, or remove the block. A
+# container cannot load a module itself: the kernel loads sctp for it with its
+# node's modprobe configuration, so the node's block covers its containers.
+- name: Decide whether the running kernel has the fix
+  ansible.builtin.include_role:
+    name: kernel_fixed
+  vars:
+    kernel_fixed_name: SCTP double free (no CVE yet)
+    kernel_fixed_distribution: "{{ cve_unassigned_sctp_fixed_kernels }}"
+    kernel_fixed_introduced: "{{ cve_unassigned_sctp_introduced }}"
+    kernel_fixed_stable: "{{ cve_unassigned_sctp_fixed_stable }}"
+    kernel_fixed_from: "{{ cve_unassigned_sctp_fixed_from }}"
+
+- name: Note the decision
+  ansible.builtin.set_fact:
+    cve_unassigned_sctp_vulnerable: "{{ kernel_fixed_vulnerable | bool }}"
+
+# Nothing in an initramfs opens an SCTP socket, so no initramfs is rebuilt.
+- name: Block sctp from loading
+  ansible.builtin.copy:
+    src: cve_unassigned_sctp.conf
+    dest: /etc/modprobe.d/cve_unassigned_sctp.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: cve_unassigned_sctp_vulnerable | bool
+
+# The block keeps sctp from loading, not a loaded sctp from running. sctp_diag,
+# which holds sctp, goes first. A module in use, or built into the kernel,
+# fails here: the host stays exposed until nothing uses it or it boots a fixed
+# kernel.
+- name: Unload sctp
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: absent
+  loop: [sctp_diag, sctp]
+  when: cve_unassigned_sctp_vulnerable | bool
+
+- name: Remove the block
+  ansible.builtin.file:
+    path: /etc/modprobe.d/cve_unassigned_sctp.conf
+    state: absent
+  when: not (cve_unassigned_sctp_vulnerable | bool)

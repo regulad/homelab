@@ -1,0 +1,24 @@
+---
+# The SCTP double free that has no CVE yet. When sctp_sendmsg() creates an
+# association and the send fails after another thread has peeled it off to a
+# new socket, it frees the association that socket now owns, so any local user,
+# in a container too, can have it freed twice. While the running kernel lacks
+# the fix, modprobe refuses to load sctp, and a loaded sctp is unloaded; once
+# the host runs a fixed kernel, the block is removed. A host stays on the
+# stopgap until it reboots into a fixed kernel. The fix is "sctp: do not free a
+# new asoc peeled off while sendmsg slept" (f2540da93a11), for a0ff660058b8.
+# Rename the role once a CVE is assigned.
+
+# The first fixed version of each distribution's kernel package, as the
+# kernel_fixed role takes them (its meta/argument_specs.yml). None had shipped
+# one on 2026-11-20.
+cve_unassigned_sctp_fixed_kernels: []
+
+# The upstream table, for kernels no entry above covers. a0ff660058b8 is in
+# mainline from 4.15 and was backported to 4.4.y, 4.9.y and 4.14.y, so the table
+# starts at 4.4. The fix is in mainline from 7.4-rc4, and no stable release had
+# it on 2026-11-20: the newest, 7.3.5, 6.18.64 and 6.12.118 of 2026-11-17, do
+# not.
+cve_unassigned_sctp_introduced: "4.4"
+cve_unassigned_sctp_fixed_stable: []
+cve_unassigned_sctp_fixed_from: "7.4"
