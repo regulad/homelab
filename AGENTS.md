@@ -15,6 +15,7 @@ Where this file and the plan disagree, this file wins.
 ## Priorities
 
 - **IPv6-first.** The homelab is IPv6-first: wherever a service, route or resolver has an IPv6 address, configure it, and treat IPv4 as the fallback rather than the default.
+- **Encrypted at rest.** Every disk that holds the homelab's data is encrypted at rest, and no key that opens one is stored in the clear on any disk. A physical disk gets dm-crypt (LUKS2) directly on its block device, below the filesystem, opened with discards passed through so that TRIM still reaches the drive; this reveals which blocks are free, a leak accepted for the drive's health. A network block device is covered by what stores it: Ceph RBD and CephFS by the encrypted OSDs, and OCI's volumes by Oracle's encryption at rest. Not yet met on aboriginal's and dodo's SATA SSDs, or on prodingus's boot NVMe, which holds `local-lvm` (the VMs' EFI and TPM state, and vkasm's disk) and the Ceph monitor's store, where the OSDs' keys are kept.
 - **DRY.** Derive values from their single source instead of restating them: compose from OpenTofu state or outputs where possible, then from another host's declared variables, and write a literal only where no source exists.
 - **No security theatre.** Add a measure only for the risk it actually reduces. Something that looks like hardening but defends nothing only causes confusion, so leave it out. The textbook case is a restic password per host: every repository key opens the same master key, so per-host passwords protect nothing that one shared password does not. What limits and revokes a host's access is its own B2 key.
 
@@ -51,7 +52,7 @@ homelab/
 ├── alexa/                       # <skill>/: each Alexa skill's package and ASK CLI project file
 ├── docs/
 │   ├── snapshot/                # local-only discovery output (gitignored)
-│   └── runbooks/                # move-a-service, rotate-keys, restore-state
+│   └── runbooks/                # encrypt-a-vm-disk; to come: move-a-service, rotate-keys, restore-state
 ├── tests/                       # unittest tests of AIDE's acceptance system, under Python 3.9; pre-commit's tests hook runs them
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
@@ -62,7 +63,7 @@ homelab/
 │   ├── group_vars/              # all.sops.yml: secrets both stages share, linked from each stage's inventory/group_vars/
 │   ├── playbooks/               # site.yml, maintenance.yml: plays both stages share, imported first by each stage's own, each beginning with aide-hold.yml, which holds AIDE's daily check for the run; aide-refresh.yml: AIDE's refresh and the hold's release, imported last; roles -> ../roles
 │   ├── plugins/                 # callback/aide_written: the files each run wrote, kept in ~/.cache/ansible/aide_written until AIDE's refresh play consumes them; both stages' ansible.cfg enable it
-│   └── roles/                   # roles both stages apply: base, tailscale, firewalld, cve_2026_98432, ca_trust, auto_updates, mail_relay, kdump, kernel_params, apt_amd64v3, netplan, swap, noexec, auditd, avahi, restic, clamav, go_telemetry, aide
+│   └── roles/                   # roles both stages apply: base, tailscale, firewalld, cve_2026_98432, ca_trust, auto_updates, mail_relay, kdump, luks, kernel_params, apt_amd64v3, netplan, swap, noexec, auditd, avahi, restic, clamav, go_telemetry, aide
 ├── ansible-hardware/            # Phase 2, after tofu/backblaze, before the other roots; hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent
