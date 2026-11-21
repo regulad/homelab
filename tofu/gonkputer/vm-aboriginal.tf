@@ -32,12 +32,9 @@ Passing through a GPU breaks the metering of how much memory has been paged in f
 The UPS USB cord keeps coming loose.
 EOT
   )
-  protection = true
-  bios       = "ovmf"
-  # While aboriginal moves onto the interim disk, the firmware tries it first,
-  # and falls back to the SSD while the interim disk's EFI system partition is
-  # still empty. Back to virtio0 alone once the disk is copied onto the SSD.
-  boot_order          = ["virtio1", "virtio0"]
+  protection          = true
+  bios                = "ovmf"
+  boot_order          = ["virtio0"]
   hook_script_file_id = "local:snippets/pin-vcpus.sh"
   machine             = "q35"
   scsi_hardware       = "virtio-scsi-single"
@@ -45,7 +42,12 @@ EOT
   # properly when the KVM host detaches and re-attaches it. Restart it by rerooting,
   # or together with a host reboot. Changes that need a reboot stay pending.
   reboot_after_update = false
-  tags                = [local.tags.locally_backed, local.tags.terraform, local.tags.virtiofsd]
+  # FIXME: keeps VM 100 off through the apply that detaches its interim disk,
+  # as it starts again only with prodingus, at the reboot that follows; while
+  # this stands, an apply would shut the VM down. Revisit right after that
+  # reboot: remove it (docs/runbooks/encrypt-a-vm-disk.md).
+  started = false
+  tags    = [local.tags.locally_backed, local.tags.terraform, local.tags.virtiofsd]
 
   network_device {
     mac_address = "BC:24:11:5D:BE:75"
@@ -71,18 +73,6 @@ EOT
     datastore_id = ""
     discard      = "on"
     interface    = "virtio0"
-    iothread     = true
-    size         = 238
-  }
-
-  # The encrypted disk aboriginal moves onto while its SSD is re-laid out, until
-  # it is copied onto the SSD with the VM off, inside a host reboot
-  # (docs/runbooks/encrypt-a-vm-disk.md). Smaller than the SSD's 250059096 KiB,
-  # so that the copy fits.
-  disk {
-    datastore_id = "rbd"
-    discard      = "on"
-    interface    = "virtio1"
     iothread     = true
     size         = 238
   }

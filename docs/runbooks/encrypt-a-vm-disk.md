@@ -215,7 +215,9 @@ ls /var/crash
 
 ## 8. Copy onto the drive, with the VM off
 
-For aboriginal, inside a host reboot, as VM 100 is never restarted on its own.
+aboriginal can be shut down, but VM 100 is never started again on its own, so
+its copy ends in a host reboot: the VM is shut down, its disk copied and
+detached, and then prodingus reboots, which starts it.
 The apply below locks every host `tofu/gonkputer` lists, so an apply another
 agent makes to any of them while the VM is off holds the VM off until this
 branch contains that commit: tell the other agents before the shutdown.
@@ -244,7 +246,17 @@ set. Remove the `virtio1` disk from the guest file (and, on aboriginal, return
 plan also shows `started` going from false to true: the provider sends Proxmox
 a delete for `virtio1`, which keeps the image as `unused0`, and then starts the
 VM. The firmware's boot entry names the EFI system partition's PARTUUID, which
-the copy kept.
+the copy kept. If the apply fails, check `qm config <vmid>`: the provider may
+have dropped `virtio1` from its state with the disk still attached, and then
+plans no detach, so detach it by hand (`qm set <vmid> --delete virtio1`) before
+the VM starts.
+
+aboriginal's guest file also sets `started = false` for that apply, so that it
+leaves VM 100 off. Reboot prodingus once it is applied: VM 100 starts at the
+host's boot, from the drive alone. Drop `started = false` right after the
+reboot, before any other apply to `tofu/gonkputer`: while it stands, an apply
+would shut VM 100 down. A fresh plan then shows no change, as the VM is
+running again.
 
 In the guest:
 
@@ -255,7 +267,12 @@ fstrim -av   # the copy wrote every block; this trims the free ones again
 ```
 
 Last, once the VM runs from the drive, delete the interim image, which
-OpenTofu no longer tracks: `qm set <vmid> --delete unused0` on prodingus.
+OpenTofu no longer tracks: `qm set <vmid> --delete unused0` on prodingus, then
+check that `rbd ls rbd_ssd` no longer lists it. A removal that stops partway
+leaves the image in rbd's trash in its removing state, which `rbd trash ls
+--all` doesn't show: `rados -p rbd_ssd listomapkeys rbd_trash` gives its id,
+`rbd trash rm rbd_ssd/<id>` finishes it, and the `unused0` line then comes out
+of `/etc/pve/qemu-server/<vmid>.conf` by hand.
 
 ## Recovery
 
