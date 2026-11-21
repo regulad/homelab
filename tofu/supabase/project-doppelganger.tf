@@ -39,6 +39,15 @@ resource "supabase_settings" "doppelganger" {
       local.doppelganger_google_client_ids["doppelganger-test"],
     ])
     external_google_secret = local.doppelganger_google_client_secrets["doppelganger"]
+    # Auth's mail, from noreply@doppelgangerhq.com, through mail's submission
+    # over implicit TLS, signed in as svc-doppelganger-supabase, whose FreeIPA
+    # account wako's host_vars declare with this password.
+    smtp_admin_email = "noreply@doppelgangerhq.com"
+    smtp_sender_name = "Doppelganger"
+    smtp_host        = "mail.regulad.xyz"
+    smtp_port        = "465" # submission over implicit TLS
+    smtp_user        = "svc-doppelganger-supabase@regulad.xyz"
+    smtp_pass        = var.smtp_password
   })
 
   # The following exists as an artifact of import from the imperative setup.

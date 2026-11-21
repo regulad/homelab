@@ -19,3 +19,17 @@ variable "google_oauth_client_secrets" {
   sensitive = true
   nullable  = false
 }
+
+# svc-doppelganger-supabase's password, Auth's login to mail's SMTP, from
+# secrets.sops.yaml, its only copy, which wako's host_vars also read for the
+# FreeIPA account.
+variable "smtp_password" {
+  type      = string
+  sensitive = true
+  nullable  = false
+
+  validation {
+    condition     = length(var.smtp_password) >= 32
+    error_message = "Use the generated SMTP password from the encrypted inputs."
+  }
+}
