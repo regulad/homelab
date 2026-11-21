@@ -1,7 +1,8 @@
 ---
-# The admin login: base_admin_user in base_admin_group, with sudo without a
-# password and its GitHub keys as its whole authorized_keys. Its password, if
-# it has one, stays as it is.
+# The admin login: base_admin_user in base_admin_group, with its GitHub keys as
+# its whole authorized_keys, and sudo without a password where the pam_rssh
+# role doesn't take sudo through the SSH agent. Its password, if it has one,
+# stays as it is.
 - name: Admin user
   ansible.builtin.user:
     name: "{{ base_admin_user }}"
@@ -34,6 +35,8 @@
   become: true
   when: not (ansible_check_mode and base_admin is changed)
 
+# Where the pam_rssh role takes sudo, it removes this file once sudo
+# authenticates through the agent.
 - name: Admin sudo without a password
   ansible.builtin.copy:
     dest: /etc/sudoers.d/90-{{ base_admin_user }}-nopasswd
@@ -44,3 +47,21 @@
     mode: "0440"
     validate: /usr/sbin/visudo -cf %s
   become: true
+  when: base_admin_nopasswd
+
+- name: Read the image user's account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ base_image_user }}"
+  when: base_image_user | length > 0
+
+- name: Image user's SSH keys
+  ansible.builtin.copy:
+    dest: "{{ ansible_facts['getent_passwd'][base_image_user][4] }}/.ssh/authorized_keys"
+    content: "{{ lookup('ansible.builtin.url', base_admin_keys_url, split_lines=false) }}"
+    owner: "{{ base_image_user }}"
+    group: "{{ base_image_user }}"
+    mode: "0600"
+    setype: _default
+  become: true
+  when: base_image_user | length > 0

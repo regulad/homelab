@@ -3,6 +3,9 @@
 
 # The login every instance shares, beside its image's own (opc, ubuntu).
 base_admin_user: regulad
+# opc, the Oracle Linux image's own login, takes regulad's keys in place of the
+# key the instance was launched with, which OCI never changes after launch.
+base_image_user: opc
 
 # Not checked by AIDE: the status of the Unified Monitoring Agent's
 # configuration downloads, which its downloader rewrites every 15 to 25
