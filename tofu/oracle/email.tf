@@ -5,6 +5,7 @@ locals {
     oci_email_email_domain.primary.name,
     oci_email_email_domain.nefumllc_com.name,
     oci_email_email_domain.regulad_net.name,
+    oci_email_email_domain.doppelgangerhq_com.name,
   ]
 
   # The approved senders: mail's own, noreply@regulad.xyz, to which
