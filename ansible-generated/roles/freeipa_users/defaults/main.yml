@@ -1,0 +1,20 @@
+---
+# The FreeIPA accounts this host declares, each a dict of ipauser's user
+# variables: name, and any of first, last, email, password, passwordexpiration
+# and the rest. freeipa_users_public comes from the host's main.yml, and
+# freeipa_users_private, of the same form, from its secrets.sops.yml, for what
+# the public repository must not show, such as an account's private addresses.
+# The two merge by name, an account's email lists joined, the plaintext ones
+# first. An account's email is its whole list: an address listed in neither is
+# removed. An account that declares no email keeps the addresses it has.
+freeipa_users_public: []
+freeipa_users_private: []
+
+# A password is set only as its account is created, so a rerun changes
+# nothing; an account that already exists keeps the one it has.
+freeipa_users_update_password: on_create
+
+# Who ipauser signs in as, through ipalib on the FreeIPA server itself: a
+# member of the User Administrator role, and its password.
+freeipa_users_admin_principal: svc-ansible
+freeipa_users_admin_password: ""

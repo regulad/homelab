@@ -1,0 +1,15 @@
+---
+# no_log: the accounts carry passwords and private addresses.
+- name: Declare FreeIPA's accounts
+  freeipa.ansible_freeipa.ipauser:
+    ipaadmin_principal: "{{ freeipa_users_admin_principal }}"
+    ipaadmin_password: "{{ freeipa_users_admin_password }}"
+    ipaapi_context: server
+    users: >-
+      {{ freeipa_users_public
+         | community.general.lists_mergeby(freeipa_users_private, 'name',
+                                           recursive=true, list_merge='append_rp') }}
+    update_password: "{{ freeipa_users_update_password }}"
+    state: present
+  when: (freeipa_users_public + freeipa_users_private) | length > 0
+  no_log: true

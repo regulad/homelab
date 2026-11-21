@@ -153,6 +153,15 @@
   roles:
     - freeipa_server
 
+# FreeIPA's declared accounts, on the servers whose host_vars list them.
+- name: FreeIPA accounts
+  hosts: freeipa_servers
+  gather_facts: false
+  become: true
+  tags: [freeipa_users]
+  roles:
+    - freeipa_users
+
 # The old FreeIPA server's stand-in, rewriting LDAP for wako.
 - name: LDAP proxies
   hosts: ldap_proxies
