@@ -14,6 +14,7 @@ output "dsn" {
       sentry_key.pheidippides_notify,
       sentry_key.picture_triangulator,
       sentry_key.rosellaview,
+      sentry_key.warlock,
     ] : key.project => nonsensitive(key.dsn["public"])
   }
 }

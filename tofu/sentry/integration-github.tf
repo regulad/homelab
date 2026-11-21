@@ -6,6 +6,18 @@ data "sentry_organization_integration" "github" {
   name         = "regulad"
 }
 
+resource "sentry_organization_repository" "devourer" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/devourer"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 resource "sentry_organization_repository" "doppelganger" {
   organization     = local.organization
   integration_type = data.sentry_organization_integration.github.provider_key

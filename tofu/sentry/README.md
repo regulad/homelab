@@ -39,20 +39,19 @@ yet (`versions.tf`).
 
 Every project has an alert, and every alert emails the issue's owners, falling back to the
 project's active members. All but doppelganger's are Sentry's default for a new project,
-koala's as a copy declared here;
-doppelganger's, named `doppelganger-front`, fires at most once a day. Each alert watches its project's default issue-stream
+koala's and warlock's as copies declared here; doppelganger's, named `doppelganger-front`, fires at most once a day. Each alert watches its project's default issue-stream
 monitor, read through the `sentry_project_issue_stream_monitor` data source. The
 high-priority triggers have no native form in the provider, which passes them through as
 `legacy_trigger_conditions`.
 
 A project created here, rather than adopted, sets `default_key` and `default_rules` to
 `false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
-the key and alert declared for it are its only ones; koala is the one so far. Both take
+the key and alert declared for it are its only ones: koala and warlock. Both take
 effect only while the provider creates the project, when it deletes every key named
 `Default`, before the declared key exists. Never set them on an adopted project, whose key
 is the one Sentry made. Before upgrading the provider, check that it still deletes those keys
 only on creation: an earlier build did on update too
-(jianyuan/terraform-provider-sentry#603), which would delete koala's key.
+(jianyuan/terraform-provider-sentry#603), which would delete their keys.
 
 ## Code mappings
 
@@ -75,13 +74,17 @@ Sentry tries first as its stack root is longer. Its other submodules are upstrea
 repositories, beyond the GitHub integration, which reaches only regulad's own, so their
 frames stay unlinked.
 
-koala's native frames carry the absolute path that its PDBs record, of the Windows checkout
-that built the app. It has a mapping per checkout, GitHub's Windows runner for release
-builds and the development checkout for development builds, each stack root written as Windows writes the
-path: Sentry matches a stack root as a literal prefix of the frame's path, backslashes and
-case included, and turns `\` into `/` only in the path it maps to. Each checkout's
-`third_party\warlock\`, the submodule whose `warlock-client` crate Koala builds, has a
-mapping of its own to `regulad/Warlock`'s default branch, as rosellaview's UxPlay has.
+koala's and warlock's native frames carry the absolute path that their PDBs record, of the
+Windows checkout that built the app. Each has a mapping per checkout, GitHub's Windows
+runner for release builds and the development checkout for development builds, each stack
+root written as Windows writes the path: Sentry matches a stack root as a literal prefix of
+the frame's path, backslashes and case included, and turns `\` into `/` only in the path it
+maps to. Each has a mapping of its own for each checkout's submodule, as rosellaview's
+UxPlay has: koala's `third_party\warlock\`, whose `warlock-client` crate Koala builds, to
+`regulad/Warlock`'s default branch, and warlock's `third_party\devourer\`, whose C library
+`devourer-sys` builds, to `regulad/devourer`'s `warlock` branch. devourer is compiled by
+MSVC through CMake rather than by rustc, so the form of its recorded paths is unverified
+until Warlock's first event with a devourer frame.
 
 ## DSNs
 
@@ -97,8 +100,8 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-koala and rosellaview build their DSNs into their source, so nothing here delivers them; a
-key replaced here reaches them only through a change to that source.
+koala, rosellaview and warlock build their DSNs into their source, so nothing here
+delivers them; a key replaced here reaches them only through a change to that source.
 
 ## Credentials
 
