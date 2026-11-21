@@ -18,6 +18,18 @@ resource "sentry_organization_repository" "doppelganger" {
   }
 }
 
+resource "sentry_organization_repository" "koala" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/Koala"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 resource "sentry_organization_repository" "peppercord" {
   organization     = local.organization
   integration_type = data.sentry_organization_integration.github.provider_key
@@ -60,6 +72,18 @@ resource "sentry_organization_repository" "uxplay" {
   integration_type = data.sentry_organization_integration.github.provider_key
   integration_id   = data.sentry_organization_integration.github.id
   identifier       = "regulad/UxPlay"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "sentry_organization_repository" "warlock" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/Warlock"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

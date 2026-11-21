@@ -32,15 +32,27 @@ platform, and each key's JavaScript loader. A change to one of those shows in no
 The one exception is doppelganger's web-crawler inbound filter, which is declared on
 the app's behalf, so that turning it off shows in a plan.
 
+No project has scrubbing settings of its own. The organization requires the data scrubber,
+its default scrubbers and IP-address scrubbing, and Sentry applies each requirement to every
+project, new ones included, whatever the project's own setting. None of it is managed here
+yet (`versions.tf`).
+
 Every project has an alert, and every alert emails the issue's owners, falling back to the
-project's active members. All but doppelganger's are Sentry's default for a new project;
+project's active members. All but doppelganger's are Sentry's default for a new project,
+koala's as a copy declared here;
 doppelganger's, named `doppelganger-front`, fires at most once a day. Each alert watches its project's default issue-stream
 monitor, read through the `sentry_project_issue_stream_monitor` data source. The
 high-priority triggers have no native form in the provider, which passes them through as
 `legacy_trigger_conditions`.
 
-Never set a project's `default_key` to `false`. On creation, the provider then deletes
-every key named `Default`, and every key here has that name.
+A project created here, rather than adopted, sets `default_key` and `default_rules` to
+`false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
+the key and alert declared for it are its only ones; koala is the one so far. Both take
+effect only while the provider creates the project, when it deletes every key named
+`Default`, before the declared key exists. Never set them on an adopted project, whose key
+is the one Sentry made. Before upgrading the provider, check that it still deletes those keys
+only on creation: an earlier build did on update too
+(jianyuan/terraform-provider-sentry#603), which would delete koala's key.
 
 ## Code mappings
 
@@ -63,6 +75,14 @@ Sentry tries first as its stack root is longer. Its other submodules are upstrea
 repositories, beyond the GitHub integration, which reaches only regulad's own, so their
 frames stay unlinked.
 
+koala's native frames carry the absolute path that its PDBs record, of the Windows checkout
+that built the app. It has a mapping per checkout, GitHub's Windows runner for release
+builds and the development checkout for development builds, each stack root written as Windows writes the
+path: Sentry matches a stack root as a literal prefix of the frame's path, backslashes and
+case included, and turns `\` into `/` only in the path it maps to. Each checkout's
+`third_party\warlock\`, the submodule whose `warlock-client` crate Koala builds, has a
+mapping of its own to `regulad/Warlock`'s default branch, as rosellaview's UxPlay has.
+
 ## DSNs
 
 The `dsn` output gives each project's DSN, from its Default key, by project slug.
@@ -76,6 +96,9 @@ needs this root's `prepare.sh` sourced. It delivers:
 | `doppelganger` | `NEXT_PUBLIC_SENTRY_DSN` in doppelgangerhq.com's `web.env` |
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
+
+koala and rosellaview build their DSNs into their source, so nothing here delivers them; a
+key replaced here reaches them only through a change to that source.
 
 ## Credentials
 
