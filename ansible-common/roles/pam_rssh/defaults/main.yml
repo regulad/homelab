@@ -1,0 +1,44 @@
+---
+# sudo authenticated by the operator's forwarded SSH agent through pam_rssh
+# (https://github.com/z4yx/pam_rssh), in place of a NOPASSWD rule, on the hosts
+# that set pam_rssh_enabled: each of pam_rssh_users has sudo sign a challenge
+# with one of pam_rssh_keys_url's keys, and falls back to its password, where it
+# has one, when no agent signs. Ansible's become is the same sudo, so each
+# stage's group_vars/all.yml forwards the agent to the hosts that enable it, and
+# the base role writes the admin's NOPASSWD rule only where they don't. Turning
+# it off again undoes nothing.
+pam_rssh_enabled: false
+
+# The users who sudo through the agent, each allowed every command by the role's
+# own sudoers file, whatever groups it is in.
+pam_rssh_users: []
+
+# The keys that authorize their sudo: the operator's on GitHub, from which the
+# base role sets the admin's authorized_keys too. Kept root's, one file per
+# user in /etc/security/pam_rssh, rather than pam_rssh's default, each user's own
+# authorized_keys, to which anything running as the user could add a key.
+pam_rssh_keys_url: https://github.com/regulad.keys
+
+# Nexus, which serves pam_rssh's packages (regulad/jobs's
+# pipelines/z4yx/pam_rssh), and each of its signed repositories' public key, by
+# repository, as nexus_servers' group_vars publish them to the keys repository:
+# set in each stage's group_vars/all.yml.
+pam_rssh_nexus_url: ""
+pam_rssh_public_keys: {}
+
+# The testing channel, where the release channel holds no build for the host's
+# target.
+# FIXME: Enterprise Linux takes the testing channel, the only one with el9 and
+# el10 RPMs, from upstream's 1.2.2 pre-releases. Revisit when a release of
+# pam_rssh builds for both.
+pam_rssh_testing: "{{ 'rhel' in group_names }}"
+
+# The NOPASSWD rules pam_rssh replaces, removed once sudo through the agent
+# works: the base role's for each user (90-<user>-nopasswd, also the name of
+# dodo's), and cloud-init's for the image's own user, which grants no one else.
+pam_rssh_nopasswd_files: >-
+  {%- set out = ['/etc/sudoers.d/90-cloud-init-users'] -%}
+  {%- for user in pam_rssh_users -%}
+  {%- set _ = out.append('/etc/sudoers.d/90-' ~ user ~ '-nopasswd') -%}
+  {%- endfor -%}
+  {{ out }}

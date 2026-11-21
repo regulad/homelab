@@ -17,6 +17,17 @@
     - role: tailscale
       tags: [tailscale]
 
+# sudo through the operator's forwarded SSH agent, by pam_rssh, on the hosts
+# that set pam_rssh_enabled, in place of NOPASSWD; containers are reached as
+# root. Early, so that the run's later plays already sudo that way.
+- name: Sudo through the SSH agent
+  hosts: debian:ubuntu:rhel:!proxmox_containers
+  gather_facts: false
+  become: true
+  tags: [pam_rssh]
+  roles:
+    - pam_rssh
+
 # firewalld on every Linux host with its own kernel; Proxmox nodes keep
 # pve-firewall, and containers the Proxmox guest firewall.
 # Policies and direct rules are host files.

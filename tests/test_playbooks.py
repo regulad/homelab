@@ -149,6 +149,30 @@ class AideRole(unittest.TestCase):
                                r"become: false\s+vars:\s+ansible_become: false\s")
 
 
+class PamRsshRole(unittest.TestCase):
+    MAIN = "ansible-common/roles/pam_rssh/tasks/main.yml"
+
+    def test_checks_the_agent_as_the_connecting_user_whatever_the_host_sets(self):
+        # As the aide role's read of HOME: dodo's ansible_become outranks the
+        # become keyword, and would check root's sudo, which needs no agent.
+        check = task(read(self.MAIN), "Check sudo through the agent")
+        self.assertRegex(check, r"ansible\.builtin\.command: sudo -n -k -v\s+become: false\s+"
+                                r"vars:\s+ansible_become: false\s")
+
+    def test_removes_nopasswd_only_after_the_check(self):
+        main = read(self.MAIN)
+        self.assertLess(main.index("- name: Check sudo through the agent"),
+                        main.index("- name: No NOPASSWD rules for them"))
+
+    def test_its_sudoers_file_sorts_before_the_nopasswd_rules_it_replaces(self):
+        # sudo takes the last rule that matches, in sudoers.d's lexical order:
+        # its own rules must not override a NOPASSWD rule before the check.
+        main = read(self.MAIN)
+        name = re.search(r"dest: /etc/sudoers\.d/(\S+)", main).group(1)
+        for nopasswd in ("90-cloud-init-users", "90-regulad-nopasswd", "kasm_admin"):
+            self.assertLess(name, nopasswd)
+
+
 def task(text, name):
     """The text of a task in a tasks file, from its name to the next task's."""
     match = re.search(r"(?ms)^( *)- name: %s\n.*?(?=^\1- name: |\Z)" % re.escape(name), text)

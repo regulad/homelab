@@ -1,0 +1,184 @@
+---
+# sudo through the operator's forwarded SSH agent, by pam_rssh, where
+# pam_rssh_enabled is set (defaults/main.yml). The NOPASSWD rules go last, and
+# only once sudo has authenticated through the agent.
+- name: Sudo through the SSH agent
+  when: pam_rssh_enabled
+  vars:
+    pam_rssh_repository: >-
+      {{ 'pam-rssh-rpm' if 'rhel' in group_names
+         else 'pam-rssh-' ~ ansible_facts['distribution'] | lower ~ '-' ~ ansible_facts['distribution_release']
+              ~ ('-testing' if pam_rssh_testing else '') }}
+    # stable or testing, then the target, as el9.
+    pam_rssh_rpm_path: "{{ 'testing' if pam_rssh_testing else 'stable' }}/el{{ ansible_facts['distribution_major_version'] }}"
+    pam_rssh_keys: "{{ lookup('ansible.builtin.url', pam_rssh_keys_url, split_lines=false) }}"
+  block:
+    - name: Read sudo's version
+      ansible.builtin.command: sudo -V
+      changed_when: false
+      check_mode: false
+      register: pam_rssh_sudo
+
+    # Ansible's become runs sudo -n, which asks PAM at all only with
+    # noninteractive_auth, from sudo 1.9.10 on. sudo-rs has it too, but not the
+    # verifypw the check below needs. Nexus must hold a build for the host's
+    # target, and the keys must have come.
+    - name: Check that this host's sudo and Nexus can take pam_rssh
+      ansible.builtin.assert:
+        that:
+          - pam_rssh_sudo.stdout is match('Sudo version [0-9]')
+          - pam_rssh_sudo.stdout_lines[0].split()[2] is version('1.9.10', '>=')
+          - pam_rssh_users | length > 0
+          - pam_rssh_nexus_url | length > 0
+          - pam_rssh_repository in pam_rssh_public_keys
+          - pam_rssh_keys is search('^(ssh|ecdsa|sk)-', multiline=True)
+        fail_msg: >-
+          pam_rssh needs sudo 1.9.10 or later (here: {{ pam_rssh_sudo.stdout_lines[0] }}), users, Nexus's
+          address, a key for {{ pam_rssh_repository }} in pam_rssh_public_keys, and keys at {{ pam_rssh_keys_url }}.
+          Where pam_rssh can't be used, leave pam_rssh_enabled off, and the base role keeps NOPASSWD.
+        quiet: true
+
+    - name: APT key and repository for pam_rssh
+      when: "'rhel' not in group_names"
+      block:
+        - name: APT key for pam_rssh
+          ansible.builtin.copy:
+            dest: /etc/apt/keyrings/pam-rssh.asc
+            content: "{{ pam_rssh_public_keys[pam_rssh_repository] }}"
+            owner: root
+            group: root
+            mode: "0644"
+          register: pam_rssh_apt_key
+
+        # One repository per distribution, release and channel, each serving
+        # its release's suite.
+        - name: APT repository for pam_rssh
+          ansible.builtin.copy:
+            dest: /etc/apt/sources.list.d/pam-rssh.sources
+            content: |
+              Types: deb
+              URIs: {{ pam_rssh_nexus_url }}/repository/{{ pam_rssh_repository }}
+              Suites: {{ ansible_facts['distribution_release'] }}
+              Components: main
+              Signed-By: /etc/apt/keyrings/pam-rssh.asc
+            owner: root
+            group: root
+            mode: "0644"
+          register: pam_rssh_apt_list
+
+        # Before the install, which a handler would come after.
+        - name: Read the APT repository for pam_rssh  # noqa: no-handler
+          ansible.builtin.apt:
+            update_cache: true
+          when: pam_rssh_apt_key is changed or pam_rssh_apt_list is changed
+
+    # Nexus signs the repository's metadata, which lists each RPM's checksum,
+    # but not the RPMs, which upstream leaves unsigned too: repo_gpgcheck
+    # without gpgcheck.
+    - name: YUM key and repository for pam_rssh
+      when: "'rhel' in group_names"
+      block:
+        - name: YUM key for pam_rssh
+          ansible.builtin.copy:
+            dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-pam-rssh
+            content: "{{ pam_rssh_public_keys[pam_rssh_repository] }}"
+            owner: root
+            group: root
+            mode: "0644"
+          register: pam_rssh_yum_key
+
+        - name: YUM repository for pam_rssh
+          ansible.builtin.copy:
+            dest: /etc/yum.repos.d/pam-rssh.repo
+            content: |
+              [pam-rssh]
+              name=pam_rssh
+              baseurl={{ pam_rssh_nexus_url }}/repository/{{ pam_rssh_repository }}/{{ pam_rssh_rpm_path }}/$basearch/
+              enabled=1
+              repo_gpgcheck=1
+              gpgcheck=0
+              gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-pam-rssh
+            owner: root
+            group: root
+            mode: "0644"
+          register: pam_rssh_yum_repo
+
+    - name: Install pam_rssh
+      ansible.builtin.package:
+        name: pam-rssh
+        state: present
+      # A check run cannot install from a repository still to be added.
+      when: >-
+        not (ansible_check_mode and (pam_rssh_apt_list is changed or pam_rssh_yum_repo is changed))
+
+    - name: Key directory for pam_rssh
+      ansible.builtin.file:
+        path: /etc/security/pam_rssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Each user's keys for pam_rssh
+      ansible.builtin.copy:
+        dest: /etc/security/pam_rssh/{{ item }}.keys
+        content: "{{ pam_rssh_keys }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ pam_rssh_users }}"
+
+    # Read before the NOPASSWD rules, which sort after it (sudo takes the last
+    # rule that matches), so it changes nothing until they go:
+    # - SSH_AUTH_SOCK kept for pam_rssh, which reaches the agent through it,
+    #   from the environment that env_reset clears before PAM runs;
+    # - noninteractive_auth, so that sudo -n, Ansible's become, asks PAM;
+    # - verifypw=always, so that sudo -v authenticates even beside a NOPASSWD
+    #   rule, for the check below;
+    # - every command for each user, through PAM, whatever groups it is in, as
+    #   opc is in none that sudoers names.
+    - name: Sudo's settings for pam_rssh
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/10-pam_rssh
+        content: |
+          Defaults:{{ pam_rssh_users | join(',') }} env_keep += "SSH_AUTH_SOCK"
+          Defaults:{{ pam_rssh_users | join(',') }} noninteractive_auth
+          Defaults:{{ pam_rssh_users | join(',') }} verifypw=always
+          {% for user in pam_rssh_users %}
+          {{ user }} ALL=(ALL) ALL
+          {% endfor %}
+        owner: root
+        group: root
+        mode: "0440"
+        validate: /usr/sbin/visudo -cf %s
+
+    # First in the auth stack, and sufficient, so that sudo without an agent
+    # that signs goes on to the password, as before. Debian's sudo-i includes
+    # common-auth itself; Enterprise Linux's includes sudo.
+    - name: Sudo's PAM stack asks pam_rssh first
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/{{ item }}
+        regexp: '\slibpam_rssh\.so(\s|$)'
+        line: "auth       sufficient   libpam_rssh.so auth_key_file=/etc/security/pam_rssh/${user}.keys"
+        insertbefore: '^(auth\s|@include\s+common-auth)'
+        firstmatch: true
+      loop: "{{ ['sudo'] if 'rhel' in group_names else ['sudo', 'sudo-i'] }}"
+
+    # As the connecting user, through the agent Ansible forwards: -k ignores a
+    # cached timestamp, and verifypw=always makes -v authenticate while the
+    # NOPASSWD rules are still there, so this passes only once pam_rssh signs
+    # in. A host's ansible_become, as dodo's, would outrank the become keyword;
+    # the task's own variable outranks the host's.
+    - name: Check sudo through the agent
+      ansible.builtin.command: sudo -n -k -v
+      become: false
+      vars:
+        ansible_become: false
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: No NOPASSWD rules for them
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ pam_rssh_nopasswd_files }}"

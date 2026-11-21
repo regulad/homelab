@@ -20,6 +20,12 @@ host_files_list:
 # short name, and Ansible connects by the DNS name.
 ansible_user: kasm_admin
 
+# kasm_admin sudoes through the operator's forwarded agent, in place of the
+# NOPASSWD rule the image gave it.
+pam_rssh_enabled: true
+pam_rssh_users: [kasm_admin]
+pam_rssh_nopasswd_files: [/etc/sudoers.d/kasm_admin]
+
 # Kasm's installation, as the image laid it out. An upgrade installs to a new
 # directory named for its version.
 kasm_dir: /opt/kasm/1.19.0

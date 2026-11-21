@@ -7,6 +7,10 @@ base_admin_user: regulad
 # key the instance was launched with, which OCI never changes after launch.
 base_image_user: opc
 
+# sudo through the operator's forwarded agent, for both logins.
+pam_rssh_enabled: true
+pam_rssh_users: ["{{ base_admin_user }}", "{{ base_image_user }}"]
+
 # Not checked by AIDE: the status of the Unified Monitoring Agent's
 # configuration downloads, which its downloader rewrites every 15 to 25
 # minutes; its configuration, in conf.d, stays watched. Enterprise Linux's

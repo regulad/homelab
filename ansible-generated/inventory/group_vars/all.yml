@@ -3,12 +3,19 @@
 # under its inventory name, and reads or writes no other file, so a key missing
 # there or changed fails the connection instead of being trusted. Containers
 # are reached through their Proxmox node by proxmox_pct_remote, whose paramiko
-# reads only ~/.ssh/known_hosts.
+# reads only ~/.ssh/known_hosts. Where sudo goes through pam_rssh, the agent
+# is forwarded too, for its become to sign with.
 ansible_ssh_extra_args: >-
   -o HostKeyAlias={{ inventory_hostname }}
   -o UserKnownHostsFile={{ inventory_dir }}/../known_hosts
   -o GlobalKnownHostsFile=/dev/null
   -o StrictHostKeyChecking=yes
+  {{ '-o ForwardAgent=yes' if pam_rssh_enabled | default(false) else '' }}
+
+# pam_rssh's repositories on Nexus, and their public keys, as nexus_servers'
+# group_vars declare them.
+pam_rssh_nexus_url: "{{ hostvars[groups['nexus_servers'] | first]['nexus_url'] }}"
+pam_rssh_public_keys: "{{ hostvars[groups['nexus_servers'] | first]['nexus_public_keys'] }}"
 
 # Each host's FreeIPA mail account, null-<short hostname> by convention; a
 # host_vars mail_relay_account overrides it where two hosts share a name.
