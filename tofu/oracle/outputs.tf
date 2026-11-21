@@ -18,9 +18,10 @@ output "email_dkim" {
   description = "Each Email Delivery domain's DKIM CNAME record, by domain: its name, and the target Oracle serves the key at."
   value = {
     for domain, dkim in {
-      (oci_email_email_domain.primary.name)      = oci_email_dkim.primary
-      (oci_email_email_domain.nefumllc_com.name) = oci_email_dkim.nefumllc_com
-      (oci_email_email_domain.regulad_net.name)  = oci_email_dkim.regulad_net
+      (oci_email_email_domain.primary.name)            = oci_email_dkim.primary
+      (oci_email_email_domain.nefumllc_com.name)       = oci_email_dkim.nefumllc_com
+      (oci_email_email_domain.regulad_net.name)        = oci_email_dkim.regulad_net
+      (oci_email_email_domain.doppelgangerhq_com.name) = oci_email_dkim.doppelgangerhq_com
     } :
     domain => {
       name   = dkim.dns_subdomain_name

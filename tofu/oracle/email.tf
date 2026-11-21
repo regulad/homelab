@@ -60,6 +60,18 @@ resource "oci_email_dkim" "regulad_net" {
   email_domain_id = oci_email_email_domain.regulad_net.id
 }
 
+# doppelgangerhq.com, whose noreply@ the doppelganger project's Auth sends
+# from, and contact@ Parker's account answers, both through mail.
+resource "oci_email_email_domain" "doppelgangerhq_com" {
+  name           = "doppelgangerhq.com"
+  compartment_id = var.tenancy_ocid
+}
+
+resource "oci_email_dkim" "doppelgangerhq_com" {
+  name            = "doppelgangerhq-iad-20261120"
+  email_domain_id = oci_email_email_domain.doppelgangerhq_com.id
+}
+
 resource "oci_email_sender" "sender" {
   for_each = toset(local.email_senders)
 
