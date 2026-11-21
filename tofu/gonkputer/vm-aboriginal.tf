@@ -32,9 +32,12 @@ Passing through a GPU breaks the metering of how much memory has been paged in f
 The UPS USB cord keeps coming loose.
 EOT
   )
-  protection          = true
-  bios                = "ovmf"
-  boot_order          = ["virtio0"]
+  protection = true
+  bios       = "ovmf"
+  # While aboriginal moves onto the interim disk, the firmware tries it first,
+  # and falls back to the SSD while the interim disk's EFI system partition is
+  # still empty. Back to virtio0 alone once the disk is copied onto the SSD.
+  boot_order          = ["virtio1", "virtio0"]
   hook_script_file_id = "local:snippets/pin-vcpus.sh"
   machine             = "q35"
   scsi_hardware       = "virtio-scsi-single"
@@ -68,6 +71,18 @@ EOT
     datastore_id = ""
     discard      = "on"
     interface    = "virtio0"
+    iothread     = true
+    size         = 238
+  }
+
+  # The encrypted disk aboriginal moves onto while its SSD is re-laid out, until
+  # it is copied onto the SSD with the VM off, inside a host reboot
+  # (docs/runbooks/encrypt-a-vm-disk.md). Smaller than the SSD's 250059096 KiB,
+  # so that the copy fits.
+  disk {
+    datastore_id = "rbd"
+    discard      = "on"
+    interface    = "virtio1"
     iothread     = true
     size         = 238
   }
@@ -203,7 +218,7 @@ resource "ansible_host" "aboriginal" {
   name = "${proxmox_virtual_environment_vm.aboriginal.name}.${local.guest_domain}"
   # The watchdog group, for the watchdog daemon, follows the VM's watchdog device.
   groups = sort(concat(
-    ["gonkputer", "kdump", "lime", "nextcloud", "podman_hosts", "proxmox_vms", "syncthing_hubs", "ubuntu"],
+    ["gonkputer", "kdump", "lime", "luks", "nextcloud", "podman_hosts", "proxmox_vms", "syncthing_hubs", "ubuntu"],
     [for device in proxmox_virtual_environment_vm.aboriginal.watchdog : "watchdog" if device.enabled],
   ))
 

@@ -519,6 +519,12 @@ swap_files:
     priority: 10
     discard: true
 
+# The root's btrfs, on LUKS (luks role), unlocked from the vTPM at boot; the
+# recovery passphrase is luks_recovery_passphrase in secrets.sops.yml.
+luks_volumes:
+  - name: root
+    uuid: 0f2882fa-3049-46e1-9950-3e6940da528c
+
 # Backups: the btrfs subvolumes @ and @ssd, from snapshots, with /boot and
 # /boot/efi beside them; and the Ceph RGW's buckets, through mnt-rgw.service's
 # rclone mount.
