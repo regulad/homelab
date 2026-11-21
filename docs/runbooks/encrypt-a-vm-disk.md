@@ -216,23 +216,35 @@ ls /var/crash
 ## 8. Copy onto the drive, with the VM off
 
 For aboriginal, inside a host reboot, as VM 100 is never restarted on its own.
+The apply below locks every host `tofu/gonkputer` lists, so an apply another
+agent makes to any of them while the VM is off holds the VM off until this
+branch contains that commit: tell the other agents before the shutdown.
+
 On prodingus, with the VM shut down (`qm shutdown <vmid>`), copy the interim
-disk's image onto the drive in full, then move the GPT's backup header to the
+disk's image onto the drive in full, in a unit of its own so that it doesn't
+depend on the SSH session. Then discard what the drive holds past the image,
+which the old layout left there, and move the GPT's backup header to the
 drive's end:
 
 ```sh
 image=$(qm config <vmid> | sed -n 's/^virtio1: rbd:\([^,]*\),.*/\1/p')
 drive=/dev/disk/by-id/ata-SK_hynix_SC311_SATA_256GB_<serial>
-rbd export --pool rbd_ssd "$image" - | dd of="$drive" bs=4M iflag=fullblock oflag=direct conv=fsync status=progress
+systemd-run --unit=copy-<vmid> --wait -p Type=exec /bin/bash -c \
+  "set -o pipefail; rbd export --no-progress --pool rbd_ssd $image - | dd of=$drive bs=4M iflag=fullblock oflag=direct conv=fsync"
+journalctl -u copy-<vmid> -o cat | tail -4   # dd's byte count: the image's size
+blkdiscard --offset "$(rbd info --pool rbd_ssd "$image" --format json | jq .size)" "$drive"
 sfdisk --relocate gpt-bak-std "$drive"
+sfdisk --verify "$drive"
 ```
 
 Both disks now carry the same UUIDs, so the VM must never start with both
-attached. Before starting it, remove the `virtio1` disk from the guest file
-(and, on aboriginal, return `boot_order` to `["virtio0"]`), and apply; check in
-the plan whether the provider deletes the image or leaves it as an unused disk.
-Start the VM. The firmware's boot entry names the EFI system partition's
-PARTUUID, which the copy kept.
+attached: not from the web interface, and not at a host boot, as `onboot` is
+set. Remove the `virtio1` disk from the guest file (and, on aboriginal, return
+`boot_order` to `["virtio0"]`), commit, plan and apply. With the VM off, the
+plan also shows `started` going from false to true: the provider sends Proxmox
+a delete for `virtio1`, which keeps the image as `unused0`, and then starts the
+VM. The firmware's boot entry names the EFI system partition's PARTUUID, which
+the copy kept.
 
 In the guest:
 
@@ -242,7 +254,8 @@ echo "grub-efi-amd64-signed grub-efi/install_devices multiselect /dev/vda1" | de
 fstrim -av   # the copy wrote every block; this trims the free ones again
 ```
 
-Last, delete the interim image if the provider left it.
+Last, once the VM runs from the drive, delete the interim image, which
+OpenTofu no longer tracks: `qm set <vmid> --delete unused0` on prodingus.
 
 ## Recovery
 

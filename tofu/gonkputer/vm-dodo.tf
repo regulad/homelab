@@ -41,17 +41,6 @@ resource "proxmox_virtual_environment_vm" "dodo" {
     size         = 238
   }
 
-  # The encrypted disk dodo moves onto while its SSD is re-laid out, until it
-  # is copied onto the SSD with the VM off (docs/runbooks/encrypt-a-vm-disk.md).
-  # Smaller than the SSD's 250059096 KiB, so that the copy fits.
-  disk {
-    datastore_id = "rbd"
-    discard      = "on"
-    interface    = "virtio1"
-    iothread     = true
-    size         = 238
-  }
-
   efi_disk {
     pre_enrolled_keys = true
     type              = "4m"
