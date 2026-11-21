@@ -183,9 +183,27 @@ nexus_repositories_proxies:
         {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github/secrets.sops.yaml',
                   extract='["github_pats"]["terraform-nexus--ghcr"]') }}
 
+# crates-io: crates.io's index and crates, for the cargo homes that the
+# gonkputer guests replace crates.io with it in (gonkputer.yml). Nexus speaks
+# only Cargo's sparse protocol, and crates.io needs no login. Its cache ages are
+# Nexus's defaults, as Sonatype doesn't say which of Cargo's files count as
+# metadata: a new crate version shows after at most a day.
+nexus_repositories_cargo:
+  - format: cargo
+    type: proxy
+    name: crates-io
+    settings:
+      online: true
+      storage: {blobStoreName: default, strictContentTypeValidation: true}
+      proxy: {remoteUrl: "https://index.crates.io/", contentMaxAge: 1440, metadataMaxAge: 1440}
+      negativeCache: {enabled: true, timeToLive: 1440}
+      httpClient: {blocked: false, autoBlock: true}
+      cargo: {requireAuthentication: false}
+
 # Every repository the nexus_repositories role creates where missing and
-# converges: the proxies above, keys, and pam_rssh's (below).
-nexus_repositories_managed: "{{ nexus_repositories_proxies + nexus_repositories_keys + nexus_pam_rssh_repositories }}"
+# converges: the proxies above, crates-io, keys, and pam_rssh's (below).
+nexus_repositories_managed: >-
+  {{ nexus_repositories_proxies + nexus_repositories_cargo + nexus_repositories_keys + nexus_pam_rssh_repositories }}
 
 # keys: each signed repository's public key, at
 # <nexus_url>/repository/keys/<repository>.asc, which the nexus_repositories
