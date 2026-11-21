@@ -41,12 +41,7 @@ EOT
   # properly when the KVM host detaches and re-attaches it. Restart it by rerooting,
   # or together with a host reboot. Changes that need a reboot stay pending.
   reboot_after_update = false
-  # FIXME: keeps VM 100 off through the apply that detaches its interim disk,
-  # as it starts again only with prodingus, at the reboot that follows; while
-  # this stands, an apply would shut the VM down. Revisit right after that
-  # reboot: remove it (docs/runbooks/encrypt-a-vm-disk.md).
-  started = false
-  tags    = [local.tags.locally_backed, local.tags.terraform, local.tags.virtiofsd]
+  tags                = [local.tags.locally_backed, local.tags.terraform, local.tags.virtiofsd]
 
   network_device {
     mac_address = "BC:24:11:5D:BE:75"
