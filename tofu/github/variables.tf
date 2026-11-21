@@ -37,8 +37,10 @@ variable "github_pats" {
 variable "sentry_auth_tokens" {
   type = object({
     doppelganger = string
+    koala        = string
     peppercord   = string
     rosellaview  = string
+    warlock      = string
   })
   sensitive = true
   nullable  = false

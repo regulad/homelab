@@ -1,9 +1,10 @@
 # Repository 1463115679, named Warlock when written: its signing environments,
 # with the refs each admits, and each one's Entra ID sign-in and the Artifact
-# Signing account and profile it signs with. tofu/azure's federated credential
-# for each environment trusts runs in it alone, so the refs an environment
-# admits are the refs that can sign as it. None of the values is secret; they
-# are secrets as the repositories' other plaintext values are.
+# Signing account and profile it signs with; and the release environment's
+# Sentry token. tofu/azure's federated credential for each environment trusts
+# runs in it alone, so the refs an environment admits are the refs that can sign
+# as it. None of the signing values is secret; they are secrets as the
+# repositories' other plaintext values are.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_1463115679 = jsondecode(data.github_rest_api.repository_1463115679.body).name
@@ -24,7 +25,7 @@ locals {
 
   # By environment and name: tofu/azure's application for that environment, and
   # the profile it is granted.
-  repository_1463115679_environment_secrets = merge([
+  repository_1463115679_signing_secrets = merge([
     for environment, profile in data.terraform_remote_state.azure.outputs.warlock_profiles : {
       for name, value in {
         AZURE_CLIENT_ID       = data.terraform_remote_state.azure.outputs.oauth_client_ids["warlock-${environment}"]
@@ -37,6 +38,12 @@ locals {
       } : "${environment}/${name}" => { environment = environment, name = name, value = value }
     }
   ]...)
+
+  # The signing secrets, and the Sentry organization token that tagged builds,
+  # which only release admits, create releases and upload PDBs with.
+  repository_1463115679_environment_secrets = merge(local.repository_1463115679_signing_secrets, {
+    "release/SENTRY_AUTH_TOKEN" = { environment = "release", name = "SENTRY_AUTH_TOKEN", value = var.sentry_auth_tokens.warlock }
+  })
 }
 
 data "github_rest_api" "repository_1463115679" {
