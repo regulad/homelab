@@ -94,16 +94,17 @@ host_files_list:
       WantedBy=remote-fs.target
   # docker-mailserver's own configuration, each file as it was imported. The
   # files that hold secrets are templates or content, their secrets from
-  # secrets.sops.yml. docker-mailserver applies its configuration and runs
-  # user-patches.sh only when its container is created: start-mailserver.sh
-  # skips its setup when the same container restarts (its /CONTAINER_START
-  # marker), so podman restart applies none of a change. A start of
-  # mailserver.service creates the container anew, as the Quadlet runs it with
-  # --rm and --replace, so each file restarts the service.
+  # secrets.sops.yml, and readable only by what reads them: root, which runs
+  # Podman and docker-mailserver's setup, or Rspamd's user. docker-mailserver
+  # applies its configuration and runs user-patches.sh only when its container
+  # is created: start-mailserver.sh skips its setup when the same container
+  # restarts (its /CONTAINER_START marker), so podman restart applies none of a
+  # change. A start of mailserver.service creates the container anew, as the
+  # Quadlet runs it with --rm and --replace, so each file restarts the service.
   - path: "{{ mailserver_dir }}/mailserver.env"
     template: true
     secret: true
-    mode: "0644"
+    mode: "0600"
     restarts: [mailserver]
   # Dovecot's settings over docker-mailserver's: the Sieve extensions users'
   # scripts and its own global scripts may require.
@@ -143,7 +144,7 @@ host_files_list:
       [smtp.email.us-ashburn-1.oci.oraclecloud.com]:587 {{ mailserver_oci_smtp_credential.username }}:{{ mailserver_oci_smtp_credential.password }}
       [smtp.gmail.com]:587 {{ mailserver_gmail_address }}:{{ mailserver_gmail_app_password }}
     secret: true
-    mode: "0644"
+    mode: "0600"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/postfix-tls-policy.cf"
     mode: "0644"
@@ -236,11 +237,14 @@ host_files_list:
   - path: "{{ mailserver_dir }}/config/user-patches.sh"
     mode: "0755"
     restarts: [mailserver]
-  # Spamhaus's DQS lists, its key from secrets.sops.yml.
+  # Spamhaus's DQS lists, its key from secrets.sops.yml, owned by Rspamd's
+  # user in the container (112:114), as its DKIM keys are.
   - path: "{{ mailserver_dir }}/rspamd-dqs/rbl.conf"
     template: true
     secret: true
-    mode: "0644"
+    owner: "112"
+    group: "114"
+    mode: "0600"
     restarts: [mailserver]
   - path: "{{ mailserver_dir }}/rspamd-dqs/rbl_group.conf"
     mode: "0644"
