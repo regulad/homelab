@@ -32,7 +32,6 @@ Passing through a GPU breaks the metering of how much memory has been paged in f
 The UPS USB cord keeps coming loose.
 EOT
   )
-  protection          = true
   bios                = "ovmf"
   boot_order          = ["virtio0"]
   hook_script_file_id = "local:snippets/pin-vcpus.sh"
