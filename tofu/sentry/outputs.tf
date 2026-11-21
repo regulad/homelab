@@ -15,6 +15,9 @@ output "dsn" {
       sentry_key.picture_triangulator,
       sentry_key.rosellaview,
       sentry_key.warlock,
+      sentry_key.warlock_extcap,
+      sentry_key.warlock_installer,
+      sentry_key.warlockctl,
     ] : key.project => nonsensitive(key.dsn["public"])
   }
 }

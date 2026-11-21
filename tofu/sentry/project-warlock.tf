@@ -1,15 +1,5 @@
 # warlock: the project, named Warlock, its client key, its alert, and its code mappings.
 locals {
-  # Where each build of the app checks the repository out, as Windows writes the
-  # path. Sentry matches a stack root as a literal prefix of a frame's path,
-  # backslashes and case included, and writes each \ as / only after replacing it.
-  warlock_checkouts = {
-    # Release builds, by .github/workflows/build.yml on GitHub's Windows runner.
-    release = "D:\\a\\Warlock\\Warlock\\"
-    # Development builds.
-    development = "D:\\repositories\\Warlock\\"
-  }
-
   # The devourer submodule, whose source GitHub keeps in its own repository, and
   # the branch Warlock's .gitmodules tracks there.
   warlock_devourer = {
