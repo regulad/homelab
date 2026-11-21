@@ -9,6 +9,11 @@
 # removed. An account that declares no email keeps the addresses it has.
 freeipa_users_public: []
 freeipa_users_private: []
+# The two merged, which the tasks apply; derived, not set.
+freeipa_users_accounts: >-
+  {{ freeipa_users_public
+     | community.general.lists_mergeby(freeipa_users_private, 'name',
+                                       recursive=true, list_merge='append_rp') }}
 
 # A password is set only as its account is created, so a rerun changes
 # nothing; an account that already exists keeps the one it has.

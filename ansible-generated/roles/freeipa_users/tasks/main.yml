@@ -5,11 +5,25 @@
     ipaadmin_principal: "{{ freeipa_users_admin_principal }}"
     ipaadmin_password: "{{ freeipa_users_admin_password }}"
     ipaapi_context: server
-    users: >-
-      {{ freeipa_users_public
-         | community.general.lists_mergeby(freeipa_users_private, 'name',
-                                           recursive=true, list_merge='append_rp') }}
+    users: "{{ freeipa_users_accounts }}"
     update_password: "{{ freeipa_users_update_password }}"
     state: present
-  when: (freeipa_users_public + freeipa_users_private) | length > 0
+  when: freeipa_users_accounts | length > 0
+  no_log: true
+
+# An account created with a password and a password expiration gets the
+# expiry FreeIPA's password policy gives a new password, 90 days on, not the
+# one declared (svc-doppelganger-supabase, 2026-11-21), so each declared
+# expiration is set again once its account exists. first and last let a check
+# run plan an account that does not exist yet.
+- name: Set the declared password expirations
+  freeipa.ansible_freeipa.ipauser:
+    ipaadmin_principal: "{{ freeipa_users_admin_principal }}"
+    ipaadmin_password: "{{ freeipa_users_admin_password }}"
+    ipaapi_context: server
+    users: >-
+      {{ freeipa_users_accounts | selectattr('passwordexpiration', 'defined')
+         | community.general.keep_keys(target=['name', 'first', 'last', 'passwordexpiration']) }}
+    state: present
+  when: freeipa_users_accounts | selectattr('passwordexpiration', 'defined') | length > 0
   no_log: true
