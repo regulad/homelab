@@ -203,6 +203,23 @@ host_files_list:
     group: "114"
     mode: "0644"
     restarts: [mailserver]
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-doppelgangerhq.com.private.txt"
+    content: "{{ mailserver_dkim_private_keys['doppelgangerhq.com'] }}"
+    secret: true
+    owner: "112"
+    group: "114"
+    mode: "0600"
+    restarts: [mailserver]
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-doppelgangerhq.com.public.txt"
+    owner: "112"
+    group: "114"
+    mode: "0644"
+    restarts: [mailserver]
+  - path: "{{ mailserver_dir }}/config/rspamd/dkim/rsa-2048-mail-doppelgangerhq.com.public.dns.txt"
+    owner: "112"
+    group: "114"
+    mode: "0644"
+    restarts: [mailserver]
   - path: "{{ mailserver_dir }}/config/rspamd/override.d/arc.conf"
     mode: "0644"
     restarts: [mailserver]
