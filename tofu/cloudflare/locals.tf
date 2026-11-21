@@ -5,9 +5,10 @@ locals {
   # The zones mail receives for, by name: each has an mta-sts and an
   # autoconfig host, served by the Workers of those names.
   mail_zones = {
-    (cloudflare_zone.regulad_xyz.name)  = cloudflare_zone.regulad_xyz.id
-    (cloudflare_zone.nefumllc_com.name) = cloudflare_zone.nefumllc_com.id
-    (cloudflare_zone.regulad_net.name)  = cloudflare_zone.regulad_net.id
+    (cloudflare_zone.regulad_xyz.name)        = cloudflare_zone.regulad_xyz.id
+    (cloudflare_zone.nefumllc_com.name)       = cloudflare_zone.nefumllc_com.id
+    (cloudflare_zone.regulad_net.name)        = cloudflare_zone.regulad_net.id
+    (cloudflare_zone.doppelgangerhq_com.name) = cloudflare_zone.doppelgangerhq_com.id
   }
 
   # The MTA-STS policy (RFC 8461) of every zone mail receives for, which the
