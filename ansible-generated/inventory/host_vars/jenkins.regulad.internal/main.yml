@@ -98,14 +98,6 @@ jenkins_github_app_installation_id: "183530243"
 jenkins_api_user: svc-ansible
 jenkins_api_password: "{{ mail_relay_freeipa_password }}"
 jenkins_freeipa_members: [regulad, svc-ansible]
-# svc-jobs, which regulad/jobs's seed workflow signs in to Jenkins as, from
-# GitHub Actions, with its password, which tofu/github sets as that
-# repository's secret.
-jenkins_freeipa_service_users:
-  - name: svc-jobs
-    givenname: Jobs
-    sn: Service
-    password: "{{ jenkins_svc_jobs_password }}"
 jenkins_freeipa_host: "{{ freeipa_server.fqdn }}"
 jenkins_freeipa_delegate: "{{ freeipa_server.fqdn }}"
 jenkins_freeipa_password: "{{ mail_relay_freeipa_password }}"

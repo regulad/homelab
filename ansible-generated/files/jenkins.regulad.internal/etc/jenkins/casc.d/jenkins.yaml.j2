@@ -119,16 +119,16 @@ tool:
 
 # Job DSL runs its scripts without script security's approval, which would
 # otherwise be needed again for each edit. Its only scripts are this file's and
-# regulad/jobs's, which that repository's seed workflow applies at each push to
-# main, signed in as svc-jobs (host_vars main.yml); only regulad writes to
-# either.
+# regulad/jobs's, which that repository's own Jenkinsfile, its seed, applies
+# when the regulad folder builds its main branch, at each push to it; only
+# regulad writes to either.
 security:
   globalJobDslSecurityConfiguration:
     useScriptSecurity: false
 
 # Items, as Job DSL scripts. The regulad folder builds every Jenkinsfile in
-# regulad's repositories, as it did before this file; regulad/jobs defines the
-# other items, its seed job, jobs, among them.
+# regulad's repositories, as it did before this file, regulad/jobs's seed among
+# them, as regulad/jobs/main; that seed defines the other items.
 #
 # Each folder whose items work on GitHub holds its own regulad-jenkins, a
 # credential of Jenkins's GitHub App (host_vars main.yml, github-app.sops.env):
