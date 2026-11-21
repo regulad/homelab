@@ -43,3 +43,32 @@ freeradius_ldap_uri: ldaps://{{ inventory_hostname }}
 freeradius_ldap_base_dn: "{{ freeipa_server_domain | split('.') | map('regex_replace', '^', 'dc=') | join(',') }}"
 freeradius_ldap_identity: uid=svc-freeradius,cn=users,cn=accounts,{{ freeradius_ldap_base_dn }}
 freeradius_ldap_ca_file: /etc/ipa/ca.crt
+
+# FreeIPA's declared accounts (freeipa_users role), merged with
+# freeipa_users_private in secrets.sops.yml, which holds what the public
+# repository must not show. Each email list is the account's whole list.
+# tofu/oracle/bin/email-senders builds Email Delivery's approved senders from
+# both lists.
+freeipa_users_public:
+  # Doppelganger's Supabase project, whose Auth signs in to mail's SMTP to
+  # send as noreply@doppelgangerhq.com. Its password is tofu/supabase's
+  # smtp_password; it expires at 2038-01-19 03:14:07 UTC, FreeIPA's latest.
+  - name: svc-doppelganger-supabase
+    first: Doppelganger Supabase
+    last: Service
+    email:
+      - noreply@doppelgangerhq.com
+    password: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/supabase/secrets.sops.yaml',
+                extract='["smtp_password"]') }}
+    passwordexpiration: "20380119031407Z"
+  # Parker's public addresses, pw@nefumllc.com first, which LDAP clients take
+  # as the account's address.
+  - name: regulad
+    email:
+      - pw@nefumllc.com
+      - regulad@regulad.xyz
+      - pw@regulad.net
+      - contact@doppelgangerhq.com
+# ipauser signs in as svc-ansible, with its password from group_vars.
+freeipa_users_admin_password: "{{ mail_relay_freeipa_password }}"
