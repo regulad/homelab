@@ -72,3 +72,18 @@
   loop_control:
     label: "{{ item.dn }}"
   when: not (ansible_check_mode and (freeipa_server_installed is changed or freeipa_server_replicated is changed))
+
+# As admin, through ipalib on the server itself. no_log: its password.
+- name: Sudo options kept out of FreeIPA's sudo rules
+  freeipa.ansible_freeipa.ipasudorule:
+    ipaadmin_password: "{{ freeipa_server_admin_password }}"
+    ipaapi_context: server
+    name: "{{ item.key }}"
+    sudooption: "{{ item.value }}"
+    action: member
+    state: absent
+  loop: "{{ freeipa_server_sudorule_options_absent | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: not (ansible_check_mode and (freeipa_server_installed is changed or freeipa_server_replicated is changed))
+  no_log: true

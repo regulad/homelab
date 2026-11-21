@@ -31,3 +31,9 @@ freeipa_server_anonymous_access: rootdse
 
 # Migration mode, in which an LDAP bind generates a migrated user's Kerberos keys.
 freeipa_server_migration_enabled: false
+
+# Sudo options to keep out of FreeIPA's sudo rules, as lists by rule name, such
+# as the Admins rule's !authenticate, which would let its members sudo without
+# authenticating on every host whose SSSD serves FreeIPA's sudo rules, beside
+# the pam_rssh role's own. Set on one server; the rules replicate.
+freeipa_server_sudorule_options_absent: {}

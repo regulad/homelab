@@ -32,7 +32,8 @@ collections:
   # docker_login, with which the docker role logs each host into its registries.
   - name: community.docker
     version: 5.4.0
-  # ipauser, with which the freeipa_users role keeps FreeIPA's declared accounts, through
-  # ipalib on the FreeIPA server itself.
+  # ipauser, with which the freeipa_users role keeps FreeIPA's declared accounts, and
+  # ipasudorule, with which the freeipa_server role keeps options out of its sudo rules,
+  # through ipalib on the FreeIPA server itself.
   - name: freeipa.ansible_freeipa
     version: 1.17.0
