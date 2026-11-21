@@ -78,6 +78,37 @@
     name: [cargo, make, pkg-config, libssl-dev]
     state: present
 
+- name: Cargo home
+  ansible.builtin.file:
+    path: "{{ matrix_cargo_home }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Source replacement keeps crates.io's name in Cargo.lock, so --locked still
+# holds, and each crate from the mirror must match the checksum Cargo.lock pins.
+- name: Cargo's crates.io mirror
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (matrix).
+      [source.crates-io]
+      replace-with = "mirror"
+
+      [source.mirror]
+      registry = "{{ matrix_crates_io_mirror }}"
+    dest: "{{ matrix_cargo_home }}/config.toml"
+    owner: root
+    group: root
+    mode: "0644"
+  when: matrix_crates_io_mirror | length > 0
+
+- name: No crates.io mirror
+  ansible.builtin.file:
+    path: "{{ matrix_cargo_home }}/config.toml"
+    state: absent
+  when: matrix_crates_io_mirror | length == 0
+
 # Installed under its version, so a new version builds beside the old one.
 - name: State compressor
   ansible.builtin.command:
@@ -96,6 +127,7 @@
   # Linked against the system's OpenSSL, which apt keeps patched, rather than
   # a vendored copy built into the binary.
   environment:
+    CARGO_HOME: "{{ matrix_cargo_home }}"
     OPENSSL_NO_VENDOR: "1"
 
 - name: State compressor user

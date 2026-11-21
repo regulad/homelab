@@ -34,6 +34,37 @@
     version: "{{ lime_commit }}"
   register: lime_source
 
+- name: Cargo home
+  ansible.builtin.file:
+    path: "{{ lime_cargo_home }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Source replacement keeps crates.io's name in Cargo.lock, so --locked still
+# holds, and each crate from the mirror must match the checksum Cargo.lock pins.
+- name: Cargo's crates.io mirror
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (lime).
+      [source.crates-io]
+      replace-with = "mirror"
+
+      [source.mirror]
+      registry = "{{ lime_crates_io_mirror }}"
+    dest: "{{ lime_cargo_home }}/config.toml"
+    owner: root
+    group: root
+    mode: "0644"
+  when: lime_crates_io_mirror | length > 0
+
+- name: No crates.io mirror
+  ansible.builtin.file:
+    path: "{{ lime_cargo_home }}/config.toml"
+    state: absent
+  when: lime_crates_io_mirror | length == 0
+
 # A check run cannot build from what a pending install or checkout would bring.
 - name: Build and install
   when: not (ansible_check_mode and (lime_packages is changed or lime_source is changed))

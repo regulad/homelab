@@ -6,6 +6,10 @@ lime_commit: 3b430b41c5448e31da07dacff4a24c3b8d52c1d6
 # Where the source is checked out and built, and cargo's crate cache.
 lime_build_dir: /usr/local/src/lime
 lime_cargo_home: /var/cache/lime/cargo
+# A sparse index that replaces crates.io in that cargo home's config.toml, such
+# as sparse+https://nexus.example/repository/crates-io/, or empty for crates.io
+# itself.
+lime_crates_io_mirror: ""
 
 # Interfaces lime browses mDNS on, each on the Macs' own network with mDNS on
 # in systemd-resolved.

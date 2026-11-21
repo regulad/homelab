@@ -15,3 +15,13 @@ podman_registry_mirrors:
 # Docker, which mirrors Docker Hub alone, the same: the docker role's daemon
 # settings on dodo, and vkasm's own daemon.json (its host_vars).
 docker_registry_mirrors: ["https://{{ podman_registry_mirrors['docker.io'] }}"]
+
+# cargo fetches crates.io's index and crates through Nexus's crates-io proxy
+# (nexus_servers.yml), which anonymous users read, by source replacement in
+# the config.toml of each cargo home a role builds in. Lockfiles still name
+# crates.io, and cargo checks each crate against the checksum its index gives.
+# Unlike Podman, cargo has no fallback: while Nexus is down, a build that must
+# fetch fails.
+cargo_crates_io_mirror: "sparse+{{ hostvars[groups['nexus_servers'] | first]['nexus_url'] }}/repository/crates-io/"
+lime_crates_io_mirror: "{{ cargo_crates_io_mirror }}"
+matrix_crates_io_mirror: "{{ cargo_crates_io_mirror }}"

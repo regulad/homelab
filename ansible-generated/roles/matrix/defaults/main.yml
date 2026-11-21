@@ -21,3 +21,9 @@ matrix_compressor_version: ""
 matrix_compressor_user: ""
 matrix_compressor_database: ""
 matrix_compressor_schedule: "30 19 * * *"
+# The cargo home it is built in, root's own, and a sparse index that replaces
+# crates.io in that cargo home's config.toml, such as
+# sparse+https://nexus.example/repository/crates-io/, or empty for crates.io
+# itself.
+matrix_cargo_home: /root/.cargo
+matrix_crates_io_mirror: ""

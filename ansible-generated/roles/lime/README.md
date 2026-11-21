@@ -13,6 +13,9 @@ on each Mac.
   `Cargo.lock`'s checksums pin every crate. Each run lets cargo decide
   whether anything changed: a new commit or a new `rustc` from the host's
   updates rebuilds it, and the service restarts only if the binary differs.
+  Where `lime_crates_io_mirror` names a sparse index, cargo fetches crates.io's
+  crates from it instead, by source replacement in the cargo home's
+  `config.toml`.
 - **Installs upstream's unit and README** from the same checkout, and writes
   `/etc/lime/lime.toml` from `lime_interfaces` and `lime_macs`, out of logs
   and diffs, as it names each Mac's unlock account, which hosts keep in SOPS.
