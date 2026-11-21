@@ -51,13 +51,16 @@ freeradius_ldap_ca_file: /etc/ipa/ca.crt
 # both lists.
 freeipa_users_public:
   # Doppelganger's Supabase project, whose Auth signs in to mail's SMTP to
-  # send as noreply@doppelgangerhq.com. Its password is tofu/supabase's
+  # send as noreply@doppelgangerhq.com. Postfix lets a login send as an
+  # address only when the account's addresses include the login,
+  # <uid>@regulad.xyz, so it holds that too. Its password is tofu/supabase's
   # smtp_password; it expires at 2038-01-19 03:14:07 UTC, FreeIPA's latest.
   - name: svc-doppelganger-supabase
     first: Doppelganger Supabase
     last: Service
     email:
       - noreply@doppelgangerhq.com
+      - svc-doppelganger-supabase@regulad.xyz
     password: >-
       {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/supabase/secrets.sops.yaml',
                 extract='["smtp_password"]') }}
