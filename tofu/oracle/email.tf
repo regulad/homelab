@@ -1,10 +1,20 @@
 locals {
-  email_senders = [
-    "noreply@regulad.xyz",
-    "regulad@regulad.xyz",
-    "pw@nefumllc.com",
-    "pw@regulad.net",
+  # The domains whose senders Email Delivery approves, each once Oracle has
+  # found its DKIM key's CNAME in DNS and made the key active.
+  email_sender_domains = [
+    oci_email_email_domain.primary.name,
+    oci_email_email_domain.nefumllc_com.name,
+    oci_email_email_domain.regulad_net.name,
   ]
+
+  # The approved senders: mail's own, noreply@regulad.xyz, to which
+  # ansible-generated/files/mail's postfix-generic.regexp rewrites root's and
+  # localhost's mail, and which no FreeIPA account holds; then each address of
+  # FreeIPA's declared accounts, from var.email_senders, in those domains.
+  email_senders = concat(
+    ["noreply@regulad.xyz"],
+    [for address in var.email_senders : address if contains(local.email_sender_domains, split("@", address)[1])],
+  )
 }
 
 resource "oci_email_dkim" "primary" {
@@ -29,8 +39,7 @@ resource "oci_email_email_domain" "primary" {
 }
 
 # nefumllc.com and regulad.net, which mail's Postfix falls back to Email
-# Delivery for as it does for regulad.xyz. Their senders can be approved only
-# once Oracle has found each DKIM key's CNAME in DNS and made the key active.
+# Delivery for as it does for regulad.xyz.
 resource "oci_email_email_domain" "nefumllc_com" {
   name           = "nefumllc.com"
   compartment_id = var.tenancy_ocid

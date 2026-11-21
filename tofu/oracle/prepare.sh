@@ -28,7 +28,7 @@ _homelab_sops() {
 _homelab_oracle_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext provider backend name value
+    local root dir destination plaintext senders provider backend name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/oracle"
     destination="$dir/secrets.auto.tfvars.json"
@@ -37,9 +37,13 @@ _homelab_oracle_prepare() {
         return 1
     fi
     plaintext=$(_homelab_sops decrypt "$dir/secrets.sops.json") || return 1
+    # Email Delivery's approved senders, which bin/email-senders builds from
+    # FreeIPA's declared accounts, join the same file.
+    senders=$(_homelab_sops decrypt "$dir/email-senders.sops.json") || return 1
+    plaintext=$(printf '%s\n' "$plaintext" | jq --argjson senders "$senders" '. + $senders') || return 1
     if ! printf '%s\n' "$plaintext" |
-        jq -e '(.tenancy_ocid // "") != "" and (.state_encryption_passphrase // "") != ""' >/dev/null; then
-        echo 'prepare.sh: unexpected OCI input file: expected tenancy_ocid and state_encryption_passphrase inputs.' >&2
+        jq -e '(.tenancy_ocid // "") != "" and (.state_encryption_passphrase // "") != "" and (.email_senders | type) == "array"' >/dev/null; then
+        echo 'prepare.sh: unexpected OCI input files: expected tenancy_ocid, state_encryption_passphrase and email_senders inputs.' >&2
         return 1
     fi
     if [ -e "$destination" ]; then

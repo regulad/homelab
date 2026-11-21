@@ -1,0 +1,31 @@
+#!/bin/sh
+# Build tofu/oracle/email-senders.sops.json, the addresses Email Delivery may
+# approve as senders: every address of FreeIPA's declared accounts, from
+# freeipa_users_public in wako's main.yml and freeipa_users_private in its
+# secrets.sops.yml. email.tf approves those whose domain sends through Email
+# Delivery. Run it from anywhere in the clone after either list changes, then
+# prepare.sh; it rewrites the file only when the addresses differ, and prints
+# only their count.
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+vars="$root/ansible-generated/inventory/host_vars/wako.regulad.internal"
+destination="$root/tofu/oracle/email-senders.sops.json"
+
+public=$(yq -o=json -I=0 '[.freeipa_users_public[].email // [] | .[]]' "$vars/main.yml")
+private=$(sops decrypt --output-type json "$vars/secrets.sops.yml" |
+    jq -c '[.freeipa_users_private[]?.email // [] | .[]]')
+senders=$(jq -n -c --argjson public "$public" --argjson private "$private" \
+    '{email_senders: ($public + $private | unique)}')
+
+if [ -e "$destination" ] &&
+    [ "$(sops decrypt "$destination" | jq -S -c .)" = "$(printf '%s\n' "$senders" | jq -S -c .)" ]; then
+    echo "email-senders: unchanged, $(printf '%s\n' "$senders" | jq '.email_senders | length') addresses."
+    exit 0
+fi
+# The addresses reach sops on a pipe, never a plaintext file.
+printf '%s\n' "$senders" |
+    sops encrypt --filename-override "$destination" --input-type json --output-type json /dev/stdin \
+        >"$destination.tmp"
+mv "$destination.tmp" "$destination"
+echo "email-senders: wrote $(printf '%s\n' "$senders" | jq '.email_senders | length') addresses."

@@ -74,9 +74,16 @@ because the homelab is bridged to that subnet, pairs `10.23.0.0/20` with the hom
 next-hop ID by IP family. The existing homelab security-list ingress rule remains
 IPv4-only; the shared address pair does not implicitly add firewall permissions.
 
-The non-sensitive sender addresses are listed in `local.email_senders` at the top
-of `email.tf`. One sender resource uses `for_each` over that list, keyed
-by email address so reordering the list does not change resource identities.
+Email Delivery's approved senders are the addresses of FreeIPA's declared
+accounts, from the `freeipa_users_public` and `freeipa_users_private` lists in wako's
+host_vars, in the domains `local.email_sender_domains` names, with mail's own
+`noreply@regulad.xyz`. `bin/email-senders` builds `email-senders.sops.json` from
+the two lists, so the private addresses stay encrypted; run it after either
+list changes, then `prepare.sh`, which decrypts the file into the
+`email_senders` input. A domain joins `local.email_sender_domains` once Oracle
+has found its DKIM key's CNAME in DNS and made the key active. One sender
+resource uses `for_each` over the addresses, keyed by email address, so their
+order does not change resource identities; plans and state name each address.
 
 mail's Postfix relays through Email Delivery as `svc-mail@regulad.xyz`, an IAM
 user made by hand and adopted, with its group and membership. Its SMTP
