@@ -41,12 +41,6 @@ Every value is derived; none is typed into GitHub.
   rotated there reaches Nexus through `site.yml --tags nexus_security`, and these
   repositories through an apply here; run the two together. kodi-plugins' SSH user and web
   root likewise come from ingress's `host_files_login_users` and `host_files_directories`.
-- **Ansible's Jenkins data:** `svc-jobs`, which jobs's seed workflow signs in to Jenkins
-  as, takes its name from `jenkins_freeipa_service_users` in
-  `ansible-generated/inventory/host_vars/jenkins.regulad.internal/main.yml`, and its password
-  from that host's `secrets.sops.yml`, which `prepare.sh` reads. A password rotated there
-  reaches FreeIPA through `site.yml --tags jenkins`, and jobs through an apply here; run the
-  two together.
 - **tofu/tailscale:** the federated identities' client IDs and audiences, `TS_OAUTH_ID`
   and `TS_AUDIENCE`, come from `tofu/tailscale`'s outputs, read in `tailscale.tf`;
   `prepare.sh` adds that root's state passphrase.
