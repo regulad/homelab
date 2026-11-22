@@ -45,6 +45,18 @@ resource "proxmox_virtual_environment_container" "authentik" {
     swap      = 1048576 # 1 TiB in MiB: effectively unlimited swap
   }
 
+  # authentik's state: Podman's named volumes, its database, /data and
+  # /templates, at Podman's default volume path, so the images on the root disk
+  # cannot fill the database's. Proxmox's backups leave a volume mount point out
+  # unless backup is set.
+  mount_point {
+    backup        = true
+    mount_options = ["discard", "lazytime"]
+    path          = "/var/lib/containers/storage/volumes"
+    size          = "4G"
+    volume        = "rbd"
+  }
+
   network_interface {
     firewall = true
     # The authentik VM's, so the DHCP lease and authentik.regulad.internal follow it.
