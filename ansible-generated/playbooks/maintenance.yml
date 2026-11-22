@@ -3767,6 +3767,847 @@
 
     - *mongo_upgrade_images_removed
 
+# Upgrade authentik to the release its compose file's server image declares:
+# move AUTHENTIK_TAG's default, the worker's with the server's, to the next
+# release, then run this play rather than site.yml, with --limit <host> so alock
+# locks that host alone. authentik moves a single release at a time, from the
+# newest patch of the one it runs, and cannot go back (its upgrade guide), so
+# the play refuses any other target, a running release behind its newest patch,
+# and a downgrade; it reads which release follows the running one from
+# authentik's releases on GitHub. Then, with the stack stopped, it copies its
+# volumes and the compose file, and starts the declared release, whose server
+# migrates the database as it starts. It counts the upgrade done once the server
+# runs the declared release and answers its readiness check, and the worker runs
+# the same image. If anything fails after the copy, it puts the copy and the old
+# compose file back, starts the old release again, then fails: revert the tag
+# before the next site.yml. It does nothing where the declared release runs.
+# tofu/authentik's provider follows authentik's releases: move its pin once a
+# release of the provider for the new one exists.
+- name: The authentik upgrade to its declared release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [authentik-upgrade]
+  # Shared with the cleanup play and both PostgreSQL plays below.
+  vars: &authentik_stack_vars
+    authentik_stack_compose: /opt/authentik/docker-compose.yml
+    # The compose file in the repository, which host_files places there.
+    authentik_stack_compose_src: "{{ inventory_dir }}/../files/{{ inventory_hostname }}{{ authentik_stack_compose }}"
+    authentik_stack_compose_data: "{{ lookup('ansible.builtin.file', authentik_stack_compose_src) | from_yaml }}"
+    authentik_stack_unit: podman-compose@authentik.service
+    # podman-compose's names: the project, then the service's, then its index,
+    # and the project, then the volume's.
+    authentik_stack_project: "{{ authentik_stack_compose_data.name }}"
+    authentik_stack_server: "{{ authentik_stack_project }}_server_1"
+    authentik_stack_worker: "{{ authentik_stack_project }}_worker_1"
+    authentik_stack_postgresql: "{{ authentik_stack_project }}_postgresql_1"
+    authentik_stack_volumes: "{{ authentik_stack_compose_data.volumes.keys() | map('regex_replace', '^', authentik_stack_project ~ '_') | list }}"
+    # The server's HTTP listener, published on the host as the compose file says.
+    authentik_stack_ready_url: http://127.0.0.1:9000/-/health/ready/
+    # Seconds each start has to answer, the server's migrations included.
+    authentik_stack_timeout: 900
+    # The server's image, by the defaults of AUTHENTIK_IMAGE and AUTHENTIK_TAG,
+    # which the stack's .env leaves unset.
+    authentik_upgrade_image_ref: "{{ authentik_stack_compose_data.services.server.image }}"
+    authentik_upgrade_repository: "{{ authentik_upgrade_image_ref | regex_search('(?<=AUTHENTIK_IMAGE:-)[^}]+') }}"
+    authentik_upgrade_release: "{{ authentik_upgrade_image_ref | regex_search('(?<=AUTHENTIK_TAG:-)[^}]+') }}"
+    authentik_upgrade_image: "{{ authentik_upgrade_repository }}:{{ authentik_upgrade_release }}"
+    authentik_upgrade_backup: /var/backups/authentik-upgrade
+    # authentik's releases, the newest first, each tagged version/<series>.<patch>.
+    authentik_upgrade_releases_url: https://api.github.com/repos/goauthentik/authentik/releases?per_page=100
+    # PostgreSQL's image, tagged <major>-alpine, and the volume it keeps its
+    # data in, where it mounts it.
+    authentik_postgres_upgrade_image: "{{ authentik_stack_compose_data.services.postgresql.image }}"
+    authentik_postgres_upgrade_tag: "{{ authentik_postgres_upgrade_image.rsplit(':', 1) | last }}"
+    authentik_postgres_upgrade_major: "{{ authentik_postgres_upgrade_tag.split('-') | first }}"
+    authentik_postgres_upgrade_mount: "{{ authentik_stack_compose_data.services.postgresql.volumes | first }}"
+    authentik_postgres_upgrade_volume: "{{ authentik_stack_project }}_{{ authentik_postgres_upgrade_mount.split(':') | first }}"
+    # The newest PostgreSQL major authentik supports: 14 to 18, its 2026.8
+    # configuration docs say. Raise it as authentik's releases do.
+    authentik_postgres_upgrade_newest: 18
+    authentik_postgres_upgrade_backup: /var/backups/authentik-postgres-upgrade
+    # Every table's rows, one line each, which the restore must match.
+    authentik_postgres_upgrade_count_sql: >-
+      SELECT table_schema || '.' || table_name || ' ' || (xpath('/row/c/text()', query_to_xml(format('SELECT count(*) AS c
+      FROM %I.%I', table_schema, table_name), false, true, '')))[1]::text FROM information_schema.tables WHERE table_type =
+      'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY 1
+  tasks:
+    - &authentik_stack_only
+      name: Only where authentik's stack is declared
+      ansible.builtin.meta: end_host
+      when: host_files_list | default([]) | selectattr('path', 'eq', authentik_stack_compose) | list | length == 0
+
+    # The tag follows the release's patches through podman-auto-update; a patch
+    # named here would hold it at that patch.
+    - name: The declared release is a release series, on the server and the worker
+      ansible.builtin.assert:
+        that:
+          - authentik_upgrade_release is match('^[0-9]{4}[.][0-9]{1,2}$')
+          - authentik_stack_compose_data.services.worker.image == authentik_upgrade_image_ref
+        fail_msg: >-
+          The compose file's server image is {{ authentik_upgrade_image_ref }}; tag it, and the worker's
+          alike, with a release series, such as 2026.8, whose patches podman-auto-update brings in.
+        quiet: true
+
+    - &authentik_upgrade_probe
+      name: The image authentik's server runs
+      ansible.builtin.command:
+        argv: [podman, container, inspect, "{{ authentik_stack_server }}"]
+      register: authentik_upgrade_probe
+      changed_when: false
+      check_mode: false
+
+    - &authentik_upgrade_state
+      name: Its release and release series
+      ansible.builtin.set_fact:
+        authentik_upgrade_running: "{{ authentik_upgrade_running_labels['org.opencontainers.image.version'] }}"
+        authentik_upgrade_running_series: >-
+          {{ authentik_upgrade_running_labels['org.opencontainers.image.version'].split('.')[:2] | join('.') }}
+        authentik_upgrade_running_name: "{{ (authentik_upgrade_probe.stdout | from_json)[0].ImageName }}"
+        authentik_upgrade_running_id: "{{ (authentik_upgrade_probe.stdout | from_json)[0].Image }}"
+      vars:
+        authentik_upgrade_running_labels: "{{ (authentik_upgrade_probe.stdout | from_json)[0].Config.Labels }}"
+
+    # The compose file names the image by defaults that the .env could
+    # override; the name the server's image resolved to shows it did not.
+    - name: The server runs the compose file's image
+      ansible.builtin.assert:
+        that: authentik_upgrade_running_name == authentik_upgrade_repository ~ ':' ~ authentik_upgrade_running_series
+        fail_msg: >-
+          The server runs {{ authentik_upgrade_running_name }}, not the compose file's
+          {{ authentik_upgrade_repository }} at its release.
+        quiet: true
+
+    - name: No downgrade, which a migrated database cannot take
+      ansible.builtin.assert:
+        that: authentik_upgrade_release is version(authentik_upgrade_running_series, '>=')
+        fail_msg: The compose file declares authentik {{ authentik_upgrade_release }}, older than the running {{ authentik_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared release runs
+      ansible.builtin.meta: end_host
+      when: authentik_upgrade_release == authentik_upgrade_running_series
+
+    - name: The releases of authentik
+      ansible.builtin.uri:
+        url: "{{ authentik_upgrade_releases_url }}"
+        headers:
+          Accept: application/vnd.github+json
+      register: authentik_upgrade_releases
+      delegate_to: localhost
+      become: false
+      check_mode: false
+
+    - name: The release series after the running one
+      ansible.builtin.set_fact:
+        authentik_upgrade_next: >-
+          {{ authentik_upgrade_releases.json | rejectattr('draft') | rejectattr('prerelease')
+             | map(attribute='tag_name') | select('match', '^version/[0-9]{4}[.][0-9]+[.][0-9]+$')
+             | map('regex_replace', '^version/([0-9]{4}[.][0-9]+)[.].*$', '\1') | unique
+             | select('version', authentik_upgrade_running_series, '>')
+             | community.general.version_sort | first | default('') }}
+
+    - name: One release at a time
+      ansible.builtin.assert:
+        that: authentik_upgrade_release == authentik_upgrade_next
+        fail_msg: >-
+          authentik runs {{ authentik_upgrade_running }} and moves one release at a time:
+          {{ ('tag the images ' ~ authentik_upgrade_next ~ ', run this play and its cleanup, then go on to the next.')
+             if authentik_upgrade_next else 'no release after it is out yet.' }}
+        quiet: true
+
+    # Its upgrade guide has a release left only from that release's newest patch.
+    - name: The running release's newest patch, pulled
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ authentik_upgrade_repository }}:{{ authentik_upgrade_running_series }}"]
+      changed_when: true
+
+    - name: The running release's newest image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ authentik_upgrade_repository }}:{{ authentik_upgrade_running_series }}"]
+      register: authentik_upgrade_latest_patch
+      changed_when: false
+      check_mode: false
+
+    - name: The running release is its newest patch
+      ansible.builtin.assert:
+        that: authentik_upgrade_newest_patch == authentik_upgrade_running
+        fail_msg: >-
+          authentik runs {{ authentik_upgrade_running }}, and {{ authentik_upgrade_running_series }}'s newest
+          patch is {{ authentik_upgrade_newest_patch }}. Let podman-auto-update bring that in first.
+        quiet: true
+      vars:
+        authentik_upgrade_newest_patch: >-
+          {{ (authentik_upgrade_latest_patch.stdout | from_json)[0].Labels['org.opencontainers.image.version'] }}
+
+    - name: The declared release, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ authentik_upgrade_image }}"]
+      changed_when: true
+
+    - name: The pulled image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ authentik_upgrade_image }}"]
+      register: authentik_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The version to upgrade to
+      ansible.builtin.set_fact:
+        authentik_upgrade_target: >-
+          {{ (authentik_upgrade_pulled.stdout | from_json)[0].Labels['org.opencontainers.image.version']
+             if authentik_upgrade_pulled.rc == 0 else authentik_upgrade_release ~ '.0' }}
+
+    - name: The pulled image is the declared release
+      ansible.builtin.assert:
+        that: authentik_upgrade_target.startswith(authentik_upgrade_release ~ '.')
+        fail_msg: "{{ authentik_upgrade_image }} is release {{ authentik_upgrade_target }}."
+        quiet: true
+
+    - name: The volumes' mountpoints
+      ansible.builtin.command:
+        argv: "{{ ['podman', 'volume', 'inspect'] + authentik_stack_volumes }}"
+      register: authentik_upgrade_mountpoints
+      changed_when: false
+      check_mode: false
+
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ authentik_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: The stack stopped, for a consistent copy
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ authentik_upgrade_backup }}/volumes"
+            state: absent
+
+        - name: Directory for the volumes' copy
+          ansible.builtin.file:
+            path: "{{ authentik_upgrade_backup }}/volumes"
+            state: directory
+            owner: root
+            group: root
+            mode: "0700"
+
+        - name: Copy of each volume
+          ansible.builtin.command:
+            argv: [cp, -a, "{{ item.Mountpoint }}", "{{ authentik_upgrade_backup }}/volumes/{{ item.Name }}"]
+          loop: "{{ authentik_upgrade_mountpoints.stdout | from_json }}"
+          loop_control:
+            label: "{{ item.Name }}"
+          changed_when: true
+
+        - name: Copy of the compose file
+          ansible.builtin.copy:
+            src: "{{ authentik_stack_compose }}"
+            dest: "{{ authentik_upgrade_backup }}/docker-compose.yml"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            authentik_upgrade_copied: true
+
+        - name: The compose file with the declared release
+          ansible.builtin.copy:
+            src: "{{ authentik_stack_compose_src }}"
+            dest: "{{ authentik_stack_compose }}"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: The stack started on the declared release
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: started
+
+        - name: Wait for the server on the declared release
+          ansible.builtin.command:
+            argv: [podman, container, inspect, "{{ authentik_stack_server }}"]
+          register: authentik_upgrade_started
+          until: >-
+            authentik_upgrade_started.rc == 0 and
+            (authentik_upgrade_started.stdout | from_json)[0].Config.Labels['org.opencontainers.image.version']
+            == authentik_upgrade_target
+          retries: "{{ [(authentik_stack_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Wait for the server to answer, its migrations done
+          ansible.builtin.uri:
+            url: "{{ authentik_stack_ready_url }}"
+          register: authentik_upgrade_ready
+          until: authentik_upgrade_ready.status | default(0) == 200
+          retries: "{{ [(authentik_stack_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: The worker's container
+          ansible.builtin.command:
+            argv: [podman, container, inspect, "{{ authentik_stack_worker }}"]
+          register: authentik_upgrade_worker
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: The worker runs the server's image
+          ansible.builtin.assert:
+            that:
+              - (authentik_upgrade_worker.stdout | from_json)[0].State.Running
+              - (authentik_upgrade_worker.stdout | from_json)[0].Image == (authentik_upgrade_started.stdout | from_json)[0].Image
+            fail_msg: The worker does not run authentik {{ authentik_upgrade_target }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              authentik runs {{ authentik_upgrade_target }}, from {{ authentik_upgrade_running }}. The copy to
+              return to is in {{ authentik_upgrade_backup }}. Check it, then run authentik-upgrade-cleanup,
+              move tofu/authentik's provider to the new release once there is one, and go on to the next
+              release.
+
+      rescue:
+        - name: The stack stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: stopped
+
+        - name: Each volume put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -a, --delete, "{{ authentik_upgrade_backup }}/volumes/{{ item.Name }}/", "{{ item.Mountpoint }}/"]
+          loop: "{{ authentik_upgrade_mountpoints.stdout | from_json }}"
+          loop_control:
+            label: "{{ item.Name }}"
+          changed_when: true
+          when: authentik_upgrade_copied | default(false)
+
+        - name: The old compose file put back
+          ansible.builtin.copy:
+            src: "{{ authentik_upgrade_backup }}/docker-compose.yml"
+            dest: "{{ authentik_stack_compose }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: authentik_upgrade_copied | default(false)
+
+        - name: The stack started on the old release
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: started
+
+        - name: Wait for the old release
+          ansible.builtin.uri:
+            url: "{{ authentik_stack_ready_url }}"
+          register: authentik_upgrade_rolled_back
+          until: authentik_upgrade_rolled_back.status | default(0) == 200
+          retries: "{{ [(authentik_stack_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to authentik {{ authentik_upgrade_release }} failed, and it runs
+              {{ authentik_upgrade_running }} again{{ ' from the copy' if authentik_upgrade_copied | default(false) else '' }}.
+              Tag the images {{ authentik_upgrade_running_series }} again before the next site.yml.
+
+# Finish what authentik-upgrade leaves, once the declared release has proven
+# itself: the copy of the volumes to roll back to removed, and the images of
+# other releases. It refuses while the server does not run the declared release
+# or answer, as the copy is then still the way back. Run it with --limit <host>,
+# as the upgrade, after each release.
+- name: The authentik upgrade finished
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [authentik-upgrade-cleanup]
+  vars: *authentik_stack_vars
+  tasks:
+    - *authentik_stack_only
+
+    - *authentik_upgrade_probe
+
+    - *authentik_upgrade_state
+
+    - name: The declared release runs
+      ansible.builtin.assert:
+        that: authentik_upgrade_running_series == authentik_upgrade_release
+        fail_msg: >-
+          authentik runs {{ authentik_upgrade_running }}, not the declared {{ authentik_upgrade_release }}, so its
+          copy may still be needed.
+        quiet: true
+
+    - &authentik_stack_answers
+      name: The server answers
+      ansible.builtin.uri:
+        url: "{{ authentik_stack_ready_url }}"
+      check_mode: false
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ authentik_upgrade_backup }}"
+        state: absent
+
+    - name: The images of authentik
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ authentik_upgrade_repository }}"]
+      register: authentik_upgrade_images
+      changed_when: false
+      check_mode: false
+
+    # The server and the worker run one image, which stays, and so does the
+    # declared release's, by any of its names. Each goes by its names, once:
+    # podman removes an image with several by its ID only with --force, which
+    # removes its containers too.
+    - name: The images of other releases removed
+      ansible.builtin.command:
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
+      loop: >-
+        {{ authentik_upgrade_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', authentik_upgrade_image)
+           | rejectattr('Id', 'eq', authentik_upgrade_running_id) | unique(attribute='Id') | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
+# Upgrade authentik's PostgreSQL to the major release its compose file's
+# postgresql image declares: tag the image <major>-alpine, and mount the
+# database volume where that major keeps its data, then run this play rather
+# than site.yml, with --limit <host>. A data directory serves only the major
+# that wrote it, and the image has no pg_upgrade, so the play moves the database
+# by a dump and a restore, authentik's own procedure, which may skip majors. It
+# refuses a downgrade, a major past the newest authentik supports, and a mount
+# that does not match the declared major: from 18 the image keeps its data in
+# /var/lib/postgresql/<major>/docker, and refuses a volume at
+# /var/lib/postgresql/data. With authentik's server and worker stopped, it
+# starts the old PostgreSQL alone, counts every table's rows and dumps the
+# database, then copies the volume and the compose file. It empties the volume,
+# starts the declared major alone, which initialises it from the stack's .env,
+# restores the dump in one transaction, and counts the rows again. It counts the
+# upgrade done once the counts match, the whole stack runs again, and the server
+# answers its readiness check. If anything fails after the copy, it puts the
+# copy and the old compose file back, starts the old stack again, then fails:
+# revert the compose file's PostgreSQL change before the next site.yml. It does
+# nothing where the declared major runs.
+- name: The authentik PostgreSQL upgrade to its declared major release
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [authentik-postgres-upgrade]
+  vars: *authentik_stack_vars
+  tasks:
+    - *authentik_stack_only
+
+    # The tag follows the major's minor releases through podman-auto-update.
+    - name: The declared PostgreSQL is a supported major's Alpine image, mounted where it keeps its data
+      ansible.builtin.assert:
+        that:
+          - authentik_postgres_upgrade_tag is match('^[0-9]+-alpine$')
+          - authentik_postgres_upgrade_major | int <= authentik_postgres_upgrade_newest
+          - >-
+            authentik_postgres_upgrade_mount.split(':')[1]
+            == ('/var/lib/postgresql' if authentik_postgres_upgrade_major | int >= 18 else '/var/lib/postgresql/data')
+        fail_msg: >-
+          The compose file's postgresql image is {{ authentik_postgres_upgrade_image }}, mounting
+          {{ authentik_postgres_upgrade_mount }}. Tag it <major>-alpine, for a major authentik supports, up to
+          {{ authentik_postgres_upgrade_newest }}, and mount the volume at /var/lib/postgresql from 18 on, at
+          /var/lib/postgresql/data before.
+        quiet: true
+
+    - &authentik_postgres_upgrade_account
+      name: PostgreSQL's user and database
+      ansible.builtin.command:
+        argv: [podman, exec, "{{ authentik_stack_postgresql }}", printenv, POSTGRES_USER, POSTGRES_DB]
+      register: authentik_postgres_upgrade_account
+      changed_when: false
+      check_mode: false
+
+    - &authentik_postgres_upgrade_probe
+      name: The running PostgreSQL's release
+      ansible.builtin.command:
+        argv:
+          - podman
+          - exec
+          - "{{ authentik_stack_postgresql }}"
+          - psql
+          - --username={{ authentik_postgres_upgrade_account.stdout_lines[0] }}
+          - --dbname={{ authentik_postgres_upgrade_account.stdout_lines[1] }}
+          - --no-psqlrc
+          - --no-align
+          - --tuples-only
+          - --command=SHOW server_version_num
+      register: authentik_postgres_upgrade_probe
+      changed_when: false
+      check_mode: false
+
+    - &authentik_postgres_upgrade_state
+      name: Its major release
+      ansible.builtin.set_fact:
+        authentik_postgres_upgrade_user: "{{ authentik_postgres_upgrade_account.stdout_lines[0] }}"
+        authentik_postgres_upgrade_db: "{{ authentik_postgres_upgrade_account.stdout_lines[1] }}"
+        authentik_postgres_upgrade_running: "{{ (authentik_postgres_upgrade_probe.stdout | trim | int) // 10000 }}"
+
+    - name: No downgrade, which a dump from a newer major may not take
+      ansible.builtin.assert:
+        that: authentik_postgres_upgrade_major | int >= authentik_postgres_upgrade_running | int
+        fail_msg: >-
+          The compose file declares PostgreSQL {{ authentik_postgres_upgrade_major }}, older than the running
+          {{ authentik_postgres_upgrade_running }}.
+        quiet: true
+
+    - name: Stop here where the declared major runs
+      ansible.builtin.meta: end_host
+      when: authentik_postgres_upgrade_major | int == authentik_postgres_upgrade_running | int
+
+    - name: The declared major, pulled while the old one still serves
+      ansible.builtin.command:
+        argv: [podman, pull, --quiet, "{{ authentik_postgres_upgrade_image }}"]
+      changed_when: true
+
+    - name: The pulled image
+      ansible.builtin.command:
+        argv: [podman, image, inspect, "{{ authentik_postgres_upgrade_image }}"]
+      register: authentik_postgres_upgrade_pulled
+      changed_when: false
+      # A check run pulls nothing, so the image may not be here yet.
+      failed_when: false
+      check_mode: false
+
+    - name: The pulled image is the declared major
+      ansible.builtin.assert:
+        that: >-
+          authentik_postgres_upgrade_pulled.rc != 0 or
+          ('PG_MAJOR=' ~ authentik_postgres_upgrade_major) in (authentik_postgres_upgrade_pulled.stdout | from_json)[0].Config.Env
+        fail_msg: "{{ authentik_postgres_upgrade_image }} is not PostgreSQL {{ authentik_postgres_upgrade_major }}."
+        quiet: true
+
+    - name: The database volume's mountpoint
+      ansible.builtin.command:
+        argv: [podman, volume, inspect, --format, "{{ '{{' }}.Mountpoint{{ '}}' }}", "{{ authentik_postgres_upgrade_volume }}"]
+      register: authentik_postgres_upgrade_mountpoint
+      changed_when: false
+      check_mode: false
+
+    - name: Directory for the copy
+      ansible.builtin.file:
+        path: "{{ authentik_postgres_upgrade_backup }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Upgrade, or roll back
+      block:
+        - name: The stack stopped, so nothing writes to the database
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: stopped
+
+        - name: The previous upgrade's copy removed
+          ansible.builtin.file:
+            path: "{{ authentik_postgres_upgrade_backup }}/{{ item }}"
+            state: absent
+          loop: [data, authentik.dump, docker-compose.yml]
+
+        - &authentik_postgres_upgrade_alone
+          name: PostgreSQL started alone
+          ansible.builtin.command:
+            argv: [podman-compose, up, --detach, postgresql]
+            chdir: "{{ authentik_stack_compose | dirname }}"
+          changed_when: true
+
+        # Over TCP, which the image's entrypoint opens only once any first
+        # initialisation is done, unlike its socket.
+        - &authentik_postgres_upgrade_ready
+          name: Wait for PostgreSQL
+          ansible.builtin.command:
+            argv:
+              - podman
+              - exec
+              - "{{ authentik_stack_postgresql }}"
+              - pg_isready
+              - --host=127.0.0.1
+              - --username={{ authentik_postgres_upgrade_user }}
+              - --dbname={{ authentik_postgres_upgrade_db }}
+          register: authentik_postgres_upgrade_isready
+          until: authentik_postgres_upgrade_isready.rc == 0
+          retries: "{{ [(authentik_stack_timeout | int) // 5, 1] | max }}"
+          delay: 5
+          changed_when: false
+          when: not ansible_check_mode
+
+        - &authentik_postgres_upgrade_count
+          name: Every table's rows
+          ansible.builtin.command:
+            argv:
+              - podman
+              - exec
+              - "{{ authentik_stack_postgresql }}"
+              - psql
+              - --username={{ authentik_postgres_upgrade_user }}
+              - --dbname={{ authentik_postgres_upgrade_db }}
+              - --no-psqlrc
+              - --no-align
+              - --tuples-only
+              - --command={{ authentik_postgres_upgrade_count_sql }}
+          register: authentik_postgres_upgrade_counted
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: The rows before
+          ansible.builtin.set_fact:
+            authentik_postgres_upgrade_rows: "{{ authentik_postgres_upgrade_counted.stdout_lines | default([]) }}"
+
+        - name: Dump of the database
+          ansible.builtin.shell:
+            cmd: >-
+              podman exec {{ authentik_stack_postgresql | quote }} pg_dump
+              --username={{ authentik_postgres_upgrade_user | quote }} --dbname={{ authentik_postgres_upgrade_db | quote }}
+              --format=custom > {{ (authentik_postgres_upgrade_backup ~ '/authentik.dump') | quote }}
+          changed_when: true
+
+        - &authentik_postgres_upgrade_down
+          name: PostgreSQL stopped
+          ansible.builtin.command:
+            argv: [podman-compose, down]
+            chdir: "{{ authentik_stack_compose | dirname }}"
+          changed_when: true
+
+        - name: Copy of the database volume
+          ansible.builtin.command:
+            argv: [cp, -a, "{{ authentik_postgres_upgrade_mountpoint.stdout }}", "{{ authentik_postgres_upgrade_backup }}/data"]
+          changed_when: true
+
+        - name: Copy of the compose file
+          ansible.builtin.copy:
+            src: "{{ authentik_stack_compose }}"
+            dest: "{{ authentik_postgres_upgrade_backup }}/docker-compose.yml"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: not ansible_check_mode
+
+        # Only a complete copy is put back; before this, nothing has changed.
+        - name: The copy is complete
+          ansible.builtin.set_fact:
+            authentik_postgres_upgrade_copied: true
+
+        - name: The database volume emptied, for the declared major to initialise
+          ansible.builtin.command:
+            argv: [find, "{{ authentik_postgres_upgrade_mountpoint.stdout }}", -mindepth, "1", -delete]
+          changed_when: true
+
+        - name: The compose file with the declared major
+          ansible.builtin.copy:
+            src: "{{ authentik_stack_compose_src }}"
+            dest: "{{ authentik_stack_compose }}"
+            owner: root
+            group: root
+            mode: "0644"
+
+        - *authentik_postgres_upgrade_alone
+
+        - *authentik_postgres_upgrade_ready
+
+        - *authentik_postgres_upgrade_probe
+
+        - name: The declared major runs
+          ansible.builtin.assert:
+            that: (authentik_postgres_upgrade_probe.stdout | trim | int) // 10000 == authentik_postgres_upgrade_major | int
+            fail_msg: PostgreSQL runs {{ authentik_postgres_upgrade_probe.stdout | trim }}, not major {{ authentik_postgres_upgrade_major }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        - name: The dump restored, in one transaction
+          ansible.builtin.shell:
+            cmd: >-
+              podman exec --interactive {{ authentik_stack_postgresql | quote }} pg_restore
+              --username={{ authentik_postgres_upgrade_user | quote }} --dbname={{ authentik_postgres_upgrade_db | quote }}
+              --exit-on-error --single-transaction < {{ (authentik_postgres_upgrade_backup ~ '/authentik.dump') | quote }}
+          changed_when: true
+
+        # A restore brings no planner statistics.
+        - name: The restored tables analysed
+          ansible.builtin.command:
+            argv:
+              - podman
+              - exec
+              - "{{ authentik_stack_postgresql }}"
+              - vacuumdb
+              - --username={{ authentik_postgres_upgrade_user }}
+              - --dbname={{ authentik_postgres_upgrade_db }}
+              - --analyze-only
+          changed_when: true
+
+        - *authentik_postgres_upgrade_count
+
+        - name: The restore has every table's rows
+          ansible.builtin.assert:
+            that: authentik_postgres_upgrade_counted.stdout_lines == authentik_postgres_upgrade_rows
+            fail_msg: >-
+              The restored database's rows differ:
+              {{ authentik_postgres_upgrade_counted.stdout_lines | difference(authentik_postgres_upgrade_rows) | join(', ') }}.
+            quiet: true
+          when: not ansible_check_mode
+
+        - *authentik_postgres_upgrade_down
+
+        - name: The stack started on the declared major
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: started
+
+        - name: Wait for the server to answer
+          ansible.builtin.uri:
+            url: "{{ authentik_stack_ready_url }}"
+          register: authentik_postgres_upgrade_answered
+          until: authentik_postgres_upgrade_answered.status | default(0) == 200
+          retries: "{{ [(authentik_stack_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the upgrade
+          ansible.builtin.debug:
+            msg: >-
+              authentik's PostgreSQL runs major {{ authentik_postgres_upgrade_major }}, from
+              {{ authentik_postgres_upgrade_running }}, with {{ authentik_postgres_upgrade_rows | length }} tables'
+              rows restored. The copy to return to is in {{ authentik_postgres_upgrade_backup }}. Check authentik,
+              then run authentik-postgres-upgrade-cleanup.
+
+      rescue:
+        - name: PostgreSQL stopped, if it runs alone
+          ansible.builtin.command:
+            argv: [podman-compose, down]
+            chdir: "{{ authentik_stack_compose | dirname }}"
+          changed_when: true
+          failed_when: false
+
+        - name: The stack stopped, for the rollback
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: stopped
+
+        - name: The database put back from the copy
+          ansible.builtin.command:
+            argv: [rsync, -a, --delete, "{{ authentik_postgres_upgrade_backup }}/data/", "{{ authentik_postgres_upgrade_mountpoint.stdout }}/"]
+          changed_when: true
+          when: authentik_postgres_upgrade_copied | default(false)
+
+        - name: The old compose file put back
+          ansible.builtin.copy:
+            src: "{{ authentik_postgres_upgrade_backup }}/docker-compose.yml"
+            dest: "{{ authentik_stack_compose }}"
+            remote_src: true
+            owner: root
+            group: root
+            mode: "0644"
+          when: authentik_postgres_upgrade_copied | default(false)
+
+        - name: The stack started on the old major
+          ansible.builtin.systemd_service:
+            name: "{{ authentik_stack_unit }}"
+            state: started
+
+        - name: Wait for the server on the old major
+          ansible.builtin.uri:
+            url: "{{ authentik_stack_ready_url }}"
+          register: authentik_postgres_upgrade_rolled_back
+          until: authentik_postgres_upgrade_rolled_back.status | default(0) == 200
+          retries: "{{ [(authentik_stack_timeout | int) // 10, 1] | max }}"
+          delay: 10
+          when: not ansible_check_mode
+
+        - name: Report the rollback
+          ansible.builtin.fail:
+            msg: >-
+              The upgrade to PostgreSQL {{ authentik_postgres_upgrade_major }} failed, and authentik runs on
+              {{ authentik_postgres_upgrade_running }} again{{ ' from the copy' if authentik_postgres_upgrade_copied |
+              default(false) else '' }}. Put the compose file's postgresql image and mount back before the next
+              site.yml.
+
+# Finish what authentik-postgres-upgrade leaves, once the declared major has
+# proven itself: the copy of the old data directory, the dump and the old
+# compose file removed, and the images of other majors. It refuses while
+# PostgreSQL does not run the declared major or the server does not answer, as
+# the copy is then still the way back. Run it with --limit <host>, as the
+# upgrade.
+- name: The authentik PostgreSQL upgrade finished
+  hosts: podman_hosts
+  gather_facts: false
+  become: true
+  tags: [authentik-postgres-upgrade-cleanup]
+  vars: *authentik_stack_vars
+  tasks:
+    - *authentik_stack_only
+
+    - *authentik_postgres_upgrade_account
+
+    - *authentik_postgres_upgrade_probe
+
+    - *authentik_postgres_upgrade_state
+
+    - name: The declared major runs
+      ansible.builtin.assert:
+        that: authentik_postgres_upgrade_running | int == authentik_postgres_upgrade_major | int
+        fail_msg: >-
+          PostgreSQL runs major {{ authentik_postgres_upgrade_running }}, not the declared
+          {{ authentik_postgres_upgrade_major }}, so its copy may still be needed.
+        quiet: true
+
+    - *authentik_stack_answers
+
+    - name: The copy removed
+      ansible.builtin.file:
+        path: "{{ authentik_postgres_upgrade_backup }}"
+        state: absent
+
+    - name: The container PostgreSQL runs
+      ansible.builtin.command:
+        argv: [podman, container, inspect, --format, "{{ '{{' }}.Image{{ '}}' }}", "{{ authentik_stack_postgresql }}"]
+      register: authentik_postgres_upgrade_in_use
+      changed_when: false
+      check_mode: false
+
+    - name: PostgreSQL's images
+      ansible.builtin.command:
+        argv: [podman, images, --format, json, --filter, "reference={{ authentik_postgres_upgrade_image.rsplit(':', 1) | first }}"]
+      register: authentik_postgres_upgrade_images
+      changed_when: false
+      check_mode: false
+
+    # The one PostgreSQL runs stays, and so does the declared major's, by any of
+    # its names. Each goes by its names, once: podman removes an image with
+    # several by its ID only with --force, which removes its containers too.
+    - name: The images of other majors removed
+      ansible.builtin.command:
+        argv: "{{ ['podman', 'image', 'rm'] + (item.Names or [item.Id]) }}"
+      loop: >-
+        {{ authentik_postgres_upgrade_images.stdout | from_json | selectattr('Names')
+           | rejectattr('Names', 'contains', authentik_postgres_upgrade_image)
+           | rejectattr('Id', 'eq', authentik_postgres_upgrade_in_use.stdout | trim) | unique(attribute='Id') | list }}
+      loop_control:
+        label: "{{ item.Names | default(['<untagged>']) | join(', ') }}"
+      changed_when: true
+
 # Remove what the move from python-matter-server to matterjs-server leaves
 # behind, once matterjs-server has migrated the fabric: the copy of the Python
 # server's volume, made by hand before matterjs-server first started on it, the
