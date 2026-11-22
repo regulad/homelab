@@ -31,7 +31,8 @@ host_files_list:
     mode: "0644"
     restarts: [caddy.service]
 host_files_packages: [caddy]
-host_files_units: [caddy.service, podman-auto-update.timer]
+# podman-auto-update.timer is the quadlet role's, as the services use auto_update.
+host_files_units: [caddy.service]
 
 # memoryusers in FreeIPA, which the basic_memory role converges to exactly
 # these members: whoever is in it may read and write the whole store, as
