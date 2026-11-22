@@ -19,6 +19,7 @@ locals {
     ingress         = { id = proxmox_haresource.ingress.resource_id, tags = proxmox_virtual_environment_container.ingress.tags }
     jenkins         = { id = proxmox_haresource.jenkins.resource_id, tags = proxmox_virtual_environment_container.jenkins.tags }
     matrix          = { id = proxmox_haresource.matrix.resource_id, tags = proxmox_virtual_environment_container.matrix.tags }
+    memory          = { id = proxmox_haresource.memory.resource_id, tags = proxmox_virtual_environment_container.memory.tags }
     ncsusplitt      = { id = proxmox_haresource.ncsusplitt.resource_id, tags = proxmox_virtual_environment_container.ncsusplitt.tags }
     nexus           = { id = proxmox_haresource.nexus.resource_id, tags = proxmox_virtual_environment_container.nexus.tags }
     openclaw        = { id = proxmox_haresource.openclaw.resource_id, tags = proxmox_virtual_environment_container.openclaw.tags }
