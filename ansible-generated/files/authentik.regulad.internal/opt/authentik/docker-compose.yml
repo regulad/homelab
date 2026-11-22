@@ -9,8 +9,11 @@ name: authentik
 # container is read-only; only the worker's entrypoint writes outside the
 # volumes, to /certs, now a tmpfs. The worker also reads the homelab's own
 # blueprints, from ./blueprints, at /blueprints/homelab beside the shipped ones.
+# PostgreSQL is 18, not upstream's 16, its volume mounted at /var/lib/postgresql,
+# under which 18's image keeps its data directory.
 # authentik upgrades one release at a time and cannot downgrade: move the tag
-# to the next release only after the stack runs its latest patch.
+# to the next release, then run maintenance.yml's authentik-upgrade. A new
+# PostgreSQL major is maintenance.yml's authentik-postgres-upgrade.
 x-podman:
   in_pod: false
 
@@ -30,13 +33,13 @@ services:
       - CMD-SHELL
       - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       timeout: 5s
-    image: docker.io/library/postgres:16-alpine
+    image: docker.io/library/postgres:18-alpine
     labels:
       io.containers.autoupdate: registry
     read_only: true
     restart: unless-stopped
     volumes:
-    - database:/var/lib/postgresql/data
+    - database:/var/lib/postgresql
   server:
     command: server
     depends_on:
