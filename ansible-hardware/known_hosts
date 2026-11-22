@@ -4,6 +4,6 @@
 # (group_vars/all.yml). A rebuilt host's keys change here in the change that
 # rebuilds it. The switches connect through libssh, which reads only
 # ~/.ssh/known_hosts.
-overture ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKLO8lBBQnXIv5q1jUvzZuFylziJ8ucltk+vKmySrsMW
-prodingus ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILKDxMoCY1nkrj6oycRyohz8IberU3/UrC+3bJ0D45e6
-turk ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE/VXolxqZY814YnzGVJexwGQT2WuB90jqFUtvEQq8jn
+overture.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKLO8lBBQnXIv5q1jUvzZuFylziJ8ucltk+vKmySrsMW
+prodingus.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILKDxMoCY1nkrj6oycRyohz8IberU3/UrC+3bJ0D45e6
+turk.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE/VXolxqZY814YnzGVJexwGQT2WuB90jqFUtvEQq8jn

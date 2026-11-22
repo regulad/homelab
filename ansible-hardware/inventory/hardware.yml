@@ -1,55 +1,58 @@
 ---
-# Hardware hosts: the machines OpenTofu cannot create. Seeded from the hosts that
-# ~/.ssh/config.d/99-hardware marks as hardware, each by its tailnet MagicDNS
-# name. SSH settings, such as each host's user, come from that configuration.
+# Hardware hosts: the machines OpenTofu cannot create, each named by its full
+# hostname, its tailnet MagicDNS name, which Ansible connects to. Ansible reads
+# no SSH configuration (group_vars/all.yml), so each host's user and SSH options
+# are declared in this inventory's group_vars and host_vars.
 hardware:
   hosts:
-    turk:  # Ubuntu 24.04; VMware Workstation for Windows guests with accelerated graphics
-    overture:  # macOS, from 99-osx; also a remote workstation, its /Users/regulad managed out-of-band
+    turk.tail11540.ts.net:  # Ubuntu 24.04; VMware Workstation for Windows guests with accelerated graphics
+    overture.tail11540.ts.net:  # macOS; also a remote workstation, its /Users/regulad managed out-of-band
   children:
     proxmox_nodes:
       hosts:
-        prodingus:  # gonkputer
+        prodingus.tail11540.ts.net:  # gonkputer
     # One group per OS, as the generated hosts are grouped by OpenTofu.
     debian:
       hosts:
-        prodingus:
+        prodingus.tail11540.ts.net:
     ubuntu:
       hosts:
-        turk:
+        turk.tail11540.ts.net:
     macos:
       hosts:
-        overture:
+        overture.tail11540.ts.net:
     # Kernel crash dumps through kdump-tools.
     kdump:
       hosts:
-        prodingus:
+        prodingus.tail11540.ts.net:
     # webhookd, for Uptime Kuma's webhook notifications.
     webhookd:
       hosts:
-        prodingus:
+        prodingus.tail11540.ts.net:
     # usb-port-disable, for USB ports whose devices would kill their controller.
     usb_port_disable:
       hosts:
-        prodingus:
+        prodingus.tail11540.ts.net:
     # cachefilesd, the local cache of the CephFS storage, which is mounted
     # with fsc.
     cachefilesd:
       hosts:
-        prodingus:
+        prodingus.tail11540.ts.net:
     # Orchard workers, which run the orchard controller's Tart VMs.
     orchard_workers:
       hosts:
-        overture:
+        overture.tail11540.ts.net:
 
 # Network switches: configured over SSH by Ansible's network modules, which run
 # on the control node, through each platform's CLI. Kept outside the hardware
-# group, whose baseline roles they cannot run; named by their SSH host.
+# group, whose baseline roles they cannot run. The Arista is named by its full
+# hostname; the SG300s by their short names, which group_vars/ciscosmb.yml
+# completes under regulad.internal.
 switches:
   children:
     eos:
       hosts:
-        JPE18280417:  # Arista DCS-7010T-48, EOS 4.28
+        jpe18280417.regulad.internal:  # Arista DCS-7010T-48, EOS 4.28
     ciscosmb:
       hosts:
         switch45f304:  # Cisco SG300-10, firmware 1.4.11.5

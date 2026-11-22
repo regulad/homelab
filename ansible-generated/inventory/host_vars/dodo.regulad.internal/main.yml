@@ -8,7 +8,7 @@ ansible_become: true
 # regulad sudoes through the operator's forwarded agent, in place of its
 # NOPASSWD rule.
 pam_rssh_enabled: true
-pam_rssh_users: [regulad]
+pam_rssh_users: ["{{ ansible_user }}"]
 
 # Firmware for hardware the kernel initializes; no task needs it.
 host_files_packages: [linux-firmware]

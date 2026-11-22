@@ -1,4 +1,7 @@
 ---
+# The Proxmox nodes are administered as root, as Proxmox expects.
+ansible_user: root
+
 # mDNS on the Proxmox nodes, which run no systemd-resolved: Avahi answering
 # for the node's own name on its LAN bridge, reflecting nothing (avahi role).
 avahi_enabled: true

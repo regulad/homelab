@@ -129,7 +129,7 @@ network modules need none: they run on the control node and drive each switch's
 CLI over SSH (`ansible.netcommon.network_cli`). The switches are hosts in
 `ansible-hardware`'s `switches` group, outside `hardware`, whose baseline roles
 they cannot run.
-- They connect through the operator's SSH configuration, which holds each switch's address, its user, and the legacy algorithms the SG300s need.
+- They connect through libssh with each switch's full address and user from the inventory: the Arista under its full hostname as `regulad`, the SG300s as `svc-ansible` with the legacy algorithms they need set in `group_vars/ciscosmb.yml`. libssh still reads `~/.ssh/known_hosts` for their host keys.
 - Arista EOS: the `eos` role replaces the whole running configuration from `files/<switch>/running-config` with `arista.eos.eos_config` in one configuration session; `--check --diff` shows EOS's own session diff.
 - Cisco SG300s: the `ciscosmb` role compares the running configuration with `files/<switch>/running-config.j2`, whose password hashes come from SOPS, and pushes the difference: the local cliconf adds the missing lines, then removes the leftover ones from a fresh read, and the role saves whenever startup-config differs, once the running configuration matches. They log in as `svc-ansible` with a key per switch, which `bin/with-switch-keys` loads into a throwaway agent; `.claude/history/` records their SSH quirks.
 - Capture each switch's running configuration read-only into `docs/snapshot/` first. Raw configurations can hold secrets such as password hashes, so only configuration derived from them is committed, with sensitive values in SOPS.
@@ -188,14 +188,14 @@ resources, without a manual inventory edit.
 - `tofu/oracle`: the seven `oci_core_instance` resources, named by display name.
   - The wahlecloud instances are reached at their VCN DNS names, `<hostname label>.pubsub.wahlecloud.oraclevcn.com`, which resolve over the tailnet. Short names do not work: `tailscalerouter` resolves elsewhere first.
   - Legacy `web` is reached at its public name, `doppelgangerhq.com`, because the legacy VCN's DNS names do not reach the tailnet.
-  - Each host's login user comes from the operator's SSH configuration for that name, or from `host_vars` where it differs (`bailout` logs in as `opc`).
+  - Each host logs in as `regulad`, the stage's `ansible_user`, or as the user its `host_vars` names (`doppelgangerhq.com` logs in as `ubuntu`). Ansible reads no SSH configuration.
 - `tofu/gonkputer`: one `ansible_host` resource (`ansible/ansible` provider) per requested guest that Ansible manages, which `gonkputer.terraform_state.yml` maps: the containers, the VMs that can't use cloud-init (`arawi`, `vkasm`), and the quasi-hardware VMs, first installed on hardware and later imaged into VMs (`aboriginal`, `dodo`). VMs on cloud-init (`unifi`, `urbackup`) are configured by their vendor file and left out.
   - Containers use `ansible_connection: community.proxmox.proxmox_pct_remote`, with `ansible_host` set to their node and `proxmox_vmid` to their VMID, so one SSH connection to `prodingus` reaches all of them. The `community.proxmox` collection is pinned in `requirements.yml`, and the plugin needs `paramiko` on the control node.
   - `proxmox_pct_remote` uses Paramiko, which keeps no persistent connections, so container runs are slow; turn fact gathering down where it isn't needed.
   - A guest is requested when its HA resource is `started`, or, without an HA resource, when it starts on boot. Each guest file computes this as the `ansible_host`'s `count`, so the inventory follows the HA and boot settings without a manual edit.
   - Hosts are named by their DNS name, `<name>.regulad.internal` (`local.guest_domain`), which every guest resolves as from the control node. The name keeps them apart from OCI hosts of the same short name (both roots have a `tailscalerouter`).
   - Each host's `groups` become Ansible groups: `gonkputer`, plus `proxmox_vms` or `proxmox_containers`.
-  - A VM's login user comes from the operator's SSH configuration for its DNS name, or from `host_vars` where it differs (`vkasm` logs in as `kasm_admin`).
+  - A VM logs in as `regulad`, the stage's `ansible_user`, or as the user its `host_vars` names (`vkasm` logs in as `kasm_admin`).
 - **Accept:** `ansible-inventory --graph`, run from `ansible-generated/`, shows every generated host in its expected groups; `ansible all -m ping` succeeds from the laptop, over the tailnet for VMs and OCI instances and through `proxmox_pct_remote` for containers.
 
 **Baseline (non-destructive)**

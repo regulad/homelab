@@ -26,11 +26,12 @@ kernel_params_grub_dropins:
   99-cpu-isolation:
     - irqaffinity={{ doppelganger_web_cpus }}
 
-# A legacy host: no admin login beside its image's own.
+# A legacy host: no admin login beside its image's own, ubuntu.
+ansible_user: ubuntu
 base_admin_user: ""
-# ubuntu, that login, sudoes through the agent; the image's opc logs in only to
-# be told to use ubuntu, and has no sudo.
-pam_rssh_users: [ubuntu]
+# ubuntu sudoes through the agent; the image's opc logs in only to be told to
+# use ubuntu, and has no sudo.
+pam_rssh_users: ["{{ ansible_user }}"]
 
 # No ubuntu_release: it stays on Ubuntu 24.04 until it is retired at 24.04's
 # end of standard support, and is never release-upgraded.

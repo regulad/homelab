@@ -16,14 +16,13 @@ host_files_list:
     content: "{{ {'registry-mirrors': docker_registry_mirrors} | to_nice_json }}\n"
     reloads: [docker.service]
 
-# vkasm's login user. The operator's SSH configuration sets it only for the
-# short name, and Ansible connects by the DNS name.
+# vkasm's login user, the one Kasm's installer made.
 ansible_user: kasm_admin
 
 # kasm_admin sudoes through the operator's forwarded agent, in place of the
 # NOPASSWD rule the image gave it.
 pam_rssh_enabled: true
-pam_rssh_users: [kasm_admin]
+pam_rssh_users: ["{{ ansible_user }}"]
 pam_rssh_nopasswd_files: [/etc/sudoers.d/kasm_admin]
 
 # Kasm's installation, as the image laid it out. An upgrade installs to a new

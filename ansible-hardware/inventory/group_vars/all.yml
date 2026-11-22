@@ -1,15 +1,23 @@
 ---
+# OpenSSH reads no configuration file, the operator's or the system's (-F), so
+# each host connects by its inventory name, its full hostname, as the user this
+# inventory names, from any controller. For ssh, sftp and scp alike.
+#
 # Host keys: OpenSSH accepts only each host's keys in this stage's known_hosts,
 # under its inventory name, and reads or writes no other file, so a key missing
 # there or changed fails the connection instead of being trusted. The switches'
 # libssh reads only ~/.ssh/known_hosts. Where sudo goes through pam_rssh, the
 # agent is forwarded too, for its become to sign with.
-ansible_ssh_extra_args: >-
+ansible_ssh_common_args: >-
+  -F /dev/null
   -o HostKeyAlias={{ inventory_hostname }}
   -o UserKnownHostsFile={{ inventory_dir }}/../known_hosts
   -o GlobalKnownHostsFile=/dev/null
   -o StrictHostKeyChecking=yes
   {{ '-o ForwardAgent=yes' if pam_rssh_enabled | default(false) else '' }}
+# The login on every host, but where a group or host names another: root on
+# the Proxmox nodes, svc-ansible on the SG300s.
+ansible_user: regulad
 
 # Each host's FreeIPA mail account, null-<short hostname> by convention; a
 # host_vars mail_relay_account overrides it where two hosts share a name.
@@ -19,7 +27,7 @@ mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
 auto_updates_mail_from: "{{ mail_relay_account }}@regulad.xyz"
 # FreeIPA's API calls run on prodingus, which is on the LAN with wako; turk is
 # reached over the tailnet.
-mail_relay_freeipa_delegate: prodingus
+mail_relay_freeipa_delegate: "{{ groups['proxmox_nodes'] | first }}"
 # The shared clamd's StreamMaxLength, in MiB, and MaxScanTime, in milliseconds:
 # clamd_max_file_mib and clamd_max_scan_time_ms in ansible-generated's
 # host_vars for clamd, which this stage cannot read. The clamav role's weekly
