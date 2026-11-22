@@ -24,6 +24,9 @@ host_files_directories:
     mode: "0400"
   - path: /srv/cydia
     mode: "0755"
+  # chatgpt-ranges's output, which memory.regulad.xyz's site imports.
+  - path: /var/lib/caddy-ranges
+    mode: "0755"
   # kodi.regulad.xyz's web root, which kodi-publish fills. The mode applies to
   # everything under it: X keeps directories searchable without making the
   # files each publish writes executable.
@@ -51,6 +54,30 @@ host_files_list:
     mode: "0600"
     content: "{{ ingress_ldap_bind_password }}"
     secret: true
+  # memory.regulad.xyz's two tokens, read the same way: the client token its
+  # static-token clients send, and the backend token that replaces it for
+  # memory's own Caddy, which reads it from memory's host_vars. No final
+  # newline.
+  - path: /etc/caddy/memory-client-token
+    mode: "0600"
+    content: "{{ memory_client_token }}"
+    secret: true
+  - path: /etc/caddy/memory-backend-token
+    mode: "0600"
+    content: "{{ memory_backend_token }}"
+    secret: true
+  # OpenAI's ChatGPT connector ranges for memory.regulad.xyz's access check,
+  # which chatgpt-ranges.timer refreshes daily into /var/lib/caddy-ranges. A
+  # change to the script runs it at once.
+  - path: /usr/local/sbin/chatgpt-ranges
+    mode: "0755"
+    restarts: [chatgpt-ranges.service]
+  - path: /etc/systemd/system/chatgpt-ranges.service
+    mode: "0644"
+    restarts: [chatgpt-ranges.service]
+  - path: /etc/systemd/system/chatgpt-ranges.timer
+    mode: "0644"
+    restarts: [chatgpt-ranges.timer]
   # Coraza rules the php2shell snippet includes; before the Caddyfile, whose
   # validation reads them.
   - path: /etc/caddy/coraza/php2shell.conf
@@ -110,7 +137,7 @@ host_files_trees:
       sh -c 'set -a; . /etc/caddy/cloudflare.env; exec /usr/local/bin/caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile'
     reloads: [caddy.service]
 host_files_packages: [xcaddy, golang-go, gnupg, imagemagick, bzip2, curl]
-host_files_units: [caddy.service, caddy-build.timer, cydia-sync.timer]
+host_files_units: [caddy.service, caddy-build.timer, cydia-sync.timer, chatgpt-ranges.timer]
 
 # Podman first ran here on Ubuntu 24.04 without a storage.conf, so its database
 # recorded no storage driver; it still does after the release upgrade.
@@ -127,11 +154,12 @@ ubuntu_release: "26.04"
 # keeps it (https://github.com/klauspost/compress/issues/1119).
 clamav_exclude_paths: [/var/cache/caddy/go/pkg/mod]
 
-# Not checked by AIDE: the cydia mirror cydia-sync rewrites, and Caddy's
+# Not checked by AIDE: the cydia mirror cydia-sync rewrites, the ChatGPT
+# connector ranges chatgpt-ranges rewrites, and Caddy's
 # certificates, with the locks and cleanup record of the certificate manager
 # that renews them, the Encrypted Client Hello keys it rotates, and the copy
 # of its running configuration it saves at each load. Caddy keeps its data in
 # /caddy, as its unit runs it as root with no HOME set; its ACME account stays
 # watched.
 aide_exclude_paths_host:
-  [/srv/cydia, /caddy/certificates, /caddy/locks, /caddy/last_clean.json, /caddy/ech, /caddy/autosave.json]
+  [/srv/cydia, /var/lib/caddy-ranges, /caddy/certificates, /caddy/locks, /caddy/last_clean.json, /caddy/ech, /caddy/autosave.json]

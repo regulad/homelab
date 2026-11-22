@@ -1,0 +1,56 @@
+memory.regulad.xyz {
+	import hsts
+	import common
+	import mtls_optional
+	# No cache: MCP's streamable HTTP holds its responses open, which Souin
+	# would cut at its deadline and buffer whole.
+
+	# Who may reach it at all: a request from the LAN, the tailnet, Anthropic's
+	# or OpenAI's connectors, or one that presents a client certificate from
+	# regulad.internal's CA (mtls_optional). Any other gets 403, whatever token
+	# it carries. Each not excludes its ranges, so the matcher matches a request
+	# from none of them that presents no certificate.
+	@denied {
+		not {
+			import lan_remote_ip
+		}
+		# The tailnet's ranges, then Anthropic's outbound ranges for MCP
+		# connectors, as https://platform.claude.com/docs/en/api/ip-addresses
+		# lists them; it lists no outbound IPv6.
+		not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48 160.79.104.0/21 153.61.208.0/20
+		# OpenAI's ChatGPT connector ranges, which chatgpt-ranges.timer refreshes
+		# daily; before its first run the glob matches nothing, and they are not
+		# admitted.
+		import /var/lib/caddy-ranges/chatgpt*.caddyfile
+		expression `{http.request.tls.client.subject} == ""`
+	}
+
+	# The client token, which Parker's static-token clients send, matched
+	# exactly. Both tokens are read from their root-only files at each request
+	# (host_vars), so neither enters Caddy's configuration, and Caddy's access
+	# logs redact Authorization.
+	@client_token header Authorization "Bearer {file./etc/caddy/memory-client-token}"
+
+	route {
+		respond @denied 403
+
+		# Static-token clients: their token is replaced by the backend token, which
+		# memory's own Caddy checks before it passes the request to basic-memory.
+		# IPv4 only: memory's firewall admits ingress's reserved IPv4 address
+		# alone, as ingress's GUA rotates with the delegated prefix.
+		reverse_proxy @client_token {
+			dynamic a memory.regulad.internal 8081 {
+				versions ipv4
+			}
+			header_up Authorization "Bearer {file./etc/caddy/memory-backend-token}"
+		}
+
+		# Everything else: mcp-auth-proxy, with its OAuth endpoints, and the MCP
+		# endpoint for the tokens it issues.
+		reverse_proxy {
+			dynamic a memory.regulad.internal 8080 {
+				versions ipv4
+			}
+		}
+	}
+}

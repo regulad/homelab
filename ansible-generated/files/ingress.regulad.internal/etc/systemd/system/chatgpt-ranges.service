@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh OpenAI's ChatGPT connector ranges for memory.regulad.xyz
+Wants=network-online.target
+After=network-online.target caddy.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/chatgpt-ranges
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/caddy-ranges

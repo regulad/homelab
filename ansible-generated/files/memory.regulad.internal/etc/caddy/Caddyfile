@@ -1,0 +1,24 @@
+# memory's own Caddy, from Ubuntu's caddy package: the backend check for the
+# static-token route. Caddy on ingress sends a static-token client's request
+# here with its token replaced by the backend token; this passes only a request
+# that carries that token, exactly, to basic-memory on loopback, without it, and
+# answers anything else with 401. The firewall admits ingress alone to it.
+{
+	# Plain HTTP, to ingress alone: no certificates to manage.
+	auto_https off
+}
+
+:8081 {
+	# MEMORY_BACKEND_TOKEN, from /etc/caddy/memory.env, which caddy.service's
+	# drop-in requires, so Caddy never runs with it empty.
+	@backend header Authorization "Bearer {env.MEMORY_BACKEND_TOKEN}"
+
+	route {
+		reverse_proxy @backend 127.0.0.1:8000 {
+			header_up -Authorization
+			# basic-memory refuses a Host that is not loopback's.
+			header_up Host {upstream_hostport}
+		}
+		respond 401
+	}
+}

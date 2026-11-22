@@ -1,0 +1,61 @@
+---
+# memory: basic-memory, the memory store Parker's AI clients share, as Caddy on
+# ingress serves it at memory.regulad.xyz. basic-memory listens on loopback
+# alone (services.yml). OAuth clients reach it through mcp-auth-proxy, which
+# signs users in through authentik's memory application (tofu/authentik);
+# static-token clients through this host's own Caddy, from Ubuntu's caddy
+# package, which checks the backend token that Caddy on ingress puts in place of
+# theirs. The services' state is on the container's own mount point, Podman's
+# volume path.
+host_files_directories:
+  - path: /etc/caddy
+    mode: "0755"
+  - path: /etc/systemd/system/caddy.service.d
+    mode: "0755"
+host_files_list:
+  # The backend token, which ingress's secrets.sops.yml holds; no final newline
+  # is needed in an environment file, nor any quoting, as the token is
+  # URL-safe.
+  - path: /etc/caddy/memory.env
+    mode: "0600"
+    content: "MEMORY_BACKEND_TOKEN={{ hostvars['ingress.regulad.internal'].memory_backend_token }}\n"
+    secret: true
+    restarts: [caddy.service]
+  # Not validated as it is placed: host_files installs the caddy package after
+  # its files, so a new host has no caddy to validate with yet. Caddy refuses
+  # to start on a Caddyfile that does not parse.
+  - path: /etc/caddy/Caddyfile
+    mode: "0644"
+    restarts: [caddy.service]
+  - path: /etc/systemd/system/caddy.service.d/override.conf
+    mode: "0644"
+    restarts: [caddy.service]
+host_files_packages: [caddy]
+host_files_units: [caddy.service, podman-auto-update.timer]
+
+# memoryusers in FreeIPA, which the basic_memory role converges to exactly
+# these members: whoever is in it may read and write the whole store, as
+# basic-memory has no users or permissions of its own. mcp-auth-proxy admits
+# its members by the groups claim (services.yml).
+basic_memory_freeipa_group: memoryusers
+basic_memory_freeipa_members: [regulad]
+basic_memory_freeipa_host: "{{ freeipa_server.fqdn }}"
+basic_memory_freeipa_delegate: "{{ freeipa_server.fqdn }}"
+basic_memory_freeipa_password: "{{ mail_relay_freeipa_password }}"
+
+# authentik's memory application (tofu/authentik), whose client mcp-auth-proxy
+# is: its client ID and the secret authentik generated, from tofu/authentik's
+# outputs, which the cloud.terraform.tf_output lookup reads on the operator's
+# machine, so a run that renders them needs tofu/authentik/prepare.sh sourced.
+# The lookup's binary_path is a path option, which takes a bare name as relative
+# to the working directory, so tofu is resolved on PATH.
+basic_memory_oidc_client_id: >-
+  {{ lookup('cloud.terraform.tf_output', 'oauth_client_ids',
+            project_path=inventory_dir ~ '/../../tofu/authentik',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu'))['memory'] }}
+basic_memory_oidc_client_secret: >-
+  {{ lookup('cloud.terraform.tf_output', 'oauth_client_secrets',
+            project_path=inventory_dir ~ '/../../tofu/authentik',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu'))['memory'] }}
+quadlet_env_files:
+  mcp-auth-proxy: "OIDC_CLIENT_SECRET={{ basic_memory_oidc_client_secret }}"

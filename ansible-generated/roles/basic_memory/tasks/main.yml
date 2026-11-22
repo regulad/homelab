@@ -1,0 +1,23 @@
+---
+# Converge who may use the shared memory store: memoryusers in FreeIPA, which
+# authentik's freeipa source syncs. basic-memory and its front doors run as
+# Quadlets (the quadlet role) and host files (host_files).
+
+# FIXME: community.general 13.5.0's IPA client fails a member change that
+# succeeded, as FreeIPA's result lists no failures as a dict of empty lists
+# (fixed in PR 13188, backported to stable-13 as PR 13206). Revisit at the
+# first 13.x release that carries it, and move requirements.yml's pin there.
+- name: The memory store's group
+  community.general.ipa_group:
+    name: "{{ basic_memory_freeipa_group }}"
+    description: Users of the shared memory store, memory.regulad.xyz
+    user: "{{ basic_memory_freeipa_members }}"
+    append: false
+    state: present
+    ipa_host: "{{ basic_memory_freeipa_host }}"
+    ipa_user: "{{ basic_memory_freeipa_user }}"
+    ipa_pass: "{{ basic_memory_freeipa_password }}"
+    validate_certs: true
+  delegate_to: "{{ basic_memory_freeipa_delegate }}"
+  become: false
+  no_log: true

@@ -1,0 +1,12 @@
+---
+# The FreeIPA group whose members mcp-auth-proxy and authentik's memory
+# application admit, and its members: the group is converged to exactly these
+# users, through FreeIPA's API on basic_memory_freeipa_host, called from
+# basic_memory_freeipa_delegate, as basic_memory_freeipa_user with
+# basic_memory_freeipa_password. authentik's freeipa source syncs it.
+basic_memory_freeipa_group: memoryusers
+basic_memory_freeipa_members: []
+basic_memory_freeipa_host: ""
+basic_memory_freeipa_delegate: "{{ inventory_hostname }}"
+basic_memory_freeipa_user: svc-ansible
+basic_memory_freeipa_password: ""

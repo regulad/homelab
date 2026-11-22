@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily trigger for chatgpt-ranges.service
+
+[Timer]
+OnBootSec=2min
+# A fixed time: systemd delays a missed Persistent= run by any
+# RandomizedDelaySec= again after a boot (systemd#21166).
+OnCalendar=*-*-* 05:43:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -73,6 +73,28 @@
 	}
 }
 
+# The same CA's client certificates, asked for but not required: a client may
+# present none, and one it presents must verify. The site decides what a
+# request without one may reach, from {http.request.tls.client.subject}, which
+# is empty then.
+(mtls_optional) {
+	tls {
+		client_auth {
+			mode verify_if_given
+			trust_pool file {
+				pem_file /usr/local/share/ca-certificates/regulad.internal.crt
+			}
+		}
+	}
+}
+
+# A matcher for the LAN's addresses, its IPv4 range and its ULA prefix, which
+# a named matcher imports: as remote_ip, or within not. Its GUA prefix rotates,
+# so it is left out.
+(lan_remote_ip) {
+	remote_ip 10.23.0.0/20 fd83:b84c:aa57:1::/64
+}
+
 # One of Nexus's Docker repositories, named by the import's argument, at the
 # root of a host of its own: Docker's API always starts at <host>/v2/, so it
 # cannot take the repository's path on repo.regulad.xyz. As Sonatype's
@@ -103,7 +125,7 @@
 	# a client sends is dropped first.
 	@local_peer {
 		path /repository/{args[0]}/v2 /repository/{args[0]}/v2/*
-		remote_ip 10.23.0.0/20 fd83:b84c:aa57:1::/64
+		import lan_remote_ip
 		header !Authorization
 	}
 	route {

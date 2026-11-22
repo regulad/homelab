@@ -1,0 +1,77 @@
+---
+# All three share the container's network: basic-memory listens on loopback
+# alone, where mcp-auth-proxy and this host's Caddy reach it, and the firewall
+# admits ingress alone to mcp-auth-proxy's 8080 and Caddy's 8081.
+quadlet_services:
+  # basic-memory, its MCP endpoint at /mcp, with no authentication of its own.
+  # Its image's directories under /app belong to its user, appuser (1000), and
+  # a new named volume takes their owner, so both volumes start writable by it.
+  - name: basic-memory
+    description: basic-memory, the shared memory store's MCP server
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Its release series: upstream tags each release and its major.minor, and
+    # no major alone.
+    image: ghcr.io/basicmachines-co/basic-memory:1.0
+    container_name: basic-memory
+    auto_update: registry
+    network: host
+    # Streamable HTTP on loopback, in place of the image's SSE on every address.
+    exec: basic-memory mcp --transport streamable-http --host 127.0.0.1 --port 8000
+    volumes:
+      # The notes, project main, at BASIC_MEMORY_HOME, /app/data/basic-memory.
+      - basic-memory-data:/app/data
+      # Its configuration, its SQLite index and its embedding model's cache,
+      # which it downloads from Hugging Face at first use.
+      - basic-memory-state:/app/.basic-memory
+    tmpfs:
+      - /tmp
+    environment:
+      BASIC_MEMORY_CONFIG_DIR: /app/.basic-memory
+      # No promotions or analytics.
+      BASIC_MEMORY_NO_PROMOS: "1"
+      # FastMCP's start: no banner, and no check of PyPI for its own updates.
+      FASTMCP_SHOW_SERVER_BANNER: "false"
+      FASTMCP_CHECK_FOR_UPDATES: "off"
+    no_new_privileges: true
+    drop_capabilities: [all]
+    restart: always
+    wanted_by: [multi-user.target]
+
+  # mcp-auth-proxy, the OAuth 2.1 server claude.ai and ChatGPT see: it registers
+  # each client dynamically, signs its user in through authentik, admits only
+  # members of memoryusers by the groups claim, and proxies to basic-memory with
+  # no token of its own. Its state, the clients, tokens, HMAC secret and signing
+  # key, is in /data. Its image sets no user, so it runs as nobody, which :U
+  # gives the volume.
+  - name: mcp-auth-proxy
+    description: mcp-auth-proxy, the shared memory store's OAuth front door
+    after: [network-online.target, basic-memory.service]
+    wants: [network-online.target, basic-memory.service]
+    image: ghcr.io/sigbit/mcp-auth-proxy:2
+    container_name: mcp-auth-proxy
+    auto_update: registry
+    network: host
+    user: "65534:65534"
+    # The backend.
+    exec: http://127.0.0.1:8000
+    volumes:
+      - mcp-auth-proxy-data:/data:U
+    environment:
+      # Plain HTTP on 8080, behind Caddy on ingress, which holds the certificate.
+      LISTEN: ":8080"
+      NO_AUTO_TLS: "true"
+      EXTERNAL_URL: https://memory.regulad.xyz
+      DATA_PATH: /data
+      OIDC_PROVIDER_NAME: authentik
+      OIDC_CONFIGURATION_URL: https://authentik.regulad.xyz/application/o/memory/.well-known/openid-configuration
+      OIDC_CLIENT_ID: "{{ basic_memory_oidc_client_id }}"
+      # FreeIPA's username, which every user has, rather than an email.
+      OIDC_USER_ID_FIELD: /preferred_username
+      OIDC_ALLOWED_ATTRIBUTES: /groups={{ basic_memory_freeipa_group }}
+    # OIDC_CLIENT_SECRET (main.yml).
+    env_file: true
+    no_new_privileges: true
+    drop_capabilities: [all]
+    restart: always
+    wanted_by: [multi-user.target]

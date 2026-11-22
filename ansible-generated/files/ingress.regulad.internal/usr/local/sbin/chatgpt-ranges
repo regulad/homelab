@@ -1,0 +1,89 @@
+#!/usr/bin/python3 -I
+"""Refresh OpenAI's ChatGPT connector ranges for memory.regulad.xyz.
+
+OpenAI publishes the addresses ChatGPT's connectors call from at URL, and
+changes them without notice. This writes them, as Caddyfile matcher lines, to
+OUTPUT, which memory.regulad.xyz's access check imports: a request from one of
+them needs no client certificate. A fetch that fails, or a list with no prefix
+or one that does not parse, leaves the last good file in place. Caddy reloads
+only when the list has changed; if the reload fails, the previous file is put
+back. chatgpt-ranges.timer runs it daily.
+"""
+
+import ipaddress
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+URL = "https://openai.com/chatgpt-connectors.json"
+OUTPUT = "/var/lib/caddy-ranges/chatgpt.caddyfile"
+# Ranges per matcher line, to keep the lines readable.
+PER_LINE = 16
+
+
+def fetch():
+    """The list's prefixes, each parsed, or an exception."""
+    with urllib.request.urlopen(URL, timeout=60) as response:
+        document = json.load(response)
+    networks = set()
+    for entry in document["prefixes"]:
+        for key in ("ipv4Prefix", "ipv6Prefix"):
+            if key in entry:
+                networks.add(ipaddress.ip_network(entry[key], strict=True))
+    if not networks:
+        raise ValueError("the list has no prefixes")
+    return sorted(networks, key=lambda network: (network.version, network))
+
+
+def render(networks):
+    """The matcher lines: within the site's @denied matcher, each excludes its
+    ranges, so a request from any of them is not denied for its address."""
+    lines = [f"# OpenAI's ChatGPT connector ranges, from {URL}, written by chatgpt-ranges.\n"]
+    for start in range(0, len(networks), PER_LINE):
+        chunk = networks[start:start + PER_LINE]
+        lines.append("not remote_ip " + " ".join(str(network) for network in chunk) + "\n")
+    return "".join(lines)
+
+
+def main():
+    try:
+        networks = fetch()
+    except Exception as error:  # noqa: BLE001 - any failure keeps the last good list
+        print(f"chatgpt-ranges: keeping the last good list: {error}", file=sys.stderr)
+        return 1
+    content = render(networks)
+    try:
+        with open(OUTPUT, encoding="utf-8") as current:
+            previous = current.read()
+    except FileNotFoundError:
+        previous = None
+    if content == previous:
+        print(f"chatgpt-ranges: {len(networks)} ranges, unchanged")
+        return 0
+    directory = os.path.dirname(OUTPUT)
+    # A name the site's import glob, chatgpt*.caddyfile, does not match.
+    descriptor, temporary = tempfile.mkstemp(prefix=".tmp-", dir=directory)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as staged:
+        staged.write(content)
+        staged.flush()
+        os.fsync(staged.fileno())
+    os.chmod(temporary, 0o644)
+    os.replace(temporary, OUTPUT)
+    reload = subprocess.run(["systemctl", "reload", "caddy.service"], check=False)
+    if reload.returncode != 0:
+        if previous is None:
+            os.remove(OUTPUT)
+        else:
+            with open(OUTPUT, "w", encoding="utf-8") as restored:
+                restored.write(previous)
+        print("chatgpt-ranges: Caddy refused the new list; the previous one is back", file=sys.stderr)
+        return 1
+    print(f"chatgpt-ranges: {len(networks)} ranges written, and Caddy reloaded")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
