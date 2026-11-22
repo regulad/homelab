@@ -1,4 +1,4 @@
-# memory: container <vmid once created>, its HA resource, its firewall and its
+# memory: container 213, its HA resource, its firewall and its
 # Ansible host: basic-memory, the memory store Parker's AI clients share,
 # behind mcp-auth-proxy and a token-checking Caddy, which Caddy on ingress
 # serves as memory.regulad.xyz.

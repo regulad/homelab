@@ -1,11 +1,12 @@
 # authentik (authentik)
 
-The `.tf` files are the source of truth for what was set up by hand in authentik, the
-identity provider in the `authentik` container (CT 201): the Immich application with its
-OAuth2 provider and its bindings, the `freeipa` LDAP source with the CA certificate it
-checks its server against, and the system settings. Its adoption is the first, descriptive
-pass: it mirrors the live configuration, so adopting it changes nothing. Fixes follow as
-separate, reviewed changes.
+The `.tf` files are the source of truth for authentik's own configuration, the identity
+provider in the `authentik` container (CT 201): the Immich application with its OAuth2
+provider and its bindings, the memory application, whose client is mcp-auth-proxy on
+`memory` (memory.regulad.xyz), with its binding to `memoryusers`, the `freeipa` LDAP
+source with the CA certificate it checks its server against, and the system settings.
+What was set up by hand was adopted in a first, descriptive pass that mirrored the live
+configuration; the memory application was created here.
 
 The stack itself, its compose file, `.env` and release, is `ansible-generated`'s
 (`host_vars/authentik.regulad.internal/`), which brings authentik up before this root can
@@ -17,7 +18,7 @@ reach it.
 | `source-<slug>.tf` | One file per source, with the certificates it uses and the property mappings it applies |
 | `system-settings.tf` | The system settings |
 | `defaults.tf` | The flows, signing key and scope mappings authentik makes itself, read through data sources |
-| `outputs.tf` | The `oauth_client_ids` output: each OAuth2 provider's client ID, by application slug |
+| `outputs.tf` | The `oauth_client_ids` output, each OAuth2 provider's client ID, and the sensitive `oauth_client_secrets`, the secrets authentik generated for the clients `ansible-generated` configures, each by application slug |
 | `variables.tf` | The API token and LDAP bind password inputs |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
