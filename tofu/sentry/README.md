@@ -39,15 +39,15 @@ yet (`versions.tf`).
 
 Every project has an alert, and every alert emails the issue's owners, falling back to the
 project's active members. All but doppelganger's are Sentry's default for a new project,
-koala's and those of Warlock's four programs as copies declared here; doppelganger's, named `doppelganger-front`, fires at most once a day. Each alert watches its project's default issue-stream
+koala's, koala-vcam's and those of Warlock's four programs as copies declared here; doppelganger's, named `doppelganger-front`, fires at most once a day. Each alert watches its project's default issue-stream
 monitor, read through the `sentry_project_issue_stream_monitor` data source. The
 high-priority triggers have no native form in the provider, which passes them through as
 `legacy_trigger_conditions`.
 
 A project created here, rather than adopted, sets `default_key` and `default_rules` to
 `false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
-the key and alert declared for it are its only ones: koala, warlock, warlock-extcap,
-warlock-installer and warlockctl. Both take
+the key and alert declared for it are its only ones: koala, koala-vcam, warlock,
+warlock-extcap, warlock-installer and warlockctl. Both take
 effect only while the provider creates the project, when it deletes every key named
 `Default`, before the declared key exists. Never set them on an adopted project, whose key
 is the one Sentry made. Before upgrading the provider, check that it still deletes those keys
@@ -84,13 +84,17 @@ maps to. Each has a mapping of its own for each checkout's submodule, as rosella
 UxPlay has: koala's `third_party\warlock\`, whose `warlock-client` crate Koala builds, to
 `regulad/Warlock`'s default branch, and warlock's `third_party\devourer\`, whose C library
 `devourer-sys` builds, to `regulad/devourer`'s `warlock` branch. devourer is compiled by
-MSVC through CMake rather than by rustc, so the form of its recorded paths is unverified
-until Warlock's first event with a devourer frame.
+MSVC through CMake rather than by rustc, and Warlock's PDB records its paths in the same
+form as rustc's, `D:\a\Warlock\Warlock\third_party\devourer\…`, backslashes throughout.
 
 warlock-extcap, warlock-installer and warlockctl, Warlock's other programs, are built from
 the same checkouts as warlock, so each has warlock's two checkout mappings, from
 `local.warlock_checkouts` in `locals.tf`. None of them builds devourer, so none has a
 devourer mapping.
+
+koala-vcam, Koala's virtual camera, `koala_vcam_source.dll`, is built from the same
+checkouts as koala, so it has koala's two checkout mappings, from `local.koala_checkouts`
+in `locals.tf`. It builds no `warlock-client`, so it has no Warlock mapping.
 
 ## DSNs
 
@@ -106,7 +110,7 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-koala, rosellaview and Warlock's four programs build their DSNs into their source, so nothing here
+koala, koala-vcam, rosellaview and Warlock's four programs build their DSNs into their source, so nothing here
 delivers them; a key replaced here reaches them only through a change to that source.
 
 ## Credentials

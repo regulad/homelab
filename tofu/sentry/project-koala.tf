@@ -1,15 +1,5 @@
 # koala: the project, named Koala, its client key, its alert, and its code mappings.
 locals {
-  # Where each build of the app checks the repository out, as Windows writes the
-  # path. Sentry matches a stack root as a literal prefix of a frame's path,
-  # backslashes and case included, and writes each \ as / only after replacing it.
-  koala_checkouts = {
-    # Release builds, by .github/workflows/build.yml on GitHub's Windows runner.
-    release = "D:\\a\\Koala\\Koala\\"
-    # Development builds.
-    development = "D:\\repositories\\Koala\\"
-  }
-
   # The Warlock submodule, whose source GitHub keeps in its own repository, and
   # the branch it follows there: Koala's .gitmodules names none, so Warlock's
   # default.
