@@ -776,6 +776,17 @@ resource "cloudflare_dns_record" "regulad_xyz_matrix_cname" {
   }
 }
 
+# basic-memory, the memory store Parker's AI clients share, which Caddy on
+# ingress serves. DNS-only, proxied left at its default of false, so Caddy
+# sees each client's own address, which its access check reads.
+resource "cloudflare_dns_record" "regulad_xyz_memory_cname" {
+  name    = "memory.${cloudflare_zone.regulad_xyz.name}"
+  zone_id = cloudflare_zone.regulad_xyz.id
+  type    = "CNAME"
+  content = local.regulad_xyz_ingress
+  ttl     = 1 # Automatic
+}
+
 resource "cloudflare_dns_record" "regulad_xyz_minecraft_tcp_mc_srv" {
   name     = "_minecraft._tcp.mc.${cloudflare_zone.regulad_xyz.name}"
   zone_id  = cloudflare_zone.regulad_xyz.id
