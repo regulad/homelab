@@ -28,6 +28,10 @@ quadlet_services:
       - /tmp
     environment:
       BASIC_MEMORY_CONFIG_DIR: /app/.basic-memory
+      # Hugging Face's cache, on the state volume: huggingface_hub downloads
+      # the embedding model through Xet, which caches under HF_HOME, by default
+      # ~/.cache/huggingface on the read-only root.
+      HF_HOME: /app/.basic-memory/huggingface
       # No promotions or analytics.
       BASIC_MEMORY_NO_PROMOS: "1"
       # FastMCP's start: no banner, and no check of PyPI for its own updates.
