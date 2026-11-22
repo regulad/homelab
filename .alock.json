@@ -1,5 +1,6 @@
 {
   "tf": {
+    "tofu/authentik": {},
     "tofu/aws": {},
     "tofu/azure": {},
     "tofu/backblaze": {},

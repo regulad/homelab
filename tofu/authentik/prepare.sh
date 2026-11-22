@@ -1,0 +1,83 @@
+# shellcheck shell=sh
+# Prepare the calling shell to run OpenTofu in tofu/authentik: export the
+# homelab-tofu service account's token, from the authentik host's Ansible
+# secrets, whose blueprint defines it, and the state backend's credentials, and
+# decrypt the OpenTofu inputs into the gitignored secrets.auto.tfvars.json file.
+#
+# Source it from anywhere in the clone; do not execute it:
+#
+#   . tofu/authentik/prepare.sh
+#
+# The resource definitions are ordinary .tf files. This script only decrypts
+# values; it never generates HCL, calls authentik, imports state, or applies
+# infrastructure changes. The credentials stay in the environment, never on disk.
+# It works in sh, bash and zsh, and reports failure through its exit status
+# instead of exiting the shell.
+
+_homelab_sops() {
+    # sops looks in ~/.config only on Linux; use the same identity on macOS.
+    if [ -z "${SOPS_AGE_KEY_FILE-}${SOPS_AGE_KEY-}${SOPS_AGE_KEY_CMD-}" ] &&
+        [ -f "$HOME/.config/sops/age/keys.txt" ]; then
+        SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt" sops "$@"
+    else
+        sops "$@"
+    fi
+}
+
+_homelab_authentik_prepare() {
+    # dash, bash, zsh and macOS sh all support local.
+    # shellcheck disable=SC3043
+    local root dir destination plaintext token backend name value
+    root=$(git rev-parse --show-toplevel) || return 1
+    dir="$root/tofu/authentik"
+    destination="$dir/secrets.auto.tfvars.json"
+    if ! git -C "$dir" check-ignore -q -- "$destination"; then
+        echo 'prepare.sh: decrypted inputs must be gitignored.' >&2
+        return 1
+    fi
+    # The provider's token, which the homelab-tofu blueprint gives authentik.
+    # Its value is never printed.
+    token=$(_homelab_sops decrypt --extract '["authentik_tofu_token"]' \
+        "$root/ansible-generated/inventory/host_vars/authentik.regulad.internal/secrets.sops.yml") || return 1
+    if [ -z "$token" ]; then
+        echo "prepare.sh: the authentik host's secrets.sops.yml has an empty authentik_tofu_token." >&2
+        return 1
+    fi
+    # The s3 backend reads these from the environment, so they never reach
+    # .terraform/ or saved plans. Check every name before exporting any.
+    backend=$(_homelab_sops decrypt "$root/tofu/shared/backend.sops.env") || return 1
+    for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3; do
+        if ! printf '%s\n' "$backend" | grep -q "^$name=."; then
+            echo "prepare.sh: tofu/shared/backend.sops.env is missing $name." >&2
+            return 1
+        fi
+    done
+    plaintext=$(_homelab_sops decrypt --output-type json "$dir/secrets.sops.yaml") || return 1
+    if ! printf '%s\n' "$plaintext" |
+        jq -e '(.state_encryption_passphrase // "") != "" and (.ldap_bind_password // "") != ""' >/dev/null; then
+        echo 'prepare.sh: unexpected authentik input file: expected state_encryption_passphrase and ldap_bind_password inputs.' >&2
+        return 1
+    fi
+    if [ -e "$destination" ]; then
+        # Compare data, not formatting. Preserve any differing local edits.
+        if [ "$(jq -S -c . "$destination")" != "$(printf '%s\n' "$plaintext" | jq -S -c .)" ]; then
+            echo 'prepare.sh: secrets.auto.tfvars.json has local edits. Preserve them before decrypting updated inputs.' >&2
+            return 1
+        fi
+    else
+        (umask 077 && printf '%s\n' "$plaintext" >"$destination") || return 1
+    fi
+    export "TF_VAR_authentik_token=$token"
+    for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3; do
+        value=$(printf '%s\n' "$backend" | sed -n "s/^$name=//p" | head -n 1)
+        export "$name=$value"
+    done
+    echo 'Loaded the homelab-tofu service account token and state backend credentials for this shell. Decrypted inputs are ready.'
+}
+
+_homelab_authentik_prepare
+_homelab_status=$?
+unset -f _homelab_authentik_prepare _homelab_sops
+# eval expands the status before unsetting it, so the subshell's exit status is
+# the last one and becomes the status of sourcing this file.
+eval "unset _homelab_status; (exit $_homelab_status)"

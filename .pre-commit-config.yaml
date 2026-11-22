@@ -140,6 +140,13 @@ repos:
         files: ^tofu/(vercel|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-authentik
+        name: tofu validate (authentik)
+        language: unsupported
+        entry: tofu -chdir=tofu/authentik validate -no-color
+        files: ^(tofu/(authentik|shared)/|ansible-common/roles/ca_trust/files/trusted/freeipa-home\.arpa\.crt$)
+        pass_filenames: false
+
       # Default `recommended` preset; there is no .tflint.hcl because recursive mode
       # resolves the config file per module directory. Recursing from tofu/ keeps the
       # ignored docs/snapshot/ drafts out of the lint.
