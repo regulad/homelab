@@ -1,11 +1,23 @@
 ---
 # authentik: its upstream compose stack in /opt/authentik, run by
 # podman-compose, with the .env (authentik_env) from secrets.sops.yml. Caddy on
-# ingress serves it as authentik.regulad.xyz.
+# ingress serves it as authentik.regulad.xyz. Its configuration is
+# tofu/authentik's, which signs in as the service account the homelab-tofu
+# blueprint defines, with authentik_tofu_token from secrets.sops.yml.
 host_files_directories:
   - path: /opt/authentik
     mode: "0755"
+  # The worker's /blueprints/homelab, read-only.
+  - path: /opt/authentik/blueprints
+    mode: "0755"
 host_files_list:
+  # The worker applies it when it changes, so nothing restarts. The worker runs
+  # blueprints as the image's authentik user, gid 1000.
+  - path: /opt/authentik/blueprints/homelab-tofu.yaml
+    mode: "0640"
+    group: "1000"
+    template: true
+    secret: true
   - path: /etc/systemd/system/podman-compose@.service
     mode: "0644"
     shared_src: etc/systemd/system/podman-compose@.service

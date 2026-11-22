@@ -7,7 +7,8 @@ name: authentik
 # are named volumes, the worker has no Docker socket (only the embedded outpost
 # runs, with no service connection) or /certs, the stack is not a pod, and every
 # container is read-only; only the worker's entrypoint writes outside the
-# volumes, to /certs, now a tmpfs.
+# volumes, to /certs, now a tmpfs. The worker also reads the homelab's own
+# blueprints, from ./blueprints, at /blueprints/homelab beside the shipped ones.
 # authentik upgrades one release at a time and cannot downgrade: move the tag
 # to the next release only after the stack runs its latest patch.
 x-podman:
@@ -88,6 +89,7 @@ services:
     volumes:
     - data:/data
     - templates:/templates
+    - ./blueprints:/blueprints/homelab:ro
 volumes:
   database:
     driver: local

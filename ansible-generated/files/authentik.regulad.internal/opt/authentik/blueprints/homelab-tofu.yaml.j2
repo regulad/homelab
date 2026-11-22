@@ -1,0 +1,30 @@
+# The service account tofu/authentik signs in as, with its API token, which
+# tofu/authentik's prepare.sh reads from the same SOPS file this is rendered
+# from. The worker applies it whenever this file changes, and overwrites the
+# account's and the token's attributes then, so the token rotates with
+# authentik_tofu_token.
+version: 1
+metadata:
+  name: homelab - OpenTofu's service account
+  labels:
+    blueprints.goauthentik.io/description: The service account tofu/authentik signs in as, and its API token.
+entries:
+  - model: authentik_core.user
+    id: homelab-tofu
+    identifiers:
+      username: homelab-tofu
+    attrs:
+      name: homelab-tofu
+      type: service_account
+      # Superuser: the root manages applications, sources and system settings.
+      groups:
+        - !Find [authentik_core.group, [name, authentik Admins]]
+  - model: authentik_core.token
+    identifiers:
+      identifier: homelab-tofu
+    attrs:
+      intent: api
+      user: !KeyOf homelab-tofu
+      expiring: false
+      description: tofu/authentik
+      key: {{ authentik_tofu_token | to_json }}
