@@ -207,3 +207,16 @@ repos:
         entry: uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest discover -s tests
         pass_filenames: false
         files: ^(ansible-(common|generated|hardware)/|tests/)
+
+  # A TODO or FIXME names its GitHub issue, as TODO(#123). Markdown and this
+  # file use the words without being sentinels.
+  - repo: local
+    hooks:
+      - id: todo-needs-issue
+        name: TODO and FIXME name an issue, as TODO(#N)
+        language: pygrep
+        # Code only: never the commit message, which may name the words.
+        stages: [pre-commit]
+        entry: '\b(TODO|FIXME)\b(?!\(#\d+\))'
+        exclude_types: [markdown]
+        exclude: '^\.pre-commit-config\.yaml$'
