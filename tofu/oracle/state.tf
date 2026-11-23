@@ -3,7 +3,7 @@
 # client-side before upload, so the bucket only ever holds ciphertext.
 # The passphrase's provenance is unknown: secrets.sops.json, being JSON, holds
 # no comment, and none was recorded elsewhere.
-# FIXME: rotate it to a generated passphrase whose provenance is recorded, as
+# FIXME(#10): rotate it to a generated passphrase whose provenance is recorded, as
 # .claude/history/2026-11-04.backblaze-s-state-passphrase-is-rotated-and-every-state-version-re-encrypted.md
 # describes for tofu/backblaze. Revisit when the next rotation is scheduled.
 variable "state_encryption_passphrase" {

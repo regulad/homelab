@@ -11,18 +11,18 @@ terraform {
   required_providers {
     sentry = {
       source = "jianyuan/sentry"
-      # FIXME: 0.16.0 cannot manage data scrubbing, so the organization's and the
+      # FIXME(#12): 0.16.0 cannot manage data scrubbing, so the organization's and the
       # projects' scrubbing settings, the IP-address scrubbing among them, are
       # unmanaged. Upstream merged support for them after this release, in
       # https://github.com/jianyuan/terraform-provider-sentry/commit/6dc306102cbed10a5534238fc0a56c835f1fea34
       # (#995). Revisit at the first release that contains it.
-      # FIXME: the provider has no resource for custom integrations, so the
+      # FIXME(#13): the provider has no resource for custom integrations, so the
       # organization's internal integrations other than homelab-tofu, such as
       # Vercel's, are unmanaged. The request for one,
       # https://github.com/jianyuan/terraform-provider-sentry/issues/164, was
       # closed as not planned in a backlog cleanup on 2026-09-01. Revisit if it is
       # reopened or a release adds such a resource.
-      # FIXME: the provider's sentry_organization holds only an organization's
+      # FIXME(#13): the provider's sentry_organization holds only an organization's
       # name and slug, so the organization's settings, which require two-factor
       # authentication, enable enhanced privacy and hide AI features, are
       # unmanaged. No upstream request for them exists yet. Revisit when a release

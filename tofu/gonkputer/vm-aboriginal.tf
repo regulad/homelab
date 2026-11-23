@@ -122,7 +122,7 @@ EOT
     mapping = proxmox_hardware_mapping_usb.tubeszb.name
   }
 
-  # FIXME: the ASUS BT400 (BCM20702A0) stopped enumerating on 2026-11-01, a
+  # FIXME(#8): the ASUS BT400 (BCM20702A0) stopped enumerating on 2026-11-01, a
   # minute after the W5500 died, and Proxmox starts no VM whose USB mapping
   # matches no device. Revisit when it is replaced: restore this block.
   # usb {
@@ -141,7 +141,7 @@ EOT
     mapping = proxmox_hardware_mapping_usb.cps.name
   }
 
-  # FIXME: software-rendered virtio, as the host GPU that virtio-gl rendered on,
+  # FIXME(#7): software-rendered virtio, as the host GPU that virtio-gl rendered on,
   # prodingus's Radeon Pro W5500, died on 2026-11-01. Revisit when it is replaced.
   vga {
     type = "virtio"
@@ -164,7 +164,7 @@ EOT
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
-    # FIXME: the provider puts a TPM on local-lvm at v2.0, its defaults, into
+    # FIXME(#11): the provider puts a TPM on local-lvm at v2.0, its defaults, into
     # state only once state holds one, so it reads this one as absent, and
     # applying tpm_state could swap it for a new, empty TPM. Revisit once the
     # provider reads it, pending

@@ -69,7 +69,7 @@ resource "proxmox_virtual_environment_vm" "dodo" {
     datastore_id = "local-lvm"
   }
 
-  # FIXME: software-rendered virtio, as the host GPU that virtio-gl rendered on,
+  # FIXME(#7): software-rendered virtio, as the host GPU that virtio-gl rendered on,
   # prodingus's Radeon Pro W5500, died on 2026-11-01. Revisit when it is replaced.
   vga {
     type = "virtio"
@@ -83,7 +83,7 @@ resource "proxmox_virtual_environment_vm" "dodo" {
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
-    # FIXME: the provider puts a TPM on local-lvm at v2.0, its defaults, into
+    # FIXME(#11): the provider puts a TPM on local-lvm at v2.0, its defaults, into
     # state only once state holds one, so it reads this one as absent, and
     # applying tpm_state could swap it for a new, empty TPM. Revisit once the
     # provider reads it, pending

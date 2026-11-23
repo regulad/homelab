@@ -28,7 +28,7 @@ pam_rssh_public_keys: {}
 
 # The testing channel, where the release channel holds no build for the host's
 # target.
-# FIXME: Enterprise Linux takes the testing channel, the only one with el9 and
+# FIXME(#3): Enterprise Linux takes the testing channel, the only one with el9 and
 # el10 RPMs, from upstream's 1.2.2 pre-releases. Revisit when a release of
 # pam_rssh builds for both.
 pam_rssh_testing: "{{ 'rhel' in group_names }}"

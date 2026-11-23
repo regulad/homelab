@@ -245,7 +245,7 @@ plan shows an unintended destroy or replace.
 - **Inputs:** sensitive inputs are `sensitive = true` and `nullable = false` and come from `secrets.sops.json`. Non-sensitive values are inline HCL, not variables. Resource-free constants shared by several roots live in `tofu/shared`.
 - **Versions:** pins live only in each root's `versions.tf`. OpenTofu's own version is its `language { compatible_with { opentofu } }` block, since OpenTofu ignores `required_version` in `.tf` files. Child modules declare provider sources only and start with `# tflint-ignore-file: terraform_required_version, terraform_required_providers`.
 - **Tags:** every OCI instance sets `freeform_tags = { "managed-by" = "opentofu", "os" = "<os group>" }` as its last scalar argument.
-- **Deferred problems:** a setting known to be wrong but kept for now gets `# FIXME: <what is wrong>. Revisit <when>.` on the lines directly above it.
+- **Deferred problems:** a setting known to be wrong but kept for now gets `# FIXME(#N): <what is wrong>. Revisit <when>.`, naming the issue that tracks it, on the lines directly above it.
 - **Labels:** resource labels are stable identities; renaming one needs a `moved` block. NSG rules are labelled `<host>_<protocol>_<port or range>`; bailout's two family-specific rules keep their adopted `bailout_rule_NN` labels.
 
 ### Proxmox HCL (as practiced in `tofu/gonkputer`)

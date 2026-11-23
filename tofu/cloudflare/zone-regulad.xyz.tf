@@ -807,9 +807,6 @@ resource "cloudflare_dns_record" "regulad_xyz_minecraft_tcp_mc_srv" {
   }
 }
 
-# FIXME: curly quotes (U+201C, U+201D) wrap the value, so it does not begin
-# with v=STSv1 and senders ignore it; nor does any record answer for
-# mta-sts.regulad.xyz, which would serve the policy. Revisit after the adoption.
 # The policy the mta-sts Worker serves at mta-sts.regulad.xyz, by its id.
 resource "cloudflare_dns_record" "regulad_xyz_mta_sts_txt" {
   name    = "_mta-sts.${cloudflare_zone.regulad_xyz.name}"

@@ -236,7 +236,7 @@ nexus_repositories_raw_files: >-
 # serving its target's suite: pam-rssh-<target> for releases, whose files are
 # never written over, and pam-rssh-<target>-testing for pre-releases, where a
 # build replaces an earlier one of the same version.
-# FIXME: one APT repository per suite is a workaround: Nexus's hosted APT
+# FIXME(#1): one APT repository per suite is a workaround: Nexus's hosted APT
 # repositories serve a single distribution, and none merges several. Fold them
 # into one, with a distribution per suite, once Community Edition meets
 # https://github.com/sonatype/nexus-public/issues/309, as

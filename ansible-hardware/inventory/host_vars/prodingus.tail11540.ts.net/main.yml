@@ -172,14 +172,14 @@ webhookd_env:
   # Seconds, the hooks' own reboot timeout; webhookd's default is 10.
   WHD_HOOK_TIMEOUT: "120"
 webhookd_hooks:
-  # FIXME: VM 113 no longer exists; FreeIPA is wako, container 203. Revisit
+  # FIXME(#5): VM 113 no longer exists; FreeIPA is wako, container 203. Revisit
   # with the freeipa monitor.
   freeipa: /usr/sbin/qm reboot 113 --timeout 120
   cordpepperer: /usr/sbin/pct reboot 118 --timeout 120
   peppercord: /usr/sbin/pct reboot 126 --timeout 120
   ncsusplitt: /usr/sbin/pct reboot 125 --timeout 120
 
-# FIXME: since the power event of 2026-11-01, ports 1-5 and 1-6 of USB
+# FIXME(#6): since the power event of 2026-11-01, ports 1-5 and 1-6 of USB
 # controller 0a:00.1 (bus 1) show phantom low-speed devices that never
 # enumerate, and the retries kill the controller at boot, taking TubesZB on
 # 1-1, which aboriginal passes through, with it. Revisit when whatever is

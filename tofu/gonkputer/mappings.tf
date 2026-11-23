@@ -6,7 +6,7 @@ resource "proxmox_hardware_mapping_pci" "ax200" {
     {
       comment = null
       id      = "8086:2723" # Intel Wi-Fi 6 AX200
-      # FIXME: the group with the dead W5500 off the bus; a working card in its
+      # FIXME(#7): the group with the dead W5500 off the bus; a working card in its
       # slot puts this at 29. Revisit when it is replaced.
       iommu_group  = 28
       node         = "prodingus"
@@ -28,7 +28,7 @@ resource "proxmox_hardware_mapping_pci" "rx6800" {
     {
       comment = null
       id      = "1002:73bf" # AMD Radeon RX 6800 (Navi 21)
-      # FIXME: the group with the dead W5500 off the bus; a working card in its
+      # FIXME(#7): the group with the dead W5500 off the bus; a working card in its
       # slot puts this at 27. Revisit when it is replaced.
       iommu_group  = 26
       node         = "prodingus"

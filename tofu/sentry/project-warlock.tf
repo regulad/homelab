@@ -79,7 +79,7 @@ resource "sentry_organization_code_mapping" "warlock" {
 # which a longer stack root sends to its own repository ahead of the mappings
 # above.
 #
-# FIXME: devourer is compiled by MSVC through CMake, not by rustc, and the form
+# FIXME(#14): devourer is compiled by MSVC through CMake, not by rustc, and the form
 # of the paths MSVC records in the PDB, such as their slashes and case, is
 # unverified. Revisit at Warlock's first event with a devourer frame.
 #

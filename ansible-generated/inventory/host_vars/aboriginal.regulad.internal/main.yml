@@ -39,7 +39,7 @@ auto_updates_unattended_upgrade:
   Automatic-Reboot: "false"
   Sender: "{{ auto_updates_mail_from }}"
 
-# FIXME: running out of memory kills a process instead of panicking, which
+# FIXME(#4): running out of memory kills a process instead of panicking, which
 # leaves the VM in a non-deterministic state; every other host panics, dumps
 # and reboots. It is set only because VM 100 cannot reliably restart on its
 # own: its passed-through GPU does not reset. Revisit if the GPU resets.
