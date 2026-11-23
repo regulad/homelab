@@ -1,4 +1,7 @@
 ---
+# A special case: its network configuration, hostname and /etc/hosts included,
+# is Oracle's, as written at install, and is left as it is.
+
 # The Android container's kernel settings, moved out of /etc/sysctl.conf.
 # Android's own init, sharing the kernel, also writes kernel.pid_max. zram is
 # the host's only swap, so it may swap as readily as it drops cache.

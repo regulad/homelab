@@ -7,6 +7,9 @@ pfsense_packages:
   - pfSense-pkg-System_Patches
   - pfSense-pkg-WireGuard
   - pfSense-pkg-sudo
+# logincss is left unmanaged: pfsense_setup rejects its stored value, 1e3f75;
+# (https://github.com/pfsensible/core/issues/272; related:
+# https://github.com/pfsensible/core/issues/256).
 pfsense_setup:
   hostname: arawi
   domain: regulad.internal
@@ -531,6 +534,9 @@ pfsense_aliases:
     address: 80 443
     descr: Web GUI
     detail: HTTP, redirecting to HTTPS||HTTPS
+  # The rules take their IPv6 sources from home_ipv6 and tailnet_subnet_ipv6:
+  # pfsense_rule 0.7.1 cannot take an IPv6 literal
+  # (https://github.com/pfsensible/core/issues/219), which 0.7.2 fixes (#28).
   - name: home_ipv6
     type: network
     address: '{{ arawi_ipv6_prefixes.verizon_56 }}::/56'
@@ -549,6 +555,11 @@ pfsense_aliases:
     address: '{{ arawi_ipv6_prefixes.oci_subnet }}::/64'
     descr: VCN subnet
     detail: ''
+# Every rule is named: pfsensible matches rules, outbound NAT rules and routes
+# by description alone (https://github.com/pfsensible/core/issues/276; related:
+# https://github.com/pfsensible/core/issues/222,
+# https://github.com/pfsensible/core/pull/235), and pfsense_aggregate deletes
+# and recreates a rule it cannot match.
 pfsense_rules:
   - name: Allow home IPv6 to any
     action: pass
@@ -797,13 +808,24 @@ pfsense_php_stopgap_files:
 pfsense_nginx_http2_stopgap_until: "1.30.7"
 
 # Parts of config.xml with no pfsensible module, replaced whole from config/.
+# Each names the pfsensible.core issue it waits on. Left to pfSense and its
+# packages, which write them: system/earlyshellcmd (the System Patches and
+# WireGuard packages each install their own; only unbound_rpz_boot's is ours),
+# installedpackages/shellcmdsettings (WireGuard's entry for its boot command),
+# installedpackages/package, menu and service (the installers' bookkeeping),
+# ifgroups (WireGuard's interface group), dhcpbackend,
+# system/pkg_repo_conf_path (which pfSense's updater rewrites at every
+# upgrade), and the metadata: the config revision, lastchange, revision,
+# nextuid and nextgid.
 pfsense_config_sections:
+  # No module: https://github.com/pfsensible/core/issues/128.
   - name: wireguard
     parent: installedpackages
     select:
       - wireguard
     template: wireguard.xml.j2
     reload: wireguard
+  # No module: https://github.com/pfsensible/core/issues/280.
   - name: gre
     select:
       - gres
@@ -813,26 +835,42 @@ pfsense_config_sections:
       - gre/tunnel-remote-addr6
     template: gre.xml.j2
     reload: gre
+  # Every gateway, the groups failover4 and failover6, and the default
+  # gateways. pfsense_gateway rejects the link-local tailscalerouter6 on the
+  # SLAAC LAN interface (https://github.com/pfsensible/core/issues/271), and
+  # models no interval, alert_interval, data_payload or gw_down_kill_states
+  # (https://github.com/pfsensible/core/issues/277). Gateway groups have a
+  # module from 0.7.2 (https://github.com/pfsensible/core/pull/250, #28).
   - name: gateways
     select:
       - gateways
     template: gateways.xml.j2
     reload: routing
+  # No module: https://github.com/pfsensible/core/issues/281.
   - name: limiters
     select:
       - dnshaper
     template: limiters.xml.j2
     reload: filter
+  # No module: https://github.com/pfsensible/core/issues/282.
   - name: router_advertisements
     select:
       - dhcpdv6
     template: router_advertisements.xml.j2
     reload: radvd
+  # No module for Kea's custom configuration:
+  # https://github.com/pfsensible/core/issues/278.
   - name: kea
     select:
       - kea
     template: kea.xml.j2
     reload: dhcpd
+  # All of dhcpd. pfsense_dhcp_server and pfsense_dhcp_static write
+  # ddnsclientupdates and ddnsdomainkeyalgorithm where pfSense stores them
+  # empty (https://github.com/pfsensible/core/issues/273), and model none of
+  # dnsregpolicy, earlydnsregpolicy, the DDNS ports and secondary server,
+  # filename32arm, filename64arm, uefihttpboot and custom_kea_config
+  # (https://github.com/pfsensible/core/issues/278).
   - name: dhcp
     select:
       - dhcpd
@@ -840,12 +878,20 @@ pfsense_config_sections:
     reload: dhcpd
   # One earlyshellcmd; the packages own the others. It has its own section
   # because pfSense groups all earlyshellcmd elements together when it writes
-  # config.xml, which would reorder it against boot_commands' element.
+  # config.xml, which would reorder it against boot_commands' element. System
+  # Patches keeps no configuration in config.xml: no custom patches exist, and
+  # its patches run from its own earlyshellcmd.
   - name: unbound_rpz_boot
     parent: system
     select:
       - earlyshellcmd[.='/usr/local/bin/unbound-rpz-restore.sh']
     template: unbound_rpz_boot.xml.j2
+  # pfsense_dns_resolver crashes when sslcert names a description two
+  # certificates share (https://github.com/pfsensible/core/issues/269), rejects
+  # IPv6 servers in domain overrides
+  # (https://github.com/pfsensible/core/issues/270), and has no ACLs, the
+  # module of their own asked for in
+  # https://github.com/pfsensible/core/issues/283.
   - name: dns_resolver
     select:
       - unbound
@@ -854,31 +900,41 @@ pfsense_config_sections:
       - acls[aclname='WireGuard']
     template: dns_resolver.xml.j2
     reload: unbound
+  # pfsense_nat_outbound cannot parse IPv6 networks
+  # (https://github.com/pfsensible/core/issues/268), and crashes logging an
+  # existing rule with an IPv6 destination
+  # (https://github.com/pfsensible/core/issues/267).
   - name: outbound_nat
     select:
       - nat
     template: outbound_nat.xml.j2
     reload: filter
+  # pfsense_cert fails on two certificates with the same description; selection
+  # by refid is requested in https://github.com/pfsensible/core/issues/274.
   - name: certificates
     select:
       - cert[descr='arawi.regulad.internal']
     template: certificates.xml.j2
     reload: certificates
+  # No module: https://github.com/pfsensible/core/issues/265.
   - name: cron
     select:
       - cron
     template: cron.xml.j2
     reload: cron
+  # No module: https://github.com/pfsensible/core/issues/284.
   - name: dyndns
     select:
       - dyndnses
     template: dyndns.xml.j2
     reload: dyndns
+  # No module: https://github.com/pfsensible/core/issues/285.
   - name: autoconfigbackup
     parent: system
     select:
       - acb
     template: autoconfigbackup.xml.j2
+  # No module: https://github.com/pfsensible/core/issues/164.
   - name: snmp
     select:
       - snmpd
@@ -945,6 +1001,8 @@ pfsense_config_sections:
       - hn_altq_enable
     template: system_network.xml.j2
     reload: system_network
+  # pfsense_shellcmd manages only the Shellcmd package's commands, and has no
+  # afterbootupshellcmd type: https://github.com/pfsensible/core/issues/279.
   - name: boot_commands
     parent: system
     select:

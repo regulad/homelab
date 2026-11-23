@@ -63,7 +63,10 @@ clamav_clamd_socket: /run/clamav/clamd.ctl
 # host's services keep and receive, is left to it. Each listed directory is
 # scanned with what lies below it on its own filesystem; another filesystem
 # mounted below one, such as a tmpfs or a container's overlay, only where it is
-# listed itself.
+# listed itself. It catches what on-access scanning, which is best-effort,
+# misses: files written while clamonacc is not running, events it drops when it
+# falls behind, files nothing opens again, and every file on a host that cannot
+# run it.
 clamav_scan_enabled: true
 clamav_scan_paths:
   - /var

@@ -10,7 +10,7 @@ hardware:
   children:
     proxmox_nodes:
       hosts:
-        prodingus.tail11540.ts.net:  # gonkputer
+        prodingus.tail11540.ts.net:  # gonkputer; management MAC 3c:7c:3f:22:33:b3 (vmbr0, on eth0)
     # One group per OS, as the generated hosts are grouped by OpenTofu.
     debian:
       hosts:
@@ -52,8 +52,8 @@ switches:
   children:
     eos:
       hosts:
-        jpe18280417.regulad.internal:  # Arista DCS-7010T-48, EOS 4.28
+        jpe18280417.regulad.internal:  # Arista DCS-7010T-48, EOS 4.28; management MAC 28:99:3a:fa:31:fa
     ciscosmb:
       hosts:
-        switch45f304:  # Cisco SG300-10, firmware 1.4.11.5
-        switch070e26:  # Cisco SG300-10PP, firmware 1.4.11.5
+        switch45f304:  # Cisco SG300-10, firmware 1.4.11.5; management MAC 08:cc:68:45:f3:04
+        switch070e26:  # Cisco SG300-10PP, firmware 1.4.11.5; management MAC f8:7b:20:07:0e:26

@@ -45,9 +45,12 @@ resource "proxmox_virtual_environment_vm" "unifi" {
   }
 
   initialization {
-    datastore_id        = "rbd"
-    interface           = "ide2"
-    upgrade             = true
+    datastore_id = "rbd"
+    interface    = "ide2"
+    upgrade      = true
+    # Changing the vendor file, or its contents, replaces the VM, though Proxmox
+    # changes cicustom in place:
+    # https://github.com/bpg/terraform-provider-proxmox/issues/2901.
     vendor_data_file_id = "cephfs:snippets/ubuntu-vendor.yaml"
 
     ip_config {
