@@ -109,8 +109,8 @@ with the value it already had. A plan is now a no-op. Every adopted resource car
 
 | What | Why, or who owns it |
 |---|---|
-| The `freeipa` source's peer certificate, `ipa-ca.crt` | The provider cannot set it, as the FIXME in `versions.tf` says; its update leaves it as it is. The certificate itself is managed |
-| The base URL and the required reason for impersonation | The provider's system settings lack them, as the FIXME in `versions.tf` says |
+| The `freeipa` source's peer certificate, `ipa-ca.crt` | The provider cannot set it, as the FIXME in `versions.tf` says (#9); its update leaves it as it is. The certificate itself is managed |
+| The base URL and the required reason for impersonation | The provider's system settings lack them, as the FIXME in `versions.tf` says (#9) |
 | authentik's default flows, stages, policies, mappings, brand, notification rules, roles and outpost | Its shipped blueprints (above) |
 | Users and groups | The `freeipa` source, and authentik's bootstrap blueprint for `akadmin` and `authentik Admins` |
 | The `homelab-tofu` service account and its token | This root's own credential, from `ansible-generated`'s `homelab-tofu` blueprint (above) |

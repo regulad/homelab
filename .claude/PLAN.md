@@ -26,12 +26,12 @@ generated hosts:
 
 | Phase | Status |
 |---|---|
-| 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, version pins, pre-commit (file hygiene, OpenTofu, privacy guards, and the `tests` hook), and both Ansible stages are in place. Pinned Python tooling, the Ansible lint hooks, and runbooks remain. |
+| 0. Scaffold and tooling | Partly done. Ignore rules, SOPS, license, version pins, pre-commit (file hygiene, OpenTofu, privacy guards, and the `tests` hook), and both Ansible stages are in place. Pinned Python tooling and the Ansible lint hooks (#33), and runbooks (#34, #35), remain. |
 | 1. Discovery | OCI and the `gonkputer` crawl are done, including cluster and Ceph settings, with snapshots kept locally. The hardware hosts were seeded from the operator's SSH configuration; they and the services on every host were surveyed host by host as each was adopted, and no summary covers them. |
 | 2. Ansible: hardware hosts | In progress. `hardware.yml` lists prodingus, turk and overture, and the three switches. Besides the shared roles, Ansible applies the Proxmox and Ceph settings it owns (`proxmox_cluster`), the RADOS Gateway (`ceph_rgw`), and host roles such as `webhookd`, `cachefilesd` and `orchard_worker`. The switches' committed configurations are adopted, and the SG300s take pushed changes. |
 | 3. OpenTofu | Adopted, one root per provider, each with its state encrypted in the `homelab-tofu-state` bucket. `tofu/oracle` holds the agreed OCI scope; `tofu/gonkputer` the Proxmox guests, the cluster-wide settings its provider supports, and the Ceph objects, on `bpg/proxmox` 0.122.0; `tofu/backblaze` the B2 account, run before Phase 2. The other roots are authentik, aws, azure, cloudflare, gcp, github, onesignal, sentry, stripe, supabase, tailscale and vercel; authentik's runs after `ansible-generated` has brought its stack up. Docker Hub has no root: its tokens are issued by hand (`tofu/dockerhub/README.md`). Fixes to adopted configuration follow as separate, reviewed changes. |
 | 4. Ansible: generated hosts | In progress. `ansible-generated/` builds one inventory from `tofu/oracle`'s and `tofu/gonkputer`'s state: the seven OCI instances and the requested gonkputer guests, with containers reached through `proxmox_pct_remote`. The VMs that boot with cloud-init, unifi and urbackup, are configured by their vendor files. Services on Podman run as Quadlets from the `quadlet` role; hosts not already on Podman keep their runtime. |
-| 5. Portability proof | Not started. Services have moved between guests by hand (git, authentik and matrix, each from a VM into a container), but none by a data-only edit, and `docs/runbooks/` does not exist yet. |
+| 5. Portability proof | Not started. Services have moved between guests by hand (git, authentik and matrix, each from a VM into a container), but none by a data-only edit (#34). |
 | 6. Drift and CI | Out of scope: the repository is operated only from Parker's workstation. |
 
 Each phase ends with its acceptance criteria met and a check-in with Parker. Do
@@ -76,7 +76,7 @@ Parker asks.
 - `.gitignore` first, then `.sops.yaml`, pre-commit config, and one `ansible.cfg` per Ansible stage (its own inventory, `roles_path = roles:../ansible-common/roles`, `collections_path = collections`).
 - Pin tooling: OpenTofu in each root's `versions.tf`; Python dependencies for `ansible-core` and `ansible-lint` through `uv`. Parker installs tools.
 - **Accept:** `pre-commit run --all-files` passes; `git status` shows no ignored-class files tracked.
-- **Remaining:** `uv`-managed Python dependencies, `ansible-lint` and `yamllint` hooks, and `docs/runbooks/`. The `ansible-hardware/`, `ansible-generated/` and `ansible-common/` folders, each stage's `ansible.cfg`, inventory and playbooks, and skeleton roles exist; `ansible-lint` passes on both stages.
+- **Remaining:** #33, #34 and #35. The `ansible-hardware/`, `ansible-generated/` and `ansible-common/` folders, each stage's `ansible.cfg`, inventory and playbooks, and skeleton roles exist; `ansible-lint` passes on both stages.
 
 ### Phase 1 — Read-only discovery snapshot
 Record what actually exists under `docs/snapshot/`. It is gitignored and stays on
@@ -102,7 +102,6 @@ modify anything.
   - one table of cluster and Ceph settings with their owners;
   - an **Open questions** list.
 - **Accept:** Parker has reviewed `SUMMARY.md` and answered the open questions. This review gates Phases 2 and 3.
-- **Remaining:** hardware-host discovery and the per-host service inventory, then review with Parker.
 
 ### Phase 2 — Ansible: hardware hosts (manual inventory)
 Hardware hosts change only when hardware does, so their inventory is written by
