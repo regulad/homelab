@@ -70,6 +70,18 @@ freeipa_users_public:
       {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/supabase/secrets.sops.yaml',
                 extract='["smtp_password"]') }}
     passwordexpiration: "20380119031407Z"
+  # regubot, Parker's GitHub machine account (tofu/github-bot): its mailbox,
+  # which receives GitHub's mail to the account and is read by logging in to
+  # mail as regubot@regulad.xyz. It only receives: holding no address at
+  # regulad.xyz, it may send as none. Its password, generated, is in
+  # freeipa_users_private; it expires at 2038-01-19 03:14:07 UTC, FreeIPA's
+  # latest.
+  - name: regubot
+    first: regubot
+    last: Bot
+    email:
+      - bot@regulad.net
+    passwordexpiration: "20380119031407Z"
   # Parker's public addresses, pw@nefumllc.com first, which LDAP clients take
   # as the account's address.
   - name: regulad
