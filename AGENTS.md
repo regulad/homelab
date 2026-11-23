@@ -146,6 +146,9 @@ Several agents may work on this repository at once. The [alock](https://github.c
 - **`alock.mode` is Parker's:** `local`, in this clone's `.git/config`, as every agent applies from this one clone. Agents may read it, never change it.
 - **A new OpenTofu root** goes into `.alock.json`, with the inventory listing the hosts it creates; alock refuses a root it doesn't list.
 - **Unlocked:** ad hoc `ansible`, `pct`, `qm`, `ssh` and web interfaces bypass alock. Before changing a host one of those ways, check with Parker that no other agent is applying to it.
+- **A pending fleet-wide check or apply holds exclusive control.** A peer that asks to go ahead waits until your apply is done or Parker releases it: its applies or git moves would shift alock's records under you.
+- **alock's pin:** `.claude/settings.json` pins alock by `ref` and `sha` through an inline `settings` marketplace. `claude plugin` sees it only once a session in the trusted folder has registered it: run a minimal `claude -p`, then `claude plugin install alock@alock --scope project`. To move to another release, change `ref` and `sha` and reinstall. No fail-closed project hook backs it up, as one would be a point of failure of its own.
+- **Until alock fixes it,** when `PATH` lists alock's `bin` twice, or two versions' `bin`, 0.2.0's shim finds a shim instead of `ansible-playbook` and spins at `--list-hosts`, running nothing and taking no lock. Prefix alock-wrapped commands with `export PATH="$HOME/.claude/plugins/cache/alock/alock/0.2.0/bin:$(printf '%s' "$PATH" | tr ':' '\n' | grep -v '/.claude/plugins/cache/alock/' | paste -sd:)"`, and check that a background apply's log grows. 0.2.1 doesn't fix it: its only change is the holder-file fix.
 
 ## Verification before review
 
