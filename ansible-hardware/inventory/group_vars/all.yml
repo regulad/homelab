@@ -7,14 +7,15 @@
 # under its inventory name, and reads or writes no other file, so a key missing
 # there or changed fails the connection instead of being trusted. The switches'
 # libssh reads only ~/.ssh/known_hosts. Where sudo goes through pam_rssh, the
-# agent is forwarded too, for its become to sign with.
+# agent is forwarded too, for its become to sign with: on the hosts that enable
+# the pam_rssh role, and on the Macs, where regulad/dotfiles sets it up.
 ansible_ssh_common_args: >-
   -F /dev/null
   -o HostKeyAlias={{ inventory_hostname }}
   -o UserKnownHostsFile={{ inventory_dir }}/../known_hosts
   -o GlobalKnownHostsFile=/dev/null
   -o StrictHostKeyChecking=yes
-  {{ '-o ForwardAgent=yes' if pam_rssh_enabled | default(false) else '' }}
+  {{ '-o ForwardAgent=yes' if pam_rssh_enabled | default(false) or 'macos' in group_names else '' }}
 # The login on every host, but where a group or host names another: root on
 # the Proxmox nodes, svc-ansible on the SG300s.
 ansible_user: regulad

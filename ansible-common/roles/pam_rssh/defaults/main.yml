@@ -4,9 +4,10 @@
 # that set pam_rssh_enabled: each of pam_rssh_users has sudo sign a challenge
 # with one of pam_rssh_keys_url's keys, and falls back to its password, where it
 # has one, when no agent signs. Ansible's become is the same sudo, so each
-# stage's group_vars/all.yml forwards the agent to the hosts that enable it, and
-# the base role writes the admin's NOPASSWD rule only where they don't. Turning
-# it off again undoes nothing.
+# stage's group_vars/all.yml forwards the agent to the hosts that enable it, as
+# to the Macs, whose sudo regulad/dotfiles puts through pam_rssh, and the base
+# role writes the admin's NOPASSWD rule only where they don't. Turning it off
+# again undoes nothing.
 pam_rssh_enabled: false
 
 # The users who sudo through the agent, each allowed every command by the role's
