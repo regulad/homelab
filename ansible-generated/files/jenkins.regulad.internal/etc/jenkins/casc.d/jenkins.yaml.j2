@@ -92,6 +92,19 @@ credentials:
               scope: SYSTEM
               description: "The GitHub App's webhook secret"
               secret: "${github_webhook_secret}"
+          # What regulad/jobs's winget jobs submit with: the age key that opens
+          # its winget.sops.yaml, regubot's signing key, bound as SOPS_AGE_KEY;
+          # and regubot's token for its fork of winget-pkgs.
+          - string:
+              id: "jobs-sops-age-key"
+              scope: GLOBAL
+              description: "The age key that opens regulad/jobs's SOPS files"
+              secret: "${jobs_sops_age_key}"
+          - string:
+              id: "winget-token"
+              scope: GLOBAL
+              description: "regubot's token for its fork of winget-pkgs"
+              secret: "${winget_token}"
 
 unclassified:
   location:

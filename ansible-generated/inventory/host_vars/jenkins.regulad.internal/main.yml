@@ -55,6 +55,26 @@ host_files_list:
                 extract='["nexus_svc_pam_rssh_ci_password"]') }}
     secret: true
     restarts: [jenkins.service]
+  # The age key that opens regulad/jobs's SOPS files, such as winget.sops.yaml,
+  # regubot's signing key.
+  - path: /etc/jenkins/secrets/jobs_sops_age_key
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: "{{ jenkins_jobs_sops_age_key | trim }}"
+    secret: true
+    restarts: [jenkins.service]
+  # regubot's token for its fork of winget-pkgs and the pull requests from it,
+  # from tofu/github-user's bot.sops.yaml, its only copy.
+  - path: /etc/jenkins/secrets/winget_token
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/bot.sops.yaml',
+                extract='["github_pats"]["terraform-jenkins--winget"]') }}
+    secret: true
+    restarts: [jenkins.service]
 
 # Jenkins's agents: containers of rootless Podman as jenkins-agents, which
 # Jenkins's Podman cloud starts through that user's API socket, mounted into
