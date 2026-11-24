@@ -225,3 +225,56 @@
             settings: "{{ tailscale_settings }}"
             serve: "{{ tailscale_serve }}"
           become: true
+
+    # macOS: the launchd job that has the kernel ignore router advertisements'
+    # Route Information Options from every boot. Last, as its first run can
+    # restart tailscaled.
+    - name: Route Information Options ignored on macOS
+      when: "'macos' in group_names"
+      block:
+        - name: The route information job
+          ansible.builtin.template:
+            src: ignore-route-info.plist.j2
+            dest: /Library/LaunchDaemons/{{ tailscale_macos_route_info_label }}.plist
+            owner: root
+            group: wheel
+            mode: "0644"
+            validate: plutil -lint %s
+          register: tailscale_route_info_plist
+          when: tailscale_macos_ignore_route_info
+          become: true
+
+        - name: Read the route information job
+          ansible.builtin.command:
+            argv: [launchctl, print, "system/{{ tailscale_macos_route_info_label }}"]
+          register: tailscale_route_info_job
+          changed_when: false
+          failed_when: false
+          check_mode: false
+          become: true
+
+        - name: Unload the route information job, changed or no longer wanted
+          ansible.builtin.command:
+            argv: [launchctl, bootout, "system/{{ tailscale_macos_route_info_label }}"]
+          when:
+            - tailscale_route_info_job.rc == 0
+            - not tailscale_macos_ignore_route_info or tailscale_route_info_plist is changed
+          changed_when: true
+          become: true
+
+        - name: Remove the route information job
+          ansible.builtin.file:
+            path: /Library/LaunchDaemons/{{ tailscale_macos_route_info_label }}.plist
+            state: absent
+          when: not tailscale_macos_ignore_route_info
+          become: true
+
+        # Loading runs it.
+        - name: Load the route information job
+          ansible.builtin.command:
+            argv: [launchctl, bootstrap, system, "/Library/LaunchDaemons/{{ tailscale_macos_route_info_label }}.plist"]
+          when:
+            - tailscale_macos_ignore_route_info
+            - tailscale_route_info_job.rc != 0 or tailscale_route_info_plist is changed
+          changed_when: true
+          become: true

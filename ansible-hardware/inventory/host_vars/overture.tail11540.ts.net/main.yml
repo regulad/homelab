@@ -14,6 +14,9 @@ ansible_python_interpreter: /usr/bin/python3
 tailscale_enabled: true
 tailscale_protected: true
 tailscale_tags: [server, syncthing]
+# tailscalerouter's radvd advertises the tailnet's IPv6 range to the LAN, for
+# the hosts without Tailscale; overture ignores it, keeping tailscaled's route.
+tailscale_macos_ignore_route_info: true
 
 # The Orchard worker's VMs, two macOS guests at most by Apple's licence, share
 # 6 of the Mac's 8 cores and 6 GiB of its 8 GiB, leaving macOS the rest. Which

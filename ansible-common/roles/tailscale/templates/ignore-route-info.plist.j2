@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- From Ansible's tailscale role: at every boot, the kernel stops taking the
+     Route Information Options of IPv6 router advertisements, so that a route
+     to the tailnet learned from the LAN cannot stand in for tailscaled's.
+
+     A route learned before this job ran is flushed with the kernel's default
+     routers, which removes it together with the kernel's entry for it; a route
+     deleted alone would be deleted again, by prefix, when that entry expired,
+     taking tailscaled's route with it. The default routers return with their
+     next advertisement. tailscaled is then restarted: its route add failed
+     silently, as macOS's route exits 0 even on failure, and it adds a route
+     only when it sets its routes afresh. -->
+{% set tailnet_network = tailscale_ipv6_range.split('/') | first %}
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>{{ tailscale_macos_route_info_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/sh</string>
+      <string>-c</string>
+      <string>/usr/sbin/sysctl -w net.inet6.icmp6.nd6_process_rti=0
+if /sbin/route -n get -inet6 {{ tailnet_network }} | /usr/bin/awk '$1 == "destination:" { d = $2 } $1 == "interface:" { i = $2 } END { exit (d != "{{ tailnet_network }}" || i ~ /^utun/) }'; then
+  echo "A route to {{ tailscale_ipv6_range }} learned from the LAN: flushing the default routers and restarting tailscaled."
+  /usr/sbin/ndp -R
+  /bin/launchctl kickstart -k system/{{ tailscale_launchd_label }}
+fi</string>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/var/log/{{ tailscale_macos_route_info_label }}.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/{{ tailscale_macos_route_info_label }}.log</string>
+    <key>RunAtLoad</key>
+    <true/>
+  </dict>
+</plist>
