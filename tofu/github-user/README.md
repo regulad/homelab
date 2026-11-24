@@ -9,7 +9,7 @@ secrets, through their Apps.
 | Location | Configuration |
 |---|---|
 | `public-key-<name>.tf` | An SSH authentication key, by its name: `public-key-id_rsa3072.tf`, regulad's, `tofu/shared`'s `regulad_ssh_public_key` |
-| `ssh-signing-key-<name>.tf` | An SSH signing key, by its name: `ssh-signing-key-id_rsa3072.tf`, the same key; and regubot's, one per pipeline that commits to its fork of winget-pkgs, such as `ssh-signing-key-koala--winget.tf` |
+| `ssh-signing-key-<name>.tf` | An SSH signing key, by its name: `ssh-signing-key-id_rsa3072.tf`, the same key; and regubot's for regulad/jobs's Jenkins jobs, `ssh-signing-key-jenkins--winget.tf` |
 | `gpg-key-<name>.tf` | A GPG key, by its name, `x` and its key ID: `gpg-key-x081BE541EA23ACF3.tf`, regulad's |
 | `repo-<name>.tf` | One file per repository the account creates or forks: `repo-winget--pkgs.tf`, regubot's fork of `microsoft/winget-pkgs`, and `repo-regubot.tf`, its profile repository and `README.md` |
 | `files/regubot/README.md` | The profile README, byte for byte |
@@ -48,12 +48,12 @@ directly. Its address, `bot@regulad.net`, is a mailbox on mail: the FreeIPA acco
 `regubot@regulad.xyz` with the password in wako's `secrets.sops.yml`. Parker created the
 account, with that address as its email, and confirmed it from the mailbox.
 
-Each pipeline that commits to its fork signs with an Ed25519 key of its own, which this root
-lists as one of regubot's signing keys. The private half lives in the pipeline's own
-repository, as its `winget.sops.yaml`, encrypted to Parker's age key and to an age key made
-for that repository alone, whose identity homelab holds and delivers: Koala's and Warlock's
-in `tofu/github`'s `secrets.sops.yaml`, for their `release` environments, and regulad/jobs's
-in Jenkins's `host_vars`, for Jenkins.
+Koala and Warlock submit with Komac, which commits to the fork through GitHub's API
+(`createCommitOnBranch`); GitHub signs those commits itself, so their pipelines hold only
+regubot's token. regulad/jobs's Jenkins jobs commit with git, and sign with an Ed25519 key of
+their own, which this root lists as one of regubot's signing keys. Its private half lives in
+regulad/jobs, as its `winget.sops.yaml`, encrypted to Parker's age key and to an age key made
+for that repository alone, whose identity Jenkins's `host_vars` hold and Ansible delivers.
 
 ## Personal access tokens
 
