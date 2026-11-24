@@ -129,7 +129,7 @@ host_files_packages:
 
 # root's Docker logins (registry_auth role), each this host's own: Docker Hub,
 # for redis, and ghcr.io, for the app's and cron's images, as regulad with the
-# tokens issued for this host (tofu/dockerhub's and tofu/github-personal's
+# tokens issued for this host (tofu/dockerhub's and tofu/github-user's
 # secrets.sops.yaml); and cr.regulad.xyz, Nexus's cr repository, for the
 # devices' images, as svc-doppelganger, which nexus_servers'
 # nexus_security_users declares.
@@ -142,7 +142,7 @@ registry_auth_logins:
   - registry: ghcr.io
     username: regulad
     password: >-
-      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-personal/secrets.sops.yaml',
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/secrets.sops.yaml',
                 extract='["github_pats"]["terraform-doppelgangerhq--ghcr"]') }}
   - registry: cr.regulad.xyz
     username: svc-doppelganger

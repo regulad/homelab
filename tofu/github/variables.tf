@@ -27,7 +27,7 @@ variable "azure_state_encryption_passphrase" {
 
 # regulad's personal access tokens, issued by GitHub, each under its name there,
 # terraform-<word>--<word>, which prepare.sh reads from
-# tofu/github-personal/secrets.sops.yaml, their only copy, as tofu/vercel does.
+# tofu/github-user/secrets.sops.yaml, their only copy, as tofu/vercel does.
 variable "github_pats" {
   type      = map(string)
   sensitive = true

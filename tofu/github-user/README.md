@@ -1,9 +1,10 @@
-# github-personal (GitHub, regulad's account)
+# github-user (GitHub, the accounts)
 
 Not yet an OpenTofu root: only the personal access tokens of the GitHub account `regulad`
 live here, in `secrets.sops.yaml`, as Docker Hub's live in
-`tofu/dockerhub/secrets.sops.yaml`. It is to declare the account's own settings, such as
-its SSH and signing keys, with a token of its own.
+`tofu/dockerhub/secrets.sops.yaml`. It is to declare the accounts' own settings, such as
+their SSH and signing keys, regulad's and regubot's each in a workspace of its own and
+with a token of that account's.
 
 GitHub has no API that issues a personal access token, and no App-issued token can fill a
 repository's secret, as those last an hour. So each token is issued by hand in regulad's

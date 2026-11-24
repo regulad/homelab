@@ -51,7 +51,7 @@ Every value is derived; none is typed into GitHub.
 
 - **SOPS:** issued tokens and keys live in `secrets.sops.yaml`, under keys that say what each
   is for, apart from the personal access tokens, which are
-  [`tofu/github-personal`](../github-personal/README.md)'s. A token several repositories use is one key. Issued values carry no provenance
+  [`tofu/github-user`](../github-user/README.md)'s. A token several repositories use is one key. Issued values carry no provenance
   comment; generated ones do. Fill or change one with `sops edit`, then apply.
 - **Ansible's Nexus data:** the Nexus CI logins, `svc-redroid` for redroid-script and
   `nx-aaoracled` for aaoracled's `nexus-ios` environment, take their names from
@@ -76,7 +76,7 @@ its update time, and the next apply writes this repository's value back.
 ## Personal access tokens
 
 The repositories' personal access tokens are regulad's, issued by hand in his settings and
-kept in `tofu/github-personal/secrets.sops.yaml`, their only copy, which `prepare.sh`
+kept in `tofu/github-user/secrets.sops.yaml`, their only copy, which `prepare.sh`
 reads; its README says how to rotate one.
 
 Later, not yet: workflows move off personal access tokens, to GitHub's built-in tokens

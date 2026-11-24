@@ -40,11 +40,11 @@ firewalld_zones:
     services: [ssh, dhcpv6-client, dns]
 
 # root's Podman login to ghcr.io (registry_auth role), for blocky's image,
-# as regulad with the token issued for this host (tofu/github-personal's
+# as regulad with the token issued for this host (tofu/github-user's
 # secrets.sops.yaml).
 registry_auth_logins:
   - registry: ghcr.io
     username: regulad
     password: >-
-      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-personal/secrets.sops.yaml',
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/secrets.sops.yaml',
                 extract='["github_pats"]["terraform-pihole2--ghcr"]') }}
