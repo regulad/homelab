@@ -76,7 +76,7 @@ its update time, and the next apply writes this repository's value back.
 ## Personal access tokens
 
 The repositories' personal access tokens are regulad's, issued by hand in his settings and
-kept in `tofu/github-user/secrets.sops.yaml`, their only copy, which `prepare.sh`
+kept in `tofu/github-user/personal.sops.yaml`, their only copy, which `prepare.sh`
 reads; its README says how to rotate one.
 
 Later, not yet: workflows move off personal access tokens, to GitHub's built-in tokens

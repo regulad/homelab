@@ -154,7 +154,8 @@ nexus_security_realms:
 # GitHub issue none through an API to an account with two-factor
 # authentication, so they are issued by hand, each under its name there,
 # terraform-<word>--<word>, and kept with the others each service issued: in
-# tofu/dockerhub's and tofu/github-user's secrets.sops.yaml, their only copies.
+# tofu/dockerhub's secrets.sops.yaml and tofu/github-user's personal.sops.yaml,
+# their only copies.
 # - docker-io signs in to Docker Hub with a Public Repo Read-only token, which
 #   reaches no private repository.
 # - ghcr-io signs in to ghcr.io with a classic token, the only kind ghcr.io
@@ -180,7 +181,7 @@ nexus_repositories_proxies:
     login:
       username: regulad
       password: >-
-        {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/secrets.sops.yaml',
+        {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/personal.sops.yaml',
                   extract='["github_pats"]["terraform-nexus--ghcr"]') }}
 
 # crates-io: crates.io's index and crates, for the cargo homes that the

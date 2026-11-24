@@ -1,8 +1,11 @@
 # github-user (GitHub, the accounts)
 
 Not yet an OpenTofu root: only the personal access tokens of the GitHub account `regulad`
-live here, in `secrets.sops.yaml`, as Docker Hub's live in
-`tofu/dockerhub/secrets.sops.yaml`. It is to declare the accounts' own settings, such as
+live here, in `personal.sops.yaml`, as Docker Hub's live in
+`tofu/dockerhub/secrets.sops.yaml`. Each account has a file of its own, named for its
+workspace, so the same token name means the same use in each: regubot's are in
+`bot.sops.yaml`. In each, `terraform-github--user` is that account's own classic token,
+which this root is to sign in with. It is to declare the accounts' own settings, such as
 their SSH and signing keys, regulad's and regubot's each in a workspace of its own and
 with a token of that account's.
 
@@ -21,7 +24,7 @@ Their users read them from here, their only copy:
   (`group_vars/nexus_servers.yml`), and the `registry_auth` logins of mail, pihole2 and
   doppelgangerhq.com (their `host_vars`).
 
-To rotate one, issue a new token under the same name, put it in `secrets.sops.yaml` with
+To rotate one, issue a new token under the same name, put it in `personal.sops.yaml` with
 `sops edit`, and deliver it as its users say: an apply of `tofu/github` or `tofu/vercel`;
 for Nexus, `maintenance.yml --tags nexus-proxy-logins` from `ansible-generated/`, since
 Nexus never returns a stored password; for a host,

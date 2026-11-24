@@ -2,7 +2,7 @@
 # Prepare the calling shell to run OpenTofu in tofu/github: export the selected
 # workspace's GitHub App private key and the state backend's credentials, and
 # decrypt the OpenTofu inputs, with regulad's personal access tokens from
-# tofu/github-user/secrets.sops.yaml and the Nexus CI users' passwords from
+# tofu/github-user/personal.sops.yaml and the Nexus CI users' passwords from
 # ansible-generated/inventory/group_vars/nexus_servers.sops.yml, their only
 # copies, and tofu/tailscale's state passphrase, into the gitignored
 # secrets.auto.tfvars.json file.
@@ -66,16 +66,16 @@ _homelab_github_prepare() {
     done
     plaintext=$(_homelab_sops decrypt --output-type json "$dir/secrets.sops.yaml") || return 1
     # regulad's personal access tokens, by their names on GitHub, from their
-    # only copy, tofu/github-user's.
+    # only copy, tofu/github-user's personal.sops.yaml.
     pats=$(_homelab_sops decrypt --extract '["github_pats"]' --output-type json \
-        "$root/tofu/github-user/secrets.sops.yaml") || return 1
+        "$root/tofu/github-user/personal.sops.yaml") || return 1
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$pats" | jq '{github_pats: .}'
     } | jq -s add) || return 1
     # Every value is filled in: an empty one would blank a repository's secret.
     if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then
-        echo 'prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user/secrets.sops.yaml).' >&2
+        echo 'prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user/personal.sops.yaml).' >&2
         return 1
     fi
     # The Nexus CI users' passwords, by user ID, from their only copy. Both pass
