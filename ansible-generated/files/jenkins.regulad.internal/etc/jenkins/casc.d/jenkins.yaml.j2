@@ -80,8 +80,10 @@ jenkins:
                 jenkinsUrl: "http://host.containers.internal:8080/"
                 entryPointArgumentsString: "-url\n^${JENKINS_URL}\n-secret\n^${JNLP_SECRET}\n-name\n^${NODE_NAME}"
 
-# A credential here, in the system store, is every job's. Credentials for some
-# jobs alone are in their folders' stores, below.
+# A credential here, in the system store, is every job's. regulad/jobs's seed
+# rewrites each folder it defines at every run, so the credentials its jobs use
+# live here rather than in their folders; only the regulad folder, which this
+# file defines, keeps credentials of its own, below.
 credentials:
   system:
     domainCredentials:
@@ -92,19 +94,47 @@ credentials:
               scope: SYSTEM
               description: "The GitHub App's webhook secret"
               secret: "${github_webhook_secret}"
-          # What regulad/jobs's winget jobs submit with: the age key that opens
-          # its winget.sops.yaml, regubot's signing key, bound as SOPS_AGE_KEY;
-          # and regubot's token for its fork of winget-pkgs.
+          # The age key that opens regulad/jobs's SOPS files, bound as
+          # SOPS_AGE_KEY.
           - string:
               id: "jobs-sops-age-key"
               scope: GLOBAL
               description: "The age key that opens regulad/jobs's SOPS files"
               secret: "${jobs_sops_age_key}"
+          # regubot's token for its fork of winget-pkgs, which regulad/jobs's
+          # winget jobs submit with through Komac.
           - string:
               id: "winget-token"
               scope: GLOBAL
               description: "regubot's token for its fork of winget-pkgs"
               secret: "${winget_token}"
+          # regulad-jenkins for the items outside the regulad folder, whose own
+          # takes precedence inside it: a credential of Jenkins's GitHub App
+          # (host_vars main.yml, github-app.sops.env) that reads regulad/jobs
+          # alone, with its contents read-only, enough to read GitHub's public
+          # data, such as z4yx/pam_rssh's releases, without its lower anonymous
+          # rate limit. Each use mints an installation token of at most an hour.
+          - gitHubApp:
+              scope: GLOBAL
+              id: "regulad-jenkins"
+              description: "regulad-jenkins, Jenkins's GitHub App, reading regulad/jobs alone"
+              appID: "{{ jenkins_github_app_id }}"
+              privateKey: "${github_app_private_key}"
+              repositoryAccessStrategy:
+                specificRepositories:
+                  owner: "regulad"
+                  repositories:
+                    - "jobs"
+              defaultPermissionsStrategy: CONTENTS_READ
+          # svc-pam-rssh-ci, the Nexus user z4yx/pam_rssh uploads pam_rssh's
+          # packages as (group_vars nexus_servers.yml).
+          - usernamePassword:
+              scope: GLOBAL
+              id: "svc-pam-rssh-ci"
+              description: "svc-pam-rssh-ci, which uploads pam_rssh's packages to Nexus"
+              username: "svc-pam-rssh-ci"
+              usernameSecret: false
+              password: "${nexus_svc_pam_rssh_ci_password}"
 
 unclassified:
   location:
@@ -141,15 +171,14 @@ security:
 
 # Items, as Job DSL scripts. The regulad folder builds every Jenkinsfile in
 # regulad's repositories, as it did before this file, regulad/jobs's seed among
-# them, as regulad/jobs/main; that seed defines the other items.
+# them, as regulad/jobs/main; that seed defines the other items, folders
+# included.
 #
-# Each folder whose items work on GitHub holds its own regulad-jenkins, a
-# credential of Jenkins's GitHub App (host_vars main.yml, github-app.sops.env):
-# each use mints an installation token of at most an hour, for the
-# repositories and with the permissions that folder's credential names. Items
-# outside those folders have none. Configuration as Code puts each ${name} into
-# a script before Job DSL runs; the App's private key, which runs over several
-# lines, goes in a ''' string, and Job DSL takes it only as a Secret.
+# The regulad folder holds its own regulad-jenkins, a credential of Jenkins's
+# GitHub App for every repository of regulad's, with every permission the App
+# has. Configuration as Code puts each ${name} into a script before Job DSL
+# runs; the App's private key, which runs over several lines, goes in a '''
+# string, and Job DSL takes it only as a Secret.
 jobs:
   - script: |
       organizationFolder('regulad') {
@@ -232,61 +261,4 @@ jobs:
           discardOldItems {
           }
         }
-      }
-  # z4yx: the folder of regulad/jobs's jobs for z4yx's projects, holding the
-  # credentials only its items can use. regulad/jobs defines the jobs inside
-  # but no folder that holds credentials, as its seed would rewrite the folder
-  # without them.
-  - script: |
-      folder('z4yx') {
-        description("Packages of z4yx's projects, which Nexus at repo.regulad.xyz serves. regulad/jobs defines its jobs; regulad/homelab, the folder and its credentials.")
-        properties {
-          folderCredentialsProperty {
-            domainCredentials {
-              domainCredentials {
-                domain {
-                  name('')
-                  description('')
-                }
-                credentials {
-                  // regulad/jobs alone, with its contents read-only: enough
-                  // to read GitHub's public data, such as z4yx/pam_rssh's
-                  // releases, without its lower anonymous rate limit.
-                  gitHubAppCredentials {
-                    scope('GLOBAL')
-                    id('regulad-jenkins')
-                    description("regulad-jenkins, Jenkins's GitHub App, reading regulad/jobs alone")
-                    appID('{{ jenkins_github_app_id }}')
-                    privateKey(hudson.util.Secret.fromString('''${github_app_private_key}'''))
-                    repositoryAccessStrategy {
-                      specificRepositories {
-                        owner('regulad')
-                        repositories(['jobs'])
-                      }
-                    }
-                    defaultPermissionsStrategy('CONTENTS_READ')
-                  }
-                  // svc-pam-rssh-ci, the Nexus user z4yx/pam_rssh uploads
-                  // pam_rssh's packages as (group_vars nexus_servers.yml).
-                  usernamePasswordCredentialsImpl {
-                    scope('GLOBAL')
-                    id('svc-pam-rssh-ci')
-                    description("svc-pam-rssh-ci, which uploads pam_rssh's packages to Nexus")
-                    username('svc-pam-rssh-ci')
-                    usernameSecret(false)
-                    password('${nexus_svc_pam_rssh_ci_password}')
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-  # mcMMO-Dev: the folder of regulad/jobs's jobs for mcMMO-Dev's projects. Its
-  # jobs read public repositories alone and keep what they build as their
-  # artifacts, so it holds no credentials; it is defined here, as every folder
-  # of regulad/jobs's is.
-  - script: |
-      folder('mcMMO-Dev') {
-        description("Builds of mcMMO-Dev's projects, kept as each build's artifacts. regulad/jobs defines its jobs; regulad/homelab, the folder.")
       }
