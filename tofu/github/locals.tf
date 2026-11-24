@@ -1,4 +1,11 @@
 locals {
+  # Whether the selected workspace manages regulad's repositories. Each of
+  # their files enables its blocks only there, as the other workspace's App
+  # cannot reach them. Elsewhere a repository's name is "", never sent, as its
+  # resources have no instances; validation refuses a required argument that is
+  # null even then.
+  personal = terraform.workspace == "personal"
+
   # ingress's inventory name, which the tailnet's DNS also resolves, and its
   # login users and directories, as ansible-generated declares them:
   # kodi-plugins publishes as kodi-publish into kodi.regulad.xyz's web root.

@@ -1,12 +1,13 @@
 # shellcheck shell=sh
-# Prepare the calling shell to run OpenTofu in tofu/github: export the homelab
-# GitHub App's private key and the state backend's credentials, and decrypt the
-# OpenTofu inputs, with the Nexus CI users' passwords from
+# Prepare the calling shell to run OpenTofu in tofu/github: export the selected
+# workspace's GitHub App private key and the state backend's credentials, and
+# decrypt the OpenTofu inputs, with the Nexus CI users' passwords from
 # ansible-generated/inventory/group_vars/nexus_servers.sops.yml, their only
 # copy, and tofu/tailscale's state passphrase, into the gitignored
 # secrets.auto.tfvars.json file.
 #
-# Source it from anywhere in the clone; do not execute it:
+# Source it from anywhere in the clone; do not execute it. Source it again
+# after selecting another workspace, for that workspace's key:
 #
 #   . tofu/github/prepare.sh
 #
@@ -29,7 +30,7 @@ _homelab_sops() {
 _homelab_github_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext nexus tailscale azure provider backend name value user key
+    local root dir destination plaintext nexus tailscale azure provider backend name value user key workspace
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/github"
     destination="$dir/secrets.auto.tfvars.json"
@@ -37,19 +38,22 @@ _homelab_github_prepare() {
         echo 'prepare.sh: decrypted inputs must be gitignored.' >&2
         return 1
     fi
-    # Provider credentials: only the expected name, present. Values are never
-    # printed.
+    # Provider credentials: each workspace's App key,
+    # GITHUB_APP_<WORKSPACE>_PEM_FILE, and nothing else, each present. Values
+    # are never printed.
     provider=$(_homelab_sops decrypt "$dir/provider.sops.env") || return 1
     name=$(printf '%s\n' "$provider" | grep -v -E '^[[:space:]]*(#|$)' |
-        grep -v -E '^GITHUB_APP_PEM_FILE=' | head -n 1 | cut -d= -f1)
+        grep -v -E '^GITHUB_APP_(PERSONAL|BOT)_PEM_FILE=' | head -n 1 | cut -d= -f1)
     if [ -n "$name" ]; then
         echo "prepare.sh: unexpected key in provider.sops.env: $name" >&2
         return 1
     fi
-    if ! printf '%s\n' "$provider" | grep -q '^GITHUB_APP_PEM_FILE=.'; then
-        echo 'prepare.sh: provider.sops.env is missing GITHUB_APP_PEM_FILE.' >&2
-        return 1
-    fi
+    for name in GITHUB_APP_PERSONAL_PEM_FILE GITHUB_APP_BOT_PEM_FILE; do
+        if ! printf '%s\n' "$provider" | grep -q "^$name=."; then
+            echo "prepare.sh: provider.sops.env is missing $name." >&2
+            return 1
+        fi
+    done
     # The s3 backend reads these from the environment, so they never reach
     # .terraform/ or saved plans. Check every name before exporting any.
     backend=$(_homelab_sops decrypt "$root/tofu/shared/backend.sops.env") || return 1
@@ -106,13 +110,32 @@ _homelab_github_prepare() {
     else
         (umask 077 && printf '%s\n' "$plaintext" >"$destination") || return 1
     fi
-    value=$(printf '%s\n' "$provider" | sed -n 's/^GITHUB_APP_PEM_FILE=//p' | head -n 1)
-    export "GITHUB_APP_PEM_FILE=$value"
     for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3; do
         value=$(printf '%s\n' "$backend" | sed -n "s/^$name=//p" | head -n 1)
         export "$name=$value"
     done
-    echo 'Loaded the GitHub App key and state backend credentials for this shell. Decrypted inputs are ready.'
+    # The selected workspace, TF_WORKSPACE's or the one .terraform records,
+    # decides which account a plan touches, and so which App's key the provider
+    # reads, as GITHUB_APP_PEM_FILE. The default workspace has none.
+    workspace=${TF_WORKSPACE:-}
+    if [ -z "$workspace" ]; then
+        workspace=default
+        if [ -f "$dir/.terraform/environment" ]; then
+            workspace=$(cat "$dir/.terraform/environment")
+        fi
+    fi
+    case $workspace in
+    personal | bot)
+        name="GITHUB_APP_$(printf '%s' "$workspace" | tr '[:lower:]' '[:upper:]')_PEM_FILE"
+        value=$(printf '%s\n' "$provider" | sed -n "s/^$name=//p" | head -n 1)
+        export "GITHUB_APP_PEM_FILE=$value"
+        echo "Loaded the $workspace workspace's GitHub App key and the state backend credentials for this shell. Decrypted inputs are ready. Source this again after selecting another workspace."
+        ;;
+    *)
+        unset GITHUB_APP_PEM_FILE
+        echo "Loaded the state backend credentials for this shell. Decrypted inputs are ready. The selected workspace, $workspace, has no App: select personal or bot, then source this again."
+        ;;
+    esac
 }
 
 _homelab_github_prepare

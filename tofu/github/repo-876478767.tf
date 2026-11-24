@@ -2,7 +2,7 @@
 # decrypts signing.sops.yaml, its upload keystore, with.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
-  repository_876478767 = jsondecode(data.github_rest_api.repository_876478767.body).name
+  repository_876478767 = local.personal ? jsondecode(data.github_rest_api.repository_876478767.body).name : ""
   repository_876478767_actions_secrets = {
     SOPS_AGE_KEY = var.closecircuit.sops_age_key
   }
@@ -10,10 +10,14 @@ locals {
 
 data "github_rest_api" "repository_876478767" {
   endpoint = "repositories/876478767"
+
+  lifecycle {
+    enabled = local.personal
+  }
 }
 
 resource "github_actions_secret" "repository_876478767" {
-  for_each = toset(keys(local.repository_876478767_actions_secrets))
+  for_each = local.personal ? toset(keys(local.repository_876478767_actions_secrets)) : toset([])
 
   repository  = local.repository_876478767
   secret_name = each.key

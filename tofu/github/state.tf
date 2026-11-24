@@ -1,16 +1,20 @@
 # tflint-ignore-file: terraform_required_version  # OpenTofu's version is versions.tf's language block.
-# State lives in the homelab-tofu-state bucket that tofu/oracle manages, under
-# this root's own key, encrypted client-side with this root's own passphrase.
-# It holds every secret's value, as the provider has no write-only argument.
+# State lives in the homelab-tofu-state bucket that tofu/oracle manages, one
+# state per workspace under github/<workspace>/, encrypted client-side with
+# this root's own passphrase, which both workspaces share. It holds every
+# secret's value, as the provider has no write-only argument.
 terraform {
   # Credentials and the endpoint, which names the tenancy, come from the
   # environment that sourcing prepare.sh exports from tofu/shared/backend.sops.env.
   backend "s3" {
-    bucket         = "homelab-tofu-state"
-    key            = "github/terraform.tfstate"
-    region         = "us-ashburn-1"
-    use_path_style = true
-    use_lockfile   = true
+    bucket = "homelab-tofu-state"
+    # A workspace's state is <workspace_key_prefix>/<workspace>/<key>. The
+    # default workspace, which nothing uses, would put its state at the key.
+    key                  = "terraform.tfstate"
+    workspace_key_prefix = "github"
+    region               = "us-ashburn-1"
+    use_path_style       = true
+    use_lockfile         = true
 
     skip_credentials_validation = true # No STS
     skip_region_validation      = true # Not an AWS region

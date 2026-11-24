@@ -7,7 +7,7 @@
 # secrets as the repositories' other plaintext values are.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
-  repository_1465174461 = jsondecode(data.github_rest_api.repository_1465174461.body).name
+  repository_1465174461 = local.personal ? jsondecode(data.github_rest_api.repository_1465174461.body).name : ""
 
   # The environments tofu/azure's koala_profiles names, with the branches and
   # tags each admits.
@@ -48,11 +48,15 @@ locals {
 
 data "github_rest_api" "repository_1465174461" {
   endpoint = "repositories/1465174461"
+
+  lifecycle {
+    enabled = local.personal
+  }
 }
 
 # Each admits only the refs its deployment policies name.
 resource "github_repository_environment" "repository_1465174461" {
-  for_each = local.repository_1465174461_environments
+  for_each = local.personal ? local.repository_1465174461_environments : {}
 
   repository  = local.repository_1465174461
   environment = each.key
@@ -64,7 +68,7 @@ resource "github_repository_environment" "repository_1465174461" {
 }
 
 resource "github_repository_environment_deployment_policy" "repository_1465174461" {
-  for_each = local.repository_1465174461_deployment_policies
+  for_each = local.personal ? local.repository_1465174461_deployment_policies : {}
 
   repository     = local.repository_1465174461
   environment    = github_repository_environment.repository_1465174461[each.value.environment].environment
@@ -73,7 +77,7 @@ resource "github_repository_environment_deployment_policy" "repository_146517446
 }
 
 resource "github_actions_environment_secret" "repository_1465174461" {
-  for_each = local.repository_1465174461_environment_secrets
+  for_each = local.personal ? local.repository_1465174461_environment_secrets : {}
 
   repository  = local.repository_1465174461
   environment = github_repository_environment.repository_1465174461[each.value.environment].environment

@@ -2,7 +2,7 @@
 # and the age key it decrypts publish.sops.yaml, its SSH key, with.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
-  repository_1386017153 = jsondecode(data.github_rest_api.repository_1386017153.body).name
+  repository_1386017153 = local.personal ? jsondecode(data.github_rest_api.repository_1386017153.body).name : ""
   repository_1386017153_actions_secrets = {
     SOPS_AGE_KEY = var.kodi_plugins.sops_age_key
 
@@ -17,10 +17,14 @@ locals {
 
 data "github_rest_api" "repository_1386017153" {
   endpoint = "repositories/1386017153"
+
+  lifecycle {
+    enabled = local.personal
+  }
 }
 
 resource "github_actions_secret" "repository_1386017153" {
-  for_each = toset(keys(local.repository_1386017153_actions_secrets))
+  for_each = local.personal ? toset(keys(local.repository_1386017153_actions_secrets)) : toset([])
 
   repository  = local.repository_1386017153
   secret_name = each.key

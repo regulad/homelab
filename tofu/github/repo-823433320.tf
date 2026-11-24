@@ -1,7 +1,7 @@
 # Repository 823433320, named doppelganger when written: its Actions secrets and its Dependabot secrets.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
-  repository_823433320 = jsondecode(data.github_rest_api.repository_823433320.body).name
+  repository_823433320 = local.personal ? jsondecode(data.github_rest_api.repository_823433320.body).name : ""
   # The Nexus login its Gradle jobs read the maven-central proxy with, in both
   # stores: workflow runs on Dependabot's pull requests read only Dependabot's.
   repository_823433320_maven_mirror = {
@@ -23,10 +23,14 @@ locals {
 
 data "github_rest_api" "repository_823433320" {
   endpoint = "repositories/823433320"
+
+  lifecycle {
+    enabled = local.personal
+  }
 }
 
 resource "github_actions_secret" "repository_823433320" {
-  for_each = toset(keys(local.repository_823433320_actions_secrets))
+  for_each = local.personal ? toset(keys(local.repository_823433320_actions_secrets)) : toset([])
 
   repository  = local.repository_823433320
   secret_name = each.key
@@ -39,7 +43,7 @@ resource "github_actions_secret" "repository_823433320" {
 }
 
 resource "github_dependabot_secret" "repository_823433320" {
-  for_each = toset(keys(local.repository_823433320_dependabot_secrets))
+  for_each = local.personal ? toset(keys(local.repository_823433320_dependabot_secrets)) : toset([])
 
   repository  = local.repository_823433320
   secret_name = each.key

@@ -1,7 +1,7 @@
 # Repository 364397477, named PepperCord when written: its Actions secrets and its Dependabot secret.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
-  repository_364397477 = jsondecode(data.github_rest_api.repository_364397477.body).name
+  repository_364397477 = local.personal ? jsondecode(data.github_rest_api.repository_364397477.body).name : ""
   repository_364397477_actions_secrets = {
     PAT = var.github_pats["terraform-peppercord--resources"]
 
@@ -14,10 +14,14 @@ locals {
 
 data "github_rest_api" "repository_364397477" {
   endpoint = "repositories/364397477"
+
+  lifecycle {
+    enabled = local.personal
+  }
 }
 
 resource "github_actions_secret" "repository_364397477" {
-  for_each = toset(keys(local.repository_364397477_actions_secrets))
+  for_each = local.personal ? toset(keys(local.repository_364397477_actions_secrets)) : toset([])
 
   repository  = local.repository_364397477
   secret_name = each.key
@@ -36,6 +40,7 @@ resource "github_dependabot_secret" "repository_364397477" {
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
+    enabled         = local.personal
     prevent_destroy = true
   }
 }

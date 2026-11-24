@@ -129,6 +129,8 @@ repos:
         language: unsupported
         # The provider requires its App key to be set, even to validate, and
         # validate never reads it: prepare.sh exports the real one for plans.
+        # It validates the selected workspace, which must be one of the root's:
+        # the default workspace has no App, and fails.
         entry: env GITHUB_APP_PEM_FILE=unused tofu -chdir=tofu/github validate -no-color
         files: ^(tofu/(github|shared)/|ansible-generated/inventory/group_vars/nexus_servers\.yml$)
         pass_filenames: false
