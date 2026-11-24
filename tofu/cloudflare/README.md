@@ -3,7 +3,7 @@
 The `.tf` files are the source of truth for the Cloudflare account `regulad`: its five zones
 and their DNS records, the DNSSEC of `regulad.xyz`, `nefumllc.com` and `regulad.net`, the
 settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and its routes, the
-`mta-sts` and `autoconfig` Workers, and the account's API tokens.
+`mta-sts`, `autoconfig` and `redirect` Workers, and the account's API tokens.
 
 | Location | Configuration |
 |---|---|
@@ -11,6 +11,7 @@ settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and it
 | `tunnel-git.tf` | The `git` tunnel, which cloudflared on `git.regulad.internal` runs, and its routes |
 | `worker-mta--sts.tf` | The `mta-sts` Worker, which serves the MTA-STS policy at `mta-sts.` in each zone mail receives for |
 | `worker-autoconfig.tf` | The `autoconfig` Worker, which serves Mozilla's autoconfig file, mail's IMAP and SMTP settings, at `autoconfig.` in each zone mail receives for |
+| `worker-redirect.tf` | The `redirect` Worker, which sends the apex and `www` host of each parked zone to `regulad.xyz` |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
 | `moved.tf` | Every past address move, so old states and backups still plan cleanly |
