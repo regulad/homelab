@@ -109,19 +109,6 @@ resource "cloudflare_dns_record" "nefumllc_com_email_dkim_cname" {
   ttl     = 1 # Automatic
 }
 
-resource "cloudflare_dns_record" "nefumllc_com_www_cname" {
-  name    = "www.${cloudflare_zone.nefumllc_com.name}"
-  zone_id = cloudflare_zone.nefumllc_com.id
-  type    = "CNAME"
-  content = "ghs.googlehosted.com"
-  ttl     = 1 # Automatic
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 # RFC 6186/8314: where mail clients find IMAP and submission, each over TLS,
 # on mail's host.
 resource "cloudflare_dns_record" "nefumllc_com_imaps_tcp_srv" {
