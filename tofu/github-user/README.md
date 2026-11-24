@@ -73,7 +73,7 @@ destroys or replaces a repository deletes it.
 
 regulad's other tokens are read from `personal.sops.yaml`, their only copy, by:
 
-- `tofu/github`, for repositories' Actions and Dependabot secrets, through its
+- `tofu/github`, for repositories' Actions, Dependabot and environment secrets, through its
   `prepare.sh`;
 - `tofu/vercel`, for projects' environment variables, through its `prepare.sh`;
 - `ansible-generated`, for ghcr.io logins: Nexus's `ghcr-io` proxy
