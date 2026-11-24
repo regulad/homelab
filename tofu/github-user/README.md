@@ -2,20 +2,25 @@
 
 This root manages the GitHub accounts themselves, regulad's and regubot's, each in a
 workspace of its own, signing in with the account's own classic personal access token: what
-only a token of the account can do, such as the repositories it creates or forks and, to
-come, its keys. [`tofu/github`](../github/README.md) sets the accounts' repositories'
+only a token of the account can do, such as its keys and the repositories it creates or
+forks. [`tofu/github`](../github/README.md) sets the accounts' repositories'
 secrets, through their Apps.
 
 | Location | Configuration |
 |---|---|
+| `public-key-<name>.tf` | An SSH authentication key, by its name: `public-key-id_rsa3072.tf`, regulad's, `tofu/shared`'s `regulad_ssh_public_key` |
+| `ssh-signing-key-<name>.tf` | An SSH signing key, by its name: `ssh-signing-key-id_rsa3072.tf`, the same key |
+| `gpg-key-<name>.tf` | A GPG key, by its name, `x` and its key ID: `gpg-key-x081BE541EA23ACF3.tf`, regulad's |
+| `imports.tf` | The keys regulad added by hand, imported by their GitHub IDs; removed after the apply that imports them |
 | `repo-<name>.tf` | One file per repository the account creates or forks: `repo-winget--pkgs.tf`, regubot's fork of `microsoft/winget-pkgs`, and `repo-regubot.tf`, its profile repository and `README.md` |
 | `files/regubot/README.md` | The profile README, byte for byte |
+| `files/gpg-key-<name>.asc` | A GPG key's armored public key, as GitHub holds it |
 | `providers.tf` | Each workspace's account, the provider, and the check of the account the token signs in as |
-| `locals.tf` | Whether the selected workspace manages regubot's account |
+| `locals.tf` | Whether the selected workspace manages regulad's account or regubot's, and `tofu/shared` |
 | `personal.sops.yaml`, `bot.sops.yaml` | Each account's personal access tokens, by their names on GitHub |
 | `secrets.sops.yaml` | The state passphrase |
 | `variables.tf` | The state passphrase input |
-| `versions.tf` | Pinned versions: the provider at a build from the provider mirror, with `github_user_ssh_signing_key` |
+| `versions.tf` | Pinned versions: the provider at a build from the provider mirror, with `github_user_ssh_signing_key` and import for `github_user_gpg_key` |
 | `tofu.rc` | The CLI configuration `prepare.sh` selects, which installs that build from the mirror |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
@@ -24,7 +29,7 @@ secrets, through their Apps.
 Each account has a state of its own, in an OpenTofu workspace: `personal` for regulad's, and
 `bot` for regubot's. Each signs in with its own account's token, and a postcondition on
 `data.github_user.self` fails the plan unless the token is that account's. A file enables its
-blocks only in its account's workspace (`local.bot`). The `default` workspace has no
+blocks only in its account's workspace (`local.personal`, `local.bot`). The `default` workspace has no
 account, and `validate` and `plan` fail there.
 
 The selected workspace lives in `.terraform/environment`, and nothing in a `plan` or `apply`

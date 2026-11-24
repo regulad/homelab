@@ -10,10 +10,10 @@ language {
 terraform {
   required_providers {
     # A build from the provider mirror that tofu.rc selects, with
-    # github_user_ssh_signing_key.
+    # github_user_ssh_signing_key and import for github_user_gpg_key.
     github = {
       source  = "integrations/github"
-      version = "= 6.14.0-pr2366.1"
+      version = "= 6.14.0-pr2366.pr3747.1"
     }
   }
 }
