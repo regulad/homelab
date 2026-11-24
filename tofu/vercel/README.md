@@ -6,7 +6,6 @@ project, its custom domains and its environment variables.
 
 | Project | Repository | Custom domains | Environment |
 |---|---|---|---|
-| `aporia-blue` | `regulad/aporia-blue` | `aporia.blue` | |
 | `battleship-visualizer` | `regulad/battleship-visualizer` | | |
 | `github-readme-stats` | `regulad/github-readme-stats` | | `PAT_1` |
 | `ml4webedit` | `regulad/ml4webedit` | | |
