@@ -12,7 +12,6 @@ project, its custom domains and its environment variables.
 | `ml4webedit` | `regulad/ml4webedit` | | |
 | `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | |
 | `picture-triangulator` | `regulad/picture-triangulator` | | |
-| `uulanding` | `regulad/uulanding` | | |
 
 | Location | Configuration |
 |---|---|
