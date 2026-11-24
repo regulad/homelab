@@ -1,7 +1,8 @@
 # Repository 1465174461, named Koala when written: its signing environments,
 # with the refs each admits, and each one's Entra ID sign-in and the Artifact
 # Signing account and profile it signs with, as for Warlock; and the release
-# environment's Sentry token, and the tokens its winget job uses.
+# environment's Sentry token, and the tokens its winget job uses; and the
+# token its Dependabot auto-merge merges with.
 # tofu/azure's federated credential for each
 # environment trusts runs in it alone, so the refs an environment admits are
 # the refs that can sign as it. None of the signing values is secret; they are
@@ -89,4 +90,14 @@ resource "github_actions_environment_secret" "repository_1465174461" {
   environment = github_repository_environment.repository_1465174461[each.value.environment].environment
   secret_name = each.value.name
   value       = each.value.value
+}
+
+resource "github_dependabot_secret" "repository_1465174461" {
+  repository  = local.repository_1465174461
+  secret_name = "DEPENDABOT_MERGE_TOKEN"
+  value       = var.github_pats["terraform-dependabot--koala"]
+
+  lifecycle {
+    enabled = local.personal
+  }
 }

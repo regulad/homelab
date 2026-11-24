@@ -1,5 +1,6 @@
 # Repository 861072224, named SupIR when written: the age key its release workflow
-# decrypts signing.sops.yaml, its upload keystore, with.
+# decrypts signing.sops.yaml, its upload keystore, with; and the token its
+# Dependabot auto-merge merges with.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_861072224 = local.personal ? jsondecode(data.github_rest_api.repository_861072224.body).name : ""
@@ -26,5 +27,15 @@ resource "github_actions_secret" "repository_861072224" {
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
+  }
+}
+
+resource "github_dependabot_secret" "repository_861072224" {
+  repository  = local.repository_861072224
+  secret_name = "DEPENDABOT_MERGE_TOKEN"
+  value       = var.github_pats["terraform-dependabot--supir"]
+
+  lifecycle {
+    enabled = local.personal
   }
 }

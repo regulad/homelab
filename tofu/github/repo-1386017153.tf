@@ -1,5 +1,6 @@
 # Repository 1386017153, named kodi-plugins when written: the tailnet identity and SSH login that publishing uses,
-# and the age key it decrypts publish.sops.yaml, its SSH key, with.
+# and the age key it decrypts publish.sops.yaml, its SSH key, with; and the token its Dependabot auto-merge merges
+# with.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_1386017153 = local.personal ? jsondecode(data.github_rest_api.repository_1386017153.body).name : ""
@@ -33,5 +34,15 @@ resource "github_actions_secret" "repository_1386017153" {
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
+  }
+}
+
+resource "github_dependabot_secret" "repository_1386017153" {
+  repository  = local.repository_1386017153
+  secret_name = "DEPENDABOT_MERGE_TOKEN"
+  value       = var.github_pats["terraform-dependabot--kodi---plugins"]
+
+  lifecycle {
+    enabled = local.personal
   }
 }

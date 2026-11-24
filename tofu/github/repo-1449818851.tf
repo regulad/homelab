@@ -1,4 +1,5 @@
-# Repository 1449818851, named RosellaView when written: the Sentry token its build uploads with.
+# Repository 1449818851, named RosellaView when written: the Sentry token its build uploads with, and the
+# token its Dependabot auto-merge merges with.
 locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_1449818851 = local.personal ? jsondecode(data.github_rest_api.repository_1449818851.body).name : ""
@@ -25,5 +26,15 @@ resource "github_actions_secret" "repository_1449818851" {
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
     prevent_destroy = true
+  }
+}
+
+resource "github_dependabot_secret" "repository_1449818851" {
+  repository  = local.repository_1449818851
+  secret_name = "DEPENDABOT_MERGE_TOKEN"
+  value       = var.github_pats["terraform-dependabot--rosellaview"]
+
+  lifecycle {
+    enabled = local.personal
   }
 }
