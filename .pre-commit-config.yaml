@@ -135,6 +135,15 @@ repos:
         files: ^(tofu/(github|shared)/|ansible-generated/inventory/group_vars/nexus_servers\.yml$)
         pass_filenames: false
 
+      - id: tofu-validate-github-user
+        name: tofu validate (github-user)
+        language: unsupported
+        # It validates the selected workspace, which must be one of the root's:
+        # the default workspace has no account, and fails.
+        entry: tofu -chdir=tofu/github-user validate -no-color
+        files: ^tofu/(github-user|shared)/
+        pass_filenames: false
+
       - id: tofu-validate-vercel
         name: tofu validate (vercel)
         language: unsupported

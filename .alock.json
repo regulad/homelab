@@ -7,6 +7,7 @@
     "tofu/cloudflare": {},
     "tofu/gcp": {},
     "tofu/github": {},
+    "tofu/github-user": {},
     "tofu/gonkputer": {
       "hosts": {
         "dir": "ansible-generated",

@@ -70,7 +70,7 @@ freeipa_users_public:
       {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/supabase/secrets.sops.yaml',
                 extract='["smtp_password"]') }}
     passwordexpiration: "20380119031407Z"
-  # regubot, Parker's GitHub machine account (tofu/github-bot): its mailbox,
+  # regubot, Parker's GitHub machine account (tofu/github-user): its mailbox,
   # which receives GitHub's mail to the account and is read by logging in to
   # mail as regubot@regulad.xyz. It only receives: holding no address at
   # regulad.xyz, it may send as none. Its password, generated, is in

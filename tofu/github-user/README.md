@@ -1,21 +1,66 @@
 # github-user (GitHub, the accounts)
 
-Not yet an OpenTofu root: only the personal access tokens of the GitHub account `regulad`
-live here, in `personal.sops.yaml`, as Docker Hub's live in
-`tofu/dockerhub/secrets.sops.yaml`. Each account has a file of its own, named for its
-workspace, so the same token name means the same use in each: regubot's are in
-`bot.sops.yaml`. In each, `terraform-github--user` is that account's own classic token,
-which this root is to sign in with. It is to declare the accounts' own settings, such as
-their SSH and signing keys, regulad's and regubot's each in a workspace of its own and
-with a token of that account's.
+This root manages the GitHub accounts themselves, regulad's and regubot's, each in a
+workspace of its own, signing in with the account's own classic personal access token: what
+only a token of the account can do, such as the repositories it creates or forks and, to
+come, its keys. [`tofu/github`](../github/README.md) sets the accounts' repositories'
+secrets, through their Apps.
+
+| Location | Configuration |
+|---|---|
+| `repo-<name>.tf` | One file per repository the account creates or forks: `repo-winget--pkgs.tf`, regubot's fork of `microsoft/winget-pkgs`, and `repo-regubot.tf`, its profile repository and `README.md` |
+| `files/regubot/README.md` | The profile README, byte for byte |
+| `providers.tf` | Each workspace's account, the provider, and the check of the account the token signs in as |
+| `locals.tf` | Whether the selected workspace manages regubot's account |
+| `personal.sops.yaml`, `bot.sops.yaml` | Each account's personal access tokens, by their names on GitHub |
+| `secrets.sops.yaml` | The state passphrase |
+| `variables.tf` | The state passphrase input |
+| `versions.tf` | Pinned versions: the provider at a build from the provider mirror, with `github_user_ssh_signing_key` |
+| `tofu.rc` | The CLI configuration `prepare.sh` selects, which installs that build from the mirror |
+| `state.tf` | Enforced state encryption and its passphrase input |
+
+## Workspaces
+
+Each account has a state of its own, in an OpenTofu workspace: `personal` for regulad's, and
+`bot` for regubot's. Each signs in with its own account's token, and a postcondition on
+`data.github_user.self` fails the plan unless the token is that account's. A file enables its
+blocks only in its account's workspace (`local.bot`). The `default` workspace has no
+account, and `validate` and `plan` fail there.
+
+The selected workspace lives in `.terraform/environment`, and nothing in a `plan` or `apply`
+command shows it: check it with `tofu -chdir=tofu/github-user workspace show` before each,
+and `prepare.sh` names it. alock locks and records the root as a single target, so the two
+workspaces never apply at once, and its record of the last applied commit covers both. A
+saved plan is named for its workspace, `docs/snapshot/github-user.<workspace>@<commit>.tfplan`.
+
+State sits at `github-user/<workspace>/terraform.tfstate` in the state bucket.
+
+## regubot
+
+regubot is Parker's GitHub machine account, made to submit winget manifests to
+`microsoft/winget-pkgs`. It is operated only by deterministic pipelines, never by an LLM
+directly. Its address, `bot@regulad.net`, is a mailbox on mail: the FreeIPA account
+`regubot` in wako's `freeipa_users_public`, read by logging in to mail as
+`regubot@regulad.xyz` with the password in wako's `secrets.sops.yml`. Parker created the
+account, with that address as its email, and confirmed it from the mailbox.
+
+## Personal access tokens
 
 GitHub has no API that issues a personal access token, and no App-issued token can fill a
-repository's secret, as those last an hour. So each token is issued by hand in regulad's
-settings, under its name there, `terraform-<word>--<word>`, with the narrowest access that
-serves it, and kept in `github_pats`; the comment above each gives its type, its
-repository access and its permissions.
+repository's secret, as those last an hour. So each token is issued by hand in its
+account's settings, under its name there, `terraform-<word>--<word>`, with the narrowest
+access that serves it, and kept in that account's file's `github_pats`, named for its
+workspace, so the same name means the same use in each. The comment above each gives its
+type, its repository access and its permissions.
 
-Their users read them from here, their only copy:
+`terraform-github--user`, in each file, is that account's token for this root: a classic
+token with `public_repo`, `delete_repo`, `admin:public_key`, `admin:gpg_key` and
+`admin:ssh_signing_key`. Classic, as no App can fork a repository into the account, and a
+fine-grained token would need Administration write for the provider's update after a fork,
+which deletes repositories as well. It deletes them too, with `delete_repo`: an apply that
+destroys or replaces a repository deletes it.
+
+regulad's other tokens are read from `personal.sops.yaml`, their only copy, by:
 
 - `tofu/github`, for repositories' Actions and Dependabot secrets, through its
   `prepare.sh`;
@@ -24,8 +69,45 @@ Their users read them from here, their only copy:
   (`group_vars/nexus_servers.yml`), and the `registry_auth` logins of mail, pihole2 and
   doppelgangerhq.com (their `host_vars`).
 
-To rotate one, issue a new token under the same name, put it in `personal.sops.yaml` with
-`sops edit`, and deliver it as its users say: an apply of `tofu/github` or `tofu/vercel`;
-for Nexus, `maintenance.yml --tags nexus-proxy-logins` from `ansible-generated/`, since
-Nexus never returns a stored password; for a host,
+To rotate one, issue a new token under the same name, put it in its account's file with
+`sops edit`, and deliver it as its users say: an apply here, or of `tofu/github` or
+`tofu/vercel`; for Nexus, `maintenance.yml --tags nexus-proxy-logins` from
+`ansible-generated/`, since Nexus never returns a stored password; for a host,
 `site.yml --tags registry_auth --limit <host>`. Then delete the old token in GitHub.
+
+## Credentials
+
+`prepare.sh` exports the selected workspace's `terraform-github--user` as `GITHUB_TOKEN`,
+which the provider reads; source it again after selecting another workspace. Without a
+token, the provider signs in with the GitHub CLI's, regulad's own, and for a user owner it
+acts as whichever account signs in: the postcondition refuses any account but the
+workspace's. In the shell that sourced `prepare.sh`, `gh` also acts as that account, as it
+prefers `GITHUB_TOKEN` to its own login.
+
+## Running it
+
+From the repository root, in bash or zsh on Linux or macOS:
+
+```bash
+. tofu/github-user/prepare.sh       # selects tofu.rc, exports backend credentials and the selected workspace's token, decrypts inputs
+tofu -chdir=tofu/github-user init -input=false -lockfile=readonly
+tofu -chdir=tofu/github-user workspace select personal   # or bot
+. tofu/github-user/prepare.sh       # again, for that workspace's token
+tofu -chdir=tofu/github-user validate
+tofu -chdir=tofu/github-user plan -input=false -detailed-exitcode
+```
+
+`prepare.sh` must be sourced, not executed. It needs `sops`, `jq` and `git`, and refuses an
+empty token.
+
+State and saved plans use enforced AES-GCM encryption. Never change or lose the passphrase.
+
+## Not managed here
+
+| What | Why, or who owns it |
+|---|---|
+| The accounts, their emails and their tokens | Made by hand; GitHub has no API for them |
+| The repositories' secrets and environments | `tofu/github`, through each account's App |
+| regubot's mailbox | wako's FreeIPA accounts, through `ansible-generated` |
+
+Every mutation or state change needs Parker's explicit approval.
