@@ -75,9 +75,10 @@ its update time, and the next apply writes this repository's value back.
 
 ## Personal access tokens
 
-The repositories' personal access tokens are regulad's, issued by hand in his settings and
-kept in `tofu/github-user/personal.sops.yaml`, their only copy, which `prepare.sh`
-reads; its README says how to rotate one.
+The repositories' personal access tokens are regulad's, and regubot's for the winget jobs of
+Koala and Warlock, each issued by hand in its account's settings and kept in
+`tofu/github-user`'s `personal.sops.yaml` or `bot.sops.yaml`, their only copies, which
+`prepare.sh` reads as `github_pats` and `bot_github_pats`; its README says how to rotate one.
 
 Later, not yet: workflows move off personal access tokens, to GitHub's built-in tokens
 (`GITHUB_TOKEN`, Dependabot's) wherever they suffice and to an App of each repository's own

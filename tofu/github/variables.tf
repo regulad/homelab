@@ -34,6 +34,14 @@ variable "github_pats" {
   nullable  = false
 }
 
+# regubot's, likewise, which prepare.sh reads from
+# tofu/github-user/bot.sops.yaml, their only copy.
+variable "bot_github_pats" {
+  type      = map(string)
+  sensitive = true
+  nullable  = false
+}
+
 # Sentry organization auth tokens, issued by Sentry, by repository.
 variable "sentry_auth_tokens" {
   type = object({
@@ -74,6 +82,22 @@ variable "closecircuit" {
 }
 
 variable "supir" {
+  type = object({
+    sops_age_key = string
+  })
+  sensitive = true
+  nullable  = false
+}
+
+variable "koala" {
+  type = object({
+    sops_age_key = string
+  })
+  sensitive = true
+  nullable  = false
+}
+
+variable "warlock" {
   type = object({
     sops_age_key = string
   })
