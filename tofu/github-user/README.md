@@ -11,7 +11,6 @@ secrets, through their Apps.
 | `public-key-<name>.tf` | An SSH authentication key, by its name: `public-key-id_rsa3072.tf`, regulad's, `tofu/shared`'s `regulad_ssh_public_key` |
 | `ssh-signing-key-<name>.tf` | An SSH signing key, by its name: `ssh-signing-key-id_rsa3072.tf`, the same key |
 | `gpg-key-<name>.tf` | A GPG key, by its name, `x` and its key ID: `gpg-key-x081BE541EA23ACF3.tf`, regulad's |
-| `imports.tf` | The keys regulad added by hand, imported by their GitHub IDs; removed after the apply that imports them |
 | `repo-<name>.tf` | One file per repository the account creates or forks: `repo-winget--pkgs.tf`, regubot's fork of `microsoft/winget-pkgs`, and `repo-regubot.tf`, its profile repository and `README.md` |
 | `files/regubot/README.md` | The profile README, byte for byte |
 | `files/gpg-key-<name>.asc` | A GPG key's armored public key, as GitHub holds it |
