@@ -1,7 +1,10 @@
 # Shared OpenTofu constants
 
 This module exports non-sensitive constants and manages no resources or providers.
-`tailscale.tf` defines the tailnet IPv4 and IPv6 ranges once for all provider roots.
+`tailscale.tf` defines the tailnet IPv4 and IPv6 ranges once for all provider roots, and
+`ssh.tf` regulad's SSH public key, `regulad_ssh_public_key`, without a comment field.
+`versions.tf` pins nothing: each calling root pins OpenTofu's version. Its empty `terraform`
+block is where tflint reports the missing pin, which the file's annotation ignores.
 
 `backend.sops.env` holds the state backend's credentials and endpoint for every root:
 `svc-tofu-state`'s customer secret key and the bucket's S3-compatible endpoint. Each root's

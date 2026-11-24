@@ -1,5 +1,3 @@
-# tflint-ignore-file: terraform_required_version
-# Resource-free; each calling root pins the OpenTofu version.
 # Shared address ranges for every provider root that connects to the tailnet.
 output "tailscale_cidrs" {
   description = "Tailscale address ranges, keyed by IP family."
