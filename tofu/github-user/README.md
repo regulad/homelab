@@ -9,7 +9,7 @@ secrets, through their Apps.
 | Location | Configuration |
 |---|---|
 | `public-key-<name>.tf` | An SSH authentication key, by its name: `public-key-id_rsa3072.tf`, regulad's, `tofu/shared`'s `regulad_ssh_public_key` |
-| `ssh-signing-key-<name>.tf` | An SSH signing key, by its name: `ssh-signing-key-id_rsa3072.tf`, the same key |
+| `ssh-signing-key-<name>.tf` | An SSH signing key, by its name: `ssh-signing-key-id_rsa3072.tf`, the same key; and regubot's, one per pipeline that commits to its fork of winget-pkgs, such as `ssh-signing-key-koala--winget.tf` |
 | `gpg-key-<name>.tf` | A GPG key, by its name, `x` and its key ID: `gpg-key-x081BE541EA23ACF3.tf`, regulad's |
 | `repo-<name>.tf` | One file per repository the account creates or forks: `repo-winget--pkgs.tf`, regubot's fork of `microsoft/winget-pkgs`, and `repo-regubot.tf`, its profile repository and `README.md` |
 | `files/regubot/README.md` | The profile README, byte for byte |
@@ -48,6 +48,13 @@ directly. Its address, `bot@regulad.net`, is a mailbox on mail: the FreeIPA acco
 `regubot@regulad.xyz` with the password in wako's `secrets.sops.yml`. Parker created the
 account, with that address as its email, and confirmed it from the mailbox.
 
+Each pipeline that commits to its fork signs with an Ed25519 key of its own, which this root
+lists as one of regubot's signing keys. The private half lives in the pipeline's own
+repository, as its `winget.sops.yaml`, encrypted to Parker's age key and to an age key made
+for that repository alone, whose identity homelab holds and delivers: Koala's and Warlock's
+in `tofu/github`'s `secrets.sops.yaml`, for their `release` environments, and regulad/jobs's
+in Jenkins's `host_vars`, for Jenkins.
+
 ## Personal access tokens
 
 GitHub has no API that issues a personal access token, and no App-issued token can fill a
@@ -72,6 +79,11 @@ regulad's other tokens are read from `personal.sops.yaml`, their only copy, by:
 - `ansible-generated`, for ghcr.io logins: Nexus's `ghcr-io` proxy
   (`group_vars/nexus_servers.yml`), and the `registry_auth` logins of mail, pihole2 and
   doppelgangerhq.com (their `host_vars`).
+
+regubot's other tokens, one per pipeline that submits to winget-pkgs, are read from
+`bot.sops.yaml`, their only copy, by `tofu/github`, for Koala's and Warlock's `release`
+environments, and by `ansible-generated`, for Jenkins's `winget-token` credential
+(`site.yml --tags host_files --limit jenkins.regulad.internal`).
 
 To rotate one, issue a new token under the same name, put it in its account's file with
 `sops edit`, and deliver it as its users say: an apply here, or of `tofu/github` or
