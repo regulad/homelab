@@ -78,7 +78,9 @@ regulad's other tokens are read from `personal.sops.yaml`, their only copy, by:
 - `tofu/vercel`, for projects' environment variables, through its `prepare.sh`;
 - `ansible-generated`, for ghcr.io logins: Nexus's `ghcr-io` proxy
   (`group_vars/nexus_servers.yml`), and the `registry_auth` logins of mail, pihole2 and
-  doppelgangerhq.com (their `host_vars`).
+  doppelgangerhq.com (their `host_vars`); and for Jenkins's `regulad-notifications-token`
+  credential, with which regulad/jobs's winget jobs subscribe regulad to regubot's pull
+  requests.
 
 regubot's other tokens, one per pipeline that submits to winget-pkgs, are read from
 `bot.sops.yaml`, their only copy, by `tofu/github`, for Koala's and Warlock's `release`
@@ -89,7 +91,9 @@ To rotate one, issue a new token under the same name, put it in its account's fi
 `sops edit`, and deliver it as its users say: an apply here, or of `tofu/github` or
 `tofu/vercel`; for Nexus, `maintenance.yml --tags nexus-proxy-logins` from
 `ansible-generated/`, since Nexus never returns a stored password; for a host,
-`site.yml --tags registry_auth --limit <host>`. Then delete the old token in GitHub.
+`site.yml --tags registry_auth --limit <host>`; for Jenkins,
+`site.yml --tags host_files --limit jenkins.regulad.internal`. Then delete the old token in
+GitHub.
 
 ## Credentials
 

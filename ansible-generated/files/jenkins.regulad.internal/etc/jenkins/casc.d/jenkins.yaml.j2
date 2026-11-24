@@ -108,6 +108,14 @@ credentials:
               scope: GLOBAL
               description: "regubot's token for its fork of winget-pkgs"
               secret: "${winget_token}"
+          # regulad's token for his notifications alone, with which those jobs
+          # subscribe him to each pull request regubot opens, through GraphQL's
+          # updateSubscription, which takes no other kind of token.
+          - string:
+              id: "regulad-notifications-token"
+              scope: GLOBAL
+              description: "regulad's token for his notifications"
+              secret: "${regulad_notifications_token}"
           # regulad-jenkins for the items outside the regulad folder, whose own
           # takes precedence inside it: a credential of Jenkins's GitHub App
           # (host_vars main.yml, github-app.sops.env) that reads regulad/jobs

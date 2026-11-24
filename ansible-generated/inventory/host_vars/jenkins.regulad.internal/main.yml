@@ -75,6 +75,18 @@ host_files_list:
                 extract='["github_pats"]["terraform-jenkins--winget"]') }}
     secret: true
     restarts: [jenkins.service]
+  # regulad's token for his notifications alone, with which regulad/jobs's
+  # winget jobs subscribe him to the pull requests regubot opens, from
+  # tofu/github-user's personal.sops.yaml, its only copy.
+  - path: /etc/jenkins/secrets/regulad_notifications_token
+    owner: "1000"
+    group: "1000"
+    mode: "0400"
+    content: >-
+      {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/personal.sops.yaml',
+                extract='["github_pats"]["terraform-jenkins--notifications"]') }}
+    secret: true
+    restarts: [jenkins.service]
 
 # Jenkins's agents: containers of rootless Podman as jenkins-agents, which
 # Jenkins's Podman cloud starts through that user's API socket, mounted into
