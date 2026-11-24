@@ -1,9 +1,10 @@
 # shellcheck shell=sh
 # Prepare the calling shell to run OpenTofu in tofu/github: export the selected
 # workspace's GitHub App private key and the state backend's credentials, and
-# decrypt the OpenTofu inputs, with the Nexus CI users' passwords from
+# decrypt the OpenTofu inputs, with regulad's personal access tokens from
+# tofu/github-personal/secrets.sops.yaml and the Nexus CI users' passwords from
 # ansible-generated/inventory/group_vars/nexus_servers.sops.yml, their only
-# copy, and tofu/tailscale's state passphrase, into the gitignored
+# copies, and tofu/tailscale's state passphrase, into the gitignored
 # secrets.auto.tfvars.json file.
 #
 # Source it from anywhere in the clone; do not execute it. Source it again
@@ -30,7 +31,7 @@ _homelab_sops() {
 _homelab_github_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext nexus tailscale azure provider backend name value user key workspace
+    local root dir destination plaintext pats nexus tailscale azure provider backend name value user key workspace
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/github"
     destination="$dir/secrets.auto.tfvars.json"
@@ -64,9 +65,17 @@ _homelab_github_prepare() {
         fi
     done
     plaintext=$(_homelab_sops decrypt --output-type json "$dir/secrets.sops.yaml") || return 1
+    # regulad's personal access tokens, by their names on GitHub, from their
+    # only copy, tofu/github-personal's.
+    pats=$(_homelab_sops decrypt --extract '["github_pats"]' --output-type json \
+        "$root/tofu/github-personal/secrets.sops.yaml") || return 1
+    plaintext=$({
+        printf '%s\n' "$plaintext"
+        printf '%s' "$pats" | jq '{github_pats: .}'
+    } | jq -s add) || return 1
     # Every value is filled in: an empty one would blank a repository's secret.
     if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then
-        echo 'prepare.sh: secrets.sops.yaml has empty values; fill them with sops edit.' >&2
+        echo 'prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-personal/secrets.sops.yaml).' >&2
         return 1
     fi
     # The Nexus CI users' passwords, by user ID, from their only copy. Both pass

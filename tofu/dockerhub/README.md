@@ -1,7 +1,8 @@
 # dockerhub (Docker Hub)
 
 Not yet an OpenTofu root: only the personal access tokens of the Docker Hub account `regulad`
-live here, in `secrets.sops.yaml`, as GitHub's live in `tofu/github/secrets.sops.yaml`.
+live here, in `secrets.sops.yaml`, as GitHub's live in
+`tofu/github-personal/secrets.sops.yaml`.
 
 Docker Hub issues no personal access token through its API to an account with two-factor
 authentication: a token can manage repositories but not other tokens, and the provider's

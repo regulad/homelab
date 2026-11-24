@@ -19,7 +19,7 @@ here; one whose last secret goes leaves it.
 | `locals.tf` | Whether the selected workspace manages regulad's repositories, and Nexus's users and ingress's kodi publisher, read from `ansible-generated`'s data |
 | `tailscale.tf` | `tofu/tailscale`'s outputs |
 | `azure.tf` | `tofu/azure`'s outputs |
-| `variables.tf` | The secret values, from `secrets.sops.yaml`, and the Nexus passwords |
+| `variables.tf` | The secret values, from `secrets.sops.yaml`, the personal access tokens, and the Nexus passwords |
 | `providers.tf`, `versions.tf` | Provider auth, by workspace, and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
@@ -50,7 +50,8 @@ State sits at `github/<workspace>/terraform.tfstate` in the state bucket.
 Every value is derived; none is typed into GitHub.
 
 - **SOPS:** issued tokens and keys live in `secrets.sops.yaml`, under keys that say what each
-  is for. A token several repositories use is one key. Issued values carry no provenance
+  is for, apart from the personal access tokens, which are
+  [`tofu/github-personal`](../github-personal/README.md)'s. A token several repositories use is one key. Issued values carry no provenance
   comment; generated ones do. Fill or change one with `sops edit`, then apply.
 - **Ansible's Nexus data:** the Nexus CI logins, `svc-redroid` for redroid-script and
   `nx-aaoracled` for aaoracled's `nexus-ios` environment, take their names from
@@ -74,10 +75,9 @@ its update time, and the next apply writes this repository's value back.
 
 ## Personal access tokens
 
-The repositories' personal access tokens are issued by hand in GitHub's settings and kept
-in SOPS. GitHub has no API that issues one, and no App-issued token can fill a secret,
-as those last an hour. To rotate one, issue a new token, put it in `secrets.sops.yaml`, and
-apply.
+The repositories' personal access tokens are regulad's, issued by hand in his settings and
+kept in `tofu/github-personal/secrets.sops.yaml`, their only copy, which `prepare.sh`
+reads; its README says how to rotate one.
 
 Later, not yet: workflows move off personal access tokens, to GitHub's built-in tokens
 (`GITHUB_TOKEN`, Dependabot's) wherever they suffice and to an App of each repository's own
