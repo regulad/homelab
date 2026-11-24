@@ -1,7 +1,7 @@
 # Repository 1463115679, named Warlock when written: its signing environments,
 # with the refs each admits, and each one's Entra ID sign-in and the Artifact
 # Signing account and profile it signs with; and the release environment's
-# Sentry token, and the token and age key its winget job submits with.
+# Sentry token, and the token its winget job submits with.
 # tofu/azure's federated credential for each environment trusts
 # runs in it alone, so the refs an environment admits are the refs that can sign
 # as it. None of the signing values is secret; they are secrets as the
@@ -41,13 +41,11 @@ locals {
   ]...)
 
   # The signing secrets; the Sentry organization token that tagged builds,
-  # which only release admits, create releases and upload PDBs with; and what
-  # release's winget job submits with: regubot's token for it, and the age key
-  # that opens the repository's winget.sops.yaml, regubot's signing key.
+  # which only release admits, create releases and upload PDBs with; and
+  # regubot's token, which release's winget job submits with through Komac.
   repository_1463115679_environment_secrets = merge(local.repository_1463115679_signing_secrets, {
     "release/SENTRY_AUTH_TOKEN" = { environment = "release", name = "SENTRY_AUTH_TOKEN", value = var.sentry_auth_tokens.warlock }
     "release/WINGET_TOKEN"      = { environment = "release", name = "WINGET_TOKEN", value = var.bot_github_pats["terraform-warlock--winget"] }
-    "release/SOPS_AGE_KEY"      = { environment = "release", name = "SOPS_AGE_KEY", value = var.warlock.sops_age_key }
   })
 }
 

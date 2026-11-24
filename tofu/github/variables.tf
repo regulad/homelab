@@ -89,22 +89,6 @@ variable "supir" {
   nullable  = false
 }
 
-variable "koala" {
-  type = object({
-    sops_age_key = string
-  })
-  sensitive = true
-  nullable  = false
-}
-
-variable "warlock" {
-  type = object({
-    sops_age_key = string
-  })
-  sensitive = true
-  nullable  = false
-}
-
 # Nexus users' passwords, by user ID, which prepare.sh reads from
 # ansible-generated's nexus_servers.sops.yml, their only copy.
 variable "nexus_passwords" {
