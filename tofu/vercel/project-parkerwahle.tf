@@ -9,7 +9,7 @@ resource "vercel_project" "parkerwahle" {
   function_failover                                 = false
   git_fork_protection                               = true
   git_lfs                                           = false
-  node_version                                      = "20.x"
+  node_version                                      = "24.x"
   on_demand_concurrent_builds                       = false
   preview_deployments_disabled                      = false
   prioritise_production_builds                      = false
