@@ -8,7 +8,7 @@ organization itself, so the organization's own settings and members stay in the 
 
 | Location | Configuration |
 |---|---|
-| `project-<name>.tf` | One file per project: the project, then its settings |
+| `project-<name>.tf` | One file per project: the project, its settings, then its API keys and the output that hands its URL and keys to its consumers |
 | `gcp.tf` | `tofu/gcp`'s outputs, read from its state: the OAuth client IDs of Google's projects |
 | `variables.tf` | The project's database password input |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
