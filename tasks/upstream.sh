@@ -40,7 +40,11 @@ while [ $# -gt 0 ]; do
         extra=$*
         break
     fi
-    paths="$paths $1"
+    # A path that does not exist, such as host_vars/<group> for a step whose
+    # HOST names a group, holds nothing to read.
+    if [ -e "$1" ]; then
+        paths="$paths $1"
+    fi
     shift
 done
 self=${step%%.*}

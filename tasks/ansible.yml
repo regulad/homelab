@@ -1,10 +1,12 @@
 # One Ansible step: a stage, or one host of it. The root Taskfile includes this
 # with STAGE, and either EXCEPT, a host the stage leaves to a step of its own, or
-# HOST and STEP, for that host's step. AGENTS.md § Tasks is the manual.
+# HOST and STEP, for that host's step; HOST and EXCEPT may name a group. WRAP
+# runs each ansible-playbook inside a command of the stage's bin. AGENTS.md
+# § Tasks is the manual.
 version: "3"
 
 vars:
-  RUN: 'tasks/ansible.sh {{.STAGE}} playbooks/site.yml'
+  RUN: '{{if .WRAP}}WRAP={{.WRAP}} {{end}}tasks/ansible.sh {{.STAGE}} playbooks/site.yml'
   SIGNAL: '{{default .STAGE .STEP}}'
   # The hosts this step covers, as an Ansible pattern.
   HOSTS: '{{if .HOST}}{{.HOST}}{{else}}all{{if .EXCEPT}}:!{{.EXCEPT}}{{end}}{{end}}'

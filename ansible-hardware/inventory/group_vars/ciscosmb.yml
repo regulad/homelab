@@ -9,6 +9,7 @@ ansible_connection: ansible.netcommon.network_cli
 ansible_network_os: ciscosmb
 ansible_network_cli_ssh_type: libssh
 ansible_host: "{{ inventory_hostname }}.regulad.internal"
+# Reached over IPv4 alone, through bin/with-switch-keys' proxy command.
 ansible_user: svc-ansible
 ansible_libssh_key_exchange_algorithms: diffie-hellman-group1-sha1
 ansible_libssh_hostkeys: ssh-rsa

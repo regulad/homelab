@@ -10,6 +10,7 @@ vars:
   STEPS:
     - backblaze
     - ansible-hardware
+    - ansible-hardware--switches
     - oracle
     - gonkputer
     - gcp
@@ -33,7 +34,10 @@ vars:
 
 includes:
   backblaze: {taskfile: tasks/tofu.yml, vars: {ROOT: backblaze}}
-  ansible-hardware: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-hardware}}
+  # The SG300s are a step of their own: their key is loaded by
+  # bin/with-switch-keys into a throwaway agent, which holds no other host's.
+  ansible-hardware: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-hardware, EXCEPT: ciscosmb}}
+  ansible-hardware--switches: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-hardware, HOST: ciscosmb, STEP: ansible-hardware--switches, WRAP: with-switch-keys}}
   oracle: {taskfile: tasks/tofu.yml, vars: {ROOT: oracle}}
   gonkputer: {taskfile: tasks/tofu.yml, vars: {ROOT: gonkputer}}
   gcp: {taskfile: tasks/tofu.yml, vars: {ROOT: gcp}}

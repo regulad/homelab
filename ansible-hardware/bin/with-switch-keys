@@ -10,6 +10,14 @@ set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 export OPENSSL_CONF="$here/openssl-legacy.cnf"
+# Over IPv4 alone. The SG300's IPv6 takes a default route from every router's
+# advertisement alike, ignoring their preference, and ignores a configured
+# ipv6 default-gateway beside them, so its replies to the tailnet's ULAs leave
+# through the Verizon router, which drops them. libssh still connects to the
+# switch's name, so known_hosts pins its key under that name. network_cli
+# passes libssh no proxy_command from inventory variables; the environment
+# reaches it.
+export ANSIBLE_LIBSSH_PROXY_COMMAND='nc -4 %h %p'
 
 # A short private directory: a Unix socket path must stay under ~100 bytes.
 dir=$(mktemp -d /tmp/with-switch-keys.XXXXXX)

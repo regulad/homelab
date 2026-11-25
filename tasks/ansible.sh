@@ -5,6 +5,9 @@
 # OpenTofu state its inventory caches.
 #
 #   tasks/ansible.sh <stage> <ansible-playbook arguments>
+#
+# WRAP, a command in the stage's bin, runs it in turn, as bin/with-switch-keys
+# does for the SG300s.
 set -eu
 stage=$1
 shift
@@ -16,4 +19,4 @@ command=ansible-playbook
 for arg in --flush-cache "$@"; do
     command="$command '$(printf '%s' "$arg" | sed "s/'/'\\\\''/g")'"
 done
-PATH="$PWD/bin:$PATH" exec sops exec-env ../tofu/shared/backend.sops.env "$command"
+PATH="$PWD/bin:$PATH" exec ${WRAP:+"bin/$WRAP"} sops exec-env ../tofu/shared/backend.sops.env "$command"
