@@ -1,0 +1,83 @@
+# The homelab's pipeline, for go-task. AGENTS.md § Tasks is its manual.
+#
+# A step is an OpenTofu root (with its workspace, as `stripe.live`) or an
+# Ansible stage. Each step's tasks come from tasks/tofu.yml or tasks/ansible.yml:
+# init, outputs, plan, apply, and for a stage, check. STEPS gives the order the
+# pipeline plans them in; every include below is listed there.
+version: "3"
+
+vars:
+  STEPS:
+    - backblaze
+    - ansible-hardware
+    - oracle
+    - gonkputer
+    - gcp
+    - azure
+    - aws
+    - tailscale
+    - cloudflare
+    - onesignal
+    - supabase
+    - sentry
+    - stripe.live
+    - stripe.sandbox
+    - vercel
+    - github-user.personal
+    - github-user.bot
+    - github.personal
+    - github.bot
+    - ansible-generated
+    - authentik
+    - ansible-generated--memory
+
+includes:
+  backblaze: {taskfile: tasks/tofu.yml, vars: {ROOT: backblaze}}
+  ansible-hardware: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-hardware}}
+  oracle: {taskfile: tasks/tofu.yml, vars: {ROOT: oracle}}
+  gonkputer: {taskfile: tasks/tofu.yml, vars: {ROOT: gonkputer}}
+  gcp: {taskfile: tasks/tofu.yml, vars: {ROOT: gcp}}
+  azure: {taskfile: tasks/tofu.yml, vars: {ROOT: azure}}
+  aws: {taskfile: tasks/tofu.yml, vars: {ROOT: aws}}
+  tailscale: {taskfile: tasks/tofu.yml, vars: {ROOT: tailscale}}
+  cloudflare: {taskfile: tasks/tofu.yml, vars: {ROOT: cloudflare}}
+  onesignal: {taskfile: tasks/tofu.yml, vars: {ROOT: onesignal}}
+  supabase: {taskfile: tasks/tofu.yml, vars: {ROOT: supabase}}
+  sentry: {taskfile: tasks/tofu.yml, vars: {ROOT: sentry}}
+  stripe.live: {taskfile: tasks/tofu.yml, vars: {ROOT: stripe, WORKSPACE: live}}
+  stripe.sandbox: {taskfile: tasks/tofu.yml, vars: {ROOT: stripe, WORKSPACE: sandbox}}
+  vercel: {taskfile: tasks/tofu.yml, vars: {ROOT: vercel}}
+  github-user.personal: {taskfile: tasks/tofu.yml, vars: {ROOT: github-user, WORKSPACE: personal}}
+  github-user.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github-user, WORKSPACE: bot}}
+  github.personal: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: personal}}
+  github.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: bot}}
+  # memory signs in through authentik, so it reads tofu/authentik's outputs and
+  # runs after it, as a step of its own.
+  ansible-generated: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, EXCEPT: memory.regulad.internal}}
+  # tofu/authentik signs in to the authentik that ansible-generated brings up,
+  # which no file of the root names, so the dependency is declared here.
+  authentik: {taskfile: tasks/tofu.yml, vars: {ROOT: authentik, EXTRA: ansible-generated}}
+  ansible-generated--memory: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, HOST: memory.regulad.internal, STEP: ansible-generated--memory}}
+
+tasks:
+  default:
+    cmds:
+      - "{{.TASK_EXE}} --list"
+
+  init:
+    desc: Run every step's init, in pipeline order.
+    cmds:
+      - for: {var: STEPS}
+        task: "{{.ITEM}}:init"
+
+  plan:
+    desc: Plan or check every step in pipeline order, skipping each whose files and upstream signal are unchanged; then list what waits to be applied.
+    cmds:
+      - for: {var: STEPS}
+        task: "{{.ITEM}}:plan"
+      - task: pending
+
+  pending:
+    desc: List the saved plans that show changes and wait to be applied.
+    cmds:
+      - for f in .task/pending/*; do [ -e "$f" ] && cat "$f"; done; true

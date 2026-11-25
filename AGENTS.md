@@ -54,6 +54,8 @@ model is Parker's decision.
 homelab/
 ├── AGENTS.md, README.md
 ├── AIDE.md                      # how a role's writes on a host reach AIDE's baseline
+├── go.mod, go.sum               # pins go-task, run as `go tool task`
+├── Taskfile.yml                 # the pipeline, for go-task: its steps, their order, and the whole-pipeline tasks (§ Tasks)
 ├── .alock.json                  # alock's OpenTofu roots, each with the inventory of the hosts it creates
 ├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy hooks; Ansible lint hooks to come (#33)
@@ -62,6 +64,7 @@ homelab/
 ├── docs/
 │   ├── snapshot/                # local-only discovery output (gitignored)
 │   └── runbooks/                # encrypt-a-vm-disk; to come: move-a-service (#34), rotate-keys and restore-state (#35)
+├── tasks/                       # each step's tasks (tofu.yml, ansible.yml) and the scripts they run
 ├── tests/                       # unittest tests of AIDE's acceptance system, under Python 3.9; pre-commit's tests hook runs them
 ├── tofu/
 │   ├── shared/                  # resource-free constants for every root
@@ -117,6 +120,28 @@ pre-commit run --all-files
 - After an apply to `tofu/oracle` or `tofu/gonkputer`, run the next `ansible-generated` command with `--flush-cache`: its inventory caches their state for an hour.
 - The `oci` CLI uses a session token, which lasts 60 minutes; refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate --profile-name DEFAULT` himself. OpenTofu needs no session. Each `oci` call needs `--auth security_token`, or `OCI_CLI_AUTH=security_token` in its environment; check WSL's environment for it first. `oci session validate --profile DEFAULT --local` says whether the session has expired.
 - Where the guard refuses sourcing `prepare.sh`, as in a worktree session, `sh tofu/<root>/prepare.sh` still writes the decrypted inputs. Run `ansible-generated` as `sops exec-env ../tofu/shared/backend.sops.env 'PATH="$PWD/bin:$PATH" ansible-playbook …'`, and gonkputer's OpenTofu as `sops exec-env tofu/shared/backend.sops.env 'sops exec-env tofu/gonkputer/provider.sops.env "TF_CLI_CONFIG_FILE=$PWD/tofu/gonkputer/tofu.rc tofu -chdir=tofu/gonkputer plan …"'`, in the background, as the provider's SSH may wait on the agent. `sops exec-env` refuses a file with any map or list value, such as `nexus_servers.sops.yml`: read one value from it with `sops decrypt --extract`. The guard counts any command containing "git" as git: glob `.g?thub`, and grep `ithub\.`.
+
+## Tasks
+
+`Taskfile.yml` is the pipeline, run with go-task, which the root `go.mod` pins as a tool: `go tool task` builds and runs that version, after a first build of about a minute. It holds the steps and the order they run in, and is the only place that order is written down. A step is an OpenTofu root, in one workspace where the root has several (`stripe.live`), or an Ansible stage. `go tool task --list` lists every task with its description.
+
+```bash
+go tool task init                                    # every step's init, in order: a root's providers where it has none, and every step's signals
+go tool task plan                                    # plan or check every step whose inputs changed, in order; then `go tool task pending`
+go tool task pending                                 # the saved plans that show changes and wait to be applied
+go tool task <step>:plan                             # one root: a saved plan, docs/snapshot/<step>@<commit>.tfplan
+go tool task <step>:apply                            # one root: apply that plan, then `go tool task plan`
+go tool task <stage>:check LIMIT=<hosts> TAGS=<tags> # part of a stage, --check; arguments after `--` go to ansible-playbook
+go tool task <stage>:apply LIMIT=<hosts> TAGS=<tags> # part of a stage, or all of it without LIMIT and TAGS; then `go tool task plan`
+```
+
+- **Iterating:** while editing configuration, run any single step as often as helps: one root's plan, or a stage checked or applied on one host with `LIMIT` and `TAGS` ([Tagged applies](#conventions)). Before reporting the work done, run `go tool task plan`, and bring Parker every plan it leaves pending.
+- **Signals:** each step records digests of what it exposes in `.task/signals/`, which is gitignored. A root records a digest of its outputs. A stage records a stamp that each apply rewrites. Before a step plans, checks or applies, `tasks/upstream.sh` collects the signals of everything the step reads into `.task/upstream/<step>`. It finds those reads in the step's own files: `terraform_remote_state` keys, `tf_output` lookups' `project_path`, other roots' SOPS files, and each `*.terraform_state.yml` inventory source. An inventory source's signal is a digest of what its plugin selects from the state, which is every attribute it makes a host variable. `tasks/inventory-digest.sh` has the plugin build that selection into a private cache made for the digest, so the signal follows the inventory file and no filter of ours restates it. A dependency that no file of the step names, such as `tofu/authentik`'s on `ansible-generated`, goes in its include's `EXTRA`. The signals are only digests: no output or state is written to disk in plaintext, and every consumer still reads the remote state itself.
+- **Propagation:** a step's upstream file is one of its `sources`, so `go tool task plan` re-plans a step when its own files or anything upstream of it changed, and skips it otherwise. Every apply ends with `go tool task plan`, so an apply re-plans its dependents straight away. A dependent whose plan shows changes needs its own apply, which propagates in turn, until every plan is empty. The pipeline has no cycles. A host that reads a root which itself needs that host's stage gets a step of its own after the root: the stage leaves it out (`EXCEPT`), and its own step covers it alone (`HOST`). memory, which reads `tofu/authentik`'s outputs, is handled this way.
+- **Approvals:** `plan`, `pending`, `check` and `<step>:outputs` are read-only. Each `apply` is a mutation under rule 1: ask for that exact command, after its plan or check. `init` installs a root's providers wherever its `.terraform/` is missing, which needs Parker's approval under rule 3; in a worktree, symlink them first ([Parallel agents](#parallel-agents)). A step's `outputs`, which every dependent's plan runs, refuses a root without providers rather than installing them. Moving go-task to another release (`go get -tool github.com/go-task/task/v3/cmd/task@<version>`) is an install too.
+- **Costs:** a stage's `plan` is `site.yml --check` on every host, so `go tool task plan` runs it only when the stage's files or upstream changed. Its result is in the recap: a check leaves no pending marker. A clone or worktree with no `.task/` plans everything once. `go tool task --force <step>:plan` re-plans a step whose up-to-date check is wrong.
+- **A new step:** add an include to `Taskfile.yml` and its place in `STEPS`.
+- `tasks/tofu.sh` and `tasks/ansible.sh` run each command as [Everyday commands](#everyday-commands) describes: a root's own `prepare.sh`, sourced into that command's process alone; a stage from inside its folder, with the backend's credentials and `--flush-cache`; and alock's `PATH` fix.
 
 ## Reaching hosts by hand (read-only)
 

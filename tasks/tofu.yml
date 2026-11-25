@@ -1,0 +1,85 @@
+# One OpenTofu step: a root, in one workspace where it has several. The root
+# Taskfile includes this once per step, with ROOT, and WORKSPACE where the root
+# has workspaces. AGENTS.md § Tasks is the manual.
+version: "3"
+
+vars:
+  STEP: '{{.ROOT}}{{if .WORKSPACE}}.{{.WORKSPACE}}{{end}}'
+  RUN: 'tasks/tofu.sh {{.ROOT}} {{.WORKSPACE}} --'
+  COMMIT:
+    sh: git rev-parse --short=7 HEAD
+  # The saved plan's name, AGENTS.md § Parallel agents.
+  PLAN_FILE: '{{.ROOT_DIR}}/docs/snapshot/{{.STEP}}@{{.COMMIT}}.tfplan'
+
+env:
+  STEPS: '{{join " " .STEPS}}'
+  TASK: '{{.TASK_EXE}}'
+
+tasks:
+  init:
+    desc: Install the root's providers if it has none yet, then record the step's signals.
+    cmds:
+      - task: providers
+      - task: outputs
+
+  providers:
+    internal: true
+    status:
+      - test -d tofu/{{.ROOT}}/.terraform
+    cmds:
+      - '{{.RUN}} init -input=false -lockfile=readonly'
+
+  outputs:
+    desc: Record a digest of the step's outputs, which its dependents' upstream signals read.
+    set: [pipefail]
+    # Reading outputs needs the root initialised, and initialising installs its
+    # providers, which needs approval (AGENTS.md rule 3): say so rather than
+    # installing them here.
+    preconditions:
+      - sh: test -d tofu/{{.ROOT}}/.terraform
+        msg: 'tofu/{{.ROOT}} has no providers: run `go tool task {{.STEP}}:init`, which installs them, or symlink them from the main checkout.'
+    cmds:
+      - mkdir -p .task/signals
+      - '{{.RUN}} output -json | cksum > .task/signals/{{.STEP}}.outputs'
+
+  upstream:
+    internal: true
+    cmds:
+      - tasks/upstream.sh {{.STEP}} tofu tofu/{{.ROOT}} -- {{.EXTRA}}
+
+  plan:
+    desc: Save a plan to docs/snapshot/<step>@<commit>.tfplan, skipped while the root's files and upstream signal are unchanged.
+    deps: [upstream]
+    sources:
+      - tofu/{{.ROOT}}/*.tf
+      - tofu/{{.ROOT}}/*.sops.*
+      - tofu/{{.ROOT}}/.terraform.lock.hcl
+      - tofu/{{.ROOT}}/prepare.sh
+      - tofu/{{.ROOT}}/snippets/**/*
+      - tofu/shared/*.tf
+      - tofu/modules/**/*
+      - .task/upstream/{{.STEP}}
+    generates:
+      - '{{.PLAN_FILE}}'
+    cmds:
+      - mkdir -p docs/snapshot .task/pending
+      # -detailed-exitcode: 0 no changes, 2 changes, 1 error.
+      - |
+        status=0
+        {{.RUN}} plan -input=false -detailed-exitcode -out={{.PLAN_FILE}} || status=$?
+        case $status in
+          0) rm -f .task/pending/{{.STEP}} ;;
+          2) echo "{{.STEP}}: {{.PLAN_FILE}}" > .task/pending/{{.STEP}} ;;
+          *) exit "$status" ;;
+        esac
+
+  apply:
+    desc: Apply the step's saved plan for HEAD, then plan the pipeline again, which confirms this step is a no-op and re-plans its dependents.
+    preconditions:
+      - sh: test -f {{.PLAN_FILE}}
+        msg: 'No saved plan for HEAD ({{.COMMIT}}): run `task {{.STEP}}:plan` first.'
+    cmds:
+      - '{{.RUN}} apply -input=false {{.PLAN_FILE}}'
+      - rm -f {{.PLAN_FILE}} .task/pending/{{.STEP}}
+      - task: outputs
+      - task: :plan
