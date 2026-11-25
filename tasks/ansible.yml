@@ -22,9 +22,21 @@ env:
 
 tasks:
   init:
-    desc: Record the step's signal.
+    desc: Install the stage's collections if requirements.yml changed or they are missing, then record the step's signal.
     cmds:
+      - task: collections
       - task: outputs
+
+  # Installing is an install under AGENTS.md rule 3; in a worktree, symlink
+  # the main checkout's collections/ instead, which satisfies the check.
+  collections:
+    internal: true
+    sources:
+      - '{{.STAGE}}/requirements.yml'
+    generates:
+      - '{{.STAGE}}/collections/ansible_collections/*/*/MANIFEST.json'
+    cmds:
+      - cd {{.STAGE}} && ansible-galaxy collection install -r requirements.yml -p collections
 
   outputs:
     desc: Create the step's signal, a stamp each apply rewrites, if it has none.
