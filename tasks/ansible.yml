@@ -39,6 +39,12 @@ tasks:
     cmds:
       - tasks/upstream.sh {{.SIGNAL}} ansible {{.SCAN}}
 
+  references:
+    desc: List what the step reads from other steps and roots, and where; tasks/dependents.sh reads it.
+    silent: true
+    cmds:
+      - tasks/upstream.sh --list {{.SIGNAL}} ansible {{.SCAN}}
+
   plan:
     desc: Check every host of the step (site.yml --check), skipped while its files and upstream signal are unchanged.
     deps: [upstream]
@@ -58,10 +64,10 @@ tasks:
       - "{{.RUN}} --check --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
 
   apply:
-    desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then stamp its signal and plan the pipeline again, which re-plans its dependents.'
+    desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then stamp its signal, and plan or check each step that reads it.'
     deps: [upstream]
     cmds:
       - "{{.RUN}} --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
       - mkdir -p .task/signals
       - '{ git rev-parse HEAD; date -u +%Y-%m-%dT%H:%M:%SZ; echo "{{.LIMIT}} {{.TAGS}}"; } > .task/signals/{{.SIGNAL}}.outputs'
-      - task: :plan
+      - tasks/dependents.sh {{.SIGNAL}} | while read -r dependent; do $TASK $dependent; done

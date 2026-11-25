@@ -4,7 +4,10 @@
 # files, so that go-task's up-to-date check re-plans the step when one of them
 # changes. AGENTS.md § Tasks.
 #
-#   tasks/upstream.sh <step> <tofu|ansible> <path>... [-- <step>...]
+#   tasks/upstream.sh [--list] <step> <tofu|ansible> <path>... [-- <step>...]
+#
+# With --list, it prints the references instead, one `<kind> <name> <file>` a
+# line, which tasks/dependents.sh reads.
 #
 # The references it recognises:
 # - `key = "<root>/terraform.tfstate"` in .tf files: a terraform_remote_state
@@ -21,6 +24,11 @@
 # Reads STEPS, the pipeline's steps, TASK, go-task's executable, and
 # SCAN_EXCLUDE, a directory name to leave out: a host the stage excepts.
 set -eu
+list=false
+if [ "$1" = --list ]; then
+    list=true
+    shift
+fi
 step=$1
 kind=$2
 shift 2
@@ -39,7 +47,7 @@ self=${step%%.*}
 
 scan() {
     # shellcheck disable=SC2086 # paths is a word list
-    grep -rhoE --exclude-dir=collections --exclude-dir=.terraform \
+    grep -rHoE --exclude-dir=collections --exclude-dir=.terraform \
         ${SCAN_EXCLUDE:+--exclude-dir="$SCAN_EXCLUDE"} \
         --include='*.tf' --include='*.yml' --include='*.yaml' --include='*.j2' --include=prepare.sh \
         -e "$1" $paths || true
@@ -48,21 +56,26 @@ scan() {
 references() {
     if [ "$kind" = tofu ]; then
         scan 'key *= *"[a-z0-9-]+/terraform\.tfstate' |
-            sed -E 's/.*= *"([a-z0-9-]+)\/.*/outputs \1/'
+            sed -E 's/^([^:]*):.*= *"([a-z0-9-]+)\/.*/outputs \2 \1/'
     else
         # shellcheck disable=SC2086 # paths is a word list
         find $paths -name '*.terraform_state.yml' -not -path '*/collections/*' |
-            sed 's/^/inventory /'
+            sed -E 's/^(.*)$/inventory \1 \1/'
     fi
-    scan "\.\./tofu/[a-z0-9-]+['\"]" | sed -E 's/.*tofu\/([a-z0-9-]+).*/outputs \1/'
-    scan 'tofu/[a-z0-9-]+/[A-Za-z0-9_.-]+\.sops\.[a-z]+' | sed 's/^/file /'
-    for name in $extra; do echo "outputs $name"; done
+    scan "\.\./tofu/[a-z0-9-]+['\"]" | sed -E 's/^([^:]*):.*tofu\/([a-z0-9-]+).*/outputs \2 \1/'
+    scan 'tofu/[a-z0-9-]+/[A-Za-z0-9_.-]+\.sops\.[a-z]+' | sed -E 's/^([^:]*):(.*)$/file \2 \1/'
+    for name in $extra; do echo "outputs $name Taskfile.yml"; done
 }
+
+if $list; then
+    references | sort -u
+    exit 0
+fi
 
 mkdir -p .task/upstream
 temporary=$(mktemp ".task/upstream/$step.XXXXXX")
 trap 'rm -f "$temporary"' EXIT
-references | sort -u | while read -r what name; do
+references | cut -d' ' -f1,2 | sort -u | while read -r what name; do
     case $what in
     outputs)
         [ "$name" = "$self" ] && continue
