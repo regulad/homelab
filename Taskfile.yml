@@ -71,11 +71,15 @@ tasks:
         task: "{{.ITEM}}:init"
 
   plan:
-    desc: Plan or check every step in pipeline order, skipping each whose files and upstream signal are unchanged; then list what waits to be applied.
+    desc: Plan or check every step in pipeline order, skipping each whose files and upstream signal are unchanged; then list what failed and what waits to be applied.
+    # Read-only, so a step that fails does not stop the others; each failure is
+    # listed at the end, and the task then fails.
     cmds:
+      - rm -rf .task/failed
       - for: {var: STEPS}
-        task: "{{.ITEM}}:plan"
+        cmd: '{{.TASK_EXE}} {{.ITEM}}:plan || { mkdir -p .task/failed; touch .task/failed/{{.ITEM}}; }'
       - task: pending
+      - '[ ! -d .task/failed ] || { echo "Failed: $(ls .task/failed | tr "\n" " ")"; exit 1; }'
 
   pending:
     desc: List the saved plans that show changes and wait to be applied.
