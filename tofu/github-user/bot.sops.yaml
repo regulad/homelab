@@ -15,7 +15,7 @@ github_pats:
     #ENC[AES256_GCM,data:UYdqUF/24LI94qpf0pHE,iv:bdggle18LCpA4MlUMzALMU5dlpNdqN5xtGPt/XxJux8=,tag:gaN25oOZEmFXkXyDU5OZRQ==,type:comment]
     #ENC[AES256_GCM,data:DYFvBciJiST35alssFFSRpj1wxYF,iv:HzDNbx3nL4mtep8mAfU8C8AxyxrcX/dHAfGEKde/2og=,tag:2Juw+pr6KLXXXzid+iZJRQ==,type:comment]
     #ENC[AES256_GCM,data:iwVkpzc1clpD6djGG9LLkCWFDaQYXKUC6Q==,iv:+/yibS7pZDthJeXGm5cu2N+XgCh34W49aNf1V/eLD7Y=,tag:2Tf9ZJ7SvDHMINTVNCTPhw==,type:comment]
-    terraform-koala--winget: ENC[AES256_GCM,data:QPWuBn0pDmp/RY7TdpbWywsrcasuYtt4QRA903+GvjSJduKmEY7Bow==,iv:iUG1TKtrspxkjIMujRTRytZmztDJvSOsZRurHeiaaI8=,tag:IZofmQc2eJKjALnzGbJBvA==,type:str]
+    terraform-koala--winget: ENC[AES256_GCM,data:QJsi3TkncYKwJODrZ3qUtc/TpPFo6tnJ9GIeqegUX41YlL9Yy28Nsw==,iv:be/DLeuUY1Imvahm05gN47DASSRDLRmbx+bG+cJlwOg=,tag:G2PvVpSfrJz6JGfehqWzyw==,type:str]
     #ENC[AES256_GCM,data:UYdqUF/24LI94qpf0pHE,iv:bdggle18LCpA4MlUMzALMU5dlpNdqN5xtGPt/XxJux8=,tag:gaN25oOZEmFXkXyDU5OZRQ==,type:comment]
     #ENC[AES256_GCM,data:DYFvBciJiST35alssFFSRpj1wxYF,iv:HzDNbx3nL4mtep8mAfU8C8AxyxrcX/dHAfGEKde/2og=,tag:2Juw+pr6KLXXXzid+iZJRQ==,type:comment]
     #ENC[AES256_GCM,data:iwVkpzc1clpD6djGG9LLkCWFDaQYXKUC6Q==,iv:+/yibS7pZDthJeXGm5cu2N+XgCh34W49aNf1V/eLD7Y=,tag:2Tf9ZJ7SvDHMINTVNCTPhw==,type:comment]
@@ -31,7 +31,7 @@ sops:
             /6NQITUhm3HlSaYMDLO2Ub20R/K8Ob+cKw7lMcWx+lJNtcOIO80ZEg==
             -----END AGE ENCRYPTED FILE-----
           recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-11-24T12:45:00Z"
-    mac: ENC[AES256_GCM,data:7ognikWzfTBJmfod7lBOvf4kb/zIj3zBTMi/plH7RIRJCxZf9CNVEDJe2FupdaGEDGfH8FvWLTpfN6IqqRbSEb6BTwr7HOsDCD84X20Lbi4EreCcHbMLUZEyKExhkObeVDMevGUAHsYLxzmUxe9tond8rkHYrIZSO62SFw2EN3Q=,iv:lycUnmaTjlpcHSybRQQ8wGYQqVDkYtsu8kmhhfVciWs=,tag:S2DUXuBPIkPGRN/JSltsrA==,type:str]
+    lastmodified: "2026-11-25T18:16:54Z"
+    mac: ENC[AES256_GCM,data:SXEZpaP12fE9ArSu+KPzfGVqDcLIvBgQC7RlozA48ECgJFFf1vyVHi52R3Q+ypUQ/9zj9M06DW//Jt5mFQwFC0lxAVW5ArXMrw+AvoMt0MpW7o1Pp0NPU5zG0ztVK20bvqObjXe4vX5tqzoxCNGYitiYca2x++Nkj1I0mpVjC6w=,iv:S53al/coAbv/ftnagE5SI4mw0E73fXFVyOfQuwQ0pt0=,tag:wU6xTXuDBjECiq77B8efvg==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3

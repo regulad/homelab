@@ -39,7 +39,7 @@ github_pats:
     #ENC[AES256_GCM,data:oN/BQzMHZm8+bxqR0+kpBt9KoQc=,iv:jRxti4RWCZbwUpg85ZNhyIg91v94OTpGhGzTXUDlZDU=,tag:KfDo4z1zU34VNe+gP4GiPA==,type:comment]
     #ENC[AES256_GCM,data:ikCZaiQ6ylVBOPPojy3D0zF0mYIbcR7MeUCT9n8K13mL,iv:Hm9PhxG1De7MuduE2R6EcBMCk0tg/FCn2KOVJdJKyC8=,tag:Pgno/ncgMQ2Kb4bg6STr8A==,type:comment]
     #ENC[AES256_GCM,data:6CQ5On+RC1FNL4xA3i2ROY+R5mMgBFYvS7GvlxTQ6mu8dBNPULl2y/9I7MWwvGFJom38RqePzg1UzcL2ent2wNy1Jw==,iv:d9TnM8zwFsG+No7jbFMoA4trowiyCzBNVabXYgUyk34=,tag:nha5Y2uUgH53TzEDQ2Vf7Q==,type:comment]
-    terraform-dependabot--koala: ENC[AES256_GCM,data:8sk7yOj19NO1a8+mYcxTCHjvf5vMdKcdIwOgZ3TND7LeVQAf3/ZXT2Ie/wuXPGCcNu5E57Ci3ZLJs6IluIJlG68HUX59qZpOXfR5VNeb+AWw1x4C5D6tfD6u3k84,iv:/IHYRg9ysmYr3pk46FIMTkx4kAC2Ib23U5rZrQ+O5Ko=,tag:ReY1OA17gr0HjjI8K2hUZg==,type:str]
+    terraform-dependabot--koala: ENC[AES256_GCM,data:SO9OmNjN5BzC8kmX/Uu51lBuo1eDZAEy0N5iT3atAD2OPZfwd/DWsdeMwtdeT6wuwVyT9btN/iqbV76yi9c9FkSn5UhQeOcJxDru0vT9i77i4zbVy1l0TxAQIvCE,iv:4O+gDXmdEc7Qpvc9n5Cq5wmC/mrUW/ohqJT79ApesMQ=,tag:asShGRBL7wv9sYJcr3AJvQ==,type:str]
     #ENC[AES256_GCM,data:oN/BQzMHZm8+bxqR0+kpBt9KoQc=,iv:jRxti4RWCZbwUpg85ZNhyIg91v94OTpGhGzTXUDlZDU=,tag:KfDo4z1zU34VNe+gP4GiPA==,type:comment]
     #ENC[AES256_GCM,data:pAJHGJUXH7bdWRjVOZGd7iYvBX5yYXyctD8JXoq9Ab793fo=,iv:YaFAZTOyUSSFa2VdR/3+eNgi963lEXZrKXqUw9+qPp8=,tag:i0TmoutEuW/+vt8oqvotFg==,type:comment]
     #ENC[AES256_GCM,data:6CQ5On+RC1FNL4xA3i2ROY+R5mMgBFYvS7GvlxTQ6mu8dBNPULl2y/9I7MWwvGFJom38RqePzg1UzcL2ent2wNy1Jw==,iv:d9TnM8zwFsG+No7jbFMoA4trowiyCzBNVabXYgUyk34=,tag:nha5Y2uUgH53TzEDQ2Vf7Q==,type:comment]
@@ -107,7 +107,7 @@ github_pats:
     #ENC[AES256_GCM,data:ERaTdirGg1iGk2MjiaYN,iv:L9gyphgaKhS9bt5TerQpJkRRy3wxaB7a4kZktMXt/hE=,tag:qJggwa1ztnMYRAbWxW1ACA==,type:comment]
     #ENC[AES256_GCM,data:jQ6kbPbQESL9FJoCey+V7iSG+drR,iv:HlyzM9lbPCeMMr1hMI1XxbZnhDXgOoleOarmqvZ7Woc=,tag:kcxOD3Sng+Kzj3KRnYZzwg==,type:comment]
     #ENC[AES256_GCM,data:VRHkOxXxgf62X3vNptrYpofvXSO0saIvINaS,iv:ZM8NtoZskAqXfg3K9QLm/5hwwqcg1j+bNaaomHAFzzM=,tag:UgNY6fqMKo7muRsfVHOGfg==,type:comment]
-    terraform-koala--notifications: ENC[AES256_GCM,data:Ovv96CgC5XbNKu7bPgq2dI0Qcu414eQOV7nUXl4VGqKUKVhJZC7mAg==,iv:FdibXZRaPCeUloXVuW50QCRV/mZ4pVsh7lvaUkP1nrU=,tag:fPK1k9Nk3FHCcBy/9woJ6A==,type:str]
+    terraform-koala--notifications: ENC[AES256_GCM,data:go5j+/dnHYRSYVbfAMA/LYQNKgHmpvLPImULe2T4a2aM89zTon6n8w==,iv:jMQTE/CU6GaVbURVBmvD8mLKuBGk3XQehCuM82ngl8U=,tag:hvJ3wTHeTdvMu0zMa/HIpA==,type:str]
     #ENC[AES256_GCM,data:ERaTdirGg1iGk2MjiaYN,iv:L9gyphgaKhS9bt5TerQpJkRRy3wxaB7a4kZktMXt/hE=,tag:qJggwa1ztnMYRAbWxW1ACA==,type:comment]
     #ENC[AES256_GCM,data:jQ6kbPbQESL9FJoCey+V7iSG+drR,iv:HlyzM9lbPCeMMr1hMI1XxbZnhDXgOoleOarmqvZ7Woc=,tag:kcxOD3Sng+Kzj3KRnYZzwg==,type:comment]
     #ENC[AES256_GCM,data:VRHkOxXxgf62X3vNptrYpofvXSO0saIvINaS,iv:ZM8NtoZskAqXfg3K9QLm/5hwwqcg1j+bNaaomHAFzzM=,tag:UgNY6fqMKo7muRsfVHOGfg==,type:comment]
@@ -123,7 +123,7 @@ sops:
             osVNyuEJCw8CIEy2mQJ9YtaZGLkZqsUOnQQebKhn82elACV0UlVZ8w==
             -----END AGE ENCRYPTED FILE-----
           recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-11-24T22:05:26Z"
-    mac: ENC[AES256_GCM,data:OKP9oGMFYqISYlK0SKZeiyfZYpipRqw3qW6rfaUhPUHu+61sF6DbjhUzXU49REW7OBNye2NyhK5dOeefWODuA5/K1fzZFAxi059OPvXVIwXWpSuhABduZ75wGKJ9YnckuRl9r+VY0H/3RpQQcnoFvDb6EGvUOlopAE4H6CmwvCY=,iv:FjM/so5c9p8w10OVA07LNeWUbJeTIfGZNF4WyqqQIUs=,tag:yO+EMl+EUL7/v+XJEdFzKw==,type:str]
+    lastmodified: "2026-11-25T18:16:42Z"
+    mac: ENC[AES256_GCM,data:cFe2BHsowYqGlWGGrhAznzaxED8DdAVtE8vL/soEWXHHMZqb9A+oDuuFwWubDr9zBF7b6C9rq5pWkpIMjHwK2UnhRyhT/RWZTwrQH0AFkMF2MJcOG/E2WMOvcd6w7SjKuMpeLmB2F6/ARkhFbI1jekyf5c+ozCj8LpdMqwmGluE=,iv:qHeSthrZUZUneyerpcKjxoroF54WpkqX7MviNbgwtow=,tag:1Wg5ZqKWF70IX+ur4Aupkg==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
