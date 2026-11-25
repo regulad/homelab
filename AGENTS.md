@@ -154,7 +154,7 @@ Several agents may work on this repository at once. The [alock](https://github.c
 
 ```bash
 pre-commit run --all-files
-uv run --no-project --no-python-downloads --python 3.9 -- python -B -m unittest discover -s tests   # tests/README.md; pre-commit's tests hook
+uv run --no-project --python 3.9 -- python -B -m unittest discover -s tests   # tests/README.md; pre-commit's tests hook
 tofu -chdir=tofu/<root> fmt -check -recursive
 tofu -chdir=tofu/<root> validate
 tofu -chdir=tofu/<root> plan -detailed-exitcode
