@@ -40,15 +40,15 @@ pam_rssh_users: ["{{ ansible_user }}"]
 # end of standard support, and is never release-upgraded.
 
 # The web app's settings: web.env, one KEY=value line for each, in this order.
-# Its secrets are doppelganger_web_secrets, in SOPS; the Google client ID and
-# the Stripe, Sentry and OneSignal API key values come from their OpenTofu
-# roots' outputs.
+# Its secrets are doppelganger_web_secrets, in SOPS; the Supabase project's
+# values, the Google client ID and the Stripe, Sentry and OneSignal API key
+# values come from their OpenTofu roots' outputs.
 doppelganger_web_env:
-  # Supabase: the project's URL and its anon key, which ship to the browser.
-  NEXT_PUBLIC_SUPABASE_URL: https://eopqnjmpgtpcdhfcvvxq.supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: >-
-    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvcHFuam1wZ3RwY2RoZmN2dnhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MTUxODgsImV4cCI6MjA3NzA5MTE4OH0.NN8NvJ2Un-J-uhc5ZoOIr5q7e1JFVurU1A8gWHOVYBg
-  SUPABASE_SERVICE_ROLE_KEY: "{{ doppelganger_web_secrets.SUPABASE_SERVICE_ROLE_KEY }}"
+  # Supabase: the project's URL and its anon key, which ship to the browser,
+  # and its service role key, from tofu/supabase's output.
+  NEXT_PUBLIC_SUPABASE_URL: "{{ doppelganger_supabase.url }}"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "{{ doppelganger_supabase.anon_key }}"
+  SUPABASE_SERVICE_ROLE_KEY: "{{ doppelganger_supabase.service_role_key }}"
   SUPABASE_JWT_SECRET: "{{ doppelganger_web_secrets.SUPABASE_JWT_SECRET }}"
   # Google: sign-in with Google's doppelganger client, whose ID the browser
   # gets. The image's build also has it, from the app's .env.local.public.
@@ -86,6 +86,13 @@ doppelganger_web_env:
 doppelganger_stripe_outputs: >-
   {{ lookup('cloud.terraform.tf_output',
             project_path=inventory_dir ~ '/../../tofu/stripe', workspace='live',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
+# tofu/supabase's doppelganger output: the project's URL, anon key and service
+# role key, read on the operator's machine, which needs tofu/supabase/prepare.sh
+# sourced.
+doppelganger_supabase: >-
+  {{ lookup('cloud.terraform.tf_output', 'doppelganger',
+            project_path=inventory_dir ~ '/../../tofu/supabase',
             binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
 # The OAuth client IDs of Google's project pure-toolbox-429813-a4, by slug,
 # from tofu/gcp's oauth_client_ids output, read on the operator's machine,
