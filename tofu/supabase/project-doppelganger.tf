@@ -55,3 +55,20 @@ resource "supabase_settings" "doppelganger" {
     prevent_destroy = true
   }
 }
+
+# The project's API keys, which the provider reads from Supabase's API.
+data "supabase_apikeys" "doppelganger" {
+  project_ref = supabase_project.doppelganger.id
+}
+
+# What doppelgangerhq.com's web.env takes from the project: its URL, the anon
+# key, which ships to the browser, and the service role key. The provider does
+# not expose the JWT secret, which stays in doppelgangerhq.com's SOPS file.
+output "doppelganger" {
+  value = {
+    url              = "https://${supabase_project.doppelganger.id}.supabase.co"
+    anon_key         = data.supabase_apikeys.doppelganger.anon_key
+    service_role_key = data.supabase_apikeys.doppelganger.service_role_key
+  }
+  sensitive = true
+}
