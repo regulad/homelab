@@ -54,7 +54,7 @@ tasks:
       - tasks/upstream.sh --list {{.STEP}} tofu tofu/{{.ROOT}} -- {{.EXTRA}}
 
   plan:
-    desc: Save a plan to docs/snapshot/<step>@<commit>.tfplan, skipped while the root's files and upstream signal are unchanged.
+    desc: 'Save a plan to docs/snapshot/<step>@<commit>.tfplan, skipped while the root''s files and upstream signal are unchanged; arguments after -- (such as -replace=<address>) go to tofu plan, with --force.'
     deps: [upstream]
     sources:
       - tofu/{{.ROOT}}/*.tf
@@ -72,7 +72,7 @@ tasks:
       # -detailed-exitcode: 0 no changes, 2 changes, 1 error.
       - |
         status=0
-        {{.RUN}} plan -input=false -detailed-exitcode -out={{.PLAN_FILE}} || status=$?
+        {{.RUN}} plan -input=false -detailed-exitcode -out={{.PLAN_FILE}} {{.CLI_ARGS}} || status=$?
         case $status in
           0) rm -f .task/pending/{{.STEP}} ;;
           2) echo "{{.STEP}}: {{.PLAN_FILE}}" > .task/pending/{{.STEP}} ;;

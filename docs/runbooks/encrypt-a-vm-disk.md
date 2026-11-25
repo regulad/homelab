@@ -87,12 +87,12 @@ non-zero `DISC-GRAN`.
 
 ## 3. Install clevis, crypttab, and the TPM binding
 
-From `ansible-generated/`, with `--flush-cache` since step 1 changed
-OpenTofu's state:
+The task runs with `--flush-cache`, which step 1's change to OpenTofu's state
+needs; the maintenance play runs from `ansible-generated/`:
 
 ```sh
-ansible-playbook playbooks/site.yml --flush-cache --tags luks --limit $host.regulad.internal
-ansible-playbook playbooks/maintenance.yml --tags luks-bind --limit $host.regulad.internal
+go tool task ansible-generated:apply LIMIT=$host.regulad.internal TAGS=luks
+(cd ansible-generated && ansible-playbook playbooks/maintenance.yml --flush-cache --tags luks-bind --limit $host.regulad.internal)
 ```
 
 The first writes `/etc/crypttab` and rebuilds the initramfs and the crash

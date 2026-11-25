@@ -1,8 +1,10 @@
 {
   "permissions": {
     "deny": [
-      "Bash(tofu *)",
-      "Bash(ansible-playbook *)"
+      "Bash(tofu apply *)",
+      "Bash(tofu * apply)",
+      "Bash(tofu * apply *)",
+      "Bash(ansible-playbook *site.yml*)"
     ]
   },
   "enabledPlugins": {
