@@ -326,4 +326,4 @@ registry_auth_logins:
     username: regulad
     password: >-
       {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/personal.sops.yaml',
-                extract='["github_pats"]["terraform-mail--ghcr"]') }}
+                extract='["pat"]["terraform-mail--ghcr"]') }}

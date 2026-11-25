@@ -10,10 +10,14 @@ variable "state_encryption_passphrase" {
 }
 
 # The GitHub personal access tokens projects' environments take, under
-# their names on GitHub, which prepare.sh reads from
-# tofu/github-user/personal.sops.yaml, their only copy.
+# their names on GitHub, classic under pat and fine-grained under fine_grained,
+# which prepare.sh reads from tofu/github-user/personal.sops.yaml, their only
+# copy.
 variable "github_pats" {
-  type      = map(string)
+  type = object({
+    pat          = map(string)
+    fine_grained = map(string)
+  })
   sensitive = true
   nullable  = false
 }

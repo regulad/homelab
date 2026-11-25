@@ -40,7 +40,7 @@ resource "github_actions_secret" "repository_1386017153" {
 resource "github_dependabot_secret" "repository_1386017153" {
   repository  = local.repository_1386017153
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--kodi---plugins"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--kodi---plugins"]
 
   lifecycle {
     enabled = local.personal

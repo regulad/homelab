@@ -4,7 +4,7 @@ locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_1449818851 = local.personal ? jsondecode(data.github_rest_api.repository_1449818851.body).name : ""
   repository_1449818851_actions_secrets = {
-    SENTRY_AUTH_TOKEN = var.sentry_auth_tokens.rosellaview
+    SENTRY_AUTH_TOKEN = var.sentry_auth_tokens["terraform-rosellaview"]
   }
 }
 
@@ -32,7 +32,7 @@ resource "github_actions_secret" "repository_1449818851" {
 resource "github_dependabot_secret" "repository_1449818851" {
   repository  = local.repository_1449818851
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--rosellaview"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--rosellaview"]
 
   lifecycle {
     enabled = local.personal

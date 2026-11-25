@@ -47,9 +47,9 @@ locals {
   # Komac, and regulad's notifications token, with which it subscribes him to
   # the pull request.
   repository_1465174461_environment_secrets = merge(local.repository_1465174461_signing_secrets, {
-    "release/SENTRY_AUTH_TOKEN"           = { environment = "release", name = "SENTRY_AUTH_TOKEN", value = var.sentry_auth_tokens.koala }
-    "release/WINGET_TOKEN"                = { environment = "release", name = "WINGET_TOKEN", value = var.bot_github_pats["terraform-koala--winget"] }
-    "release/REGULAD_NOTIFICATIONS_TOKEN" = { environment = "release", name = "REGULAD_NOTIFICATIONS_TOKEN", value = var.github_pats["terraform-koala--notifications"] }
+    "release/SENTRY_AUTH_TOKEN"           = { environment = "release", name = "SENTRY_AUTH_TOKEN", value = var.sentry_auth_tokens["terraform-koala"] }
+    "release/WINGET_TOKEN"                = { environment = "release", name = "WINGET_TOKEN", value = var.bot_github_pats.pat["terraform-koala--winget"] }
+    "release/REGULAD_NOTIFICATIONS_TOKEN" = { environment = "release", name = "REGULAD_NOTIFICATIONS_TOKEN", value = var.github_pats.pat["terraform-koala--notifications"] }
   })
 }
 
@@ -95,7 +95,7 @@ resource "github_actions_environment_secret" "repository_1465174461" {
 resource "github_dependabot_secret" "repository_1465174461" {
   repository  = local.repository_1465174461
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--koala"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--koala"]
 
   lifecycle {
     enabled = local.personal

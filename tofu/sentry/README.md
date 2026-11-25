@@ -15,6 +15,7 @@ Fixes follow as separate, reviewed changes.
 | `locals.tf` | The organization's slug |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
+| `org-tokens.sops.yaml` | The organization auth tokens repositories' workflows use, by their names in Sentry, `terraform-<repository>`, which `tofu/github` reads |
 
 A `-` inside a project's slug is written as `--` in its file name
 (`project-pheidippides--notify.tf`); resource labels write it as `_`.
@@ -112,6 +113,15 @@ A key replaced here reaches them at the next `site.yml` run on those hosts.
 
 koala, koala-vcam, rosellaview and Warlock's four programs build their DSNs into their source, so nothing here
 delivers them; a key replaced here reaches them only through a change to that source.
+
+## Organization tokens
+
+The organization auth tokens that repositories' workflows create releases and upload debug
+files with are issued by hand under Settings → Organization Tokens and kept in
+`org-tokens.sops.yaml`, their only copy, under `org_tokens`, each under its name in Sentry,
+`terraform-<repository>`. This root never reads them: `tofu/github`'s `prepare.sh` does, and sets each
+as its repository's `SENTRY_AUTH_TOKEN`. To rotate one, issue a new token under the same name, put it in the
+file with `sops edit`, apply `tofu/github`, then revoke the old token in Sentry.
 
 ## Credentials
 

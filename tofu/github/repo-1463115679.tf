@@ -47,9 +47,9 @@ locals {
   # Komac, and regulad's notifications token, with which it subscribes him to
   # the pull request.
   repository_1463115679_environment_secrets = merge(local.repository_1463115679_signing_secrets, {
-    "release/SENTRY_AUTH_TOKEN"           = { environment = "release", name = "SENTRY_AUTH_TOKEN", value = var.sentry_auth_tokens.warlock }
-    "release/WINGET_TOKEN"                = { environment = "release", name = "WINGET_TOKEN", value = var.bot_github_pats["terraform-warlock--winget"] }
-    "release/REGULAD_NOTIFICATIONS_TOKEN" = { environment = "release", name = "REGULAD_NOTIFICATIONS_TOKEN", value = var.github_pats["terraform-warlock--notifications"] }
+    "release/SENTRY_AUTH_TOKEN"           = { environment = "release", name = "SENTRY_AUTH_TOKEN", value = var.sentry_auth_tokens["terraform-warlock"] }
+    "release/WINGET_TOKEN"                = { environment = "release", name = "WINGET_TOKEN", value = var.bot_github_pats.pat["terraform-warlock--winget"] }
+    "release/REGULAD_NOTIFICATIONS_TOKEN" = { environment = "release", name = "REGULAD_NOTIFICATIONS_TOKEN", value = var.github_pats.pat["terraform-warlock--notifications"] }
   })
 }
 
@@ -100,7 +100,7 @@ resource "github_actions_environment_secret" "repository_1463115679" {
 resource "github_dependabot_secret" "repository_1463115679" {
   repository  = local.repository_1463115679
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--warlock"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--warlock"]
 
   lifecycle {
     enabled = local.personal

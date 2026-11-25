@@ -3,9 +3,9 @@ locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_364397477 = local.personal ? jsondecode(data.github_rest_api.repository_364397477.body).name : ""
   repository_364397477_actions_secrets = {
-    PAT = var.github_pats["terraform-peppercord--resources"]
+    PAT = var.github_pats.fine_grained["terraform-peppercord--resources"]
 
-    SENTRY_AUTH_TOKEN = var.sentry_auth_tokens.peppercord
+    SENTRY_AUTH_TOKEN = var.sentry_auth_tokens["terraform-peppercord"]
 
     TS_AUDIENCE = data.terraform_remote_state.tailscale.outputs.audiences.peppercord
     TS_OAUTH_ID = data.terraform_remote_state.tailscale.outputs.oauth_client_ids.peppercord
@@ -36,7 +36,7 @@ resource "github_actions_secret" "repository_364397477" {
 resource "github_dependabot_secret" "repository_364397477" {
   repository  = local.repository_364397477
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--peppercord"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--peppercord"]
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

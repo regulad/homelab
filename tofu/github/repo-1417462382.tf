@@ -15,7 +15,7 @@ data "github_rest_api" "repository_1417462382" {
 resource "github_dependabot_secret" "repository_1417462382" {
   repository  = local.repository_1417462382
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--opentofu---registr"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--opentofu---registr"]
 
   lifecycle {
     enabled = local.personal

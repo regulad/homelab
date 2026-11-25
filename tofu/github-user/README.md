@@ -16,7 +16,7 @@ secrets, through their Apps.
 | `files/gpg-key-<name>.asc` | A GPG key's armored public key, as GitHub holds it |
 | `providers.tf` | Each workspace's account, the provider, and the check of the account the token signs in as |
 | `locals.tf` | Whether the selected workspace manages regulad's account or regubot's, and `tofu/shared` |
-| `personal.sops.yaml`, `bot.sops.yaml` | Each account's personal access tokens, by their names on GitHub |
+| `personal.sops.yaml`, `bot.sops.yaml` | Each account's personal access tokens, by their names on GitHub: classic under `pat`, fine-grained under `fine_grained` |
 | `secrets.sops.yaml` | The state passphrase |
 | `variables.tf` | The state passphrase input |
 | `versions.tf` | Pinned versions: the provider at a build from the provider mirror, with `github_user_ssh_signing_key` and import for `github_user_gpg_key` |
@@ -60,9 +60,9 @@ for that repository alone, whose identity Jenkins's `host_vars` hold and Ansible
 GitHub has no API that issues a personal access token, and no App-issued token can fill a
 repository's secret, as those last an hour. So each token is issued by hand in its
 account's settings, under its name there, `terraform-<word>--<word>`, with the narrowest
-access that serves it, and kept in that account's file's `github_pats`, named for its
-workspace, so the same name means the same use in each. The comment above each gives its
-type, its repository access and its permissions.
+access that serves it, and kept in that account's file, named for its workspace, so the
+same name means the same use in each: a classic token under `pat`, a fine-grained one under
+`fine_grained`. The comment above each gives its repository access and its permissions.
 
 `terraform-github--user`, in each file, is that account's token for this root: a classic
 token with `public_repo`, `delete_repo`, `admin:public_key`, `admin:gpg_key` and

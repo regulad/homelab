@@ -3,7 +3,7 @@ locals {
   # Its current name, which GitHub's API takes. The settings bot owns the name.
   repository_1366410818 = local.personal ? jsondecode(data.github_rest_api.repository_1366410818.body).name : ""
   repository_1366410818_actions_secrets = {
-    PAT = var.github_pats["terraform-blackb0x--xcode--mirror"]
+    PAT = var.github_pats.fine_grained["terraform-blackb0x--xcode--mirror"]
   }
 }
 

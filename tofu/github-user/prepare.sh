@@ -78,7 +78,7 @@ _homelab_github_user_prepare() {
     fi
     case $workspace in
     personal | bot)
-        token=$(_homelab_sops decrypt --extract '["github_pats"]["terraform-github--user"]' \
+        token=$(_homelab_sops decrypt --extract '["pat"]["terraform-github--user"]' \
             "$dir/$workspace.sops.yaml") || return 1
         if [ -z "$token" ]; then
             echo "prepare.sh: $workspace.sops.yaml has no terraform-github--user; fill it with sops edit." >&2

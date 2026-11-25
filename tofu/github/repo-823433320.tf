@@ -9,7 +9,7 @@ locals {
     MAVEN_MIRROR_PASSWORD = var.nexus_passwords["svc-doppelganger-ci"]
   }
   repository_823433320_actions_secrets = merge(local.repository_823433320_maven_mirror, {
-    SENTRY_AUTH_TOKEN = var.sentry_auth_tokens.doppelganger
+    SENTRY_AUTH_TOKEN = var.sentry_auth_tokens["terraform-doppelganger"]
 
     SOPS_AGE_KEY = var.doppelganger.sops_age_key
 
@@ -17,7 +17,7 @@ locals {
     TS_OAUTH_ID = data.terraform_remote_state.tailscale.outputs.oauth_client_ids.doppelganger
   })
   repository_823433320_dependabot_secrets = merge(local.repository_823433320_maven_mirror, {
-    DEPENDABOT_MERGE_TOKEN = var.github_pats["terraform-dependabot--doppelganger"]
+    DEPENDABOT_MERGE_TOKEN = var.github_pats.fine_grained["terraform-dependabot--doppelganger"]
   })
 }
 

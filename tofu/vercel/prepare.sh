@@ -60,12 +60,12 @@ _homelab_vercel_prepare() {
     done
     plaintext=$(_homelab_sops decrypt --output-type json "$dir/secrets.sops.yaml") || return 1
     # The GitHub personal access tokens, from their only copy, by their names
-    # on GitHub.
-    pats=$(_homelab_sops decrypt --extract '["github_pats"]' --output-type json \
+    # on GitHub: classic under pat, fine-grained under fine_grained.
+    pats=$(_homelab_sops decrypt --output-type json \
         "$root/tofu/github-user/personal.sops.yaml") || return 1
     plaintext=$({
         printf '%s\n' "$plaintext"
-        printf '%s' "$pats" | jq '{github_pats: .}'
+        printf '%s' "$pats" | jq '{github_pats: {pat, fine_grained}}'
     } | jq -s add) || return 1
     # Every value is filled in: an empty one would blank an environment variable.
     if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then

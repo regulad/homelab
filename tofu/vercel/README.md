@@ -36,7 +36,8 @@ declared. The custom domains' DNS records, such as `_vercel` verification record
 
 Values come from SOPS, and sensitive ones are declared `sensitive`, as Vercel then never
 returns them. A GitHub personal access token is not written here: `prepare.sh` reads the
-`github_pats` map from `tofu/github-user/personal.sops.yaml`, its only copy, so a token
+`pat` and `fine_grained` maps from `tofu/github-user/personal.sops.yaml`, its only copy, as
+`github_pats`, so a token
 this root and `tofu/github` both use is rotated in one place and applied in each.
 
 ## Credentials

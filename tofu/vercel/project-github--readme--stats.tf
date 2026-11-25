@@ -51,7 +51,7 @@ resource "vercel_project_environment_variable" "github_readme_stats_pat_1" {
   project_id = vercel_project.github_readme_stats.id
   sensitive  = true
   target     = ["production"]
-  value      = var.github_pats["terraform-github--readme--stats"]
+  value      = var.github_pats.pat["terraform-github--readme--stats"]
   visibility = "secret"
 
   # The following exists as an artifact of import from the imperative setup.

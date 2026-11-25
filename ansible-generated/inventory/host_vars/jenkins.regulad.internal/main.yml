@@ -72,7 +72,7 @@ host_files_list:
     mode: "0400"
     content: >-
       {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/bot.sops.yaml',
-                extract='["github_pats"]["terraform-jenkins--winget"]') }}
+                extract='["pat"]["terraform-jenkins--winget"]') }}
     secret: true
     restarts: [jenkins.service]
   # regulad's token for his notifications alone, with which regulad/jobs's
@@ -84,7 +84,7 @@ host_files_list:
     mode: "0400"
     content: >-
       {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/personal.sops.yaml',
-                extract='["github_pats"]["terraform-jenkins--notifications"]') }}
+                extract='["pat"]["terraform-jenkins--notifications"]') }}
     secret: true
     restarts: [jenkins.service]
 

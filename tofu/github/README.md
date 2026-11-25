@@ -19,7 +19,7 @@ here; one whose last secret goes leaves it.
 | `locals.tf` | Whether the selected workspace manages regulad's repositories, and Nexus's users and ingress's kodi publisher, read from `ansible-generated`'s data |
 | `tailscale.tf` | `tofu/tailscale`'s outputs |
 | `azure.tf` | `tofu/azure`'s outputs |
-| `variables.tf` | The secret values, from `secrets.sops.yaml`, the personal access tokens, and the Nexus passwords |
+| `variables.tf` | The secret values, from `secrets.sops.yaml`, the personal access tokens, the Sentry organization tokens, and the Nexus passwords |
 | `providers.tf`, `versions.tf` | Provider auth, by workspace, and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 
@@ -51,7 +51,9 @@ Every value is derived; none is typed into GitHub.
 
 - **SOPS:** issued tokens and keys live in `secrets.sops.yaml`, under keys that say what each
   is for, apart from the personal access tokens, which are
-  [`tofu/github-user`](../github-user/README.md)'s. A token several repositories use is one key. Issued values carry no provenance
+  [`tofu/github-user`](../github-user/README.md)'s, and the Sentry organization tokens, which
+  are [`tofu/sentry`](../sentry/README.md)'s `org-tokens.sops.yaml`, by their names in Sentry, and which
+  `prepare.sh` reads as `sentry_auth_tokens`. A token several repositories use is one key. Issued values carry no provenance
   comment; generated ones do. Fill or change one with `sops edit`, then apply.
 - **Ansible's Nexus data:** the Nexus CI logins, `svc-redroid` for redroid-script and
   `nx-aaoracled` for aaoracled's `nexus-ios` environment, take their names from
@@ -78,7 +80,8 @@ its update time, and the next apply writes this repository's value back.
 The repositories' personal access tokens are regulad's, and regubot's for the winget jobs of
 Koala and Warlock, each issued by hand in its account's settings and kept in
 `tofu/github-user`'s `personal.sops.yaml` or `bot.sops.yaml`, their only copies, which
-`prepare.sh` reads as `github_pats` and `bot_github_pats`; its README says how to rotate one.
+`prepare.sh` reads as `github_pats` and `bot_github_pats`, each with a `pat` map of classic
+tokens and a `fine_grained` map; its README says how to rotate one.
 
 Later, not yet: workflows move off personal access tokens, to GitHub's built-in tokens
 (`GITHUB_TOKEN`, Dependabot's) wherever they suffice and to an App of each repository's own

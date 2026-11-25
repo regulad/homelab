@@ -182,7 +182,7 @@ nexus_repositories_proxies:
       username: regulad
       password: >-
         {{ lookup('community.sops.sops', inventory_dir ~ '/../../tofu/github-user/personal.sops.yaml',
-                  extract='["github_pats"]["terraform-nexus--ghcr"]') }}
+                  extract='["pat"]["terraform-nexus--ghcr"]') }}
 
 # crates-io: crates.io's index and crates, for the cargo homes that the
 # gonkputer guests replace crates.io with it in (gonkputer.yml). Nexus speaks

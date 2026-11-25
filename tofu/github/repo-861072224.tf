@@ -33,7 +33,7 @@ resource "github_actions_secret" "repository_861072224" {
 resource "github_dependabot_secret" "repository_861072224" {
   repository  = local.repository_861072224
   secret_name = "DEPENDABOT_MERGE_TOKEN"
-  value       = var.github_pats["terraform-dependabot--supir"]
+  value       = var.github_pats.fine_grained["terraform-dependabot--supir"]
 
   lifecycle {
     enabled = local.personal

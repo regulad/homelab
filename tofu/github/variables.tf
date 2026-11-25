@@ -26,10 +26,14 @@ variable "azure_state_encryption_passphrase" {
 }
 
 # regulad's personal access tokens, issued by GitHub, each under its name there,
-# terraform-<word>--<word>, which prepare.sh reads from
-# tofu/github-user/personal.sops.yaml, their only copy, as tofu/vercel does.
+# terraform-<word>--<word>: classic tokens under pat, fine-grained ones under
+# fine_grained. prepare.sh reads them from tofu/github-user/personal.sops.yaml,
+# their only copy, as tofu/vercel does.
 variable "github_pats" {
-  type      = map(string)
+  type = object({
+    pat          = map(string)
+    fine_grained = map(string)
+  })
   sensitive = true
   nullable  = false
 }
@@ -37,20 +41,19 @@ variable "github_pats" {
 # regubot's, likewise, which prepare.sh reads from
 # tofu/github-user/bot.sops.yaml, their only copy.
 variable "bot_github_pats" {
-  type      = map(string)
+  type = object({
+    pat          = map(string)
+    fine_grained = map(string)
+  })
   sensitive = true
   nullable  = false
 }
 
-# Sentry organization auth tokens, issued by Sentry, by repository.
+# Sentry organization auth tokens, issued by Sentry, each under its name there,
+# terraform-<repository>, which prepare.sh reads from
+# tofu/sentry/org-tokens.sops.yaml, their only copy.
 variable "sentry_auth_tokens" {
-  type = object({
-    doppelganger = string
-    koala        = string
-    peppercord   = string
-    rosellaview  = string
-    warlock      = string
-  })
+  type      = map(string)
   sensitive = true
   nullable  = false
 }

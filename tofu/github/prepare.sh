@@ -2,7 +2,8 @@
 # Prepare the calling shell to run OpenTofu in tofu/github: export the selected
 # workspace's GitHub App private key and the state backend's credentials, and
 # decrypt the OpenTofu inputs, with regulad's and regubot's personal access
-# tokens from tofu/github-user's personal.sops.yaml and bot.sops.yaml and the
+# tokens from tofu/github-user's personal.sops.yaml and bot.sops.yaml, the
+# Sentry organization tokens from tofu/sentry's org-tokens.sops.yaml, and the
 # Nexus CI users' passwords from
 # ansible-generated/inventory/group_vars/nexus_servers.sops.yml, their only
 # copies, and tofu/tailscale's state passphrase, into the gitignored
@@ -32,7 +33,7 @@ _homelab_sops() {
 _homelab_github_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext pats bot_pats nexus tailscale azure provider backend name value user key workspace
+    local root dir destination plaintext pats bot_pats sentry nexus tailscale azure provider backend name value user key workspace
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/github"
     destination="$dir/secrets.auto.tfvars.json"
@@ -66,21 +67,27 @@ _homelab_github_prepare() {
         fi
     done
     plaintext=$(_homelab_sops decrypt --output-type json "$dir/secrets.sops.yaml") || return 1
-    # regulad's personal access tokens, by their names on GitHub, from their
-    # only copy, tofu/github-user's personal.sops.yaml.
-    pats=$(_homelab_sops decrypt --extract '["github_pats"]' --output-type json \
+    # regulad's personal access tokens, classic under pat and fine-grained
+    # under fine_grained, by their names on GitHub, from their only copy,
+    # tofu/github-user's personal.sops.yaml.
+    pats=$(_homelab_sops decrypt --output-type json \
         "$root/tofu/github-user/personal.sops.yaml") || return 1
     # regubot's, likewise, from bot.sops.yaml.
-    bot_pats=$(_homelab_sops decrypt --extract '["github_pats"]' --output-type json \
+    bot_pats=$(_homelab_sops decrypt --output-type json \
         "$root/tofu/github-user/bot.sops.yaml") || return 1
+    # The Sentry organization tokens, by repository, from their only copy,
+    # tofu/sentry's org-tokens.sops.yaml.
+    sentry=$(_homelab_sops decrypt --extract '["org_tokens"]' --output-type json \
+        "$root/tofu/sentry/org-tokens.sops.yaml") || return 1
     plaintext=$({
         printf '%s\n' "$plaintext"
-        printf '%s' "$pats" | jq '{github_pats: .}'
-        printf '%s' "$bot_pats" | jq '{bot_github_pats: .}'
+        printf '%s' "$pats" | jq '{github_pats: {pat, fine_grained}}'
+        printf '%s' "$bot_pats" | jq '{bot_github_pats: {pat, fine_grained}}'
+        printf '%s' "$sentry" | jq '{sentry_auth_tokens: .}'
     } | jq -s add) || return 1
     # Every value is filled in: an empty one would blank a repository's secret.
     if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then
-        echo "prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user's personal.sops.yaml and bot.sops.yaml)." >&2
+        echo "prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user's personal.sops.yaml and bot.sops.yaml, the Sentry tokens in tofu/sentry's org-tokens.sops.yaml)." >&2
         return 1
     fi
     # The Nexus CI users' passwords, by user ID, from their only copy. Both pass
