@@ -1,0 +1,67 @@
+# One Ansible step: a stage, or one host of it. The root Taskfile includes this
+# with STAGE, and either EXCEPT, a host the stage leaves to a step of its own, or
+# HOST and STEP, for that host's step. AGENTS.md § Tasks is the manual.
+version: "3"
+
+vars:
+  RUN: 'tasks/ansible.sh {{.STAGE}} playbooks/site.yml'
+  SIGNAL: '{{default .STAGE .STEP}}'
+  # The hosts this step covers, as an Ansible pattern.
+  HOSTS: '{{if .HOST}}{{.HOST}}{{else}}all{{if .EXCEPT}}:!{{.EXCEPT}}{{end}}{{end}}'
+  # Where this step's reads of other steps are found: a host's step reads only
+  # what applies to it, and a stage leaves out the hosts it excepts.
+  SCAN: >-
+    {{if .HOST}}ansible-common {{.STAGE}}/roles {{.STAGE}}/playbooks
+    {{.STAGE}}/inventory/group_vars {{.STAGE}}/inventory/*.yml
+    {{.STAGE}}/inventory/host_vars/{{.HOST}}{{else}}ansible-common {{.STAGE}}{{end}}
+
+env:
+  STEPS: '{{join " " .STEPS}}'
+  TASK: '{{.TASK_EXE}}'
+  SCAN_EXCLUDE: '{{.EXCEPT}}'
+
+tasks:
+  init:
+    desc: Record the step's signal.
+    cmds:
+      - task: outputs
+
+  outputs:
+    desc: Create the step's signal, a stamp each apply rewrites, if it has none.
+    status:
+      - test -f .task/signals/{{.SIGNAL}}.outputs
+    cmds:
+      - mkdir -p .task/signals
+      - git rev-parse HEAD > .task/signals/{{.SIGNAL}}.outputs
+
+  upstream:
+    internal: true
+    cmds:
+      - tasks/upstream.sh {{.SIGNAL}} ansible {{.SCAN}}
+
+  plan:
+    desc: Check every host of the step (site.yml --check), skipped while its files and upstream signal are unchanged.
+    deps: [upstream]
+    sources:
+      - ansible-common/**/*
+      - '{{.STAGE}}/**/*'
+      - exclude: '{{.STAGE}}/collections/**/*'
+      - exclude: '{{.STAGE}}/inventory/host_vars/{{.EXCEPT}}/**/*'
+      - .task/upstream/{{.SIGNAL}}
+    cmds:
+      - "{{.RUN}} --check --limit '{{.HOSTS}}'"
+
+  check:
+    desc: 'Check part of the step, never skipped: LIMIT=<hosts> TAGS=<tags>, and anything after -- goes to ansible-playbook.'
+    deps: [upstream]
+    cmds:
+      - "{{.RUN}} --check --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
+
+  apply:
+    desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then stamp its signal and plan the pipeline again, which re-plans its dependents.'
+    deps: [upstream]
+    cmds:
+      - "{{.RUN}} --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
+      - mkdir -p .task/signals
+      - '{ git rev-parse HEAD; date -u +%Y-%m-%dT%H:%M:%SZ; echo "{{.LIMIT}} {{.TAGS}}"; } > .task/signals/{{.SIGNAL}}.outputs'
+      - task: :plan

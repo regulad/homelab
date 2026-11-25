@@ -54,6 +54,9 @@ alexa/*/.ask/
 ansible-*/collections
 *.retry
 
+# --- go-task: signals, upstream digests and pending plans (AGENTS.md § Tasks) ---
+.task/
+
 # --- Python / tooling -------------------------------------------------------
 .venv/
 venv/

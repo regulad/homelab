@@ -12,8 +12,8 @@ one. The tailnet's policy file, DNS and federated identities are `tofu/tailscale
 the policy and DNS before, is to be retired.
 
 Ansible runs in two phases, one on each side of OpenTofu, each in its own folder.
-The order is `tofu/backblaze`, the hardware hosts, the other OpenTofu roots, then the
-generated hosts:
+`STEPS` in `Taskfile.yml` sets the exact order. In outline: `tofu/backblaze`, the
+hardware hosts, the other OpenTofu roots, then the generated hosts:
 - **Hardware hosts** are the machines OpenTofu cannot create, such as the
   Proxmox nodes. They come first, from `ansible-hardware/`, which reads an
   inventory written by hand, and only `tofu/backblaze`'s restic output besides.
