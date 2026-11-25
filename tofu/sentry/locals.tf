@@ -25,4 +25,14 @@ locals {
     # Development builds.
     development = "D:\\repositories\\Warlock\\"
   }
+
+  # Where each build of tinyxnb's thumbnail handler and xnb2png checks the
+  # repository out, as Windows writes the path, which tinyxnb's code mappings
+  # map from, as Koala's and Warlock's do.
+  tinyxnb_checkouts = {
+    # Release builds, by .github/workflows/release.yml on GitHub's Windows runner.
+    release = "D:\\a\\tinyxnb\\tinyxnb\\"
+    # Development builds.
+    development = "D:\\repositories\\tinyxnb\\"
+  }
 }

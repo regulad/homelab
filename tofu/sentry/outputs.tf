@@ -15,6 +15,7 @@ output "dsn" {
       sentry_key.pheidippides_notify,
       sentry_key.picture_triangulator,
       sentry_key.rosellaview,
+      sentry_key.tinyxnb,
       sentry_key.warlock,
       sentry_key.warlock_extcap,
       sentry_key.warlock_installer,

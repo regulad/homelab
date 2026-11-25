@@ -47,7 +47,7 @@ high-priority triggers have no native form in the provider, which passes them th
 
 A project created here, rather than adopted, sets `default_key` and `default_rules` to
 `false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
-the key and alert declared for it are its only ones: koala, koala-vcam, warlock,
+the key and alert declared for it are its only ones: koala, koala-vcam, tinyxnb, warlock,
 warlock-extcap, warlock-installer and warlockctl. Both take
 effect only while the provider creates the project, when it deletes every key named
 `Default`, before the declared key exists. Never set them on an adopted project, whose key
@@ -97,6 +97,12 @@ koala-vcam, Koala's virtual camera, `koala_vcam_source.dll`, is built from the s
 checkouts as koala, so it has koala's two checkout mappings, from `local.koala_checkouts`
 in `locals.tf`. It builds no `warlock-client`, so it has no Warlock mapping.
 
+tinyxnb's frames, its Explorer thumbnail handler's and `xnb2png`'s, carry the absolute path
+that their .NET PDBs record, of the Windows checkout that built them. It has a mapping per
+checkout, GitHub's Windows runner for release builds and the development checkout for
+development builds, from `local.tinyxnb_checkouts` in `locals.tf`, written as koala's and
+warlock's are.
+
 ## DSNs
 
 The `dsn` output gives each project's DSN, from its Default key, by project slug.
@@ -111,7 +117,7 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-koala, koala-vcam, rosellaview and Warlock's four programs build their DSNs into their source, so nothing here
+koala, koala-vcam, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
 delivers them; a key replaced here reaches them only through a change to that source.
 
 ## Organization tokens
