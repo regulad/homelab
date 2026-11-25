@@ -35,4 +35,13 @@ locals {
     # Development builds.
     development = "D:\\repositories\\tinyxnb\\"
   }
+
+  # Where each build of lime checks the repository out, which lime's code
+  # mappings map from.
+  lime_checkouts = {
+    # Release builds, by .github/workflows/release.yml on GitHub's Linux runners.
+    release = "/home/runner/work/lime/lime/"
+    # Development builds.
+    development = "/var/home/regulad/repositories/lime/"
+  }
 }

@@ -109,3 +109,10 @@ resource "sentry_organization_repository" "tinyxnb" {
   integration_id   = data.sentry_organization_integration.github.id
   identifier       = "regulad/tinyxnb"
 }
+
+resource "sentry_organization_repository" "lime" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/lime"
+}

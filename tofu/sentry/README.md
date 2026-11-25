@@ -47,7 +47,7 @@ high-priority triggers have no native form in the provider, which passes them th
 
 A project created here, rather than adopted, sets `default_key` and `default_rules` to
 `false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
-the key and alert declared for it are its only ones: koala, koala-vcam, tinyxnb, warlock,
+the key and alert declared for it are its only ones: koala, koala-vcam, lime, tinyxnb, warlock,
 warlock-extcap, warlock-installer and warlockctl. Both take
 effect only while the provider creates the project, when it deletes every key named
 `Default`, before the declared key exists. Never set them on an adopted project, whose key
@@ -103,6 +103,11 @@ checkout, GitHub's Windows runner for release builds and the development checkou
 development builds, from `local.tinyxnb_checkouts` in `locals.tf`, written as koala's and
 warlock's are.
 
+lime's frames carry the absolute path that its debug information records, of the Linux
+checkout that built it. It has a mapping per checkout, GitHub's Linux runners for release
+builds and the development clone for development builds, from `local.lime_checkouts` in
+`locals.tf`.
+
 ## DSNs
 
 The `dsn` output gives each project's DSN, from its Default key, by project slug.
@@ -117,7 +122,7 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-koala, koala-vcam, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
+koala, koala-vcam, lime, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
 delivers them; a key replaced here reaches them only through a change to that source.
 
 ## Organization tokens

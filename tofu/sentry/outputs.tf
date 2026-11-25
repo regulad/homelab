@@ -9,6 +9,7 @@ output "dsn" {
       sentry_key.doppelganger,
       sentry_key.koala,
       sentry_key.koala_vcam,
+      sentry_key.lime,
       sentry_key.peppercord,
       sentry_key.pheidippides_administrate,
       sentry_key.pheidippides_locate,
