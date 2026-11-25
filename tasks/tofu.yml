@@ -47,6 +47,12 @@ tasks:
     cmds:
       - tasks/upstream.sh {{.STEP}} tofu tofu/{{.ROOT}} -- {{.EXTRA}}
 
+  references:
+    desc: List what the step reads from other steps and roots, and where; tasks/dependents.sh reads it.
+    silent: true
+    cmds:
+      - tasks/upstream.sh --list {{.STEP}} tofu tofu/{{.ROOT}} -- {{.EXTRA}}
+
   plan:
     desc: Save a plan to docs/snapshot/<step>@<commit>.tfplan, skipped while the root's files and upstream signal are unchanged.
     deps: [upstream]
@@ -74,7 +80,7 @@ tasks:
         esac
 
   apply:
-    desc: Apply the step's saved plan for HEAD, then plan the pipeline again, which confirms this step is a no-op and re-plans its dependents.
+    desc: Apply the step's saved plan for HEAD, then plan the step again, which confirms a no-op, and plan or check each step that reads it.
     preconditions:
       - sh: test -f {{.PLAN_FILE}}
         msg: 'No saved plan for HEAD ({{.COMMIT}}): run `task {{.STEP}}:plan` first.'
@@ -82,4 +88,5 @@ tasks:
       - '{{.RUN}} apply -input=false {{.PLAN_FILE}}'
       - rm -f {{.PLAN_FILE}} .task/pending/{{.STEP}}
       - task: outputs
-      - task: :plan
+      - task: plan
+      - tasks/dependents.sh {{.STEP}} | while read -r dependent; do $TASK $dependent; done
