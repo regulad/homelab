@@ -57,7 +57,7 @@ homelab/
 ├── go.mod, go.sum               # pins go-task, run as `go tool task`
 ├── Taskfile.yml                 # the pipeline, for go-task: its steps, their order, and the whole-pipeline tasks (§ Tasks)
 ├── .alock.json                  # alock's OpenTofu roots, each with the inventory of the hosts it creates
-├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin), worktrees/ (gitignored)
+├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin; denies bare tofu and ansible-playbook), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy hooks; Ansible lint hooks to come (#33)
 ├── .sops.yaml, .gitignore
 ├── alexa/                       # <skill>/: each Alexa skill's package and ASK CLI project file
@@ -108,18 +108,19 @@ homelab/
 From the repository root, in bash or zsh:
 
 ```bash
-. tofu/oracle/prepare.sh                          # decrypt inputs; export the OCI API key and the state backend's credentials into this shell
-tofu -chdir=tofu/oracle init -input=false -lockfile=readonly    # once per clone; downloads providers
-tofu -chdir=tofu/oracle plan -input=false -detailed-exitcode    # 0 no changes, 2 diff, 1 error
-pre-commit run --all-files
+go tool task oracle:init                          # once per clone; downloads providers
+go tool task oracle:plan                          # a saved plan; its exit code: 0 no changes, 2 diff, 1 error
+pre-commit run --all-files                        # among its hooks, tofu fmt and tofu validate for every root
 ```
+
+- **OpenTofu and `ansible-playbook` run only through `go tool task`** ([Tasks](#tasks)). `.claude/settings.json` denies a bare `tofu` or `ansible-playbook` command; the rule matches the command an agent writes, so wrapping one in `sops exec-env`, `bash -c` or a script to get past it breaks this rule as much as running it bare. A task that doesn't exist yet is added to `tasks/`, as `<stage>:syntax` was. Ad hoc `ansible <host> -m …` for a one-host read-only probe stays allowed ([Read-only discovery](#hard-rules)).
 
 - Run plans from a root, never from a child module.
 - Write plaintext plan output and saved plans to `docs/snapshot/`, each saved plan named for the commit it was made at, `<root>@<commit>.tfplan` (see [Parallel agents](#parallel-agents)). State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
 - Apply exactly the saved plan Parker approved, then confirm a fresh plan is a no-op. The state bucket's versioning keeps every earlier state version, so applies need no separate backups.
 - After an apply to `tofu/oracle` or `tofu/gonkputer`, run the next `ansible-generated` command with `--flush-cache`: its inventory caches their state for an hour.
 - The `oci` CLI uses a session token, which lasts 60 minutes; refreshing extends it up to 24 hours. After that, Parker must run `oci session authenticate --profile-name DEFAULT` himself. OpenTofu needs no session. Each `oci` call needs `--auth security_token`, or `OCI_CLI_AUTH=security_token` in its environment; check WSL's environment for it first. `oci session validate --profile DEFAULT --local` says whether the session has expired.
-- Where the guard refuses sourcing `prepare.sh`, as in a worktree session, `sh tofu/<root>/prepare.sh` still writes the decrypted inputs. Run `ansible-generated` as `sops exec-env ../tofu/shared/backend.sops.env 'PATH="$PWD/bin:$PATH" ansible-playbook …'`, and gonkputer's OpenTofu as `sops exec-env tofu/shared/backend.sops.env 'sops exec-env tofu/gonkputer/provider.sops.env "TF_CLI_CONFIG_FILE=$PWD/tofu/gonkputer/tofu.rc tofu -chdir=tofu/gonkputer plan …"'`, in the background, as the provider's SSH may wait on the agent. `sops exec-env` refuses a file with any map or list value, such as `nexus_servers.sops.yml`: read one value from it with `sops decrypt --extract`. The guard counts any command containing "git" as git: glob `.g?thub`, and grep `ithub\.`.
+- A root's `prepare.sh` is sourced by `tasks/tofu.sh`, inside that task's process alone, so no shell of the session needs it. Run gonkputer's tasks in the background, as the provider's SSH may wait on the agent. `sops exec-env` refuses a file with any map or list value, such as `nexus_servers.sops.yml`: read one value from it with `sops decrypt --extract`. The guard counts any command containing "git" as git: glob `.g?thub`, and grep `ithub\.`.
 
 ## Tasks
 
@@ -133,6 +134,7 @@ go tool task <step>:plan                             # one root: a saved plan, d
 go tool task <step>:apply                            # one root: apply that plan, re-plan it, then plan or check its dependents
 go tool task <stage>:check LIMIT=<hosts> TAGS=<tags> # part of a stage, --check; arguments after `--` go to ansible-playbook
 go tool task <step>:references                       # what the step reads from other steps and roots, and in which file
+go tool task <stage>:syntax                          # ansible-playbook --syntax-check of the stage's site.yml and maintenance.yml
 go tool task <stage>:apply LIMIT=<hosts> TAGS=<tags> # part of a stage, or all of it without LIMIT and TAGS; then its dependents
 ```
 
@@ -181,14 +183,12 @@ Several agents may work on this repository at once. The [alock](https://github.c
 ```bash
 pre-commit run --all-files
 uv run --no-project --python 3.9 -- python -B -m unittest discover -s tests   # tests/README.md; pre-commit's tests hook
-tofu -chdir=tofu/<root> fmt -check -recursive
-tofu -chdir=tofu/<root> validate
-tofu -chdir=tofu/<root> plan -detailed-exitcode
+go tool task <root>:plan                       # tofu fmt and validate run in pre-commit
 ansible-lint --offline ansible-common          # the shared roles, from the repository root
+go tool task <stage>:syntax
+go tool task <stage>:check LIMIT=<host> TAGS=<role> -- --diff
 # Ansible: once per stage, from inside ansible-hardware/ or ansible-generated/
 ansible-lint --offline
-ansible-playbook playbooks/site.yml --syntax-check
-ansible-playbook playbooks/site.yml --check --diff --tags <role> --limit <host>
 ansible-inventory --graph
 ```
 

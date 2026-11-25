@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(tofu *)",
+      "Bash(ansible-playbook *)"
+    ]
+  },
   "enabledPlugins": {
     "alock@alock": true
   },

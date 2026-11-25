@@ -69,6 +69,12 @@ tasks:
     cmds:
       - "{{.RUN}} --check --limit '{{.HOSTS}}'"
 
+  syntax:
+    desc: Check the syntax of the stage's site.yml and maintenance.yml.
+    cmds:
+      - cd {{.STAGE}} && ansible-playbook playbooks/site.yml --syntax-check
+      - cd {{.STAGE}} && ansible-playbook playbooks/maintenance.yml --syntax-check
+
   check:
     desc: 'Check part of the step, never skipped: LIMIT=<hosts> TAGS=<tags>, and anything after -- goes to ansible-playbook.'
     deps: [upstream]
