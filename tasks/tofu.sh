@@ -14,6 +14,12 @@ fi
 shift
 top=$(git rev-parse --show-toplevel)
 . "$top/tasks/alock-path.sh"
+# A root takes its AWS_* variables from its own prepare.sh alone: one the
+# operator's shell carries, such as an AWS_ENDPOINT_URL for another S3, would
+# reach the backend and the aws provider too.
+for name in $(env | sed -n 's/^\(AWS_[A-Za-z0-9_]*\)=.*/\1/p'); do
+    unset "$name"
+done
 # prepare.sh is written for an interactive shell: no -e or -u, and its report
 # goes to stderr so that `tofu output -json` stays the only stdout.
 set +eu
