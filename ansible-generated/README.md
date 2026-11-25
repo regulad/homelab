@@ -82,13 +82,10 @@ after installing the pinned collections into the gitignored `collections/`:
 ```bash
 . tofu/oracle/prepare.sh
 . tofu/gonkputer/prepare.sh
-. tofu/backblaze/prepare.sh    # the restic role reads tofu/backblaze's output
-cd ansible-generated
-ansible-galaxy collection install -r requirements.yml -p collections
-ansible-inventory --graph
-ansible-playbook playbooks/site.yml --syntax-check
-ansible-lint --offline
-ansible-playbook playbooks/site.yml --check --diff --limit <host>
+go tool task ansible-generated:init             # installs the collections (an install: ask first)
+go tool task ansible-generated:syntax
+go tool task ansible-generated:check LIMIT=<host> -- --diff
+cd ansible-generated && ansible-inventory --graph && ansible-lint --offline
 ```
 
 A source that cannot be read fails the whole inventory, because `ansible.cfg`

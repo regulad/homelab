@@ -42,13 +42,10 @@ host's own automatic updater (unattended-upgrades, dnf-automatic).
 Ansible reads `ansible.cfg` from the current directory, so run from this one:
 
 ```bash
-. tofu/backblaze/prepare.sh    # the restic role reads tofu/backblaze's output
-cd ansible-hardware
-ansible-galaxy collection install -r requirements.yml -p collections
-ansible-inventory --graph
-ansible-playbook playbooks/site.yml --syntax-check
-ansible-lint --offline
-# The SG300s' plays need their keys; run them through the wrapper:
-bin/with-switch-keys ansible-playbook playbooks/site.yml --limit ciscosmb --check --diff
-ansible-playbook playbooks/site.yml --check --diff --limit <node>
+go tool task ansible-hardware:init              # installs the collections (an install: ask first)
+go tool task ansible-hardware:syntax
+go tool task ansible-hardware:check LIMIT=<node> -- --diff
+# The SG300s are a step of their own, run inside bin/with-switch-keys:
+go tool task ansible-hardware--switches:check -- --diff
+cd ansible-hardware && ansible-inventory --graph && ansible-lint --offline
 ```

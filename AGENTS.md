@@ -57,7 +57,7 @@ homelab/
 ├── go.mod, go.sum               # pins go-task, run as `go tool task`
 ├── Taskfile.yml                 # the pipeline, for go-task: its steps, their order, and the whole-pipeline tasks (§ Tasks)
 ├── .alock.json                  # alock's OpenTofu roots, each with the inventory of the hosts it creates
-├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin; denies bare tofu and ansible-playbook), worktrees/ (gitignored)
+├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin; denies bare tofu applies and site.yml runs), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy hooks; Ansible lint hooks to come (#33)
 ├── .sops.yaml, .gitignore
 ├── alexa/                       # <skill>/: each Alexa skill's package and ASK CLI project file
@@ -113,7 +113,7 @@ go tool task oracle:plan                          # a saved plan; its exit code:
 pre-commit run --all-files                        # among its hooks, tofu fmt and tofu validate for every root
 ```
 
-- **OpenTofu and `ansible-playbook` run only through `go tool task`** ([Tasks](#tasks)). `.claude/settings.json` denies a bare `tofu` or `ansible-playbook` command; the rule matches the command an agent writes, so wrapping one in `sops exec-env`, `bash -c` or a script to get past it breaks this rule as much as running it bare. A task that doesn't exist yet is added to `tasks/`, as `<stage>:syntax` was. Ad hoc `ansible <host> -m …` for a one-host read-only probe stays allowed ([Read-only discovery](#hard-rules)).
+- **Applies, and every `site.yml` run, go through `go tool task`** ([Tasks](#tasks)), so that each apply propagates to its dependents. `.claude/settings.json` denies a bare `tofu … apply` and any `ansible-playbook` command naming a `site.yml`, its checks included. The rules match the command an agent writes, so wrapping one in `sops exec-env`, `bash -c` or a script to get past them breaks this rule as much as running it bare. A plan that needs arguments, such as `-replace`, is `go tool task --force <step>:plan -- <arguments>`, which `<step>:apply` then applies. The other OpenTofu commands (`show`, `providers lock`, `state`, `import`) and `maintenance.yml` plays run as before, each under rule 1 where it changes anything.
 
 - Run plans from a root, never from a child module.
 - Write plaintext plan output and saved plans to `docs/snapshot/`, each saved plan named for the commit it was made at, `<root>@<commit>.tfplan` (see [Parallel agents](#parallel-agents)). State and saved plans are AES-GCM encrypted with the passphrase from SOPS; never change or lose it.
