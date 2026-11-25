@@ -84,4 +84,4 @@ tasks:
   pending:
     desc: List the saved plans that show changes and wait to be applied.
     cmds:
-      - for f in .task/pending/*; do [ -e "$f" ] && cat "$f"; done; true
+      - for f in .task/pending/*; do if [ -e "$f" ]; then cat "$f"; fi; done
