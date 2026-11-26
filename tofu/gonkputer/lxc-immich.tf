@@ -134,7 +134,7 @@ resource "ansible_host" "immich" {
     [proxmox_virtual_environment_container.immich.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
-  # Reached through proxmox_pct_remote: SSH to the node, then pct into the container.
+  # Reached through pct_ssh: SSH to the node, then pct into the container.
   variables = {
     ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.immich.node_name]
     proxmox_vmid = proxmox_virtual_environment_container.immich.vm_id

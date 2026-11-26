@@ -95,7 +95,7 @@
     # The upgrade runs in a unit of its own, as it restarts services and can
     # outlast a connection, and the unit stays until the reboot after it. Its
     # state is read without Python, which the upgrade replaces as it goes, and
-    # matched within the output: raw through proxmox_pct_remote runs on a
+    # matched within the output: raw through pct_ssh runs on a
     # terminal, which wraps it in carriage returns and escape sequences.
     - name: Read the upgrade's unit
       ansible.builtin.raw: systemctl show release-upgrade.service --property=LoadState --value
