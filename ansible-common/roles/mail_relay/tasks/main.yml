@@ -14,6 +14,10 @@
   # Sets the password only when it creates the account. An account that
   # already existed, such as one migrated from another directory, keeps the
   # password it had: maintenance.yml's mail-password-reset sets the SOPS value.
+  # No password expiration: FreeIPA's global policy lets no password expire
+  # (freeipa_server), and ipa_user compares a declared expiration with
+  # FreeIPA's {"__datetime__": …} as unequal on every run, which made the task
+  # report a change on every run, a check's included.
   community.general.ipa_user:
     name: "{{ mail_relay_account }}"
     givenname: "Null"
@@ -22,7 +26,6 @@
       - "{{ mail_relay_address }}"
     password: "{{ mail_relay_password }}"
     update_password: on_create
-    krbpasswordexpiration: "{{ mail_relay_password_expiration }}"
     state: present
     ipa_host: "{{ mail_relay_freeipa_host }}"
     ipa_user: "{{ mail_relay_freeipa_user }}"

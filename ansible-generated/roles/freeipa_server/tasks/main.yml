@@ -87,3 +87,17 @@
     label: "{{ item.key }}"
   when: not (ansible_check_mode and (freeipa_server_installed is changed or freeipa_server_replicated is changed))
   no_log: true
+
+# Passwords never expire (maxlife 0, as FreeIPA's own host, service and system
+# account policies have it): every account here is a service account or an
+# admin's, rotated deliberately (AGENTS.md § Generated secrets), and an expiry
+# set per account is capped by this policy. Accounts that already have a
+# password keep its stored expiration.
+- name: Global password policy
+  freeipa.ansible_freeipa.ipapwpolicy:
+    ipaadmin_password: "{{ freeipa_server_admin_password }}"
+    ipaapi_context: server
+    name: global_policy
+    maxlife: "0"
+  when: not (ansible_check_mode and (freeipa_server_installed is changed or freeipa_server_replicated is changed))
+  no_log: true
