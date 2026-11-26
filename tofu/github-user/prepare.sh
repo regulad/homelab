@@ -67,7 +67,7 @@ _homelab_github_user_prepare() {
     export TF_CLI_CONFIG_FILE="$dir/tofu.rc"
     # The selected workspace, TF_WORKSPACE's or the one .terraform records,
     # decides which account a plan acts as, and so whose token the provider
-    # reads, as GITHUB_TOKEN: <workspace>.sops.yaml's terraform-github--user.
+    # reads, as TF_VAR_github_token: <workspace>.sops.yaml's terraform-github--user.
     # The default workspace has none.
     workspace=${TF_WORKSPACE:-}
     if [ -z "$workspace" ]; then
@@ -84,11 +84,15 @@ _homelab_github_user_prepare() {
             echo "prepare.sh: $workspace.sops.yaml has no terraform-github--user; fill it with sops edit." >&2
             return 1
         fi
-        export "GITHUB_TOKEN=$token"
+        # As an input, not GITHUB_TOKEN: the GitHub CLI, which is git's
+        # credential helper for github.com, prefers GITHUB_TOKEN, so alock's git
+        # calls would act as this account too, which cannot write to homelab.
+        unset GITHUB_TOKEN
+        export "TF_VAR_github_token=$token"
         echo "Loaded the $workspace workspace's account token and the state backend credentials and selected tofu.rc for this shell. Decrypted inputs are ready. Source this again after selecting another workspace."
         ;;
     *)
-        unset GITHUB_TOKEN
+        unset GITHUB_TOKEN TF_VAR_github_token
         echo "Loaded the state backend credentials and selected tofu.rc for this shell. Decrypted inputs are ready. The selected workspace, $workspace, has no account: select personal or bot, then source this again."
         ;;
     esac
