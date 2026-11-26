@@ -8,6 +8,10 @@
 - name: AIDE's daily check held for this run
   ansible.builtin.import_playbook: aide-hold.yml
 
+# Facts gathered afresh when the run changes hosts (facts.yml).
+- name: Facts gathered afresh for this run
+  ansible.builtin.import_playbook: facts.yml
+
 # Every host Ansible manages but pfSense and the network switches.
 - name: Host baseline
   hosts: debian:ubuntu:rhel:macos

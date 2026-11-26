@@ -87,8 +87,8 @@ non-zero `DISC-GRAN`.
 
 ## 3. Install clevis, crypttab, and the TPM binding
 
-The task runs with `--flush-cache`, which step 1's change to OpenTofu's state
-needs; the maintenance play runs from `ansible-generated/`:
+Step 1's `<root>:apply` cleared the inventory's cache of OpenTofu's state; the
+maintenance play runs from `ansible-generated/`, with `--flush-cache`:
 
 ```sh
 go tool task ansible-generated:apply LIMIT=$host.regulad.internal TAGS=luks

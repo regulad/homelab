@@ -290,6 +290,10 @@
   roles:
     - basic_memory
 
+# The facts of the hosts this run changed, gathered again (facts.yml).
+- name: Facts gathered afresh after this run
+  ansible.builtin.import_playbook: ../../ansible-common/playbooks/facts.yml
+
 # Last: AIDE's baseline moved for the files this run wrote.
 - name: File integrity baseline for this run's files
   ansible.builtin.import_playbook: ../../ansible-common/playbooks/aide-refresh.yml

@@ -89,6 +89,9 @@ tasks:
     cmds:
       - '{{.RUN}} apply -input=false {{.PLAN_FILE}}'
       - rm -f {{.PLAN_FILE}} .task/pending/{{.STEP}}
+      # ansible-generated's inventory caches the roots' state for an hour
+      # (its ansible.cfg); the apply may have changed it.
+      - rm -rf "$HOME/.cache/regulad/homelab/terraform_state"
       - task: outputs
       - task: plan
       - tasks/dependents.sh {{.STEP}} | while read -r dependent; do $TASK $dependent; done
