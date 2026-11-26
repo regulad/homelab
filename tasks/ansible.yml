@@ -86,6 +86,9 @@ tasks:
   apply:
     desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then stamp its signal, and plan or check each step that reads it.'
     deps: [upstream]
+    preconditions:
+      - sh: tasks/require-alock.sh ansible-playbook
+        msg: alock's shim must run the apply (tasks/require-alock.sh says why).
     cmds:
       - "{{.RUN}} --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
       - mkdir -p .task/signals
