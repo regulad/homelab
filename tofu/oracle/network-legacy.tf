@@ -122,15 +122,20 @@ resource "oci_core_security_list" "legacy_default" {
     }
   }
 
-  ingress_security_rules {
-    protocol    = "6" # TCP
-    source      = "0.0.0.0/0"
-    source_type = "CIDR_BLOCK"
-    stateless   = false
+  # SSH, over both families.
+  dynamic "ingress_security_rules" {
+    for_each = local.dual_stack_internet_cidrs
+    iterator = cidr
+    content {
+      protocol    = "6" # TCP
+      source      = cidr.value
+      source_type = "CIDR_BLOCK"
+      stateless   = false
 
-    tcp_options { # SSH
-      max = 22
-      min = 22
+      tcp_options { # SSH
+        max = 22
+        min = 22
+      }
     }
   }
 

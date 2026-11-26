@@ -96,13 +96,17 @@ resource "oci_core_security_list" "services_public" {
   compartment_id = var.tenancy_ocid
   vcn_id         = oci_core_vcn.services.id
 
-  ingress_security_rules {
-    description = "Peering"
-    protocol    = "all" # All IP protocols
-    # The existing homelab ingress rule permits IPv4 only.
-    source      = local.dual_stack_homelab_cidrs.ipv4
-    source_type = "CIDR_BLOCK"
-    stateless   = false
+  # The homelab, over both families: its ULA is routed through the router too.
+  dynamic "ingress_security_rules" {
+    for_each = local.dual_stack_homelab_cidrs
+    iterator = cidr
+    content {
+      description = "Peering"
+      protocol    = "all" # All IP protocols
+      source      = cidr.value
+      source_type = "CIDR_BLOCK"
+      stateless   = false
+    }
   }
 
   ingress_security_rules {

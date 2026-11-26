@@ -126,22 +126,9 @@ resource "oci_core_security_list" "services_default" {
     }
   }
 
-  dynamic "ingress_security_rules" {
-    for_each = local.dual_stack_internet_cidrs
-    iterator = cidr
-    content {
-      protocol    = "6" # TCP
-      source      = cidr.value
-      source_type = "CIDR_BLOCK"
-      stateless   = false
-
-      tcp_options { # SSH
-        max = 22
-        min = 22
-      }
-    }
-  }
-
+  # No SSH from the internet: the pubsub subnet, the only one with this list, is
+  # reached over the tailnet and from the homelab, which its own list admits
+  # (subnet-public.tf), and from the VCN's other hosts, which LAN below admits.
   dynamic "ingress_security_rules" {
     for_each = local.dual_stack_wahlecloud_cidrs
     iterator = cidr
