@@ -33,4 +33,24 @@ plan {
 HCL
 )
 export TF_ENCRYPTION
-exec tofu "$@"
+# The plugin's tofu init installs the providers its state's resources name,
+# unpinned, so the newest the registry offers: bpg/proxmox v0.124.0 was
+# published without a linux_amd64 package (2026-11-25), and every load failed.
+# (ansible-collections/cloud.terraform#222.) It installs instead exactly the
+# versions tofu/gonkputer pins and has installed, from
+# its .terraform/providers, and nothing from the network.
+config=$(mktemp)
+trap 'rm -f "$config"' EXIT
+cat > "$config" <<HCL
+provider_installation {
+  filesystem_mirror {
+    path    = "$root/tofu/gonkputer/.terraform/providers"
+    include = ["*/*/*"]
+  }
+}
+HCL
+TF_CLI_CONFIG_FILE=$config
+export TF_CLI_CONFIG_FILE
+status=0
+tofu "$@" || status=$?
+exit "$status"
