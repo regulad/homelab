@@ -78,6 +78,10 @@ fi
 age -a -r "$recipient" -o "$work/ssh_config.new.age" "$work/ssh_config"
 age -a -r "$recipient" -o "$work/known_hosts.new.age" "$work/known_hosts"
 token=$(sops decrypt --extract '["pat"]["terraform-exports--dotfiles"]' "$top/tofu/github-user/bot.sops.yaml")
+if [ -z "$token" ]; then
+    echo "exports: tofu/github-user/bot.sops.yaml's pat.terraform-exports--dotfiles is empty: fill it with sops edit." >&2
+    exit 1
+fi
 name=$(curl -fsS "$api" | jq -r .full_name)
 jq -n --arg owner "${name%/*}" --arg name "${name#*/}" \
     '{query: "query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { ref(qualifiedName: \"refs/heads/master\") { target { oid } } } }", variables: {owner: $owner, name: $name}}' >"$work/head.json"

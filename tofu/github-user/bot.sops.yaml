@@ -5,18 +5,19 @@
 #ENC[AES256_GCM,data:736VrOU63no3LlT+10cwGAxApLdYcPv6hc1airv6BGHUmkFbd8IbtkH0NxIzZZgxem5/AUWPnNY1U+EaB/AmVHkXzCkzZ9ud739YgEYE,iv:CTBEodHhnJsTvLmeKHrwZyv85zoYtpYDdKhLkLKdNBo=,tag:KYwiLxA5BGeFTSHtSwEGLQ==,type:comment]
 #ENC[AES256_GCM,data:IOXx8fjwShkxdpwfB56boLUW2AVGA6IEL0euPwvARzCK,iv:0BGmioxMbMTeYCTIVbpF9Y18VHb+jv82mvWPgaFGdSc=,tag:tiF7Y8tnhixDwDWITHvoBQ==,type:comment]
 pat:
-    #ENC[AES256_GCM,data:ikOFu5S690TGWPhSE6vH9gpE2y+b,iv:qy3M5PD7AsKi+5iDZpvjPcX9CCoO+NMEw+zRepyPd+Y=,tag:lauq6mkWwrgnO0CmhsRbyA==,type:comment]
+    #ENC[AES256_GCM,data:q8VSUdWqgWsVm5zFyk5cGdD51AuZ,iv:SNIBQ2Ub/US/bVb6FgWh/GVRwrNQluOwRjpb0USxgms=,tag:JI0yQoFrRt0A9JCRmIHXsg==,type:comment]
     #ENC[AES256_GCM,data:liX77wXWuxFZ2trYWqmMHZ2dnNEPA38APuFCy1db17J9WMmfd3eq45W3T4MneDARjHYxt4tvDZbPehrt6VF/am9tAnBMrLNPCfRwVCwA5Ajrwysv2TWOs1Z2EVhctQ==,iv:+5W8IfhosAhgRI7EK8JYKEpHFJx3aVV0tL5+xOsSCZ0=,tag:2jotUDzO5IHiq3WxGnWPGw==,type:comment]
     terraform-github--user: ENC[AES256_GCM,data:e3kmDSl/MvnavTvTNtMZKD1ASNkqPvcW3Ir/OPYA+/20M0r9ZjoH3Q==,iv:wuzHJoe5z6dY6Jbcyti65aWWs7jYS+wXiDqlB6l7KRY=,tag:PBAdtO7Den5fZhI2kPbcZg==,type:str]
-    #ENC[AES256_GCM,data:VP0OPSdokhUyK10GDA/bc/D8mHQm,iv:+p4yQheth1SkMi7noSdqGImX+baxtpFattgc7s2vcYM=,tag:N9zqPnUnRHX70R+bYZZH5g==,type:comment]
-    #ENC[AES256_GCM,data:Uil8c9n0eaL5j00hGDwhHl8vktx29JpyOw==,iv:BzVfdy1drJiZf4zsjtIaUc/QEWzFWeXygNHhG8hkDzQ=,tag:EMTsxBE5a8a+oEliC8yLqQ==,type:comment]
+    #ENC[AES256_GCM,data:q8VSUdWqgWsVm5zFyk5cGdD51AuZ,iv:SNIBQ2Ub/US/bVb6FgWh/GVRwrNQluOwRjpb0USxgms=,tag:JI0yQoFrRt0A9JCRmIHXsg==,type:comment]
+    #ENC[AES256_GCM,data:fdXw+w/MINq2fW2ouzxro1A0utqIExV2yw==,iv:wg+O4a7o18Lss9dJpFlIZ572Yk0rPPShk5ss8SA+dm4=,tag:tWJgGs/3axi+Z9XYOpfyiQ==,type:comment]
     terraform-jenkins--winget: ENC[AES256_GCM,data:VhiwAMsrtqot5JiH9hQ9WTSZTQOYoffjxKeLcUMCgJXnxXyXhnzYkA==,iv:qKJh89KYzm54RYbWlfNXVhgenyTZs+UVNxip+R7vd8I=,tag:uENg8AIasQgjLIKgXZ+FGA==,type:str]
-    #ENC[AES256_GCM,data:DEyLBLXmy4KatK4GCMOgobePHNhn,iv:9mwDXco/LztT9Of89mpzco73UjLwyzxg+jUTj9Y9Lrw=,tag:2KfMOX5eHN4iJCYjFKfDmw==,type:comment]
-    #ENC[AES256_GCM,data:tr5sF3AgrKzUuU56glTIH9LFej5F4uotdA==,iv:l8YZSkrvyT2xhasyBlrntqtEKxxCEZgJO2zwA1wUTDc=,tag:yk8Jnm7DwejLAT4oOEVKYg==,type:comment]
+    #ENC[AES256_GCM,data:q8VSUdWqgWsVm5zFyk5cGdD51AuZ,iv:SNIBQ2Ub/US/bVb6FgWh/GVRwrNQluOwRjpb0USxgms=,tag:JI0yQoFrRt0A9JCRmIHXsg==,type:comment]
+    #ENC[AES256_GCM,data:fdXw+w/MINq2fW2ouzxro1A0utqIExV2yw==,iv:wg+O4a7o18Lss9dJpFlIZ572Yk0rPPShk5ss8SA+dm4=,tag:tWJgGs/3axi+Z9XYOpfyiQ==,type:comment]
     terraform-koala--winget: ENC[AES256_GCM,data:NuRFtyR+WYA1tZRozJrsyqKeiSeMJbVaM8kFGQ2/xMQMXCt73TH++A==,iv:epTGFEDhqay0bBA9l06kB3fzoxXEt0LpAKTKI23g67M=,tag:hAy+kAUw1O34CyxcM/a8Lw==,type:str]
     #ENC[AES256_GCM,data:q8VSUdWqgWsVm5zFyk5cGdD51AuZ,iv:SNIBQ2Ub/US/bVb6FgWh/GVRwrNQluOwRjpb0USxgms=,tag:JI0yQoFrRt0A9JCRmIHXsg==,type:comment]
     #ENC[AES256_GCM,data:fdXw+w/MINq2fW2ouzxro1A0utqIExV2yw==,iv:wg+O4a7o18Lss9dJpFlIZ572Yk0rPPShk5ss8SA+dm4=,tag:tWJgGs/3axi+Z9XYOpfyiQ==,type:comment]
     terraform-warlock--winget: ENC[AES256_GCM,data:rDZtSb82qR/ce5nxGaXfV8sW77uZoes6+ifeSIzrQgqUKj5hM+sDGg==,iv:bMiaqfZSFCBHDGsurjUioRGobmvIgK01k8PsjUoJ+cY=,tag:UL7MaKjPfo42U5QwfbTx6Q==,type:str]
+    terraform-exports--dotfiles: ""
 fine_grained: {}
 sops:
     age:
@@ -29,7 +30,7 @@ sops:
             ndjPR7JwfslCruVr26rI3XQUd4JHmExtR3c9TArgo5b7yFEp4PeDYw==
             -----END AGE ENCRYPTED FILE-----
           recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-11-25T18:20:45Z"
-    mac: ENC[AES256_GCM,data:kcyUPOEA5FkTdeUZciZJeXANqc10ICIlSQ/H73LNthMkyKIdUBuhqCvuKgrtDsv6h51NIVnh7wZY4Un07DX6xgbuc1QwWeM9jziL+tCd7QD6wsQu+uQGzepK9FOroXhJEANd0iMWBLERh/FCwBh7HlFGCKmqnefN1tX7HHf8GFk=,iv:ncqQzl7gh09u4muZHsLcDxjAa+saYKsgUod/uNnmZmo=,tag:I3hHQNGhQIietGO9FXZg+Q==,type:str]
+    lastmodified: "2026-11-26T22:16:11Z"
+    mac: ENC[AES256_GCM,data:nCrwps82itA62WtFWKb7WgY2R8u/Dt5BigmIiQxwGvV2tRMktJphTLVNdcd1tYeBT7E8WbYdQBp6UoxhvLrZCYOLQkbLib/wlAkcb4q2JpPvBTP6T8FEcPJXTfiaPpuLqqhs227C7hK/+kX60oUILn3gxHWHq4nPlX9LaEtisa8=,iv:kXkkWujfPO3ZIxREBknPHeuI4TCmnu0F+r+WvGc2Gew=,tag:4VZORRrev4Q63wphJWcFyA==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
