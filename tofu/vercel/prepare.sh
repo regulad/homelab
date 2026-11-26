@@ -73,11 +73,11 @@ _homelab_vercel_prepare() {
         printf '%s' "$pats" | jq '{github_pats: {pat, fine_grained}}'
         printf '%s' "$sentry" | jq '{sentry_auth_tokens: .}'
     } | jq -s add) || return 1
-    # Every value is filled in: an empty one would blank an environment variable.
-    if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then
-        echo "prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user/personal.sops.yaml, the Sentry tokens in tofu/sentry's org-tokens.sops.yaml)." >&2
-        return 1
-    fi
+    # An empty value is a slot scaffolded for a secret not yet issued
+    # (AGENTS.md, Secrets to add by hand): it is left out of the input, so a
+    # resource that reads it fails the plan on a missing key instead of
+    # blanking an environment variable, and every other resource still plans.
+    plaintext=$(printf '%s\n' "$plaintext" | jq 'walk(if type == "object" then with_entries(select(.value != "")) else . end)') || return 1
     if [ -e "$destination" ]; then
         # Compare data, not formatting. Preserve any differing local edits.
         if [ "$(jq -S -c . "$destination")" != "$(printf '%s\n' "$plaintext" | jq -S -c .)" ]; then

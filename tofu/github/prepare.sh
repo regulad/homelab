@@ -85,11 +85,11 @@ _homelab_github_prepare() {
         printf '%s' "$bot_pats" | jq '{bot_github_pats: {pat, fine_grained}}'
         printf '%s' "$sentry" | jq '{sentry_auth_tokens: .}'
     } | jq -s add) || return 1
-    # Every value is filled in: an empty one would blank a repository's secret.
-    if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then
-        echo "prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user's personal.sops.yaml and bot.sops.yaml, the Sentry tokens in tofu/sentry's org-tokens.sops.yaml)." >&2
-        return 1
-    fi
+    # An empty value is a slot scaffolded for a secret not yet issued
+    # (AGENTS.md, Secrets to add by hand): it is left out of the input, so a
+    # resource that reads it fails the plan on a missing key instead of
+    # blanking a repository's secret, and every other resource still plans.
+    plaintext=$(printf '%s\n' "$plaintext" | jq 'walk(if type == "object" then with_entries(select(.value != "")) else . end)') || return 1
     # The Nexus CI users' passwords, by user ID, from their only copy. Both pass
     # through pipes, never a command line.
     nexus='{}'
