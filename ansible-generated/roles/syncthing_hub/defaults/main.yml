@@ -11,5 +11,13 @@ syncthing_hub_api_key: ""
 syncthing_hub_owner: ""
 # The tag whose nodes it accepts too, whoever owns them; empty for none.
 syncthing_hub_tag: ""
-# The folder IDs the joining service shares with the devices that offer them.
+# The hub's folders, which the joining service shares with the devices that
+# offer them. Each has its `id` and `label`, as every node's dotfiles declare
+# them; its `path`, relative to the user's home; its directory's `mode`, where
+# the folder's permissions matter; and its `ignores`, the whole .stignore,
+# where it is not syncthing_hub_ignores.
 syncthing_hub_folders: []
+# The .stignore of each folder that sets no `ignores` of its own.
+syncthing_hub_ignores: []
+# Syncthing's options, set through its REST API.
+syncthing_hub_options: {}

@@ -12,6 +12,9 @@
       - syncthing_hub_api_key | length >= 32
       - syncthing_hub_owner | length > 0
       - syncthing_hub_folders | length > 0
+      - syncthing_hub_folders | rejectattr('id', 'defined') | list | length == 0
+      - syncthing_hub_folders | rejectattr('label', 'defined') | list | length == 0
+      - syncthing_hub_folders | rejectattr('path', 'defined') | list | length == 0
     quiet: true
   no_log: true
 
@@ -64,6 +67,30 @@
     label: "{{ item.name }}"
   no_log: true
   notify: Restart syncthing
+
+- name: Folder directories
+  ansible.builtin.file:
+    path: "{{ syncthing_hub_home }}/{{ item.path }}"
+    state: directory
+    owner: "{{ syncthing_hub_user }}"
+    group: "{{ syncthing_hub_user }}"
+    mode: "{{ item.mode | default(omit) }}"
+  loop: "{{ syncthing_hub_folders }}"
+  loop_control:
+    label: "{{ item.id }}"
+
+# Written before Syncthing has the folder, so that nothing else is ever
+# scanned. A .stignore is never synced: each node keeps its own.
+- name: Folder ignores
+  ansible.builtin.copy:
+    dest: "{{ syncthing_hub_home }}/{{ item.path }}/.stignore"
+    content: "{{ (item.ignores | default(syncthing_hub_ignores)) | map('regex_replace', '$', '\n') | join }}"
+    owner: "{{ syncthing_hub_user }}"
+    group: "{{ syncthing_hub_user }}"
+    mode: "0644"
+  loop: "{{ syncthing_hub_folders }}"
+  loop_control:
+    label: "{{ item.id }}"
 
 - name: API key directory
   ansible.builtin.file:
@@ -141,6 +168,39 @@
     state: link
     force: "{{ ansible_check_mode }}"
 
+# The package's user unit, enabled the same way, for the hub's user alone by
+# its ConditionUser= drop-in.
+- name: Syncthing for the hub's user alone
+  ansible.builtin.copy:
+    dest: /etc/systemd/user/syncthing.service.d/syncthing-hub-user.conf
+    content: |
+      # syncthing_hub: the hub's Syncthing, enabled for every user's manager,
+      # runs for {{ syncthing_hub_user }} alone.
+      [Unit]
+      ConditionUser={{ syncthing_hub_user }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart syncthing
+
+- name: Syncthing enabled
+  ansible.builtin.file:
+    src: /usr/lib/systemd/user/syncthing.service
+    dest: /etc/systemd/user/default.target.wants/syncthing.service
+    state: link
+    force: "{{ ansible_check_mode }}"
+
+- name: Syncthing running
+  ansible.builtin.systemd_service:
+    name: syncthing.service
+    scope: user
+    state: started
+    daemon_reload: true
+  become: true
+  become_user: "{{ syncthing_hub_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ syncthing_hub_runtime_dir }}"
+
 # A check run cannot start a unit its unit file isn't written for yet.
 - name: Joining service running
   when: not (ansible_check_mode and syncthing_hub_unit is changed)
@@ -182,5 +242,107 @@
         body:
           apiKey: "{{ syncthing_hub_api_key }}"
       when: syncthing_hub_gui.json.apiKey != syncthing_hub_api_key
+      changed_when: true
+      no_log: true
+
+# The hub's folders and options, through the REST API: each folder is added
+# from Syncthing's folder defaults where it is missing, shared with no device,
+# as the joining service does the sharing; a folder's label is kept to its
+# declared one, and its path, which Syncthing cannot move, only checked. Paths
+# are written as Syncthing keeps them, from ~, which it expands.
+- name: Folders and options in Syncthing's config
+  when: not (ansible_check_mode and (syncthing_hub_env is changed or syncthing_hub_dropin is changed))
+  block:
+    - name: Read the folders
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/folders/{{ item.id | urlencode }}
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+        status_code: [200, 404]
+      loop: "{{ syncthing_hub_folders }}"
+      loop_control:
+        label: "{{ item.id }}"
+      register: syncthing_hub_current_folders
+      check_mode: false
+      no_log: true
+
+    - name: Read the folder defaults
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/defaults/folder
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+      register: syncthing_hub_folder_defaults
+      check_mode: false
+      no_log: true
+
+    - name: Check each folder is at its declared path
+      ansible.builtin.assert:
+        that: >-
+          item.status == 404 or
+          (item.json.path | regex_replace('/+$', ''))
+            in ['~/' ~ item.item.path, syncthing_hub_home ~ '/' ~ item.item.path]
+        fail_msg: >-
+          Syncthing has folder {{ item.item.id }} at {{ item.json.path | default('') }}, not
+          ~/{{ item.item.path }}; Syncthing cannot move a folder.
+        quiet: true
+      loop: "{{ syncthing_hub_current_folders.results }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+
+    - name: Add the missing folders
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/folders
+        method: POST
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+        body_format: json
+        body: >-
+          {{ syncthing_hub_folder_defaults.json | combine({
+               'id': item.item.id,
+               'label': item.item.label,
+               'path': '~/' ~ item.item.path,
+               'devices': syncthing_hub_folder_defaults.json.devices | default([], true) | selectattr('deviceID') | list,
+             }) }}
+      when: item.status == 404
+      changed_when: true
+      loop: "{{ syncthing_hub_current_folders.results }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+      no_log: true
+
+    - name: Set each folder's label
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/folders/{{ item.item.id | urlencode }}
+        method: PATCH
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+        body_format: json
+        body:
+          label: "{{ item.item.label }}"
+      when: item.status == 200 and item.json.label != item.item.label
+      changed_when: true
+      loop: "{{ syncthing_hub_current_folders.results }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+      no_log: true
+
+    - name: Read the options
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/options
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+      register: syncthing_hub_current_options
+      check_mode: false
+      no_log: true
+
+    - name: Set the options
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8384/rest/config/options
+        method: PATCH
+        headers:
+          X-API-Key: "{{ syncthing_hub_api_key }}"
+        body_format: json
+        body: "{{ syncthing_hub_options }}"
+      when: syncthing_hub_current_options.json | combine(syncthing_hub_options) != syncthing_hub_current_options.json
       changed_when: true
       no_log: true
