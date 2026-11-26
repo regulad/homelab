@@ -8,6 +8,10 @@
 - name: AIDE's daily check held for this run
   ansible.builtin.import_playbook: aide-hold.yml
 
+# Facts gathered afresh when the run changes hosts (facts.yml).
+- name: Facts gathered afresh for this run
+  ansible.builtin.import_playbook: facts.yml
+
 # Align a hardware install's hostname and its /etc/hosts line with Ubuntu's
 # installer (Subiquity), on the hosts that set base_hostname_managed.
 - name: Align hostname with Subiquity settings

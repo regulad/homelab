@@ -41,12 +41,10 @@ tasks:
       - cd {{.STAGE}} && ansible-galaxy collection install -r requirements.yml -p collections
 
   outputs:
-    desc: Create the step's signal, a stamp each apply rewrites, if it has none.
-    status:
-      - test -f .task/signals/{{.SIGNAL}}.outputs
+    desc: Record the step's signal, a digest of alock's records of its hosts, which an apply from any worktree moves.
     cmds:
       - mkdir -p .task/signals
-      - git rev-parse HEAD > .task/signals/{{.SIGNAL}}.outputs
+      - tasks/alock-signal.sh {{.STAGE}} '{{.HOSTS}}' > .task/signals/{{.SIGNAL}}.outputs
 
   upstream:
     internal: true
@@ -74,23 +72,20 @@ tasks:
   syntax:
     desc: Check the syntax of the stage's site.yml and maintenance.yml.
     cmds:
-      - cd {{.STAGE}} && ansible-playbook playbooks/site.yml --syntax-check
-      - cd {{.STAGE}} && ansible-playbook playbooks/maintenance.yml --syntax-check
+      - tasks/ansible.sh {{.STAGE}} playbooks/site.yml --syntax-check
+      - tasks/ansible.sh {{.STAGE}} playbooks/maintenance.yml --syntax-check
 
   check:
     desc: 'Check part of the step, never skipped: LIMIT=<hosts> TAGS=<tags>, and anything after -- goes to ansible-playbook.'
-    deps: [upstream]
     cmds:
       - "{{.RUN}} --check --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
 
   apply:
-    desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then stamp its signal, and plan or check each step that reads it.'
-    deps: [upstream]
+    desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then record its signal, and plan or check each step that reads it.'
     preconditions:
       - sh: tasks/require-alock.sh ansible-playbook
         msg: alock's shim must run the apply (tasks/require-alock.sh says why).
     cmds:
       - "{{.RUN}} --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
-      - mkdir -p .task/signals
-      - '{ git rev-parse HEAD; date -u +%Y-%m-%dT%H:%M:%SZ; echo "{{.LIMIT}} {{.TAGS}}"; } > .task/signals/{{.SIGNAL}}.outputs'
+      - task: outputs
       - tasks/dependents.sh {{.SIGNAL}} | while read -r dependent; do $TASK $dependent; done

@@ -93,8 +93,8 @@ sets `any_unparsed_is_failed`.
 
 Both sources cache what they select from state for an hour, in
 `~/.cache/regulad/homelab/terraform_state`, so a load skips `tofu init` and
-`tofu state pull`. After an apply to `tofu/oracle` or `tofu/gonkputer`, run the
-next command with `--flush-cache`, which reads the state again. The cache holds
-the hosts' variables in plaintext, values the state marks sensitive included,
-so it stays outside the repository, under a home directory only its owner can
-read.
+`tofu state pull`. Every `<root>:apply` of the pipeline clears it; after an
+apply made some other way, run the next command with `--flush-cache`. The
+cache holds the hosts' variables in plaintext, values the state marks sensitive
+included, so it stays outside the repository, under a home directory only its
+owner can read.

@@ -1,9 +1,9 @@
 #!/bin/sh
 # Run ansible-playbook in one stage, from inside its folder, with the state
 # backend's credentials and the stage's bin on PATH (AGENTS.md § Everyday
-# commands). The inventory is read afresh, uncached, because an upstream apply
-# may have changed the OpenTofu state it reads; --flush-cache would also clear
-# the stage's fact cache, which the checks of one pass share.
+# commands). The inventory comes from its cache, which every <root>:apply
+# clears (tasks/tofu.yml), as bare applies are denied; no --flush-cache, which
+# would also clear the stage's fact cache that the checks of one pass share.
 #
 #   tasks/ansible.sh <stage> <ansible-playbook arguments>
 #
@@ -20,4 +20,4 @@ command=ansible-playbook
 for arg in "$@"; do
     command="$command '$(printf '%s' "$arg" | sed "s/'/'\\\\''/g")'"
 done
-ANSIBLE_INVENTORY_CACHE=False PATH="$PWD/bin:$PATH" exec ${WRAP:+"bin/$WRAP"} sops exec-env ../tofu/shared/backend.sops.env "$command"
+PATH="$PWD/bin:$PATH" exec ${WRAP:+"bin/$WRAP"} sops exec-env ../tofu/shared/backend.sops.env "$command"
