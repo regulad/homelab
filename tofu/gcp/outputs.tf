@@ -31,6 +31,15 @@ output "oauth_client_ids" {
   }
 }
 
+# tofu-analytics's address and the ID Google gave its uploaded key, which
+# tofu/ga4 builds its credentials from, with the private key it holds.
+output "tofu_analytics" {
+  value = {
+    email  = google_service_account.tofu_analytics.email
+    key_id = element(split("/", google_service_account_key.tofu_analytics.name), 5)
+  }
+}
+
 # The Developer Knowledge MCP server's API key, which Parker copies into the
 # Bitwarden item dotfiles reads: never printed here.
 output "developer_knowledge_api_key" {

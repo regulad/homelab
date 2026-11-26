@@ -16,6 +16,7 @@ adopted resource carries `prevent_destroy = true`. Fixes follow as separate, rev
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
 | `state.tf` | Enforced state encryption and its passphrase input |
 | `service-account-tofu.crt` | The certificate of the service account's key, public |
+| `service-account-tofu-analytics.crt` | The certificate of `tofu-analytics`'s key, public, which `project-regulad.tf` uploads |
 
 ## Credentials
 
@@ -38,6 +39,14 @@ The account and its grants were made by hand to bootstrap this root, in Cloud Sh
 `gcloud iam service-accounts create`, `gcloud projects add-iam-policy-binding` for each
 project, and `gcloud iam service-accounts keys upload` of the certificate. A new project needs
 its own grant before this root can reach it.
+
+`tofu-analytics`, the account `tofu/ga4` works as, is this root's own, in `regulad`, which
+enables the Admin API it calls. Its key works the same way, but this root uploads its
+certificate, through `google_service_account_key`'s `public_key_data`; the private key is in
+`tofu/ga4/provider.sops.yaml`. The `tofu_analytics` output gives its address and the key's ID,
+from which `tofu/ga4` builds its credentials. Its access to Google Analytics, Editor on the
+account, is granted in Analytics' own console, which no provider reaches; it holds no Google
+Cloud role.
 
 ## Running it
 

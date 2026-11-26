@@ -1,6 +1,8 @@
 # regulad: the home project, which holds homelab-tofu and bills the APIs it calls.
 locals {
   regulad_services = toset([
+    # Google Analytics' Admin API, which tofu/ga4 calls as tofu-analytics.
+    "analyticsadmin.googleapis.com",
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "autoscaling.googleapis.com",
@@ -73,6 +75,22 @@ resource "google_service_account" "google_text_to_speech" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# tofu-analytics: the account tofu/ga4 works as, an Editor of the Google
+# Analytics account, which only Parker can grant in Analytics' own console
+# (tofu/ga4's README). It holds no Google Cloud role.
+resource "google_service_account" "tofu_analytics" {
+  project      = google_project.regulad.project_id
+  account_id   = "tofu-analytics"
+  display_name = "OpenTofu: Google Analytics (regulad/homelab)"
+}
+
+# Its key, whose private half Google never had, as homelab-tofu's: the
+# certificate of the private key in tofu/ga4/provider.sops.yaml, uploaded.
+resource "google_service_account_key" "tofu_analytics" {
+  service_account_id = google_service_account.tofu_analytics.name
+  public_key_data    = filebase64("${path.module}/service-account-tofu-analytics.crt")
 }
 
 resource "google_recaptcha_enterprise_key" "pterodactyl" {
