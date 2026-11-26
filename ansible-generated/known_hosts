@@ -2,8 +2,8 @@
 # one line per key, under each host's inventory name: Ansible connects with
 # HostKeyAlias=<inventory name> and no other known_hosts file
 # (group_vars/all.yml). A rebuilt host's keys change here in the change that
-# rebuilds it. Containers are reached through their Proxmox node by
-# proxmox_pct_remote, whose paramiko reads only ~/.ssh/known_hosts.
+# rebuilds it. Containers are reached through their Proxmox node, whose keys
+# sit here under its name, copied from ansible-hardware/known_hosts.
 aboriginal.regulad.internal ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIATeGXRE0GxGlwPv8siaRWXxHjpSIgQ75FGjhHaKnO/b
 arawi.regulad.internal ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPQAuM/cgyYd5/ZBv6I7DzckwLOhQlrcV2xqUjCXV1kr
 bailout ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID0/9jcTlB2chL3gzcBPe+wSzjEVaqjqeQ1mKU1enlqe
@@ -14,6 +14,7 @@ doppelgangerhq.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDCXVI0Y1gqbzgqGciAgwuWr
 livekit ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEQeyk5yX7GFu/RUcs3kT4OwOgg+Hy0Ql2K4zTa0jZjG
 mail ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAypJPkMhAPvFO5EylLH3GqTPPiL+HfGAHAJzmtXY2b4
 pihole2 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP7T489gAtcHrtvB4K9Unkt2dEWECkC58PuL4FHTCkao
+prodingus.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILKDxMoCY1nkrj6oycRyohz8IberU3/UrC+3bJ0D45e6
 riko ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIDHlWLleQlWAWt0HHgLa2cmR08TgTL0ln4kHZdrKk6M
 tailscalerouter ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICFWVbb0xv0SEcHfsCwLGPd6GQdBxtTFeL0dD6OClwD+
 vkasm.regulad.internal ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIObK8jmtYEn5EST+X00DDGpY9BeNlCJOYSteNvAkb9Xy

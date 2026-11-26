@@ -8,13 +8,6 @@ collections:
   - name: https://github.com/regulad/cloud.terraform.git
     type: git
     version: 4d748cb61147f9c8ec8955f957885d59667429de
-  # The proxmox_pct_remote connection plugin, for LXC containers: the head of
-  # regulad/community.proxmox's feat/proxmox-pct-remote-pipelining branch, which adds
-  # pipelining, pending ansible-collections/community.proxmox#549. It installs as 3.0.0,
-  # the version in that commit's galaxy.yml; it is not the 3.0.0 release.
-  - name: https://github.com/regulad/community.proxmox.git
-    type: git
-    version: a1deb178b147ff5abe8973c7837cba382a45f012
   # The sops vars plugin, which decrypts *.sops.yml in host_vars and group_vars.
   - name: community.sops
     version: 2.5.0

@@ -6,8 +6,8 @@
 # Host keys: OpenSSH accepts only each host's keys in this stage's known_hosts,
 # under its inventory name, and reads or writes no other file, so a key missing
 # there or changed fails the connection instead of being trusted. Containers
-# are reached through their Proxmox node by proxmox_pct_remote, whose paramiko
-# reads only ~/.ssh/known_hosts. Where sudo goes through pam_rssh, the agent
+# are reached through their Proxmox node by pct_ssh, under the node's name
+# (proxmox_containers.yml). Where sudo goes through pam_rssh, the agent
 # is forwarded too, for its become to sign with: on the hosts that enable the
 # pam_rssh role, and on the Macs, where regulad/dotfiles sets it up.
 ansible_ssh_common_args: >-

@@ -1,10 +1,19 @@
 ---
 # LXC containers are reached through their Proxmox node, not SSH of their own:
-# proxmox_pct_remote connects to ansible_host (the node) as root over SSH and runs
-# pct for proxmox_vmid. Both come from each container's ansible_host in
-# tofu/gonkputer, through compose in gonkputer.terraform_state.yml.
-ansible_connection: community.proxmox.proxmox_pct_remote
+# plugins/connection/pct_ssh connects to ansible_host (the node) as root with
+# OpenSSH and runs pct for proxmox_vmid. Both come from each container's
+# ansible_host in tofu/gonkputer, through compose in gonkputer.terraform_state.yml.
+# Every container on a node shares one multiplexed connection to it.
+ansible_connection: pct_ssh
 ansible_user: root
+# group_vars/all.yml's options, with the node's key pinned under the node's
+# name, as known_hosts lists it, rather than the container's.
+ansible_ssh_common_args: >-
+  -F /dev/null
+  -o HostKeyAlias={{ ansible_host }}
+  -o UserKnownHostsFile={{ inventory_dir }}/../known_hosts
+  -o GlobalKnownHostsFile=/dev/null
+  -o StrictHostKeyChecking=yes
 # pct already runs as root inside the container, so plays that become root do
 # not wrap their commands in the container's sudo.
 ansible_become: false
@@ -13,6 +22,5 @@ ansible_become: false
 # Elsewhere the role removes the variant.
 apt_amd64v3_enabled: "{{ 'amd64v3' in group_names }}"
 # One pct exec per module, with the module on its stdin, instead of a temporary
-# directory, a copy and several more: proxmox_pct_remote's pipelining, from the
-# fork in requirements.yml.
+# directory, a copy and several more.
 ansible_pipelining: true
