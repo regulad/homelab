@@ -17,7 +17,8 @@
   # No password expiration: FreeIPA's global policy lets no password expire
   # (freeipa_server), and ipa_user compares a declared expiration with
   # FreeIPA's {"__datetime__": …} as unequal on every run, which made the task
-  # report a change on every run, a check's included.
+  # report a change on every run, a check's included
+  # (ansible-collections/community.general#13367).
   community.general.ipa_user:
     name: "{{ mail_relay_account }}"
     givenname: "Null"
