@@ -20,11 +20,37 @@ tailscale_serve:
 # The Syncthing mesh's hub (syncthing_hub): regulad's Syncthing, whose GUI is
 # the one served above. Its joining service accepts the untagged nodes of the
 # tailnet's owner and the nodes tagged tag:syncthing, and shares
-# these folders with the devices that offer them; dotfiles declares the
-# folders themselves, on every node.
+# these folders with the devices that offer them. Their IDs and labels are the
+# ones dotfiles gives every other node.
 syncthing_hub_owner: parkeredwardwahle2017@gmail.com
 syncthing_hub_tag: tag:syncthing
-syncthing_hub_folders: [claude, local-config_rclone, local-state_yt-dlp, prusaslicer]
+syncthing_hub_folders:
+  # Only the three directories of ~/.claude that sync between machines.
+  - id: claude
+    label: Claude Code
+    path: .claude
+    mode: "0700"
+    ignores: ["!/projects", "!/plans", "!/file-history", "*"]
+  # The remotes' tokens.
+  - id: local-config_rclone
+    label: rclone config
+    path: .config/rclone
+    mode: "0700"
+  - id: local-state_yt-dlp
+    label: yt-dlp state
+    path: .local/state/yt-dlp
+  - id: prusaslicer
+    label: PrusaSlicer
+    path: .config/PrusaSlicer
+# What a file manager leaves in a folder it shows: Finder's .DS_Store, and ._*
+# where a volume can't hold extended attributes; Explorer's Thumbs.db and
+# desktop.ini. (?d) lets Syncthing delete one that is all that keeps a
+# directory deleted elsewhere.
+syncthing_hub_ignores: ["(?d).DS_Store", "(?d)._*", "(?d)Thumbs.db", "(?d)desktop.ini"]
+# Usage reporting declined and crash reports off.
+syncthing_hub_options:
+  urAccepted: -1
+  crashReportingEnabled: false
 
 # The ubuntu group's settings, but never rebooting itself: VM 100's
 # passed-through GPU does not survive the VM restarting on its own.

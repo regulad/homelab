@@ -28,13 +28,23 @@ pairing by hand.
   admitted a device, to the user's journal: `journalctl --user -u
   syncthing-join` as the user.
 
+- **Syncthing itself** is enabled for every user's manager, as the joining
+  service is, and limited to the user by a `ConditionUser=` drop-in.
+- **Folders:** each of `syncthing_hub_folders`, with the ID and label every
+  other node's dotfiles give it, at its path in the user's home. The role
+  makes its directory, with its mode where the folder's permissions matter,
+  and writes its whole `.stignore` before Syncthing has the folder: the
+  folder's own `ignores`, or `syncthing_hub_ignores`. A missing folder is
+  added from Syncthing's folder defaults, shared with no device; the joining
+  service does the sharing. Syncthing cannot move a folder, so a folder found
+  at another path fails the run.
+- **Options:** `syncthing_hub_options`, through the REST API.
+
 ## What it leaves alone
 
-Everything else in the user's home belongs to dotfiles, on the hub as on every
-node: the folders and their paths, `~/.claude/.stignore`, the folders'
-permissions, and usage and crash reporting. The role writes no folder and no
-other setting in `config.xml`. Discovery and relays stay at Syncthing's
-defaults.
+The folders' contents, and every other setting in `config.xml`. Discovery
+and relays stay at Syncthing's defaults. On every other node, dotfiles
+declares the same folders.
 
 The tailnet's policy lets the owner's devices and `tag:server` hosts reach
 every port, Syncthing's 22000 among them. A node in the mesh by the tag rule

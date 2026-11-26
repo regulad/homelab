@@ -13,7 +13,7 @@ Environment=SYNCTHING_JOIN_OWNER={{ syncthing_hub_owner }}
 {% if syncthing_hub_tag %}
 Environment=SYNCTHING_JOIN_TAG={{ syncthing_hub_tag }}
 {% endif %}
-Environment=SYNCTHING_JOIN_FOLDERS={{ syncthing_hub_folders | join(',') }}
+Environment=SYNCTHING_JOIN_FOLDERS={{ syncthing_hub_folders | map(attribute='id') | join(',') }}
 ExecStart=/usr/bin/python3 -I -B /usr/local/lib/syncthing-hub/syncthing-join
 Restart=always
 RestartSec=30
