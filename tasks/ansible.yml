@@ -88,7 +88,7 @@ tasks:
       - ansible-common/**/*
       - '{{.STAGE}}/**/*'
       - exclude: '{{.STAGE}}/collections/**/*'
-      - exclude: '{{.STAGE}}/inventory/host_vars/{ {{- join "," (splitList " " .EXCEPT) -}} }/**/*'
+      - exclude: '{{.STAGE}}/inventory/host_vars/{ {{- join "," (splitList " " (default "" .EXCEPT)) -}} }/**/*'
       - .task/upstream/{{.SIGNAL}}
     cmds:
       - "{{.RUN}} --check --limit '{{.HOSTS}}'"

@@ -99,5 +99,7 @@ tasks:
       - rm -rf "$HOME/.cache/regulad/homelab/terraform_state"
       - '[ ! -f ansible-generated/inventory/{{.ROOT}}.terraform_state.yml ] || rm -rf "$HOME/.cache/regulad/homelab/facts/ansible-generated"'
       - task: outputs
-      - task: plan
+      # Forced: a plan whose inputs are unchanged is otherwise up to date, and
+      # this one confirms that the apply left nothing to do.
+      - '{{.TASK_EXE}} --force {{.STEP}}:plan'
       - tasks/dependents.sh {{.STEP}} | while read -r dependent; do $TASK $dependent; done
