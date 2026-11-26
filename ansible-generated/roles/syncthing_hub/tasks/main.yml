@@ -220,6 +220,14 @@
 - name: Restarts before the API key is read through the API
   ansible.builtin.meta: flush_handlers
 
+# A restarted Syncthing takes a few seconds to listen again.
+- name: Syncthing's REST API listening
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 8384
+    timeout: 120
+  when: not ansible_check_mode
+
 - name: The API key in Syncthing's config
   when: not (ansible_check_mode and (syncthing_hub_env is changed or syncthing_hub_dropin is changed))
   block:
