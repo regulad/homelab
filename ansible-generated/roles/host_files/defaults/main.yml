@@ -42,7 +42,9 @@ host_files_pipx: []
 # Release archives fetched over HTTPS and kept in /var/cache/host_files, each
 # with its url, its checksum (sha256:<hex>), the files extracted from it into
 # dest (a directory), a mode, optionally an owner and group (default root), and
-# restarts or reloads as for files.
+# restarts or reloads as for files. strip_components, for a tarball whose files
+# sit under a top directory, drops that many leading path components, as tar's
+# --strip-components does: files still name them as the archive lists them.
 host_files_archives: []
 # Virtual environments, each a path and its packages as pinned specifiers,
 # created with python3 -m venv.
