@@ -2,7 +2,7 @@
 # Build lime from its source at lime_commit, and run it under systemd to unlock
 # each Mac in lime_macs at macOS's pre-boot SSH unlock. Each Mac's password is
 # a systemd credential sealed to this host's TPM. Runs on the generated Ubuntu
-# hosts in the lime group (Phase 4).
+# hosts in the lime group.
 - name: Check the commit is pinned
   ansible.builtin.assert:
     that: lime_commit is match('^[0-9a-f]{40}$')

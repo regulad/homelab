@@ -1,5 +1,5 @@
 ---
-# Phase 4: the only playbook for generated hosts, from OpenTofu state via the
+# The only playbook for generated hosts, from OpenTofu state via the
 # inventory/*.terraform_state.yml sources. Every play converges hosts to the
 # declared state and is safe to rerun. Hardware hosts are configured from
 # ../ansible-hardware. The plays both stages share come first.

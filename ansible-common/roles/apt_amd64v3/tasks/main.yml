@@ -1,6 +1,6 @@
 ---
-# Converge APT's architecture variant on Ubuntu hosts, hardware (Phase 2) and
-# generated (Phase 4). The setting is removed where the release or the CPU
+# Converge APT's architecture variant on Ubuntu hosts, hardware and
+# generated. The setting is removed where the release or the CPU
 # lacks it, since an amd64v3 build fails on a CPU without x86-64-v3.
 - name: Read the release
   ansible.builtin.slurp:

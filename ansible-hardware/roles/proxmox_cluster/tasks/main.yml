@@ -1,8 +1,8 @@
 ---
-# Proxmox and Ceph cluster-wide settings that Phase 1 assigned to Ansible, because
+# Proxmox and Ceph cluster-wide settings Ansible owns because
 # bpg/proxmox cannot manage them, and the nodes' own settings. Adopt current
 # values first with no changes; check-only until Parker confirms a LAN/console
-# path to every node (Phase 2).
+# path to every node.
 
 # The LAN's DHCP sends a domain search list (option 119), which dhclient renders
 # with the root's trailing dot, so dhclient-script writes "search

@@ -1,7 +1,7 @@
 ---
 # Converge the weekly scan, clamav-scan, against the shared clamd or the host's
-# own, on every Linux host that does not turn it off: hardware (Phase 2) and
-# generated (Phase 4), containers included, unprivileged ones too, as it needs
+# own, on every Linux host that does not turn it off: hardware and
+# generated, containers included, unprivileged ones too, as it needs
 # no privilege beyond root's over the host's own files.
 - name: Shared directories
   ansible.builtin.import_tasks: common.yml

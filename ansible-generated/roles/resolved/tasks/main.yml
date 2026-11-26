@@ -1,7 +1,7 @@
 ---
 # systemd-resolved's mDNS on the host and on its networks' links, and in a
 # Proxmox container resolved's stub as the resolver. Runs on the generated
-# homelab hosts that run resolved (Phase 4).
+# homelab hosts that run resolved.
 - name: Check what manages the links
   ansible.builtin.assert:
     that: resolved_mode in ['networkd', 'networkmanager']

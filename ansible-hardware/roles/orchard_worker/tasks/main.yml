@@ -3,7 +3,7 @@
 # documented launchd deployment: a daemon started as root with --user, so that
 # its Local Network helper makes its connections without macOS's prompt, which
 # then runs as a hidden account of its own. Runs on macOS hardware hosts
-# (Phase 2). Its play runs unprivileged, as Homebrew refuses root, so each task
+# Its play runs unprivileged, as Homebrew refuses root, so each task
 # that needs root says so.
 - name: Install Orchard and Tart
   community.general.homebrew:

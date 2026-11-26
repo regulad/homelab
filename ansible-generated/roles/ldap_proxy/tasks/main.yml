@@ -2,7 +2,7 @@
 # Converge an OpenLDAP proxy: slapd's ldap backend with the rwm overlay,
 # passing every operation to ldap_proxy_uri with its DNs rewritten, over TLS
 # with the certificate the clients expect. Runs on the generated Debian and
-# Ubuntu hosts in ldap_proxies (Phase 4).
+# Ubuntu hosts in ldap_proxies.
 - name: Check the settings
   ansible.builtin.assert:
     that:

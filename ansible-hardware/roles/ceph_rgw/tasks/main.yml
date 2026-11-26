@@ -2,7 +2,7 @@
 # The RADOS Gateway on the Proxmox nodes that run one: each instance's
 # ceph.conf settings and unit, the gateway's options in Ceph's configuration
 # database, then its users with their keys and its buckets with their ACLs and
-# policies. Runs on hardware hosts (Phase 2).
+# policies. Runs on hardware hosts.
 - name: Instances
   ansible.builtin.include_tasks: instance.yml
   loop: "{{ ceph_rgw_instances | dict2items }}"

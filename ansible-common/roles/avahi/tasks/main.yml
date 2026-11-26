@@ -2,7 +2,7 @@
 # Avahi answering mDNS for the host's name, and reflecting it between the LAN
 # and the host's Podman bridge networks where avahi_reflector is set, with
 # nss-mdns resolving .local names through it. Runs on the Proxmox nodes
-# (Phase 2) and on generated hosts in podman_hosts (Phase 4).
+# and on generated hosts in podman_hosts.
 - name: Avahi
   when: avahi_enabled
   block:

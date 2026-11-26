@@ -1,6 +1,6 @@
 ---
 # Converge the FPM settings of a distribution PHP; the packages themselves come
-# from the host's automatic updater. Runs on generated hosts in php_fpm (Phase 4).
+# from the host's automatic updater. Runs on generated hosts in php_fpm.
 - name: Check the PHP release
   ansible.builtin.assert:
     that: php_fpm_version is match('^[0-9]+\.[0-9]+$')

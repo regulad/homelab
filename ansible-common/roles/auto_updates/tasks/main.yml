@@ -1,8 +1,8 @@
 ---
 # Converge the distribution's own automatic updater, which installs package
 # updates on its own schedule (AGENTS.md: package updates come from each host's
-# automatic updater, not a playbook). Runs on hardware hosts (Phase 2) and
-# generated hosts (Phase 4) in an OS group.
+# automatic updater, not a playbook). Runs on hardware hosts and
+# generated hosts in an OS group.
 - name: Check the updater family
   ansible.builtin.assert:
     that: auto_updates_family in ['debian', 'rhel']

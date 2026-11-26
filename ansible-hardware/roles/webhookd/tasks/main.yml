@@ -1,7 +1,7 @@
 ---
 # webhookd from azlux's repository, its settings, one script and one sudo rule
 # per hook, and the APT hook that starts it again after its package upgrades.
-# Runs on hardware hosts (Phase 2).
+# Runs on hardware hosts.
 - name: Azlux's repository signing key
   ansible.builtin.get_url:
     url: https://azlux.fr/repo.gpg

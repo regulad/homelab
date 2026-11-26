@@ -2,7 +2,7 @@
 # What a Proxmox container needs from inside. A privileged one must run without
 # AppArmor, so its package is purged; dpkg leaves the profile stubs that other
 # packages put in /etc/apparmor.d. An Ubuntu one runs netplan's unit without its
-# udev steps. Runs on the generated hosts in proxmox_containers (Phase 4),
+# udev steps. Runs on the generated hosts in proxmox_containers,
 # before Podman and the services.
 - name: Read the container's user ID map
   ansible.builtin.slurp:

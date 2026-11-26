@@ -4,7 +4,7 @@
 # running where Netavark ships it, other firewall managers purged, and the
 # zones the host declares set, with the trusted interfaces in the trusted
 # zone. Runs on Linux hosts with their own kernel but Proxmox
-# nodes, hardware (Phase 2) and generated (Phase 4); a host that declares no
+# nodes, hardware and generated; a host that declares no
 # zones keeps firewalld's default zone as the package ships it.
 - name: Firewalld
   block:

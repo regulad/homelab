@@ -1,6 +1,6 @@
 # Ansible: hardware hosts
 
-Phase 2 of [`.claude/PLAN.md`](../.claude/PLAN.md): the machines OpenTofu cannot
+The machines OpenTofu cannot
 create, such as the Proxmox nodes. This stage runs after `tofu/backblaze` and before the
 other OpenTofu roots. Its inventory is **only** the hand-written `inventory/hardware.yml`;
 the one OpenTofu output it reads is `tofu/backblaze`'s `restic`, the restic role's
@@ -29,9 +29,7 @@ repository and keys. Generated hosts are configured from
 | `ciscosmb` | A Cisco SG300's running configuration, converged to the declared one and saved | `ciscosmb` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
-which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks
-land in Phase 2.
-
+which `ansible.cfg` lists after `roles/`.
 `site.yml` is the stage's only playbook: every play converges hosts to the
 declared state and is safe to rerun, and deliberate operations such as rolling
 reboots or release upgrades are not playbooks. Package updates come from each

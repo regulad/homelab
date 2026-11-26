@@ -1,7 +1,7 @@
 ---
 # Install Tailscale and converge a joined node's settings, Serve and tags; join
 # only when tailscale_join is set and the node is not protected. Runs on
-# hardware hosts (Phase 2) and generated hosts (Phase 4): on Linux, the
+# hardware hosts and generated hosts: on Linux, the
 # package and its systemd unit; on macOS, Homebrew's open-source tailscaled
 # under its launchd job. Its play runs unprivileged, as Homebrew on macOS
 # needs, so it becomes root everywhere else, and wherever tailscale needs root.

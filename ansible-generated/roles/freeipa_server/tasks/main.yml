@@ -2,7 +2,7 @@
 # Install a FreeIPA server once, with its own CA and no integrated DNS, which
 # arawi's unbound serves, or join one as a replica, then converge its
 # directory's anonymous access and migration mode. Runs on the generated hosts
-# in freeipa_servers (Phase 4). FreeIPA configures no NTP client: in a
+# in freeipa_servers. FreeIPA configures no NTP client: in a
 # container time comes from the Proxmox node, which the container cannot set,
 # and an OCI instance's chrony already follows OCI's own time source.
 - name: Check the passwords are set

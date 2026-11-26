@@ -1,6 +1,6 @@
 ---
 # Converge zram and disk swap on Debian and Ubuntu hosts with their own kernel,
-# hardware (Phase 2) and generated (Phase 4). A swap device in use goes off only
+# hardware and generated. A swap device in use goes off only
 # after its replacement is up, and only where there is room.
 - name: Swap
   when: swap_enabled

@@ -1,7 +1,7 @@
 ---
 # Converge clamonacc, against the shared clamd or the host's own, on a host that
-# turns it on: hosts with their own kernel, hardware (Phase 2) and generated
-# (Phase 4), and privileged containers. Its play leaves out the inventory's
+# turns it on: hosts with their own kernel, hardware and generated
+# and privileged containers. Its play leaves out the inventory's
 # unprivileged_containers, from each container's unprivileged: clamonacc's
 # fanotify group needs CAP_SYS_ADMIN in the initial user namespace, which a
 # privileged container's root holds and an unprivileged one's lacks.

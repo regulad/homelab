@@ -1,6 +1,6 @@
 ---
 # Place each host's own files and keep its native units running. Runs on
-# generated Linux hosts (Phase 4).
+# generated Linux hosts.
 # The system users the host's services run as, ahead of the files they own.
 - name: Host system users
   ansible.builtin.user:

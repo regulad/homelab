@@ -31,8 +31,8 @@ environment only for `pre-commit-hooks`. Initialize each root once
 enable the Git hook with `pre-commit install`, and check everything with
 `pre-commit run --all-files`.
 
-See [`.claude/PLAN.md`](.claude/PLAN.md) for the migration plan and each phase's
-status, and [`AGENTS.md`](AGENTS.md) for the rules and conventions agents follow.
+See [`AGENTS.md`](AGENTS.md) for the repository's goal and the rules and
+conventions agents follow; open work is in the GitHub issues.
 
 Licensed under [GNU AGPLv3](LICENSE.md).
 

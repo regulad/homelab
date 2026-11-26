@@ -1,7 +1,7 @@
 ---
 # Packages, admin user, time sync, and sshd hardening only where it is already
-# the current policy. Runs on hardware hosts (Phase 2) and generated hosts
-# (Phase 4). Its play runs unprivileged, as Homebrew on macOS needs, so each
+# the current policy. Runs on hardware hosts and generated hosts
+# Its play runs unprivileged, as Homebrew on macOS needs, so each
 # task that needs root says so.
 - name: Base packages
   ansible.builtin.package:

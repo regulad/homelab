@@ -1,8 +1,8 @@
 ---
 # Give a host access to the restic repository: restic itself, the repository
 # password, and the environment its backups and mounts read; then the host's
-# backup and retention jobs. Runs on hardware hosts (Phase 2) and generated
-# hosts (Phase 4) that have a key in tofu/backblaze.
+# backup and retention jobs. Runs on hardware hosts and generated
+# hosts that have a key in tofu/backblaze.
 - name: Repository and keys
   ansible.builtin.include_tasks: outputs.yml
 

@@ -1,7 +1,7 @@
 ---
 # cachefilesd and its whole configuration: the package, the cache's directory,
 # /etc/cachefilesd.conf, /etc/default/cachefilesd (which the package's init
-# script reads) and the service. Runs on hardware hosts (Phase 2).
+# script reads) and the service. Runs on hardware hosts.
 - name: Install cachefilesd
   ansible.builtin.package:
     name: cachefilesd

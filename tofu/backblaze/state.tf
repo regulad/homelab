@@ -4,7 +4,7 @@
 # The passphrase in secrets.sops.json was generated 2026-11-04: 48 characters
 # of [A-Za-z0-9_-], from Python's secrets.token_urlsafe(36). It replaced one
 # exposed in an agent session; how is recorded in
-# .claude/history/2026-11-04.backblaze-s-state-passphrase-is-rotated-and-every-state-version-re-encrypted.md
+# Basic Memory's areas/homelab-history/2026-11-04.backblaze-s-state-passphrase-is-rotated-and-every-state-version-re-encrypted.md
 variable "state_encryption_passphrase" {
   type      = string
   sensitive = true

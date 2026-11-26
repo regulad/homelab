@@ -1,6 +1,6 @@
 # Ansible: generated hosts
 
-Phase 4 of [`.claude/PLAN.md`](../.claude/PLAN.md): the Proxmox guests and OCI
+The Proxmox guests and OCI
 instances that OpenTofu creates or adopts. This stage runs after OpenTofu and
 reads **only** OpenTofu state, through the `cloud.terraform.terraform_state`
 inventory plugin; it never sees the hand-written hardware inventory. Hardware hosts are
@@ -38,9 +38,7 @@ configured from [`ansible-hardware/`](../ansible-hardware/README.md).
 | `nexus_security` | Nexus's own roles and users from `nexus_security_roles` and `nexus_security_users`, through its REST API as `svc-ansible`: each created where missing, updated where it differs, and its password set where Nexus rejects it; Nexus's other roles and users are left as they are | `nexus_servers` |
 
 Shared roles live in [`ansible-common/roles/`](../ansible-common/README.md),
-which `ansible.cfg` lists after `roles/`. The roles are skeletons: their tasks
-land in Phase 4.
-
+which `ansible.cfg` lists after `roles/`.
 `site.yml` is the stage's only playbook: every play converges hosts to the
 declared state and is safe to rerun, and deliberate operations such as rolling
 reboots or release upgrades are not playbooks. Package updates come from each

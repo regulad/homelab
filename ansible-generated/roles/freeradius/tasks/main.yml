@@ -2,7 +2,7 @@
 # Converge FreeRADIUS to the clients the host declares, in a site of the role's
 # own that checks each password by binding to the directory as its user; the
 # package's sites are disabled. Runs on the generated hosts in
-# freeradius_servers (Phase 4).
+# freeradius_servers.
 - name: Check the settings
   ansible.builtin.assert:
     that:

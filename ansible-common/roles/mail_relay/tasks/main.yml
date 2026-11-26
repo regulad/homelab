@@ -1,6 +1,6 @@
 ---
 # Send the host's mail through mail.regulad.xyz as its FreeIPA null- account.
-# Runs on hardware hosts (Phase 2) and generated hosts (Phase 4) in an OS group.
+# Runs on hardware hosts and generated hosts in an OS group.
 - name: Check the relay settings
   ansible.builtin.assert:
     that:

@@ -1,6 +1,6 @@
 ---
 # The SCTP double free's stopgap on hosts with their own kernel, hardware
-# (Phase 2) and generated (Phase 4): decide from the running kernel (the
+# and generated: decide from the running kernel (the
 # kernel_fixed role), then block and unload sctp, or remove the block. A
 # container cannot load a module itself: the kernel loads sctp for it with its
 # node's modprobe configuration, so the node's block covers its containers.

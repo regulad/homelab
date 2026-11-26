@@ -1,6 +1,6 @@
 ---
 # Converge kernel crash dumps. Runs on the hosts in the kdump group, hardware
-# (Phase 2) and generated (Phase 4).
+# and generated.
 - name: Kdump-tools
   ansible.builtin.import_tasks: debian.yml
   when: "'rhel' not in group_names"

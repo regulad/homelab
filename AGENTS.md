@@ -4,13 +4,55 @@ Read this first. This repository makes a home Proxmox cluster and an OCI tenancy
 declarative: OpenTofu for machines, Ansible and Podman Quadlets for what runs on
 them. Parker supervises and approves.
 
-- **Plan and status:** [`.claude/PLAN.md`](.claude/PLAN.md) has the goals, phases, and each phase's current status.
-- **History:** [`.claude/history/`](.claude/history/) records what was done, one file per entry, each a title and the technical findings likely to help a later session. Add new history there, as a new entry committed with the work it records ([Conventions](#conventions)), and nowhere else.
+- **Goal:** [Goal](#goal) below. Open work is in this repository's GitHub issues.
+- **History:** Basic Memory's `areas/homelab-history/` records what was done, one note per entry; see [History](#history).
 - **Directory detail:** each `README.md`, starting with [`tofu/oracle/README.md`](tofu/oracle/README.md).
 - **Platform:** Unix-like systems only: Linux (WSL counts) or macOS, with a POSIX shell. Native Windows is not supported; write scripts and documented commands for `sh`/`bash`, never PowerShell or batch.
 - **Managed elsewhere:** workstation configuration lives in [`regulad/dotfiles`](https://github.com/regulad/dotfiles); never add or change it from this repository. The tailnet's policy file, DNS and federated identities are `tofu/tailscale`'s; [`regulad/tailscale-acls`](https://github.com/regulad/tailscale-acls), which held the policy and DNS before, is to be retired.
 
-Where this file and the plan disagree, this file wins.
+## Goal
+
+Replace hand-configured "pet" containers with declarative, relocatable services
+across the home Proxmox cluster and the OCI tenancy.
+
+- Machines (Proxmox LXC/VM, OCI instances) are declared in **OpenTofu** and tracked in state.
+- Proxmox and Ceph cluster-wide settings are declared here too: in **OpenTofu** where the `bpg/proxmox` provider supports a setting, otherwise applied to the nodes by **Ansible**.
+- Host configuration is applied by **Ansible**: on hardware hosts from a hand-written inventory, and on generated hosts from an inventory built from OpenTofu outputs. Proxmox VMs that can boot with cloud-init are the exception: a cloud-init vendor file holds their whole setup.
+- Network switch configuration is applied by **Ansible's network modules**, which drive each switch's CLI over SSH from the control node (`network_cli`).
+- Each containerized service is a **Podman Quadlet** rendered from data, so moving a service between hosts is a `host_vars` edit plus a `site.yml` run.
+- Existing infrastructure is **adopted** (imported), not recreated.
+
+**Non-goals**
+- Kubernetes, Nix/NixOS, Flux/Argo, or any GitOps controller.
+- Migrating data inside containers automatically. Parker plans data movement per service.
+- Operating the repository from anywhere but Parker's workstation. No runner, CI job or Jenkins job plans, checks or applies it, and no other machine holds its credentials; drift is found by running plans and check runs there.
+- Operational playbooks beyond maintenance (see Ansible scope in [Standing decisions](#standing-decisions)). Rolling reboots, key rotation, restores and similar deliberate operations stay manual.
+- The VMware guests on `turk`, an Ubuntu host that runs VMware Workstation so its Windows guests get hardware-accelerated graphics. `turk` itself is a hardware host.
+
+**Done when**
+- Every hardware host is in the hand-written inventory, and its check reports `changed=0`.
+- Every network switch's running configuration is reproduced by its committed configuration with no diff.
+- Every in-scope guest is in OpenTofu state, with a no-op plan in `tofu/oracle` and `tofu/gonkputer`.
+- Every in-scope Proxmox and Ceph cluster-wide setting is captured as code, with a no-op plan and a `changed=0` check.
+- Every in-scope container runs as a pinned, Ansible-rendered Quadlet, and a second run reports no changes.
+- At least one service has been moved between hosts by changing data only, with a written runbook (#34).
+- No secrets, state, or generated state files are in git history.
+
+## History
+
+Every piece of work leaves a history entry: what was done, with the findings a
+later session could use (what a tool really does, what failed and why, what was
+measured and when), not approvals, apply counts or routine confirmations. Write
+it when the work is done, after its applies, as their results are findings too.
+
+Entries live in Basic Memory, project `main`, folder `areas/homelab-history/`, one
+note per entry named `<date>.<slug>.md`: the date the work was done, then its
+title in lowercase words joined by `-`, so that they sort by date, with no
+sequence number, as several agents add entries at once. The note opens with a
+`# ` title saying what was done. Add a new note for new work; correct an
+existing one only to fix what it gets wrong. Search them (`bm_search`) before
+investigating something the homelab may already have met. Entries are not in
+git, so a commit never waits on one.
 
 ## Priorities
 
@@ -36,7 +78,7 @@ Where this file and the plan disagree, this file wins.
 5. **Don't invent facts.** Discover with read-only commands, keep raw output in the gitignored `docs/snapshot/`, and ask about anything unknown. Verify provider and tool details (resource names, import ID formats, flags) against current docs. Record what a check showed and when ("unreachable on 2026-10-18"), never a pattern drawn from one probe. Ask before describing a host's availability, role, cluster membership or internet exposure.
 6. **Stop and ask** when a plan shows any destroy or replace, when an Ansible `--check` shows unexpected changes on a production host, or at an auth or permission wall.
 7. **Pin everything:** providers with a committed `.terraform.lock.hcl`, Ansible collections in `requirements.yml`, and container image tags (never `latest`, except where upstream publishes no version or channel tag besides dated or per-commit builds).
-8. **Commits only when Parker asks.** The one exception: an agent working in a worktree of its own commits on that worktree's branch before applying, because alock applies only from commits (see [Parallel agents](#parallel-agents)); what reaches master is still Parker's call. Keep each one small and single-purpose, with a conventional-commit message, `<type>(<scope>): <summary>`. The scope names what the commit changes: a host (`aboriginal`), an OpenTofu root (`gonkputer`), a role (`quadlet`), an Ansible stage (`ansible-generated`), a document (`agents` for this file's conventions, `history`, `todo`), or `orchestration` for how agents work together, such as alock and worktrees.
+8. **Commits only when Parker asks.** The one exception: an agent working in a worktree of its own commits on that worktree's branch before applying, because alock applies only from commits (see [Parallel agents](#parallel-agents)); what reaches master is still Parker's call. Keep each one small and single-purpose, with a conventional-commit message, `<type>(<scope>): <summary>`. The scope names what the commit changes: a host (`aboriginal`), an OpenTofu root (`gonkputer`), a role (`quadlet`), an Ansible stage (`ansible-generated`), a document (`agents` for this file's conventions, `todo`), or `orchestration` for how agents work together, such as alock and worktrees.
 9. **Secrets in output:** regulad/skills' rules on printing and rotating secrets apply. In this repository:
    - Learn a SOPS file's shape from its key paths and value types alone: `sops decrypt --output-type json <file> | jq -c 'paths(scalars) as $p | [$p, (getpath($p) | type)]'`.
    - Read one value with `sops decrypt --extract '["<key>"]'` straight into the pipe or file of the command that uses it, never onto the terminal. To check a property of a secret, print only what a parser picks out of it, such as a URL's host or a key's DER field offsets, never a substitution that lets unmatched text through.
@@ -58,7 +100,7 @@ homelab/
 ├── go.mod, go.sum               # pins go-task, which bin/do_task runs as `go tool task`
 ├── Taskfile.yml                 # the pipeline, for go-task: its steps, their order, and the whole-pipeline tasks (§ Tasks)
 ├── .alock.json                  # alock's OpenTofu roots, each with the inventory of the hosts it creates
-├── .claude/                     # PLAN.md, history/ (an entry per file), settings.json (pins the alock plugin; denies bare tofu applies and site.yml runs), worktrees/ (gitignored)
+├── .claude/                     # settings.json (pins the alock plugin; denies bare tofu applies and site.yml runs), worktrees/ (gitignored)
 ├── .pre-commit-config.yaml      # file hygiene, OpenTofu, privacy hooks; Ansible lint hooks to come (#33)
 ├── .sops.yaml, .gitignore
 ├── alexa/                       # <skill>/: each Alexa skill's package and ASK CLI project file
@@ -78,7 +120,7 @@ homelab/
 │   ├── plugins/                 # callback/aide_written: the files each run wrote, kept in ~/.cache/regulad/homelab/aide_written until AIDE's refresh play consumes them; both stages' ansible.cfg enable it
 │   ├── python-requirements.txt  # Python packages both stages' plugins need (Mitogen, redis), pinned by hash, into .task/python by each stage's init
 │   └── roles/                   # roles both stages apply: base, tailscale, pam_rssh, firewalld, kernel_fixed, cve_2026_98432, cve_unassigned_sctp, ca_trust, auto_updates, mail_relay, kdump, luks, kernel_params, apt_amd64v3, netplan, swap, noexec, auditd, avahi, restic, clamav, go_telemetry, aide
-├── ansible-hardware/            # Phase 2, after tofu/backblaze, before the other roots; hand-written inventory
+├── ansible-hardware/            # after tofu/backblaze, before the other roots; hand-written inventory
 │   ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
 │   ├── bin/                     # with-switch-keys: runs a command with the SG300s' keys in a throwaway agent
 │   ├── files/                   # <switch>/running-config(.j2): each network switch's whole configuration
@@ -88,7 +130,7 @@ homelab/
 │   ├── plugins/                 # cliconf, terminal and filter plugins for the SG300s
 │   ├── roles/                   # proxmox_cluster, ceph_rgw, eos, ciscosmb
 │   └── requirements.yml         # pinned collections
-└── ansible-generated/           # Phase 4, after OpenTofu; reads only OpenTofu outputs
+└── ansible-generated/           # after OpenTofu; reads only OpenTofu outputs
     ├── ansible.cfg              # roles_path = roles:../ansible-common/roles
     ├── bin/                     # tofu-<root>: the inventory plugin's tofu, with that root's state encryption
     ├── files/                   # <host>/: byte copies roles place on a host, at their paths there, some of them submodules (a Nextcloud app); exempt from the whitespace hooks
@@ -204,10 +246,8 @@ plan shows an unintended destroy or replace.
 
 ## Conventions
 
-- **Docs:** `AGENTS.md`, `.claude/PLAN.md`, and every `README.md` contain only intent and current state. Record what happened as a new entry in `.claude/history/`, a file named `<date>.<slug>.md` as its README describes: a title saying what was done, and only the findings a later session could use, not approvals, apply counts or routine confirmations.
-  - **An entry is committed with the work it records,** in that work's own commit, or in the last of its commits where it spans several. Only an entry that records no change to the repository, such as an investigation, is a `docs(history)` commit of its own.
-  - **Its findings come from the apply,** which alock makes from a commit, so the entry is amended into that commit afterwards, before the branch is pushed or merged: `git commit --fixup=<commit>` with the entry, then `git rebase --autosquash` onto the branch's base. alock follows the rewrite.
-  - **A change an apply shows the feature commit lacked,** as memory's `mail_relay_password` was, is a `fix(<scope>):` commit of its own, with a body saying what it adds and why. `--fixup` is only for amending a history entry into the commit it records.
+- **Docs:** `AGENTS.md` and every `README.md` contain only intent and current state; what happened goes in a [History](#history) entry, and open work in an issue.
+  - **A change an apply shows the feature commit lacked,** as memory's `mail_relay_password` was, is a `fix(<scope>):` commit of its own, with a body saying what it adds and why.
 - **Guest names:** lowercase, hyphenated, stable (`svc-<name>`, `host-<role>`); the tailnet MagicDNS name equals the hostname.
 - **Tags:** every guest is marked as managed by OpenTofu: `managed-by=opentofu` on OCI instances, and the tag `terraform` on Proxmox guests, whose tags cannot contain `=`. Tailnet tags and their ACL groups are defined in `regulad/tailscale-acls`.
 - **OS groups:** every host Ansible manages is in exactly one OS group, `debian`, `ubuntu`, `rhel` (Oracle Linux, Rocky and Alma), `freebsd` (pfSense) or `macos`, which roles such as `ca_trust` key their behaviour on through `group_vars/<os>.yml`. Generated hosts get it from OpenTofu: an `os` freeform tag on OCI instances, and the group in each Proxmox guest's `ansible_host`. Hardware hosts list it in `hardware.yml`.
@@ -297,9 +337,9 @@ The rules above apply, with these additions.
 ## Standing decisions
 
 - **Pre-commit:** `.pre-commit-config.yaml` runs the pinned `pre-commit/pre-commit-hooks` plus local hooks that use installed tools (`language: unsupported`) or `pygrep`. Gitleaks is not wanted.
-- **Discovery snapshots** stay on the operator's machine; only configuration derived from them is committed. Parker's review of `docs/snapshot/SUMMARY.md` gates the adoption phases.
+- **Discovery snapshots** stay on the operator's machine; only configuration derived from them is committed. Parker's review of `docs/snapshot/SUMMARY.md` gates adopting a new scope.
 - **OCI auth:** OpenTofu authenticates as Parker's own user with an API signing key. The key, its fingerprint and his user OCID are in `tofu/oracle/provider.sops.env`, which `prepare.sh` exports, as gonkputer's API token is. A session token lasts at most a day, and the key lasts until Parker deletes it from his user in the console, which revokes it. A separate scoped user would contain nothing, because `tofu/oracle` manages IAM policies itself. The `oci` CLI keeps a read/write session token in the `DEFAULT` profile.
-- **OCI adoption is complete** for the scope in the OCI part of the plan's Phase 3. Never regenerate or re-import it.
+- **OCI adoption is complete** for its scope: compute instances and boot volumes, VCN networking (VCNs, subnets, gateways, route tables, security lists, DHCP options), NSGs, and Email Delivery (domain, senders, DKIM, `svc-mail` policy). Out of scope: identity-domain apps, users and groups, Oracle-created policies and tag defaults, `ManagedCompartmentForPaaS`, the OS Management Hub profile, the DNS resolvers, views and private zones VCNs create automatically, and boot-volume backups themselves. Never regenerate or re-import it.
 - **OCI state** is remote: OpenTofu's s3 backend stores it in the versioned `homelab-tofu-state` bucket through OCI's S3 Compatibility API, with S3-native locking (`use_lockfile`, verified against OCI). It is encrypted client-side with AES-GCM before upload. The backend authenticates as `svc-tofu-state`, whose customer secret key and endpoint are in `tofu/shared/backend.sops.env`. That key is created outside OpenTofu, never in state.
 - **VCN defaults** stay ordinary adopted resources guarded by `prevent_destroy`. Moving them to `oci_core_default_*` resource types is wontfix.
 - **Ansible scope:** each stage's main playbook is `playbooks/site.yml`, which imports `ansible-common/playbooks/site.yml` first. Every play in it converges hosts to the state declared here and is safe to rerun; a second run reports `changed=0`. Package updates come from each host's own automatic updater (unattended-upgrades, dnf-automatic) and containers' `podman-auto-update`, not from a playbook. Maintenance that cannot be automated, such as upgrading the Pterodactyl panel to its declared version by its documented procedure, lives in the stage's one other playbook, `playbooks/maintenance.yml`, one play per task, each tagged and run by hand. A Proxmox container's Ubuntu release upgrade, to the `ubuntu_release` its host_vars declare, is `ansible-generated`'s `release-upgrade` play, which snapshots the container on its node first. Other deliberate operations, such as rolling reboots, key rotation and restores, are not Ansible playbooks. Moving a service is a `host_vars` edit plus a `site.yml` run; its data moves by hand.

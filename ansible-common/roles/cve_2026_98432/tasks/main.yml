@@ -1,6 +1,6 @@
 ---
-# The CVE-2026-98432 stopgap on hosts with their own kernel, hardware (Phase 2)
-# and generated (Phase 4): decide from the running kernel (the kernel_fixed
+# The CVE-2026-98432 stopgap on hosts with their own kernel, hardware
+# and generated: decide from the running kernel (the kernel_fixed
 # role), then add or remove the stopgap's own nftables table (tasks/table.yml).
 - name: Decide whether the running kernel has the fix
   ansible.builtin.include_role:

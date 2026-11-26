@@ -1,6 +1,6 @@
 ---
 # auditd with this role's rules and settings, running. Runs on every Linux host
-# with its own kernel, hardware (Phase 2) and generated (Phase 4).
+# with its own kernel, hardware and generated.
 - name: Audit's package
   ansible.builtin.package:
     name: "{{ auditd_package }}"

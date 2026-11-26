@@ -1,7 +1,7 @@
 ---
 # Build SoftEther VPN Server's Stable edition from upstream's source, and run
 # it from softether_dir under systemd once its configuration is there. Runs on
-# the generated Debian and Ubuntu hosts in softether_servers (Phase 4). A hub's
+# the generated Debian and Ubuntu hosts in softether_servers. A hub's
 # local bridge is a packet socket in promiscuous mode on a NIC, which needs no
 # device node or kernel module.
 - name: Check the source's checksum is set

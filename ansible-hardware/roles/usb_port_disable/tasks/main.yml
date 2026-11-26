@@ -1,7 +1,7 @@
 ---
 # usb-port-disable: its script, its template service, each controller's ports,
 # and the udev rule that starts the service when the controller appears. Runs
-# on hardware hosts (Phase 2). Nothing is started now: on a running host the
+# on hardware hosts. Nothing is started now: on a running host the
 # service would rebind controllers whose devices guests may be using, so the
 # rule takes effect at the next boot's coldplug.
 - name: Local unit directory

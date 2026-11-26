@@ -1,6 +1,6 @@
 ---
 # Converge the sysctl files and kernel arguments the host declares. Runs on
-# Linux hosts in an OS group, hardware (Phase 2) and generated (Phase 4); with
+# Linux hosts in an OS group, hardware and generated; with
 # nothing declared it changes nothing.
 - name: Gather the sysctl files and kernel arguments
   ansible.builtin.set_fact:

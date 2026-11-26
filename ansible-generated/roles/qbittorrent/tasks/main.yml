@@ -2,7 +2,7 @@
 # Converge the qBittorrent settings a host declares through its Web API, with
 # the API key qBittorrent created: preferences and categories. Everything else
 # stays qBittorrent's own state. Runs on the generated hosts in the qbittorrent
-# group (Phase 4), after the Quadlet services that run qBittorrent.
+# group, after the Quadlet services that run qBittorrent.
 - name: Web UI listening
   ansible.builtin.wait_for:
     host: "{{ qbittorrent_webui_address }}"

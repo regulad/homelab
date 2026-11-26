@@ -2,7 +2,7 @@
 # Template each network's .network unit and each service's .container unit,
 # with its secret env file, into /etc/containers/systemd/, and keep each
 # service running; a service's state: absent removes its unit and env file.
-# Runs on generated hosts in podman_hosts (Phase 4).
+# Runs on generated hosts in podman_hosts.
 - name: Split services into present and absent
   ansible.builtin.set_fact:
     quadlet_present: >-
