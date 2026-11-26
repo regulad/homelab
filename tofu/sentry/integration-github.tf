@@ -116,3 +116,10 @@ resource "sentry_organization_repository" "lime" {
   integration_id   = data.sentry_organization_integration.github.id
   identifier       = "regulad/lime"
 }
+
+resource "sentry_organization_repository" "ml4webedit" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/ml4webedit"
+}
