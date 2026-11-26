@@ -1,6 +1,7 @@
 ---
 # LXC containers are reached through their Proxmox node, not SSH of their own:
-# Mitogen connects to the node, proxmox_node (group_vars/proxmox_nodes.yml),
+# Mitogen connects to the node, proxmox_node, its mitogen_via
+# (group_vars/proxmox_nodes.yml),
 # and runs lxc-attach --clear-env there for the container's VMID, its
 # ansible_host; both come from tofu/gonkputer's state, through compose in
 # gonkputer.terraform_state.yml. Every container on a node shares Mitogen's one
@@ -8,7 +9,6 @@
 # (ansible.cfg): without them it is community.general.lxc, which looks for the
 # container on the controller.
 ansible_connection: lxc
-mitogen_via: "{{ proxmox_node }}"
 # lxc-attach already runs as root inside the container, so plays that become
 # root do not wrap their commands in the container's sudo.
 ansible_become: false

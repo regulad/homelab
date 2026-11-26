@@ -22,18 +22,6 @@ ansible_ssh_common_args: >-
 # doppelgangerhq.com.
 ansible_user: regulad
 
-# pam_rssh's repositories on Nexus, and their public keys, as nexus_servers'
-# group_vars declare them.
-pam_rssh_nexus_url: "{{ hostvars[groups['nexus_servers'] | first]['nexus_url'] }}"
-pam_rssh_public_keys: "{{ hostvars[groups['nexus_servers'] | first]['nexus_public_keys'] }}"
-
-# Each host's FreeIPA mail account, null-<short hostname> by convention; a
-# host_vars mail_relay_account overrides it where two hosts share a name.
-mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
-# The updaters mail their reports from that account's address, the only sender
-# mail.regulad.xyz accepts from its login.
-auto_updates_mail_from: "{{ mail_relay_account }}@regulad.xyz"
-
 # The LAN's routers. arawi (pfSense) is the homelab's gateway, DHCP server and
 # resolver; hosts with port forwards, such as dodo and ingress, route through
 # the upstream router directly while keeping arawi's addresses and DNS.
@@ -51,23 +39,9 @@ freeipa_server:
   fqdn: wako.regulad.internal
   ipv4: 10.23.2.34
   domain: regulad.internal
-# mail_relay manages each host's null- account on it, through FreeIPA's API on
-# the server itself, which trusts its own CA.
-mail_relay_freeipa_host: "{{ freeipa_server.fqdn }}"
-mail_relay_freeipa_delegate: "{{ freeipa_server.fqdn }}"
 
 # The old FreeIPA server's address, which its stand-in, the freeipa container,
 # keeps by DHCP while consumers move to wako. Its one name is the CR1000B's
 # freeipa.regulad-verizon-livingston.internal (A and PTR); arawi registers none.
 freeipa_legacy:
   ipv4: 10.23.2.32
-
-# Each Sentry project's DSN, by project slug: tofu/sentry's dsn output, read
-# on the operator's machine wherever a host's configuration uses it, which
-# needs tofu/sentry/prepare.sh sourced. The lookup's binary_path is a path
-# option, which takes a bare name as relative to the working directory, so
-# tofu is resolved on PATH.
-sentry_dsns: >-
-  {{ lookup('cloud.terraform.tf_output', 'dsn',
-            project_path=inventory_dir ~ '/../../tofu/sentry',
-            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
