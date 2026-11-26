@@ -90,8 +90,11 @@ tasks:
       - '{{.RUN}} apply -input=false {{.PLAN_FILE}}'
       - rm -f {{.PLAN_FILE}} .task/pending/{{.STEP}}
       # ansible-generated's inventory caches the roots' state for an hour
-      # (its ansible.cfg); the apply may have changed it.
+      # (its ansible.cfg); the apply may have changed it. A root that is one of
+      # its inventory sources creates and resizes its hosts, whose cached facts
+      # the apply may have made stale.
       - rm -rf "$HOME/.cache/regulad/homelab/terraform_state"
+      - '[ ! -f ansible-generated/inventory/{{.ROOT}}.terraform_state.yml ] || rm -rf "$HOME/.cache/regulad/homelab/facts/ansible-generated"'
       - task: outputs
       - task: plan
       - tasks/dependents.sh {{.STEP}} | while read -r dependent; do $TASK $dependent; done
