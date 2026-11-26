@@ -1,7 +1,10 @@
 # aboriginal
 
-VM 100 on gonkputer: a hardware install of Ubuntu imaged into a VM, and also a
-remote workstation, so nothing under `/home/regulad` is managed. Its services
+VM 100 on gonkputer: a hardware install of Ubuntu imaged into a VM, managed by
+this repository alone; regulad/dotfiles, which kept it as a remote workstation,
+no longer applies here. In regulad's home, only the Syncthing hub's folders
+are managed, by `syncthing_hub`, and regulad's own jobs below are set up by
+hand. Its services
 are a few native units and containers, moved off Docker onto Podman, as
 Parker decided, although AGENTS.md otherwise keeps a host on its runtime. mosquitto and ring-mqtt are Quadlets (`services.yml`). The compose
 projects become podman-compose stacks in `/opt/<name>`, each run by
@@ -119,6 +122,24 @@ of their own.
     which reaches mosquitto on localhost. Their configuration is host files,
     and ring-mqtt's Ring refresh token is state in its volume. Podman's
     auto-update replaces the watchtower ring-mqtt had of its own.
+
+## regulad's own jobs
+
+Set up by hand in regulad's account and not managed here; what they run is
+declared here, system-wide.
+
+- **bandcampsync**, a rootless Quadlet (see Moved).
+- **dce-backup**, a user timer running DiscordChatExporter's incremental
+  backup through regulad's rootless Podman; and `dcef`, which `archive` serves
+  (see Removed).
+- **github2forgejo**, from regulad's crontab, every six hours: mirrors regulad's GitHub repositories to Forgejo, with Nushell's `nu`
+  from upstream's release (`host_files_archives`).
+- **The YouTube Music and Videos downloads**, from regulad's crontab, daily,
+  into `/mnt/media`, with pipx's `yt-dlp` and Node.js for YouTube's
+  JavaScript challenges (`/etc/yt-dlp.conf`). Their cookies are in
+  `~/.local/state/yt-dlp`, a folder of the Syncthing mesh.
+- **mangadex-download@**, user timers, one per title, with pipx's
+  `mangadex-dl`.
 
 ## Moved
 
