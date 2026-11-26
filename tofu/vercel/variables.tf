@@ -21,3 +21,12 @@ variable "github_pats" {
   sensitive = true
   nullable  = false
 }
+
+# Sentry organization auth tokens, issued by Sentry, each under its name there,
+# terraform-<repository>, which prepare.sh reads from
+# tofu/sentry/org-tokens.sops.yaml, their only copy.
+variable "sentry_auth_tokens" {
+  type      = map(string)
+  sensitive = true
+  nullable  = false
+}

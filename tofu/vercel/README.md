@@ -8,7 +8,7 @@ project, its custom domains and its environment variables.
 |---|---|---|---|
 | `battleship-visualizer` | `regulad/battleship-visualizer` | | |
 | `github-readme-stats` | `regulad/github-readme-stats` | | `PAT_1` |
-| `ml4webedit` | `regulad/ml4webedit` | | |
+| `ml4webedit` | `regulad/ml4webedit` | | `SENTRY_AUTH_TOKEN` |
 | `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | |
 | `picture-triangulator` | `regulad/picture-triangulator` | | |
 
@@ -17,7 +17,7 @@ project, its custom domains and its environment variables.
 | `project-<name>.tf` | One file per project: the project, then its custom domains and its environment variables |
 | `providers.tf`, `versions.tf` | Provider auth, the default team and the pinned version |
 | `state.tf` | Enforced state encryption |
-| `variables.tf` | The state passphrase and the GitHub personal access tokens |
+| `variables.tf` | The state passphrase, the GitHub personal access tokens and the Sentry organization tokens |
 
 ## Provider
 
@@ -38,7 +38,10 @@ Values come from SOPS, and sensitive ones are declared `sensitive`, as Vercel th
 returns them. A GitHub personal access token is not written here: `prepare.sh` reads the
 `pat` and `fine_grained` maps from `tofu/github-user/personal.sops.yaml`, its only copy, as
 `github_pats`, so a token
-this root and `tofu/github` both use is rotated in one place and applied in each.
+this root and `tofu/github` both use is rotated in one place and applied in each. A Sentry
+organization token likewise comes from `tofu/sentry/org-tokens.sops.yaml`, its only copy, as
+`sentry_auth_tokens`: ml4webedit's production build makes its Sentry release and uploads its
+source maps with `terraform-ml4webedit`.
 
 ## Credentials
 
