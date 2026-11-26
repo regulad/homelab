@@ -1,3 +1,8 @@
 ---
 # A hardware install, named after its inventory name.
 base_hostname_managed: true
+
+# Parker's own sessions forward the agent, as the export to regulad/dotfiles
+# writes them (hardware.yml's exported).
+exported_ssh_options:
+  ForwardAgent: "yes"

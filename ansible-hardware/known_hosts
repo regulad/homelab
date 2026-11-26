@@ -3,7 +3,12 @@
 # HostKeyAlias=<inventory name> and no other known_hosts file
 # (group_vars/all.yml). A rebuilt host's keys change here in the change that
 # rebuilds it. The switches connect through libssh, which reads only
-# ~/.ssh/known_hosts.
+# ~/.ssh/known_hosts; their keys are here, from that file, for the export to
+# regulad/dotfiles (tasks/exports.sh), which reads the keys of the exported
+# group's hosts from this file.
 overture.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKLO8lBBQnXIv5q1jUvzZuFylziJ8ucltk+vKmySrsMW
 prodingus.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILKDxMoCY1nkrj6oycRyohz8IberU3/UrC+3bJ0D45e6
 turk.tail11540.ts.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE/VXolxqZY814YnzGVJexwGQT2WuB90jqFUtvEQq8jn
+jpe18280417.regulad.internal ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIlSPI9bwcl6vUuzxRnWf/b62Qq+UE/MUdmPzAvmOPO5
+switch070e26 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC9wRxuJxq2jO2lPEVMvNFnDt9pReJKCTDxdIynOt84+eMYDA7PJWG2BpBMmpizpvDvs1+Gm4aA9PFlplN369Lg5QQmDMrTPM45P+3u/5FAWkJTvBVZ3r/hcG2SDdxtHUyHoOD4RQERdiiDD9EDS+sdGPks+TjSjcY5i/q0cRSzGQ==
+switch45f304 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCjVfedCjx8jq0kclvI83VXxdCnMsQEJuHPYTIPGeroq5gHtMHAd9ToapsdCzHA85bSqzK8t9w3Ii5C0t4nd26V1kEhRvVW7ObFaoH8JKCkyBFwhsejEY9oty/2fxT9BaprCpAdGG+V3+469w0eTtuaN1yboC+fiMaGtCH5B3x0Gw==

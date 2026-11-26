@@ -30,3 +30,11 @@ orchard_worker_resources:
   org.cirruslabs.memory-mib: 6144
 orchard_worker_default_cpu: "{{ orchard_worker_resources['org.cirruslabs.logical-cores'] // 2 }}"
 orchard_worker_default_memory: "{{ orchard_worker_resources['org.cirruslabs.memory-mib'] // 2 }}"
+
+# Parker's own sessions, from the export to regulad/dotfiles (hardware.yml's
+# exported): a terminal, the agent for sudo through pam_rssh, and a login shell
+# attached to the user's namespace, so the keychain and pasteboard work.
+exported_ssh_options:
+  RequestTTY: "yes"
+  ForwardAgent: "yes"
+  RemoteCommand: r=$(command -v reattach-to-user-namespace || echo /opt/homebrew/bin/reattach-to-user-namespace); [ -x "$r" ] && exec "$r" "$SHELL" -l; exec "$SHELL" -l

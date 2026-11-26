@@ -1,0 +1,16 @@
+{# One Host block per member of the stage's exported group, for regulad/dotfiles
+   (tasks/exports.sh): the short name as its alias, the address and user Ansible
+   has for it, unless exported_user names another, the host key under its
+   inventory name, as known_hosts.j2 lists it, then its exported_ssh_options.
+   No Tag: dotfiles tags every host rsa3072. #}
+{% for host in groups['exported'] | default([]) %}
+{%   set v = hostvars[host] %}
+Host {{ host | regex_replace('\..*$', '') }}
+    HostName {{ v.ansible_host | default(host) }}
+    User {{ v.exported_user | default(v.ansible_user) }}
+    HostKeyAlias {{ host }}
+{%   for option, value in (v.exported_ssh_options | default({})).items() %}
+    {{ option }} {{ value }}
+{%   endfor %}
+
+{% endfor %}

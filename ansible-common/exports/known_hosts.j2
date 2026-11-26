@@ -1,0 +1,9 @@
+{# The stage's known_hosts lines for the members of its exported group, under
+   their inventory names, for regulad/dotfiles (tasks/exports.sh), which names
+   the stage's file in exports_known_hosts. #}
+{% set exported = groups['exported'] | default([]) %}
+{% for line in lookup('ansible.builtin.file', exports_known_hosts).splitlines() %}
+{%   if not line.startswith('#') and (line.split() | first | default('')) in exported %}
+{{ line }}
+{%   endif %}
+{% endfor %}

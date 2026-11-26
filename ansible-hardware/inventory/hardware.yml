@@ -57,3 +57,15 @@ switches:
       hosts:
         switch45f304:  # Cisco SG300-10, firmware 1.4.11.5; management MAC 08:cc:68:45:f3:04
         switch070e26:  # Cisco SG300-10PP, firmware 1.4.11.5; management MAC f8:7b:20:07:0e:26
+
+# The hosts whose SSH client configuration and host keys tasks/exports.sh
+# exports to regulad/dotfiles, so Parker's machines reach them by name. Each
+# host's exported_user and exported_ssh_options shape its Host block there.
+exported:
+  hosts:
+    prodingus.tail11540.ts.net:
+    turk.tail11540.ts.net:
+    overture.tail11540.ts.net:
+    jpe18280417.regulad.internal:
+    switch45f304:
+    switch070e26:
