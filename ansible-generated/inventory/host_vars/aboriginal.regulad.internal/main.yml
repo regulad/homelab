@@ -2,6 +2,11 @@
 # Its FreeIPA null- account predates the null-<short hostname> convention.
 mail_relay_account: null-dingus-server
 
+# sudo through the operator's forwarded agent, in place of the base role's
+# NOPASSWD rule.
+pam_rssh_enabled: true
+pam_rssh_users: ["{{ ansible_user }}"]
+
 tailscale_enabled: true
 # Never joined, re-authenticated or logged out by Ansible.
 tailscale_protected: true
@@ -52,6 +57,10 @@ syncthing_hub_options:
   urAccepted: -1
   crashReportingEnabled: false
 
+# regulad, the login: bash, GitHub's keys as its whole authorized_keys, and the
+# sudo group.
+base_admin_user: regulad
+
 # The ubuntu group's settings, but never rebooting itself: VM 100's
 # passed-through GPU does not survive the VM restarting on its own.
 auto_updates_unattended_upgrade:
@@ -74,10 +83,165 @@ kdump_sysctls_host:
 
 # Firmware for its passed-through hardware: no task needs it, but devices such
 # as the GPU initialize only with it. Then the mounts' FUSE filesystems,
-# podman-compose for the compose stacks, and pipx for hf.
-host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose, pipx]
-# hf, with which llama-server's unit downloads its model where it is missing.
-host_files_pipx: [huggingface-hub==2.2.0]
+# podman-compose for the compose stacks, and pipx for hf; for regulad's own
+# jobs (README), Node.js, yt-dlp's JavaScript runtime, and FFmpeg, which it
+# merges and converts with.
+host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose, pipx, nodejs, ffmpeg]
+# hf, with which llama-server's unit downloads its model where it is missing;
+# yt-dlp and mangadex-dl, for regulad's own jobs (README). yt-dlp's default
+# extras carry its solver for YouTube's JavaScript challenges.
+host_files_pipx:
+  - huggingface-hub==2.2.0
+  - yt-dlp[default]==2026.11.23
+  - mangadex-downloader==3.1.4
+# Nushell's nu, which regulad's github2forgejo is written in: upstream's
+# release, as no Ubuntu release packages it.
+nushell_release: 0.117.0
+host_files_archives:
+  - url: https://github.com/nushell/nushell/releases/download/{{ nushell_release }}/nu-{{ nushell_release }}-x86_64-unknown-linux-gnu.tar.gz
+    checksum: sha256:33b907da92b0e80bd10fea9fa0e8a1624cabfebd89ee2568e365da3c492ffc68
+    dest: /usr/local/bin
+    files: ["nu-{{ nushell_release }}-x86_64-unknown-linux-gnu/nu"]
+    strip_components: 1
+    mode: "0755"
+host_files_removed_packages:
+  # regulad/dotfiles' workstation packages: toolchains, libraries and tools
+  # nothing on this host uses.
+  - age
+  - awscli
+  - binwalk
+  - cargo
+  - clangd
+  - code
+  - default-jdk
+  - direnv
+  - fastfetch
+  - gh
+  - git-filter-repo
+  - golang
+  - hyfetch
+  - imagemagick
+  - inetutils-ftp
+  - inetutils-telnet
+  - keychain
+  - libcairo2-dev
+  - libdevmapper-dev
+  - libfreetype-dev
+  - libjpeg-dev
+  - libolm-dev
+  - libsimdjson-dev
+  - lua5.5
+  - luarocks
+  - maven
+  - mesa-utils
+  - minicom
+  - mpv
+  - neovim
+  - npm
+  - nyx
+  - python3-poetry
+  - retry
+  - ruby
+  - rustc
+  - s3cmd
+  - shellcheck
+  - sshpass
+  - telnet
+  - tree-sitter-cli
+  - vlc
+  - vlc-plugin-visualization
+  - zsh
+  # What is left of Ubuntu Desktop, this host's original install, which had no
+  # desktop to run in since its display manager and shell went.
+  - alsa-base
+  - alsa-utils
+  - apt-config-icons-hidpi
+  - baobab
+  - bluez-cups
+  - brltty
+  - cups
+  - cups-bsd
+  - cups-client
+  - cups-filters
+  - deja-dup
+  - dmz-cursor-theme
+  - duplicity
+  - file-roller
+  - fonts-noto-cjk
+  - fonts-noto-color-emoji
+  - foomatic-db-compressed-ppds
+  - gamemode
+  - gir1.2-gmenu-3.0
+  - gsettings-ubuntu-schemas
+  - gstreamer1.0-alsa
+  - gstreamer1.0-packagekit
+  - gstreamer1.0-plugins-base-apps
+  - gvfs-fuse
+  - ibus
+  - ibus-gtk3
+  - ibus-table
+  - im-config
+  - inputattach
+  - language-selector-gnome
+  - laptop-detect
+  - libatk-adaptor
+  - libnotify-bin
+  - libpam-fprintd
+  - libpam-gnome-keyring
+  - libspa-0.2-bluetooth
+  - nautilus-sendto
+  - network-manager-openvpn-gnome
+  - network-manager-pptp-gnome
+  - openprinting-ppds
+  - openrgb
+  - orca
+  - pcmciautils
+  - pipewire-pulse
+  - plymouth-theme-spinner
+  - policykit-desktop-privileges
+  - remmina
+  - rhythmbox
+  - shotwell
+  - simple-scan
+  - speech-dispatcher
+  - spice-vdagent
+  - ubuntu-docs
+  - ubuntu-report
+  - v4l2loopback-dkms
+  - whoopsie
+  - xdg-user-dirs
+  - yelp
+  - zenity
+  # Packages that depend on those above, so go with them.
+  - libfontconfig-dev
+  - libruby
+  - libruby3.3
+  - node-coveralls
+  - node-growl
+  - node-tap
+  - rake
+  - remmina-plugin-rdp
+  - remmina-plugin-secret
+  - remmina-plugin-vnc
+  - rhythmbox-plugin-alternative-toolbar
+  - rhythmbox-plugins
+  - ruby-rubygems
+  - ruby-sdbm
+  - ruby3.3
+  - speech-dispatcher-espeak-ng
+  # Ubuntu's yt-dlp, too old for YouTube, in place of pipx's; and nginx,
+  # disabled, serving only its default site.
+  - nginx
+  - nginx-common
+  - yt-dlp
+# What regulad/dotfiles left outside regulad's home: Homebrew, and the VS Code
+# repository; and a stray copy of the cluster's CA, under a name
+# update-ca-certificates never reads (ca_trust trusts pve-root-ca.crt).
+host_files_removed_files:
+  - /home/linuxbrew
+  - /etc/apt/sources.list.d/vscode.list
+  - /etc/apt/keyrings/packages.microsoft.gpg
+  - /usr/local/share/ca-certificates/pve-root-ca.pem
 
 # The mounts under /mnt, beside /mnt/ssd and /mnt/cephfs from fstab: the
 # restic repository, its nas archive, the two overlays of that archive under
@@ -111,6 +275,18 @@ host_files_directories:
   - path: /etc/llama-server
     mode: "0755"
 host_files_list:
+  # yt-dlp's system-wide options: Node.js for YouTube's JavaScript challenges,
+  # where yt-dlp looks for Deno alone by default; then the options regulad's
+  # downloads had from his dotfiles' user configuration, which pace requests
+  # and embed each video's thumbnail, chapters and metadata.
+  - path: /etc/yt-dlp.conf
+    mode: "0644"
+    content: |
+      --js-runtimes node
+      --sleep-requests 5
+      --embed-thumbnail
+      --embed-chapters
+      --embed-metadata
   - path: /usr/local/bin/restic-mount-helper
     mode: "0755"
   - path: /etc/systemd/system/mnt-restic.service
@@ -437,7 +613,6 @@ host_files_units:
 host_files_links:
   - path: /etc/systemd/system/nut-monitor.service
     target: /dev/null
-
 # mnt-restic.service mounts the repository with /etc/restic-env, so it
 # restarts when that or the password changes, and the mounts above it with it.
 restic_env_units: [mnt-restic.service]
@@ -610,8 +785,8 @@ clamav_scan_paths_host: [/mnt/ssd]
 # written at every Ansible run: bound over themselves noexec.
 noexec_paths_host: [/opt/pipx/logs]
 
-# Not checked by AIDE: Nextcloud's user data, regulad's home and Homebrew's,
-# over 70 GB on the root filesystem that change as they are used. ClamAV's
+# Not checked by AIDE: Nextcloud's user data and regulad's home, on the root
+# filesystem, which change as they are used. ClamAV's
 # on-access scanner watches /home. Also what Ubuntu's clients record as they
 # run: NetworkManager's leases and state, and Livepatch's status and logs;
 # lime's state, a file per Mac, the StateDirectory of its DynamicUser unit;
@@ -619,7 +794,7 @@ noexec_paths_host: [/opt/pipx/logs]
 # podman-compose brings Nextcloud's stack up, from its compose file, which
 # stays watched; and the noexec paths.
 aide_exclude_paths_host: >-
-  {{ [nextcloud_data_dir, '/home/regulad', '/home/linuxbrew', '/var/lib/NetworkManager',
+  {{ [nextcloud_data_dir, '/home/regulad', '/var/lib/NetworkManager',
       '/var/snap/canonical-livepatch/common', '/var/lib/private/lime',
       '/etc/containers/networks/nextcloud_default.json']
      + noexec_paths_host }}
