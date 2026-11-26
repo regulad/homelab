@@ -87,6 +87,15 @@ blocking:
     ads:
       - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
       - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-only/hosts
+  allowlists:
+    ads:
+      # Google Analytics' management: its console and the Marketing Platform's
+      # account pages, which the lists above block along with its tracking. Its
+      # tracking (www.google-analytics.com, www.googletagmanager.com) stays
+      # blocked.
+      - |
+        analytics.google.com
+        marketingplatform.google.com
   clientGroupsBlock:
     default: [ads]
 
