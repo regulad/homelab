@@ -5053,6 +5053,93 @@
       loop_control:
         label: "{{ item.path | basename }}"
 
+# lime is pinned to a release and its archives' SHA-256 (roles/lime/defaults).
+# This moves the pin to lime's latest release, on the controller: each
+# archive is downloaded and checked against the .sha256 published beside it,
+# then the version and hashes are written into the role's defaults. Commit
+# that, then run site.yml --tags lime to install it. Nothing here touches a
+# host.
+- name: The lime pin moved to lime's latest release
+  # One host of the group: the work is the controller's.
+  hosts: lime[0]
+  gather_facts: false
+  tags: [lime-update]
+  vars:
+    lime_update_defaults: "{{ playbook_dir }}/../roles/lime/defaults/main.yml"
+    # The architectures the role pins, as it names them.
+    lime_update_suffixes: "{{ (lookup('ansible.builtin.file', lime_update_defaults) | from_yaml).lime_sha256.keys() | list }}"
+  tasks:
+    - name: Read lime's latest release
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/regulad/lime/releases/latest
+        headers:
+          Accept: application/vnd.github+json
+      register: lime_update_release
+      delegate_to: localhost
+
+    - name: Scratch directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: lime-update.
+      register: lime_update_scratch
+      delegate_to: localhost
+
+    - name: Read each archive's published SHA-256
+      ansible.builtin.uri:
+        url: "{{ lime_update_base }}/lime-{{ lime_update_version }}-linux-{{ item }}.tar.gz.sha256"
+        return_content: true
+      loop: "{{ lime_update_suffixes }}"
+      register: lime_update_sidecars
+      delegate_to: localhost
+      vars: &lime_update_names
+        lime_update_tag: "{{ lime_update_release.json.tag_name }}"
+        lime_update_version: "{{ lime_update_tag | regex_replace('^v', '') }}"
+        lime_update_base: https://github.com/regulad/lime/releases/download/{{ lime_update_tag }}
+
+    # get_url fails unless the archive matches its .sha256.
+    - name: Check each archive against it
+      ansible.builtin.get_url:
+        url: "{{ lime_update_base }}/lime-{{ lime_update_version }}-linux-{{ item.item }}.tar.gz"
+        dest: "{{ lime_update_scratch.path }}/"
+        checksum: sha256:{{ item.content.split() | first }}
+        mode: "0600"
+      loop: "{{ lime_update_sidecars.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      delegate_to: localhost
+      vars: *lime_update_names
+
+    - name: The version
+      ansible.builtin.replace:
+        path: "{{ lime_update_defaults }}"
+        regexp: '^lime_version: .*$'
+        replace: "lime_version: {{ lime_update_version }}"
+      delegate_to: localhost
+      vars: *lime_update_names
+
+    - name: The hashes
+      ansible.builtin.replace:
+        path: "{{ lime_update_defaults }}"
+        regexp: '^(  {{ item.item }}: )[0-9a-f]{64}$'
+        replace: '\g<1>{{ item.content.split() | first }}'
+      loop: "{{ lime_update_sidecars.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      delegate_to: localhost
+
+    - name: Scratch directory removed
+      ansible.builtin.file:
+        path: "{{ lime_update_scratch.path }}"
+        state: absent
+      delegate_to: localhost
+
+    - name: What's next
+      ansible.builtin.debug:
+        msg: >-
+          roles/lime/defaults/main.yml now pins lime {{ lime_update_version }}.
+          Commit it, then run site.yml --tags lime.
+      vars: *lime_update_names
+
 # The facts of the hosts this run changed, gathered again (facts.yml).
 - name: Facts gathered afresh after this run
   ansible.builtin.import_playbook: ../../ansible-common/playbooks/facts.yml
