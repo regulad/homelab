@@ -11,9 +11,23 @@ ansible_network_cli_ssh_type: libssh
 ansible_host: "{{ inventory_hostname }}.regulad.internal"
 # Reached over IPv4 alone, through bin/with-switch-keys' proxy command.
 ansible_user: svc-ansible
-ansible_libssh_key_exchange_algorithms: diffie-hellman-group1-sha1
-ansible_libssh_hostkeys: ssh-rsa
-ansible_libssh_publickey_algorithms: ssh-rsa
+# The legacy algorithms OpenSSH 5.9 needs, as OpenSSH client options: written
+# here once, for the export to regulad/dotfiles (hardware.yml's exported), and
+# read from here by libssh's settings below, which take each list without the
+# leading +, OpenSSH's "added to the defaults".
+exported_ssh_options:
+  KexAlgorithms: +diffie-hellman-group1-sha1
+  HostKeyAlgorithms: +ssh-rsa
+  MACs: +hmac-sha1
+  PubkeyAcceptedAlgorithms: +ssh-rsa
+  RequiredRSASize: "1024"
+  WarnWeakCrypto: "no"
+ansible_libssh_key_exchange_algorithms: "{{ exported_ssh_options.KexAlgorithms | regex_replace('^\\+', '') }}"
+ansible_libssh_hostkeys: "{{ exported_ssh_options.HostKeyAlgorithms | regex_replace('^\\+', '') }}"
+ansible_libssh_publickey_algorithms: "{{ exported_ssh_options.PubkeyAcceptedAlgorithms | regex_replace('^\\+', '') }}"
+# Parker logs in as himself; svc-ansible's key is only ever in
+# bin/with-switch-keys' throwaway agent.
+exported_user: regulad
 # Showing the running configuration takes longer than the default 30 seconds
 # on switch45f304.
 ansible_command_timeout: 120

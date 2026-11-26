@@ -226,3 +226,8 @@ aide_exclude_paths_host:
   - /var/lib/lxc
   - /var/lib/pve-firewall
   - /var/lib/pve-manager
+
+# Parker's own sessions forward the agent, as the export to regulad/dotfiles
+# writes them (hardware.yml's exported).
+exported_ssh_options:
+  ForwardAgent: "yes"

@@ -1,0 +1,67 @@
+# The export of the exported groups' SSH client configuration and host keys to
+# regulad/dotfiles (tasks/exports.sh): a step of the pipeline, after the
+# OpenTofu roots, whose state the generated inventory reads, and before the
+# generated hosts' Ansible steps. AGENTS.md § Tasks.
+version: "3"
+
+vars:
+  # What the export reads: both stages' inventories, whose terraform_state
+  # sources make the step re-plan when the state they select changes.
+  SCAN: ansible-hardware/inventory ansible-generated/inventory
+
+env:
+  STEPS: '{{join " " .STEPS}}'
+  TASK: '{{.TASK_EXE}}'
+
+tasks:
+  init:
+    desc: Nothing to install; the step needs only age, curl and jq, and the stages' own init.
+    cmds:
+      - task: outputs
+
+  outputs:
+    desc: Record the step's signal; no step reads the export, so it is empty.
+    cmds:
+      - mkdir -p .task/signals
+      - ': > .task/signals/exports.outputs'
+
+  upstream:
+    internal: true
+    cmds:
+      - tasks/upstream.sh exports ansible {{.SCAN}}
+
+  references:
+    desc: List what the step reads from other steps and roots, and where; tasks/dependents.sh reads it.
+    silent: true
+    cmds:
+      - tasks/upstream.sh --list exports ansible {{.SCAN}}
+
+  plan:
+    desc: Render the export and compare it with dotfiles' master, showing any difference; skipped while its inputs are unchanged and the last comparison matched.
+    deps: [upstream]
+    sources:
+      - ansible-common/exports/*
+      - ansible-hardware/inventory/**/*
+      - ansible-hardware/known_hosts
+      - ansible-generated/inventory/**/*
+      - ansible-generated/known_hosts
+      - tasks/exports.sh
+      - .task/upstream/exports
+    generates:
+      - '{{.CLEAN_DIR}}/exports'
+    cmds:
+      - |
+        mkdir -p {{.CLEAN_DIR}}
+        status=0
+        tasks/exports.sh plan || status=$?
+        case $status in
+        0) touch {{.CLEAN_DIR}}/exports ;;
+        2) rm -f {{.CLEAN_DIR}}/exports ;;
+        *) rm -f {{.CLEAN_DIR}}/exports; exit "$status" ;;
+        esac
+
+  apply:
+    desc: Commit the export to dotfiles' master as regubot where it differs, then compare again.
+    cmds:
+      - tasks/exports.sh apply
+      - '{{.TASK_EXE}} --force exports:plan'

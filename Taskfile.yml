@@ -1,7 +1,8 @@
 # The homelab's pipeline, for go-task. AGENTS.md § Tasks is its manual.
 #
 # A step is an OpenTofu root (with its workspace, as `stripe.live`) or an
-# Ansible stage. Each step's tasks come from tasks/tofu.yml or tasks/ansible.yml:
+# Ansible stage, or the export to regulad/dotfiles. Each step's tasks come from
+# tasks/tofu.yml, tasks/ansible.yml or tasks/exports.yml:
 # init, outputs, plan, apply, and for a stage, check. STEPS gives the order the
 # pipeline plans them in; every include below is listed there.
 version: "3"
@@ -32,6 +33,7 @@ vars:
     - github-user.bot
     - github.personal
     - github.bot
+    - exports
     - ansible-generated--ansiblecache
     - ansible-generated
     - authentik
@@ -60,6 +62,10 @@ includes:
   github-user.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github-user, WORKSPACE: bot}}
   github.personal: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: personal}}
   github.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: bot}}
+  # The exported groups' SSH client configuration and host keys, to
+  # regulad/dotfiles: after every root, as the generated inventory reads their
+  # state.
+  exports: {taskfile: tasks/exports.yml}
   # ansiblecache holds the rest of the stage's fact cache, so it is a step of
   # its own before them, on the local fact cache: the cache never depends on
   # itself.

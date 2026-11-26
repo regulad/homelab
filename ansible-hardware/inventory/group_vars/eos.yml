@@ -8,3 +8,8 @@ ansible_become_method: ansible.netcommon.enable
 # Loading the whole configuration into a session over the CLI takes longer than
 # the default 30 seconds.
 ansible_command_timeout: 240
+# EOS 4.28's sshd offers no post-quantum key exchange, which OpenSSH warns of
+# at every connection (the export to regulad/dotfiles, hardware.yml's
+# exported).
+exported_ssh_options:
+  WarnWeakCrypto: "no"

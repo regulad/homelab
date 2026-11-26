@@ -597,3 +597,8 @@ aide_exclude_paths_host: >-
       '/var/snap/canonical-livepatch/common', '/var/lib/private/lime',
       '/etc/containers/networks/nextcloud_default.json']
      + noexec_paths_host }}
+
+# Parker's own sessions forward the agent, as the export to regulad/dotfiles
+# writes them (tofu/gonkputer's exported group).
+exported_ssh_options:
+  ForwardAgent: "yes"

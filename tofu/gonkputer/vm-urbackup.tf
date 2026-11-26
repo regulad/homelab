@@ -208,3 +208,14 @@ resource "proxmox_virtual_environment_firewall_options" "urbackup" {
 
   depends_on = [proxmox_virtual_environment_firewall_rules.urbackup]
 }
+
+# Listed in the Ansible inventory while its HA resource is requested, only for
+# the export of its SSH client configuration to regulad/dotfiles: in exported,
+# and in unmanaged, which keeps it out of generated, so no play configures it,
+# as its vendor file does.
+resource "ansible_host" "urbackup" {
+  count = proxmox_haresource.urbackup.state == "started" ? 1 : 0
+
+  name   = "${proxmox_virtual_environment_vm.urbackup.name}.${local.guest_domain}"
+  groups = ["exported", "unmanaged"]
+}

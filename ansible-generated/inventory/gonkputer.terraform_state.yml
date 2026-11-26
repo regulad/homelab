@@ -51,6 +51,9 @@ keyed_groups:
     prefix: ""
     separator: ""
     leading_separator: false
-# The nodes, the hop to their containers, are configured by ansible-hardware.
+# unmanaged hosts are in the inventory for what reads it alone: the nodes, the
+# hop to their containers, which ansible-hardware configures, and the VMs on
+# cloud-init, whose vendor files configure them, for the export to
+# regulad/dotfiles.
 groups:
-  generated: "'proxmox_nodes' not in groups"
+  generated: "'unmanaged' not in groups"
