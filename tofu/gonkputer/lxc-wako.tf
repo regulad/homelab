@@ -176,10 +176,11 @@ resource "ansible_host" "wako" {
     [proxmox_virtual_environment_container.wako.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
-  # Reached through pct_ssh: SSH to the node, then lxc-attach into the
-  # container. arawi's DHCP static mapping reads the MAC Proxmox generated.
+  # Reached through its node: Mitogen runs lxc-attach there (ansible-generated's
+  # group_vars/proxmox_containers.yml). arawi's DHCP static mapping reads the MAC
+  # Proxmox generated.
   variables = {
-    ansible_host     = var.node_ssh_addresses[proxmox_virtual_environment_container.wako.node_name]
+    proxmox_node     = ansible_host.node[proxmox_virtual_environment_container.wako.node_name].name
     proxmox_vmid     = proxmox_virtual_environment_container.wako.vm_id
     eth0_mac_address = lower(proxmox_virtual_environment_container.wako.network_interface[0].mac_address)
   }

@@ -140,9 +140,10 @@ resource "ansible_host" "nexus" {
     [proxmox_virtual_environment_container.nexus.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
-  # Reached through pct_ssh: SSH to the node, then lxc-attach into the container.
+  # Reached through its node: Mitogen runs lxc-attach there (ansible-generated's
+  # group_vars/proxmox_containers.yml).
   variables = {
-    ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.nexus.node_name]
+    proxmox_node = ansible_host.node[proxmox_virtual_environment_container.nexus.node_name].name
     proxmox_vmid = proxmox_virtual_environment_container.nexus.vm_id
   }
 }
