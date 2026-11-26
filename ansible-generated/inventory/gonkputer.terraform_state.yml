@@ -32,11 +32,13 @@ strict: true
 # stores that dynamic attribute as {type, value}, so lift the connection details,
 # the NIC addresses a guest's netplan matches, and the ports its firewall admits
 # that its configuration names, out of variables.value. A container's address is
-# its VMID, the name lxc-attach takes on its node, proxmox_node; VMs and nodes
-# keep their DNS name.
+# its VMID, the name lxc-attach takes on its node, proxmox_node, which is also
+# its mitogen_via: composed here, as Mitogen reads that variable untemplated.
+# VMs and nodes keep their DNS name.
 compose:
   ansible_host: variables.value.proxmox_vmid | default(name) | string
   proxmox_node: variables.value.proxmox_node | default(None)
+  mitogen_via: variables.value.proxmox_node | default(None)
   proxmox_vmid: variables.value.proxmox_vmid | default(None)
   eth0_mac_address: variables.value.eth0_mac_address | default(None)
   clamd_port: variables.value.clamd_port | default(None)

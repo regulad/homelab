@@ -1,0 +1,33 @@
+---
+# What every host this stage manages shares that is a template: kept out of
+# group_vars/all.yml because the Proxmox nodes, which are inventory hosts here
+# only as Mitogen's hop to their containers, are in all but not in generated,
+# and Mitogen templates every variable of a hop with neither hostvars, groups
+# nor the lookups' paths (group_vars/proxmox_nodes.yml).
+
+# pam_rssh's repositories on Nexus, and their public keys, as nexus_servers'
+# group_vars declare them.
+pam_rssh_nexus_url: "{{ hostvars[groups['nexus_servers'] | first]['nexus_url'] }}"
+pam_rssh_public_keys: "{{ hostvars[groups['nexus_servers'] | first]['nexus_public_keys'] }}"
+
+# Each host's FreeIPA mail account, null-<short hostname> by convention; a
+# host_vars mail_relay_account overrides it where two hosts share a name.
+mail_relay_account: null-{{ inventory_hostname | split('.') | first }}
+# The updaters mail their reports from that account's address, the only sender
+# mail.regulad.xyz accepts from its login.
+auto_updates_mail_from: "{{ mail_relay_account }}@regulad.xyz"
+
+# mail_relay manages each host's null- account on it, through FreeIPA's API on
+# the server itself, which trusts its own CA.
+mail_relay_freeipa_host: "{{ freeipa_server.fqdn }}"
+mail_relay_freeipa_delegate: "{{ freeipa_server.fqdn }}"
+
+# Each Sentry project's DSN, by project slug: tofu/sentry's dsn output, read
+# on the operator's machine wherever a host's configuration uses it, which
+# needs tofu/sentry/prepare.sh sourced. The lookup's binary_path is a path
+# option, which takes a bare name as relative to the working directory, so
+# tofu is resolved on PATH.
+sentry_dsns: >-
+  {{ lookup('cloud.terraform.tf_output', 'dsn',
+            project_path=inventory_dir ~ '/../../tofu/sentry',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}

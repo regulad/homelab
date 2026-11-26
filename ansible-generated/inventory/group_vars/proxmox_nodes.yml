@@ -1,8 +1,15 @@
 ---
 # The Proxmox nodes, in this inventory only as the hop to their containers
 # (tofu/gonkputer's nodes.tf): no play here targets them. Mitogen logs in as
-# root, whom lxc-attach needs, with group_vars/all.yml's SSH options, under the
-# node's name in known_hosts.
+# root, whom lxc-attach needs. It reads a hop's variables without templating
+# them, so group_vars/all.yml's SSH options are restated here as literals: the
+# node connects at its own name, under which known_hosts lists it, and the
+# file's path is relative to this stage's folder, where every run starts.
 ansible_user: root
 ansible_become: false
 ansible_python_interpreter: /usr/bin/python3
+ansible_ssh_common_args: >-
+  -F /dev/null
+  -o UserKnownHostsFile=known_hosts
+  -o GlobalKnownHostsFile=/dev/null
+  -o StrictHostKeyChecking=yes
