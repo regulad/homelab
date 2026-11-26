@@ -34,9 +34,10 @@ strict: true
 # that its configuration names, out of variables.value. A container's address is
 # its VMID, the name lxc-attach takes on its node, proxmox_node, which is also
 # its mitogen_via: composed here, as Mitogen reads that variable untemplated.
-# VMs and nodes keep their DNS name.
+# A VM that names its own ansible_host, as aboriginal its tailnet name, is
+# reached there; other VMs and the nodes keep their DNS name.
 compose:
-  ansible_host: variables.value.proxmox_vmid | default(name) | string
+  ansible_host: variables.value.ansible_host | default(variables.value.proxmox_vmid | default(name)) | string
   proxmox_node: variables.value.proxmox_node | default(None)
   mitogen_via: variables.value.proxmox_node | default(None)
   proxmox_vmid: variables.value.proxmox_vmid | default(None)
