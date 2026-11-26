@@ -1,6 +1,10 @@
 ---
 # arawi: pfSense CE, applied by the pfsense role through pfsensible.core.
 ansible_python_interpreter: /usr/local/bin/python3.11
+# Ansible's own SSH, which Mitogen leaves alone when named in full: Mitogen's
+# connection timed out at its bootstrap here, where the login shell is csh
+# (2026-11-26).
+ansible_connection: ansible.builtin.ssh
 pfsense_release: "2.9"
 pfsense_packages:
   - pfSense-pkg-Cron

@@ -95,8 +95,8 @@
     # The upgrade runs in a unit of its own, as it restarts services and can
     # outlast a connection, and the unit stays until the reboot after it. Its
     # state is read without Python, which the upgrade replaces as it goes, and
-    # matched within the output: raw through pct_ssh runs on a
-    # terminal, which wraps it in carriage returns and escape sequences.
+    # matched within the output, which a terminal may wrap in carriage returns
+    # and escape sequences.
     - name: Read the upgrade's unit
       ansible.builtin.raw: systemctl show release-upgrade.service --property=LoadState --value
       register: release_upgrade_unit
@@ -211,11 +211,7 @@
               - pre-release-upgrade
               - --description
               - Before the upgrade to Ubuntu {{ ubuntu_release }}.
-          delegate_to: "{{ ansible_host }}"
-          vars:
-            ansible_connection: ssh
-            ansible_user: root
-            ansible_become: false
+          delegate_to: "{{ proxmox_node }}"
           changed_when: true
 
         - name: The upgrade
@@ -359,11 +355,7 @@
     - name: The container's snapshots on its node
       ansible.builtin.command:
         argv: [pct, listsnapshot, "{{ proxmox_vmid }}"]
-      delegate_to: "{{ ansible_host }}"
-      vars: &release_upgrade_node
-        ansible_connection: ssh
-        ansible_user: root
-        ansible_become: false
+      delegate_to: "{{ proxmox_node }}"
       register: release_upgrade_cleanup_snapshots
       changed_when: false
       check_mode: false
@@ -371,8 +363,7 @@
     - name: The upgrade's snapshot removed
       ansible.builtin.command:
         argv: [pct, delsnapshot, "{{ proxmox_vmid }}", pre-release-upgrade]
-      delegate_to: "{{ ansible_host }}"
-      vars: *release_upgrade_node
+      delegate_to: "{{ proxmox_node }}"
       when: release_upgrade_cleanup_snapshots.stdout is search('\\bpre-release-upgrade\\b')
       changed_when: true
 
