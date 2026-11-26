@@ -145,7 +145,11 @@ class AideRole(unittest.TestCase):
         # dodo's host_vars set ansible_become, a variable, which outranks the
         # become keyword; a task's own variable outranks the host's.
         main = read("ansible-common/roles/aide/tasks/main.yml")
-        self.assertRegex(main, r"- name: Read the connecting user's home\s+ansible\.builtin\.command: printenv HOME\s+"
+        # The home comes from passwd: lxc-attach --clear-env leaves a
+        # container's session no HOME.
+        self.assertRegex(main, r"- name: Read the connecting user's home\s+ansible\.builtin\.shell:\s+"
+                               r"cmd: set -o pipefail && getent passwd \"\$\(id -u\)\" \| cut -d ':' -f 6\s+"
+                               r"executable: /bin/bash\s+"
                                r"become: false\s+vars:\s+ansible_become: false\s")
 
 

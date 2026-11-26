@@ -68,11 +68,14 @@
         - {path: "{{ aide_state_dir }}", mode: "0700"}
         - {path: "{{ aide_unit_dir }}", mode: "0755"}
 
-    # Ansible's scratch files lie in the home of the user it connects as. A
-    # host's ansible_become, as dodo's, would outrank the become keyword; the
-    # task's own variable outranks the host's.
+    # Ansible's scratch files lie in the home of the user it connects as, as
+    # its passwd entry gives it: lxc-attach --clear-env leaves a container's
+    # session no HOME. A host's ansible_become, as dodo's, would outrank the
+    # become keyword; the task's own variable outranks the host's.
     - name: Read the connecting user's home
-      ansible.builtin.command: printenv HOME
+      ansible.builtin.shell:
+        cmd: set -o pipefail && getent passwd "$(id -u)" | cut -d ':' -f 6
+        executable: /bin/bash
       become: false
       vars:
         ansible_become: false
