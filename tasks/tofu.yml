@@ -54,7 +54,7 @@ tasks:
       - tasks/upstream.sh --list {{.STEP}} tofu tofu/{{.ROOT}} -- {{.EXTRA}}
 
   plan:
-    desc: 'Save a plan to docs/snapshot/<step>@<commit>.tfplan, skipped while the root''s files and upstream signal are unchanged; arguments after -- (such as -replace=<address>) go to tofu plan, with --force.'
+    desc: 'Plan the root, skipped while its inputs are unchanged and its last plan was clean; a plan with changes is saved to docs/snapshot/<step>@<commit>.tfplan. Arguments after -- (such as -replace=<address>) go to tofu plan, with --force.'
     deps: [upstream]
     sources:
       - tofu/{{.ROOT}}/*.tf
@@ -65,21 +65,21 @@ tasks:
       - tofu/shared/*.tf
       - tofu/modules/**/*
       - .task/upstream/{{.STEP}}
-    # A plan with changes is saved for HEAD's commit, so a new commit plans
-    # the step again while its changes wait; a plan with none saves nothing,
-    # so a new commit alone does not.
-    status:
-      - test ! -f .task/pending/{{.STEP}} -o -f {{.PLAN_FILE}}
+    # go-task skips the plan only while this exists too: a plan with changes
+    # removes it, so the step plans again, at whatever commit, until its
+    # changes are applied; one with none saves no plan file.
+    generates:
+      - '{{.CLEAN_DIR}}/{{.STEP}}'
     cmds:
-      - mkdir -p docs/snapshot .task/pending
+      - mkdir -p docs/snapshot "$(dirname {{.CLEAN_DIR}}/{{.STEP}})"
       # -detailed-exitcode: 0 no changes, 2 changes, 1 error.
       - |
         status=0
         {{.RUN}} plan -input=false -detailed-exitcode -out={{.PLAN_FILE}} {{.CLI_ARGS}} || status=$?
         case $status in
-          0) rm -f .task/pending/{{.STEP}} {{.PLAN_FILE}} ;;
-          2) echo "{{.STEP}}: {{.PLAN_FILE}}" > .task/pending/{{.STEP}} ;;
-          *) exit "$status" ;;
+          0) rm -f {{.PLAN_FILE}}; touch {{.CLEAN_DIR}}/{{.STEP}} ;;
+          2) rm -f {{.CLEAN_DIR}}/{{.STEP}} ;;
+          *) rm -f {{.CLEAN_DIR}}/{{.STEP}}; exit "$status" ;;
         esac
 
   apply:
@@ -91,7 +91,7 @@ tasks:
         msg: alock's shim must run the apply (tasks/require-alock.sh says why).
     cmds:
       - '{{.RUN}} apply -input=false {{.PLAN_FILE}}'
-      - rm -f {{.PLAN_FILE}} .task/pending/{{.STEP}}
+      - rm -f {{.PLAN_FILE}}
       # ansible-generated's inventory caches the roots' state for an hour
       # (its ansible.cfg); the apply may have changed it. A root that is one of
       # its inventory sources creates and resizes its hosts, whose cached facts

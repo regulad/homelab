@@ -7,6 +7,10 @@
 version: "3"
 
 vars:
+  # Each step's clean marker, beside go-task's own checksums (bin/do_task's
+  # TASK_TEMP_DIR): present only while the step's last plan or check found
+  # nothing to do.
+  CLEAN_DIR: '{{default (print .ROOT_DIR "/.task") .TASK_TEMP_DIR}}/clean'
   STEPS:
     - backblaze
     - ansible-hardware
@@ -91,6 +95,8 @@ tasks:
       - '[ ! -d .task/failed ] || { echo "Failed: $(ls .task/failed | tr "\n" " ")"; exit 1; }'
 
   pending:
-    desc: List the saved plans that show changes and wait to be applied.
+    desc: List the steps that wait on something, the saved plans of roots with changes among them.
+    env:
+      STEPS: '{{join " " .STEPS}}'
     cmds:
-      - for f in .task/pending/*; do if [ -e "$f" ]; then cat "$f"; fi; done
+      - tasks/waiting.sh

@@ -1,0 +1,28 @@
+#!/bin/sh
+# The pipeline's entry point, in place of `go tool task`: go-task at the
+# version go.mod pins, built by `go tool` when missing, with its checksums
+# under ~/.cache/regulad/homelab/task, shared by every checkout on this machine:
+# a cache, which losing costs only a step's run.
+# AGENTS.md § Tasks is the manual.
+#
+#   bin/do_task <go-task arguments>
+set -eu
+top=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
+cd "$top"
+command -v go >/dev/null || { echo "do_task: go is not installed (regulad/dotfiles provides it)" >&2; exit 1; }
+TASK_TEMP_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/regulad/homelab/task"
+export TASK_TEMP_DIR
+# go-task keeps an absolute TASK_TEMP_DIR's checksums under <it>/<the
+# checkout's directory name> (setup.go), which differs between worktrees: that
+# name links to the one shared directory, as each step's clean marker does
+# (Taskfile.yml's CLEAN_DIR), so that every checkout reads the same records.
+name=$(basename "$top")
+case $name in
+checksums | clean) echo "do_task: a checkout named $name would shadow the shared state" >&2; exit 1 ;;
+esac
+mkdir -p "$TASK_TEMP_DIR/checksums"
+if [ ! -L "$TASK_TEMP_DIR/$name" ]; then
+    rm -rf "$TASK_TEMP_DIR/$name"
+    ln -s checksums "$TASK_TEMP_DIR/$name"
+fi
+exec go tool task "$@"

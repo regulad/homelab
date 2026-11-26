@@ -82,7 +82,7 @@ tasks:
       - tasks/upstream.sh --list {{.SIGNAL}} ansible {{.SCAN}}
 
   plan:
-    desc: Check every host of the step (site.yml --check), skipped while its files and upstream signal are unchanged.
+    desc: Check every host of the step (site.yml --check), skipped while its inputs are unchanged and its last check was clean.
     deps: [submodules, upstream]
     sources:
       - ansible-common/**/*
@@ -90,8 +90,24 @@ tasks:
       - exclude: '{{.STAGE}}/collections/**/*'
       - exclude: '{{.STAGE}}/inventory/host_vars/{ {{- join "," (splitList " " (default "" .EXCEPT)) -}} }/**/*'
       - .task/upstream/{{.SIGNAL}}
+    # go-task skips the check only while this exists too: a check that found
+    # a change, a failure or an unreachable host on any host removes it.
+    generates:
+      - '{{.CLEAN_DIR}}/{{default .STAGE .STEP}}'
+    set: [pipefail]
     cmds:
-      - "{{.RUN}} --check --limit '{{.HOSTS}}'"
+      - |
+        mkdir -p "$(dirname {{.CLEAN_DIR}}/{{default .STAGE .STEP}})"
+        log=$(mktemp)
+        status=0
+        {{.RUN}} --check --limit '{{.HOSTS}}' 2>&1 | tee "$log" || status=$?
+        if [ "$status" = 0 ] && awk '/ : ok=[0-9]/ { for (i = 3; i <= NF; i++) { split($i, f, "="); if ((f[1] == "changed" || f[1] == "unreachable" || f[1] == "failed") && f[2] > 0) dirty = 1 } } END { exit dirty }' "$log"; then
+          touch {{.CLEAN_DIR}}/{{default .STAGE .STEP}}
+        else
+          rm -f {{.CLEAN_DIR}}/{{default .STAGE .STEP}}
+        fi
+        rm -f "$log"
+        exit "$status"
 
   syntax:
     desc: Check the syntax of the stage's site.yml and maintenance.yml.
