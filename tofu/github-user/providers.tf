@@ -1,7 +1,8 @@
 # Each workspace manages one GitHub account: personal regulad's, and bot
 # regubot's. It signs in with that account's classic token,
-# terraform-github--user, which sourcing prepare.sh exports as GITHUB_TOKEN from
-# the workspace's <workspace>.sops.yaml. The default workspace manages neither,
+# terraform-github--user, which sourcing prepare.sh exports as
+# TF_VAR_github_token from the workspace's <workspace>.sops.yaml, an input
+# rather than GITHUB_TOKEN, which git's credential helper would use too. The default workspace manages neither,
 # and a plan there fails.
 locals {
   accounts = {
@@ -15,6 +16,7 @@ locals {
 # whichever account the token belongs to, creating repositories under it.
 provider "github" {
   owner = local.account
+  token = var.github_token
 }
 
 # The account the token signs in as, read with username = "". Without a token
