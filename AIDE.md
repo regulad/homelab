@@ -11,7 +11,7 @@ A host made completely immutable would have nothing left for AIDE to find. Its r
 ## How a write reaches the baseline
 
 1. **The callback records it.** The `aide_written` callback, which both stages' `ansible.cfg` enable, records each changed result of a task it knows.
-   - Records go into `~/.cache/ansible/aide_written/<host>` on the controller, each with the time it was made.
+   - Records go into `~/.cache/regulad/homelab/aide_written/<host>` on the controller, each with the time it was made.
    - Unit names go into `<host>.units`.
 2. **Each run holds the daily check from its start.** The shared `site.yml` and `maintenance.yml` begin with `ansible-common/playbooks/aide-hold.yml`, which runs `aide-report --run-started` on each host. Until the run ends, a daily check that comes due on that host waits instead of mailing what the run has written so far. A mark older than six hours holds nothing, so a run that died stops holding.
 3. **Each run ends with the refresh.** Both stages' `site.yml` and `maintenance.yml` import `ansible-common/playbooks/aide-refresh.yml` as their last play. Like the hold, it is tagged `always`, so a run with `--tags` refreshes too. Its second play runs `aide-report --run-ended` on every host, after the refresh: that ends the hold, and starts the check it held, against the moved baseline.
@@ -79,7 +79,7 @@ Roles for hosts outside those three OS groups, such as pfSense and the switches,
 
 - **The tests:** `tests/README.md`. They cover the callback, aide-report's rules, the refresh tasks in check mode, and the playbooks' wiring. A change to any of those comes with tests that fail first.
 - **After an apply:** run with `-v`, and the "AIDE's baseline for them" task shows its command, which lists every path it refreshed. A write of the role's that isn't there will be in the next day's mail. `--check` records nothing, so only an apply shows this.
-- **Records waiting between runs:** `~/.cache/ansible/aide_written/<host>` holds records a refresh hasn't consumed yet, such as those of a run that failed.
+- **Records waiting between runs:** `~/.cache/regulad/homelab/aide_written/<host>` holds records a refresh hasn't consumed yet, such as those of a run that failed.
 
 ## Where the pieces are
 
