@@ -2,7 +2,8 @@
 # Prepare the calling shell to run OpenTofu in tofu/vercel: export the Vercel
 # access token and the state backend's credentials, and decrypt the OpenTofu
 # inputs, with the GitHub personal access tokens from
-# tofu/github-user/personal.sops.yaml, their only copy, into the gitignored
+# tofu/github-user/personal.sops.yaml and the Sentry organization tokens from
+# tofu/sentry/org-tokens.sops.yaml, their only copies, into the gitignored
 # secrets.auto.tfvars.json file.
 #
 # Source it from anywhere in the clone; do not execute it:
@@ -63,13 +64,18 @@ _homelab_vercel_prepare() {
     # on GitHub: classic under pat, fine-grained under fine_grained.
     pats=$(_homelab_sops decrypt --output-type json \
         "$root/tofu/github-user/personal.sops.yaml") || return 1
+    # The Sentry organization tokens, by repository, from their only copy,
+    # tofu/sentry's org-tokens.sops.yaml.
+    sentry=$(_homelab_sops decrypt --extract '["org_tokens"]' --output-type json \
+        "$root/tofu/sentry/org-tokens.sops.yaml") || return 1
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$pats" | jq '{github_pats: {pat, fine_grained}}'
+        printf '%s' "$sentry" | jq '{sentry_auth_tokens: .}'
     } | jq -s add) || return 1
     # Every value is filled in: an empty one would blank an environment variable.
     if ! printf '%s\n' "$plaintext" | jq -e '[.. | strings | select(. == "")] | length == 0' >/dev/null; then
-        echo 'prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user/personal.sops.yaml).' >&2
+        echo "prepare.sh: an input is empty; fill it with sops edit (the PATs live in tofu/github-user/personal.sops.yaml, the Sentry tokens in tofu/sentry's org-tokens.sops.yaml)." >&2
         return 1
     fi
     if [ -e "$destination" ]; then

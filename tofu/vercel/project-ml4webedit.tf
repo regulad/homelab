@@ -46,3 +46,14 @@ resource "vercel_project" "ml4webedit" {
     prevent_destroy = true
   }
 }
+
+# The token the production build creates ml4webedit's Sentry release and
+# uploads its source maps with, read by @sentry/vite-plugin. Preview builds,
+# which report nothing, upload nothing.
+resource "vercel_project_environment_variable" "ml4webedit_sentry_auth_token" {
+  key        = "SENTRY_AUTH_TOKEN"
+  project_id = vercel_project.ml4webedit.id
+  sensitive  = true
+  target     = ["production"]
+  value      = var.sentry_auth_tokens["terraform-ml4webedit"]
+}
