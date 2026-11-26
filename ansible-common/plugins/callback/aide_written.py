@@ -20,7 +20,7 @@ description:
   - For each changed result of a module that writes a file at a path it is given,
     appends that path to a file named for the host, with the time it was
     recorded before it and a tab between, in the directory the
-    AIDE_WRITTEN_DIR environment variable names, ~/.cache/ansible/aide_written
+    AIDE_WRITTEN_DIR environment variable names, ~/.cache/regulad/homelab/aide_written
     unless it is set. The callback sets it for the run, for the refresh to read.
   - The records stay until a refresh consumes them, so that what a run wrote
     before it failed, or was interrupted, is refreshed by the next run to reach
@@ -59,7 +59,7 @@ requirements:
 """
 
 # The directory of the records, unless AIDE_WRITTEN_DIR names another.
-DIRECTORY = os.path.join("~", ".cache", "ansible", "aide_written")
+DIRECTORY = os.path.join("~", ".cache", "regulad", "homelab", "aide_written")
 # Modules that write a file, or one directory entry, at the path they are given.
 MODULES = {
     "copy", "template", "file", "lineinfile", "blockinfile", "replace",

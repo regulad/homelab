@@ -90,7 +90,7 @@ class Directory(CallbackTestCase):
         with mock.patch.dict(os.environ, {"HOME": home}):
             del os.environ["AIDE_WRITTEN_DIR"]
             callback = aw.CallbackModule()
-            expected = os.path.join(home, ".cache", "ansible", "aide_written")
+            expected = os.path.join(home, ".cache", "regulad", "homelab", "aide_written")
             self.assertEqual(callback.directory, expected)
             self.assertEqual(os.environ["AIDE_WRITTEN_DIR"], expected)
             self.assertEqual(os.stat(expected).st_mode & 0o777, 0o700)

@@ -92,7 +92,7 @@ A source that cannot be read fails the whole inventory, because `ansible.cfg`
 sets `any_unparsed_is_failed`.
 
 Both sources cache what they select from state for an hour, in
-`~/.cache/ansible/terraform_state`, so a load skips `tofu init` and
+`~/.cache/regulad/homelab/terraform_state`, so a load skips `tofu init` and
 `tofu state pull`. After an apply to `tofu/oracle` or `tofu/gonkputer`, run the
 next command with `--flush-cache`, which reads the state again. The cache holds
 the hosts' variables in plaintext, values the state marks sensitive included,
