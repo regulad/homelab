@@ -40,11 +40,14 @@ ca_trust_trusted:
   - freeipa-home.arpa
   - pve-root-ca
 
-# Names the role once trusted roots under, whose anchors it removes: ipa-ca was
-# FreeIPA's CA, renamed because FreeIPA's own tooling deletes anchors by that
-# name, as ipa-server-install did on wako.
+# Anchors the role removes: names it once trusted roots under, and anchors
+# others left. ipa-ca was FreeIPA's CA, renamed because FreeIPA's own tooling
+# deletes anchors by that name, as ipa-server-install did on wako.
+# cohensstore003.internal is an anchor regulad/dotfiles installs on Parker's
+# workstations, left on aboriginal while dotfiles managed it.
 ca_trust_retired:
   - ipa-ca
+  - cohensstore003.internal
 
 # Where each family's store takes local trust anchors: files there are trusted
 # alongside the distribution's bundle and survive its upgrades.
