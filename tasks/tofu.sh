@@ -20,6 +20,10 @@ top=$(git rev-parse --show-toplevel)
 for name in $(env | sed -n 's/^\(AWS_[A-Za-z0-9_]*\)=.*/\1/p'); do
     unset "$name"
 done
+# The checked-in SOPS file is the root's only source of its inputs: its
+# decrypted copy is written afresh, so that a copy left from an older commit,
+# as a rebase leaves one, never trips prepare.sh's guard against local edits.
+rm -f "$top/tofu/$root/secrets.auto.tfvars.json"
 # prepare.sh is written for an interactive shell: no -e or -u, and its report
 # goes to stderr so that `tofu output -json` stays the only stdout.
 set +eu

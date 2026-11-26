@@ -1,6 +1,6 @@
 ---
 # Each host's facts gathered afresh, into the fact cache both stages keep for
-# an hour (ansible.cfg): the shared site.yml and maintenance.yml import this
+# two days (ansible.cfg): the shared site.yml and maintenance.yml import this
 # right after aide-hold.yml, and each stage's imports it right before
 # aide-refresh.yml. A run that changes hosts thus begins from their state and
 # leaves the cache holding their state after it, so that its own later plays,
