@@ -65,8 +65,11 @@ tasks:
       - tofu/shared/*.tf
       - tofu/modules/**/*
       - .task/upstream/{{.STEP}}
-    generates:
-      - '{{.PLAN_FILE}}'
+    # A plan with changes is saved for HEAD's commit, so a new commit plans
+    # the step again while its changes wait; a plan with none saves nothing,
+    # so a new commit alone does not.
+    status:
+      - test ! -f .task/pending/{{.STEP}} -o -f {{.PLAN_FILE}}
     cmds:
       - mkdir -p docs/snapshot .task/pending
       # -detailed-exitcode: 0 no changes, 2 changes, 1 error.
@@ -74,7 +77,7 @@ tasks:
         status=0
         {{.RUN}} plan -input=false -detailed-exitcode -out={{.PLAN_FILE}} {{.CLI_ARGS}} || status=$?
         case $status in
-          0) rm -f .task/pending/{{.STEP}} ;;
+          0) rm -f .task/pending/{{.STEP}} {{.PLAN_FILE}} ;;
           2) echo "{{.STEP}}: {{.PLAN_FILE}}" > .task/pending/{{.STEP}} ;;
           *) exit "$status" ;;
         esac
