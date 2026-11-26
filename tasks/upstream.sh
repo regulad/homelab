@@ -22,7 +22,8 @@
 # - each <step> after `--`: that step's signal, for a dependency no file names.
 #
 # Reads STEPS, the pipeline's steps, TASK, go-task's executable, and
-# SCAN_EXCLUDE, a directory name to leave out: a host the stage excepts.
+# SCAN_EXCLUDE, directory names to leave out, separated by spaces: the hosts the
+# stage excepts.
 set -eu
 list=false
 if [ "$1" = --list ]; then
@@ -50,9 +51,12 @@ done
 self=${step%%.*}
 
 scan() {
-    # shellcheck disable=SC2086 # paths is a word list
-    grep -rHoE --exclude-dir=collections --exclude-dir=.terraform \
-        ${SCAN_EXCLUDE:+--exclude-dir="$SCAN_EXCLUDE"} \
+    excludes=
+    for name in ${SCAN_EXCLUDE:-}; do
+        excludes="$excludes --exclude-dir=$name"
+    done
+    # shellcheck disable=SC2086 # paths and excludes are word lists
+    grep -rHoE --exclude-dir=collections --exclude-dir=.terraform $excludes \
         --include='*.tf' --include='*.yml' --include='*.yaml' --include='*.j2' --include=prepare.sh \
         -e "$1" $paths || true
 }

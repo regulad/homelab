@@ -1,0 +1,24 @@
+---
+quadlet_services:
+  - name: valkey
+    description: Valkey, ansible-generated's fact cache
+    after: [network-online.target]
+    wants: [network-online.target]
+    # Its major version: Valkey tags each release, its major.minor and its
+    # major.
+    image: docker.io/valkey/valkey:9
+    container_name: valkey
+    auto_update: registry
+    # Loopback, where Tailscale Serve reaches it.
+    network: host
+    volumes:
+      - /etc/valkey/valkey.conf:/etc/valkey/valkey.conf:ro
+    # Its working directory, which the image's entrypoint chowns and nothing
+    # is saved to.
+    tmpfs:
+      - /data
+    # The image's entrypoint runs valkey-server with a .conf argument.
+    exec: /etc/valkey/valkey.conf
+    no_new_privileges: true
+    restart: always
+    wanted_by: [multi-user.target, default.target]

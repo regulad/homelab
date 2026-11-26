@@ -176,7 +176,7 @@ resource "ansible_host" "wako" {
     [proxmox_virtual_environment_container.wako.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
-  # Reached through pct_ssh: SSH to the node, then pct into the
+  # Reached through pct_ssh: SSH to the node, then lxc-attach into the
   # container. arawi's DHCP static mapping reads the MAC Proxmox generated.
   variables = {
     ansible_host     = var.node_ssh_addresses[proxmox_virtual_environment_container.wako.node_name]

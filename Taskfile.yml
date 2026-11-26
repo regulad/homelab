@@ -28,6 +28,7 @@ vars:
     - github-user.bot
     - github.personal
     - github.bot
+    - ansible-generated--ansiblecache
     - ansible-generated
     - authentik
     - ansible-generated--memory
@@ -55,13 +56,17 @@ includes:
   github-user.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github-user, WORKSPACE: bot}}
   github.personal: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: personal}}
   github.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: bot}}
+  # ansiblecache holds the rest of the stage's fact cache, so it is a step of
+  # its own before them, on the local fact cache: the cache never depends on
+  # itself.
+  ansible-generated--ansiblecache: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, HOST: ansiblecache.regulad.internal, STEP: ansible-generated--ansiblecache}}
   # memory signs in through authentik, so it reads tofu/authentik's outputs and
   # runs after it, as a step of its own.
-  ansible-generated: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, EXCEPT: memory.regulad.internal}}
+  ansible-generated: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, EXCEPT: memory.regulad.internal ansiblecache.regulad.internal, CACHE: ansiblecache}}
   # tofu/authentik signs in to the authentik that ansible-generated brings up,
   # which no file of the root names, so the dependency is declared here.
   authentik: {taskfile: tasks/tofu.yml, vars: {ROOT: authentik, EXTRA: ansible-generated}}
-  ansible-generated--memory: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, HOST: memory.regulad.internal, STEP: ansible-generated--memory}}
+  ansible-generated--memory: {taskfile: tasks/ansible.yml, vars: {STAGE: ansible-generated, HOST: memory.regulad.internal, STEP: ansible-generated--memory, CACHE: ansiblecache}}
 
 tasks:
   default:

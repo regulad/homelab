@@ -6,10 +6,10 @@
 version: "3"
 
 vars:
-  RUN: '{{if .WRAP}}WRAP={{.WRAP}} {{end}}tasks/ansible.sh {{.STAGE}} playbooks/site.yml'
+  RUN: '{{if .WRAP}}WRAP={{.WRAP}} {{end}}{{if .CACHE}}CACHE={{.CACHE}} {{end}}tasks/ansible.sh {{.STAGE}} playbooks/site.yml'
   SIGNAL: '{{default .STAGE .STEP}}'
   # The hosts this step covers, as an Ansible pattern.
-  HOSTS: '{{if .HOST}}{{.HOST}}{{else}}all{{if .EXCEPT}}:!{{.EXCEPT}}{{end}}{{end}}'
+  HOSTS: '{{if .HOST}}{{.HOST}}{{else}}all{{if .EXCEPT}}{{range (splitList " " .EXCEPT)}}:!{{.}}{{end}}{{end}}{{end}}'
   # Where this step's reads of other steps are found: a host's step reads only
   # what applies to it, and a stage leaves out the hosts it excepts.
   SCAN: >-
@@ -28,6 +28,7 @@ tasks:
     cmds:
       - task: submodules
       - task: collections
+      - task: python
       - task: outputs
 
   # The stage's submodules checked out, as a new worktree starts without their
@@ -50,6 +51,18 @@ tasks:
       - '{{.STAGE}}/collections/ansible_collections/*/*/MANIFEST.json'
     cmds:
       - cd {{.STAGE}} && ansible-galaxy collection install -r requirements.yml -p collections
+
+  # The stage's Python packages (<stage>/python-requirements.txt), pinned by
+  # hash, into .task/python, which tasks/ansible.sh puts on PYTHONPATH: an
+  # install under AGENTS.md rule 3.
+  python:
+    internal: true
+    sources:
+      - '{{.STAGE}}/python-requirements.txt'
+    status:
+      - test ! -f {{.STAGE}}/python-requirements.txt -o -d .task/python
+    cmds:
+      - '[ ! -f {{.STAGE}}/python-requirements.txt ] || uv pip install --require-hashes --target .task/python -r {{.STAGE}}/python-requirements.txt'
 
   outputs:
     desc: Record the step's signal, a digest of alock's records of its hosts, which an apply from any worktree moves.
@@ -75,7 +88,7 @@ tasks:
       - ansible-common/**/*
       - '{{.STAGE}}/**/*'
       - exclude: '{{.STAGE}}/collections/**/*'
-      - exclude: '{{.STAGE}}/inventory/host_vars/{{.EXCEPT}}/**/*'
+      - exclude: '{{.STAGE}}/inventory/host_vars/{ {{- join "," (splitList " " .EXCEPT) -}} }/**/*'
       - .task/upstream/{{.SIGNAL}}
     cmds:
       - "{{.RUN}} --check --limit '{{.HOSTS}}'"

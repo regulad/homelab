@@ -1,0 +1,45 @@
+---
+# ansiblecache: a Valkey that holds ansible-generated's fact cache alone, for
+# every controller on the tailnet (ansible-generated/ansible.cfg). Valkey
+# listens on loopback alone; Tailscale Serve offers it on the tailnet over TLS,
+# with the node's own certificate for its ts.net name, which tailscaled
+# renews. Its step in Taskfile.yml runs before the rest of ansible-generated,
+# from the local fact cache, so the cache never depends on itself.
+tailscale_enabled: true
+tailscale_join: true
+tailscale_tags: [server]
+tailscale_settings:
+  # Off: the tailnet's split DNS sends NC State's domains to its own
+  # resolvers, which this host cannot reach, so every failed lookup waited
+  # on them. arawi resolves the tailnet's names in its stead.
+  accept_dns: false
+tailscale_serve:
+  - port: 6379
+    target: tcp://127.0.0.1:6379
+    tls_terminated_tcp: true
+
+host_files_directories:
+  - path: /etc/valkey
+    mode: "0755"
+host_files_list:
+  # Read as the image's valkey user (999), and by no one else, as it holds the
+  # password. A cache alone: nothing is saved, and the oldest keys go first
+  # when memory runs out, which only means a host's facts are gathered again.
+  # The default user, which community.general.redis logs in as, may reach only
+  # the cache's keys (ansible_facts<host>, ansible_cache_keys), with none of
+  # the commands Valkey calls dangerous.
+  - path: /etc/valkey/valkey.conf
+    mode: "0600"
+    owner: "999"
+    group: "999"
+    secret: true
+    restarts: [valkey.service]
+    content: |
+      bind 127.0.0.1 -::1
+      port 6379
+      protected-mode yes
+      save ""
+      appendonly no
+      maxmemory 128mb
+      maxmemory-policy allkeys-lru
+      user default on >{{ ansiblecache_password }} ~ansible_* +@all -@dangerous

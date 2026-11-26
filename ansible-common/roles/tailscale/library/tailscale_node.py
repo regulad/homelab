@@ -37,9 +37,11 @@ options:
     default: {}
   serve:
     description:
-      - The complete Serve configuration, a list of HTTPS ports each with a
-        target; C(funnel=true) also publishes the port with Funnel. Omit to
-        leave Serve alone.
+      - The complete Serve configuration, a list of ports each with a
+        target: an HTTPS port, or with C(tls_terminated_tcp=true) a TCP port
+        whose TLS Serve terminates with the node's certificate, its target a
+        C(tcp://host:port). C(funnel=true) also publishes the port with Funnel.
+        Omit to leave Serve alone.
     type: list
     elements: dict
 author: Parker Wahle
@@ -106,15 +108,25 @@ def run_json(module, args):
 
 
 def current_serve(status):
-    """Map HTTPS port -> (target, funnel) from `tailscale serve status --json`."""
+    """Map port -> (kind, target, funnel) from `tailscale serve status --json`:
+    kind is https, or tls-terminated-tcp for a TCP port whose TLS Serve
+    terminates (TCPPortHandler's TCPForward and TerminateTLS)."""
     funnel = {k.rsplit(":", 1)[-1] for k, v in (status.get("AllowFunnel") or {}).items() if v}
     ports = {}
     for hostport, web in (status.get("Web") or {}).items():
         port = hostport.rsplit(":", 1)[-1]
         handler = (web.get("Handlers") or {}).get("/") or {}
         target = handler.get("Proxy") or handler.get("Path") or handler.get("Text")
-        ports[port] = (target, port in funnel)
+        ports[port] = ("https", target, port in funnel)
+    for port, handler in (status.get("TCP") or {}).items():
+        if handler.get("TCPForward") and handler.get("TerminateTLS"):
+            ports[str(port)] = ("tls-terminated-tcp", "tcp://" + handler["TCPForward"], port in funnel)
     return ports
+
+
+def serve_off(tailscale, port, have):
+    kind, _, funnel = have
+    return [tailscale, "funnel" if funnel else "serve", "--%s=%s" % (kind, port), "off"]
 
 
 def main():
@@ -156,14 +168,21 @@ def main():
     serve_cmds = []
     if module.params["serve"] is not None:
         have = current_serve(run_json(module, [tailscale, "serve", "status", "--json"]))
-        want = {str(e["port"]): (e["target"], bool(e.get("funnel", False))) for e in module.params["serve"]}
+        want = {
+            str(e["port"]): (
+                "tls-terminated-tcp" if e.get("tls_terminated_tcp") else "https",
+                e["target"],
+                bool(e.get("funnel", False)),
+            )
+            for e in module.params["serve"]
+        }
         for port in sorted(set(have) - set(want)):
-            serve_cmds.append([tailscale, "funnel" if have[port][1] else "serve", "--https=%s" % port, "off"])
-        for port, (target, funnel) in sorted(want.items()):
-            if have.get(port) != (target, funnel):
+            serve_cmds.append(serve_off(tailscale, port, have[port]))
+        for port, (kind, target, funnel) in sorted(want.items()):
+            if have.get(port) != (kind, target, funnel):
                 if port in have:
-                    serve_cmds.append([tailscale, "funnel" if have[port][1] else "serve", "--https=%s" % port, "off"])
-                serve_cmds.append([tailscale, "funnel" if funnel else "serve", "--bg", "--https=%s" % port, target])
+                    serve_cmds.append(serve_off(tailscale, port, have[port]))
+                serve_cmds.append([tailscale, "funnel" if funnel else "serve", "--bg", "--%s=%s" % (kind, port), target])
         if serve_cmds:
             before["serve"] = {p: list(v) for p, v in sorted(have.items())}
             after["serve"] = {p: list(v) for p, v in sorted(want.items())}

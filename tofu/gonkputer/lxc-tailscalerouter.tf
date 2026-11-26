@@ -91,7 +91,7 @@ resource "ansible_host" "tailscalerouter" {
     [proxmox_virtual_environment_container.tailscalerouter.unprivileged ? "unprivileged_containers" : "privileged_containers"],
   ))
 
-  # Reached through pct_ssh: SSH to the node, then pct into the container.
+  # Reached through pct_ssh: SSH to the node, then lxc-attach into the container.
   variables = {
     ansible_host = var.node_ssh_addresses[proxmox_virtual_environment_container.tailscalerouter.node_name]
     proxmox_vmid = proxmox_virtual_environment_container.tailscalerouter.vm_id
