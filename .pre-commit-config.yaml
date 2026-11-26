@@ -106,8 +106,9 @@ repos:
       - id: tofu-validate-stripe
         name: tofu validate (stripe)
         language: unsupported
-        entry: tofu -chdir=tofu/stripe validate -no-color
-        files: ^tofu/(stripe|shared)/
+        # Each workspace in Taskfile.yml's STEPS; the default has no keys.
+        entry: tasks/validate-workspaces.sh stripe
+        files: ^(tofu/(stripe|shared)/|Taskfile\.yml$)
         pass_filenames: false
 
       - id: tofu-validate-supabase
@@ -129,19 +130,17 @@ repos:
         language: unsupported
         # The provider requires its App key to be set, even to validate, and
         # validate never reads it: prepare.sh exports the real one for plans.
-        # It validates the selected workspace, which must be one of the root's:
-        # the default workspace has no App, and fails.
-        entry: env GITHUB_APP_PEM_FILE=unused tofu -chdir=tofu/github validate -no-color
-        files: ^(tofu/(github|shared)/|ansible-generated/inventory/group_vars/nexus_servers\.yml$)
+        # Each workspace in Taskfile.yml's STEPS; the default has no App.
+        entry: tasks/validate-workspaces.sh github GITHUB_APP_PEM_FILE=unused
+        files: ^(tofu/(github|shared)/|ansible-generated/inventory/group_vars/nexus_servers\.yml$|Taskfile\.yml$)
         pass_filenames: false
 
       - id: tofu-validate-github-user
         name: tofu validate (github-user)
         language: unsupported
-        # It validates the selected workspace, which must be one of the root's:
-        # the default workspace has no account, and fails.
-        entry: tofu -chdir=tofu/github-user validate -no-color
-        files: ^tofu/(github-user|shared)/
+        # Each workspace in Taskfile.yml's STEPS; the default has no account.
+        entry: tasks/validate-workspaces.sh github-user
+        files: ^(tofu/(github-user|shared)/|Taskfile\.yml$)
         pass_filenames: false
 
       - id: tofu-validate-vercel
