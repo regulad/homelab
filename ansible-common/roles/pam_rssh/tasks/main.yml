@@ -13,8 +13,41 @@
     pam_rssh_rpm_path: "{{ 'testing' if pam_rssh_testing else 'stable' }}/el{{ ansible_facts['distribution_major_version'] }}"
     pam_rssh_keys: "{{ lookup('ansible.builtin.url', pam_rssh_keys_url, split_lines=false) }}"
   block:
+    # Ubuntu from 26.04 makes sudo an alternative, set to sudo-rs, which lacks
+    # the verifypw the check below needs: where sudo is one, classic sudo is
+    # installed and chosen, as regulad/dotfiles does on Parker's workstations.
+    # Both read the same sudoers and PAM files.
+    - name: Read whether sudo is an alternative
+      ansible.builtin.command: update-alternatives --query sudo
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      register: pam_rssh_sudo_alternative
+      when: "'rhel' not in group_names"
+
+    - name: Classic sudo in place of sudo-rs
+      when:
+        - "'rhel' not in group_names"
+        - pam_rssh_sudo_alternative.rc == 0
+      become: true
+      block:
+        - name: Classic sudo
+          ansible.builtin.apt:
+            name: sudo
+            state: present
+
+        - name: Classic sudo chosen
+          community.general.alternatives:
+            name: sudo
+            path: /usr/bin/sudo.ws
+          # A check run cannot choose a path the package is still to install.
+          when: not ansible_check_mode or '/usr/bin/sudo.ws' in pam_rssh_sudo_alternative.stdout
+
+    # A check run reads the version of the classic sudo it would choose.
     - name: Read sudo's version
-      ansible.builtin.command: sudo -V
+      ansible.builtin.command: >-
+        {{ '/usr/bin/sudo.ws' if ansible_check_mode and '/usr/bin/sudo.ws' in (pam_rssh_sudo_alternative.stdout | default(''))
+           else 'sudo' }} -V
       changed_when: false
       check_mode: false
       register: pam_rssh_sudo
