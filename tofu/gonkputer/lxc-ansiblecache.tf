@@ -16,6 +16,11 @@ resource "proxmox_virtual_environment_container" "ansiblecache" {
     limit = 1
   }
 
+  # tailscaled's TUN device: the container joins the tailnet.
+  device_passthrough {
+    path = "/dev/net/tun"
+  }
+
   disk {
     datastore_id  = "rbd"
     mount_options = ["discard", "lazytime"]
