@@ -8,17 +8,22 @@ on each Mac.
 
 ## What the role does
 
-- **Builds lime** from its source at `lime_commit`, as lime publishes no
-  releases, with Ubuntu's own `cargo` and `rustc`, and `--locked`, so
-  `Cargo.lock`'s checksums pin every crate. Each run lets cargo decide
-  whether anything changed: a new commit or a new `rustc` from the host's
-  updates rebuilds it, and the service restarts only if the binary differs.
-  Where `lime_crates_io_mirror` names a sparse index, cargo fetches crates.io's
-  crates from it instead, by source replacement in the cargo home's
-  `config.toml`.
-- **Installs upstream's unit and README** from the same checkout, and writes
-  `/etc/lime/lime.toml` from `lime_interfaces` and `lime_macs`, out of logs
-  and diffs, as it names each Mac's unlock account, which hosts keep in SOPS.
+- **Installs lime's release** `lime_version`, from GitHub, as the archive for
+  the host's architecture: `linux-amd64-v3` on an x86-64 CPU with
+  x86-64-v3, which the role checks, or `linux-arm64`. `get_url` checks it
+  against its SHA-256 in `lime_sha256`, copied from the `.sha256` published
+  beside it. The archive is kept and unpacked in `lime_cache_dir`, below
+  `/var/cache`, which AIDE leaves out; older releases' are removed, as is the
+  source checkout and cargo cache that earlier versions of the role built
+  from. The service restarts when the binary or the unit changes.
+- **The release reports to Sentry,** as lime's PRIVACY.md sets out: a
+  session per start and a count of each password sent at the pre-boot
+  unlock, nothing about the Macs. Its binary links the host's OpenSSL 3
+  (`libssl3`), and needs the glibc of Ubuntu 26.04, which built it, or later.
+- **Installs upstream's unit and documentation** from the same archive, and
+  writes `/etc/lime/lime.toml` from `lime_interfaces` and `lime_macs`, out of
+  logs and diffs, as it names each Mac's unlock account, which hosts keep in
+  SOPS.
 - **Seals each Mac's password**, from `lime_passwords` in SOPS, as the
   credential `lime.<name>` in `/etc/credstore.encrypted`, encrypted
   `--with-key=host+tpm2`. A credential that is missing, holds another password

@@ -23,5 +23,4 @@ docker_registry_mirrors: ["https://{{ podman_registry_mirrors['docker.io'] }}"]
 # Unlike Podman, cargo has no fallback: while Nexus is down, a build that must
 # fetch fails.
 cargo_crates_io_mirror: "sparse+{{ hostvars[groups['nexus_servers'] | first]['nexus_url'] }}/repository/crates-io/"
-lime_crates_io_mirror: "{{ cargo_crates_io_mirror }}"
 matrix_crates_io_mirror: "{{ cargo_crates_io_mirror }}"

@@ -1,15 +1,16 @@
 ---
-# lime, built from its source at a pinned commit: it publishes no releases.
-lime_repo: https://github.com/regulad/lime.git
-lime_commit: 3b430b41c5448e31da07dacff4a24c3b8d52c1d6
+# lime's release to install, as its tag names it without the v
+# (https://github.com/regulad/lime/releases), and the SHA-256 of each
+# architecture's archive, from the .sha256 published beside it. amd64's archive
+# is built for x86-64-v3.
+lime_version: 2026.11.25_1
+lime_sha256:
+  amd64-v3: 74e1881e04a73a3fe36a42f87feff7744ddb7f98ddd6c7fe423df1a4bd897bf4
+  arm64: 1649f3d375502e1821b81385cc645ad8e47cd4d6c077adedb365f54abe38f002
 
-# Where the source is checked out and built, and cargo's crate cache.
-lime_build_dir: /usr/local/src/lime
-lime_cargo_home: /var/cache/lime/cargo
-# A sparse index that replaces crates.io in that cargo home's config.toml, such
-# as sparse+https://nexus.example/repository/crates-io/, or empty for crates.io
-# itself.
-lime_crates_io_mirror: ""
+# Where archives are downloaded and unpacked, below /var/cache, which AIDE
+# leaves out.
+lime_cache_dir: /var/cache/lime
 
 # Interfaces lime browses mDNS on, each on the Macs' own network with mDNS on
 # in systemd-resolved.

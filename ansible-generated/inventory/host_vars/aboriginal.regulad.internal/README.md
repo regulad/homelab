@@ -86,7 +86,7 @@ of their own.
   removed with it. Its configuration is host files; NUT keeps hass's password
   in plain text in `upsd.users`, so it is in SOPS.
 - **lime**, which unlocks overture's FileVault at its pre-boot SSH unlock:
-  the `lime` role builds it on this host and runs it at boot. Its credential
+  the `lime` role installs its pinned release and runs it at boot. Its credential
   is sealed to the VM's vTPM (`tpmstate0` on `local-lvm`), which
   `vm-aboriginal.tf` declares with its changes ignored, as applying it would
   replace the TPM with an empty one. The password itself is in
