@@ -227,6 +227,7 @@
     remote_src: true
     dest: "{{ item.dest }}"
     include: "{{ item.files }}"
+    extra_opts: "{{ ['--strip-components=' ~ item.strip_components] if item.strip_components is defined else omit }}"
     owner: "{{ item.owner | default('root') }}"
     group: "{{ item.group | default('root') }}"
     mode: "{{ item.mode }}"
