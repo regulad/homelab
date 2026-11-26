@@ -24,10 +24,21 @@ env:
 
 tasks:
   init:
-    desc: Install the stage's collections if requirements.yml changed or they are missing, then record the step's signal.
+    desc: Check out the stage's submodules, install its collections if requirements.yml changed or they are missing, then record the step's signal.
     cmds:
+      - task: submodules
       - task: collections
       - task: outputs
+
+  # The stage's submodules checked out, as a new worktree starts without their
+  # contents (AGENTS.md § Parallel agents): a role that copies one, as the
+  # nextcloud role does its apps, would otherwise find it empty.
+  submodules:
+    internal: true
+    status:
+      - test -z "$(git submodule status -- {{.STAGE}} | grep '^-')"
+    cmds:
+      - git submodule update --init -- {{.STAGE}}
 
   # Installing is an install under AGENTS.md rule 3; in a worktree, symlink
   # the main checkout's collections/ instead, which satisfies the check.
@@ -59,7 +70,7 @@ tasks:
 
   plan:
     desc: Check every host of the step (site.yml --check), skipped while its files and upstream signal are unchanged.
-    deps: [upstream]
+    deps: [submodules, upstream]
     sources:
       - ansible-common/**/*
       - '{{.STAGE}}/**/*'
@@ -71,17 +82,20 @@ tasks:
 
   syntax:
     desc: Check the syntax of the stage's site.yml and maintenance.yml.
+    deps: [submodules]
     cmds:
       - tasks/ansible.sh {{.STAGE}} playbooks/site.yml --syntax-check
       - tasks/ansible.sh {{.STAGE}} playbooks/maintenance.yml --syntax-check
 
   check:
     desc: 'Check part of the step, never skipped: LIMIT=<hosts> TAGS=<tags>, and anything after -- goes to ansible-playbook.'
+    deps: [submodules]
     cmds:
       - "{{.RUN}} --check --limit '{{if .LIMIT}}{{.LIMIT}}:&{{end}}{{.HOSTS}}'{{if .TAGS}} --tags {{.TAGS}}{{end}} {{.CLI_ARGS}}"
 
   apply:
     desc: 'Apply the step, or part of it with LIMIT=<hosts> TAGS=<tags>; then record its signal, and plan or check each step that reads it.'
+    deps: [submodules]
     preconditions:
       - sh: tasks/require-alock.sh ansible-playbook
         msg: alock's shim must run the apply (tasks/require-alock.sh says why).
