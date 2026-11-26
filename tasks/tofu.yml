@@ -84,6 +84,8 @@ tasks:
     preconditions:
       - sh: test -f {{.PLAN_FILE}}
         msg: 'No saved plan for HEAD ({{.COMMIT}}): run `task {{.STEP}}:plan` first.'
+      - sh: tasks/require-alock.sh tofu
+        msg: alock's shim must run the apply (tasks/require-alock.sh says why).
     cmds:
       - '{{.RUN}} apply -input=false {{.PLAN_FILE}}'
       - rm -f {{.PLAN_FILE}} .task/pending/{{.STEP}}
