@@ -33,6 +33,8 @@
   gather_facts: false
   become: true
   tags: [restic-password]
+  # Linear: its run_once facts reach every host before any goes on (ansible.cfg).
+  strategy: mitogen_linear
   tasks:
     - name: Add a key with a new password, recorded in SOPS
       ansible.builtin.include_role:
@@ -46,6 +48,8 @@
   gather_facts: false
   become: true
   tags: [restic-password-prune]
+  # Linear: its run_once facts reach every host before any goes on (ansible.cfg).
+  strategy: mitogen_linear
   tasks:
     - name: Remove the keys of earlier passwords
       ansible.builtin.include_role:
@@ -87,6 +91,8 @@
   gather_facts: false
   become: true
   tags: [aide-accept]
+  # Linear: its run_once check of --limit stops every host before any goes on (ansible.cfg).
+  strategy: mitogen_linear
   tasks:
     - name: Accept the files as they are
       ansible.builtin.include_role:
@@ -101,6 +107,8 @@
   gather_facts: false
   become: true
   tags: [podman-repair]
+  # Linear: its run_once check of --limit stops every host before any goes on (ansible.cfg).
+  strategy: mitogen_linear
   tasks:
     - name: Remove the damaged images and layers
       ansible.builtin.include_role:

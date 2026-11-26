@@ -145,6 +145,8 @@
   gather_facts: false
   become: true
   tags: [restic]
+  # Linear: its run_once facts reach every host before any goes on (ansible.cfg).
+  strategy: mitogen_linear
   roles:
     - restic
 

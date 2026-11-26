@@ -1,0 +1,8 @@
+---
+# The Proxmox nodes, in this inventory only as the hop to their containers
+# (tofu/gonkputer's nodes.tf): no play here targets them. Mitogen logs in as
+# root, whom lxc-attach needs, with group_vars/all.yml's SSH options, under the
+# node's name in known_hosts.
+ansible_user: root
+ansible_become: false
+ansible_python_interpreter: /usr/bin/python3

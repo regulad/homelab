@@ -39,3 +39,6 @@ base_packages: [rsyslog-logrotate]
 
 # EPEL's certbot names its renewal timer certbot-renew.timer.
 certbot_timer: certbot-renew.timer
+
+# The distribution's own Python 3, so no task first runs interpreter discovery.
+ansible_python_interpreter: /usr/bin/python3

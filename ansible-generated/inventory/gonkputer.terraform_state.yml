@@ -31,10 +31,12 @@ strict: true
 # The plugin keeps an ansible_host's variables as one host variable, and state
 # stores that dynamic attribute as {type, value}, so lift the connection details,
 # the NIC addresses a guest's netplan matches, and the ports its firewall admits
-# that its configuration names, out of variables.value. VMs have no connection
-# details and keep their DNS name.
+# that its configuration names, out of variables.value. A container's address is
+# its VMID, the name lxc-attach takes on its node, proxmox_node; VMs and nodes
+# keep their DNS name.
 compose:
-  ansible_host: variables.value.ansible_host | default(name)
+  ansible_host: variables.value.proxmox_vmid | default(name) | string
+  proxmox_node: variables.value.proxmox_node | default(None)
   proxmox_vmid: variables.value.proxmox_vmid | default(None)
   eth0_mac_address: variables.value.eth0_mac_address | default(None)
   clamd_port: variables.value.clamd_port | default(None)
@@ -46,5 +48,6 @@ keyed_groups:
     prefix: ""
     separator: ""
     leading_separator: false
+# The nodes, the hop to their containers, are configured by ansible-hardware.
 groups:
-  generated: true
+  generated: "'proxmox_nodes' not in groups"

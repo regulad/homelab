@@ -52,17 +52,17 @@ tasks:
     cmds:
       - cd {{.STAGE}} && ansible-galaxy collection install -r requirements.yml -p collections
 
-  # The stage's Python packages (<stage>/python-requirements.txt), pinned by
-  # hash, into .task/python, which tasks/ansible.sh puts on PYTHONPATH: an
-  # install under AGENTS.md rule 3.
+  # The Python packages both stages' plugins need beside Ansible's own
+  # (ansible-common/python-requirements.txt), pinned by hash, into .task/python:
+  # an install under AGENTS.md rule 3.
   python:
     internal: true
     sources:
-      - '{{.STAGE}}/python-requirements.txt'
+      - ansible-common/python-requirements.txt
     status:
-      - test ! -f {{.STAGE}}/python-requirements.txt -o -d .task/python
+      - test -d .task/python
     cmds:
-      - '[ ! -f {{.STAGE}}/python-requirements.txt ] || uv pip install --require-hashes --target .task/python -r {{.STAGE}}/python-requirements.txt'
+      - uv pip install --require-hashes --target .task/python -r ansible-common/python-requirements.txt
 
   outputs:
     desc: Record the step's signal, a digest of alock's records of its hosts, which an apply from any worktree moves.

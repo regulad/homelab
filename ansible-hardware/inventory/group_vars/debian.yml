@@ -24,3 +24,6 @@ mail_relay_family: debian
 # Debian's grub-mkconfig reads kernel arguments from drop-ins in
 # /etc/default/grub.d.
 kernel_params_mode: debian
+
+# The distribution's own Python 3, so no task first runs interpreter discovery.
+ansible_python_interpreter: /usr/bin/python3
