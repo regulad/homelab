@@ -47,7 +47,7 @@ high-priority triggers have no native form in the provider, which passes them th
 
 A project created here, rather than adopted, sets `default_key` and `default_rules` to
 `false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
-the key and alert declared for it are its only ones: koala, koala-vcam, lime, tinyxnb, warlock,
+the key and alert declared for it are its only ones: koala, koala-vcam, lime, ml4webedit, tinyxnb, warlock,
 warlock-extcap, warlock-installer and warlockctl. Both take
 effect only while the provider creates the project, when it deletes every key named
 `Default`, before the declared key exists. Never set them on an adopted project, whose key
@@ -108,6 +108,9 @@ checkout that built it. It has a mapping per checkout, GitHub's Linux runners fo
 builds and the development clone for development builds, from `local.lime_checkouts` in
 `locals.tf`.
 
+ml4webedit's frames carry the paths its Vite source maps give each source, relative to the
+repository's root, so its one mapping maps from the root to `regulad/ml4webedit`'s `main`.
+
 ## DSNs
 
 The `dsn` output gives each project's DSN, from its Default key, by project slug.
@@ -122,7 +125,7 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-koala, koala-vcam, lime, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
+koala, koala-vcam, lime, ml4webedit, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
 delivers them; a key replaced here reaches them only through a change to that source.
 
 ## Organization tokens
@@ -131,8 +134,9 @@ The organization auth tokens that repositories' workflows create releases and up
 files with are issued by hand under Settings → Organization Tokens and kept in
 `org-tokens.sops.yaml`, their only copy, under `org_tokens`, each under its name in Sentry,
 `terraform-<repository>`. This root never reads them: `tofu/github`'s `prepare.sh` does, and sets each
-as its repository's `SENTRY_AUTH_TOKEN`. To rotate one, issue a new token under the same name, put it in the
-file with `sops edit`, apply `tofu/github`, then revoke the old token in Sentry.
+as its repository's `SENTRY_AUTH_TOKEN`, as `tofu/vercel`'s does for a project Vercel builds, ml4webedit's,
+as that project's `SENTRY_AUTH_TOKEN` environment variable. To rotate one, issue a new token under the same
+name, put it in the file with `sops edit`, apply the root that sets it, then revoke the old token in Sentry.
 
 ## Credentials
 
