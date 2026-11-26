@@ -17,7 +17,7 @@ pat:
     #ENC[AES256_GCM,data:q8VSUdWqgWsVm5zFyk5cGdD51AuZ,iv:SNIBQ2Ub/US/bVb6FgWh/GVRwrNQluOwRjpb0USxgms=,tag:JI0yQoFrRt0A9JCRmIHXsg==,type:comment]
     #ENC[AES256_GCM,data:fdXw+w/MINq2fW2ouzxro1A0utqIExV2yw==,iv:wg+O4a7o18Lss9dJpFlIZ572Yk0rPPShk5ss8SA+dm4=,tag:tWJgGs/3axi+Z9XYOpfyiQ==,type:comment]
     terraform-warlock--winget: ENC[AES256_GCM,data:rDZtSb82qR/ce5nxGaXfV8sW77uZoes6+ifeSIzrQgqUKj5hM+sDGg==,iv:bMiaqfZSFCBHDGsurjUioRGobmvIgK01k8PsjUoJ+cY=,tag:UL7MaKjPfo42U5QwfbTx6Q==,type:str]
-    terraform-exports--dotfiles: ""
+    terraform-exports--dotfiles: ENC[AES256_GCM,data:lTR+DORuArkTR9fQYEDhOwizms8leGjjaSW1hK60XUDojnhCbR+zvQ==,iv:y8PW+TrBsfEs5JIaSGV6nS0q6eRzHLFYyK+Kr1ByBpE=,tag:ebS6VYZcCwjvBrCOt0aq9g==,type:str]
 fine_grained: {}
 sops:
     age:
@@ -30,7 +30,7 @@ sops:
             ndjPR7JwfslCruVr26rI3XQUd4JHmExtR3c9TArgo5b7yFEp4PeDYw==
             -----END AGE ENCRYPTED FILE-----
           recipient: age14e7wj4lltcvva2jy9vzzul8y7yuj5xk9vtqfxt9erzz58xqwmpjqurdhep
-    lastmodified: "2026-11-26T22:16:11Z"
-    mac: ENC[AES256_GCM,data:nCrwps82itA62WtFWKb7WgY2R8u/Dt5BigmIiQxwGvV2tRMktJphTLVNdcd1tYeBT7E8WbYdQBp6UoxhvLrZCYOLQkbLib/wlAkcb4q2JpPvBTP6T8FEcPJXTfiaPpuLqqhs227C7hK/+kX60oUILn3gxHWHq4nPlX9LaEtisa8=,iv:kXkkWujfPO3ZIxREBknPHeuI4TCmnu0F+r+WvGc2Gew=,tag:4VZORRrev4Q63wphJWcFyA==,type:str]
+    lastmodified: "2026-11-26T22:20:04Z"
+    mac: ENC[AES256_GCM,data:4yg3A/tt6juFzBg52Ial9JEfvzFCwwhORJBg6+5nif3v7tSn7IKAzRBTVL9VsKA5VgJpO/ZHXyl8rIW54NWKu3ARmVy5vTgaqw2yr595RHXxySN2Q2GO4ReRCvRiOKV0gRB8DkwGSHj+OKYsuul3hQVX8zBstkKjr9bYR5fdtpw=,iv:1b68QwQ29Tzm0fDarsghrf8LywFHnJ/4aSoclrf39BM=,tag:AX/+/7iP9qtRBjJBm/TGYA==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
