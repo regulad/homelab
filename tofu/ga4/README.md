@@ -1,7 +1,7 @@
 # ga4 (Google Analytics)
 
 The `.tf` files are the source of truth for Parker's Google Analytics account,
-`accounts/183524752` (`regulad`), and the three GA4 properties in it. This is the first,
+`accounts/183524752` (`regulad`), and the four GA4 properties in it. This is the first,
 descriptive pass: it mirrors what was made in Analytics' console, through the Admin API's
 v1beta. Every resource was imported, and the import blocks were removed after the adoption
 apply, which changed nothing live; a plan is now a no-op. Every adopted resource carries
