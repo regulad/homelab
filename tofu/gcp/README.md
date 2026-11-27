@@ -17,6 +17,7 @@ adopted resource carries `prevent_destroy = true`. Fixes follow as separate, rev
 | `state.tf` | Enforced state encryption and its passphrase input |
 | `service-account-tofu.crt` | The certificate of the service account's key, public |
 | `service-account-tofu-analytics.crt` | The certificate of `tofu-analytics`'s key, public, which `project-regulad.tf` uploads |
+| `service-account-analytics-mcp.crt` | The certificate of `analytics-mcp`'s key, public, valid for one year, which `project-regulad.tf` uploads |
 
 ## Credentials
 
@@ -47,6 +48,15 @@ certificate, through `google_service_account_key`'s `public_key_data`; the priva
 from which `tofu/ga4` builds its credentials. Its access to Google Analytics, Editor on the
 account, is granted in Analytics' own console, which no provider reaches; it holds no Google
 Cloud role.
+
+`analytics-mcp`, the account Google Analytics' MCP server works as on Parker's machines, is
+`regulad/dotfiles`' to use: this root makes it and uploads its key's certificate, which is
+valid for one year, so the key expires with it, and `regulad` enables the Admin and Data APIs
+the server calls. The key file, with its private key, is age-encrypted in dotfiles, and nothing
+here holds it. The `analytics_mcp` output gives the account's address, the key's ID and its
+expiry. To renew the key, make a new key pair and certificate, replace the certificate here,
+apply, and hand dotfiles the new key file. Its access to Google Analytics is granted in
+Analytics' console; it holds no Google Cloud role.
 
 ## Running it
 

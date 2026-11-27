@@ -1,8 +1,11 @@
 # regulad: the home project, which holds homelab-tofu and bills the APIs it calls.
 locals {
   regulad_services = toset([
-    # Google Analytics' Admin API, which tofu/ga4 calls as tofu-analytics.
+    # Google Analytics' Admin API, which tofu/ga4 calls as tofu-analytics and
+    # the Analytics MCP server as analytics-mcp.
     "analyticsadmin.googleapis.com",
+    # Google Analytics' Data API, which the Analytics MCP server reports through.
+    "analyticsdata.googleapis.com",
     "apikeys.googleapis.com",
     "artifactregistry.googleapis.com",
     "autoscaling.googleapis.com",
@@ -91,6 +94,24 @@ resource "google_service_account" "tofu_analytics" {
 resource "google_service_account_key" "tofu_analytics" {
   service_account_id = google_service_account.tofu_analytics.name
   public_key_data    = filebase64("${path.module}/service-account-tofu-analytics.crt")
+}
+
+# analytics-mcp: the account Google Analytics' MCP server works as on Parker's
+# machines, set up by regulad/dotfiles. It holds no Google Cloud role; its
+# access to Analytics is granted in Analytics' own console.
+resource "google_service_account" "analytics_mcp" {
+  project      = google_project.regulad.project_id
+  account_id   = "analytics-mcp"
+  display_name = "Google Analytics MCP server (regulad/dotfiles)"
+}
+
+# Its key, whose private half Google never had: the certificate of a key made
+# for it, uploaded. The certificate is valid for one year, so the key expires
+# with it. The key file, with the private key, is dotfiles', age-encrypted
+# there; nothing here holds it.
+resource "google_service_account_key" "analytics_mcp" {
+  service_account_id = google_service_account.analytics_mcp.name
+  public_key_data    = filebase64("${path.module}/service-account-analytics-mcp.crt")
 }
 
 resource "google_recaptcha_enterprise_key" "pterodactyl" {

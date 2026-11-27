@@ -40,6 +40,16 @@ output "tofu_analytics" {
   }
 }
 
+# analytics-mcp's address, the ID Google gave its uploaded key, and when the
+# key expires, for the key file regulad/dotfiles keeps.
+output "analytics_mcp" {
+  value = {
+    email        = google_service_account.analytics_mcp.email
+    key_id       = element(split("/", google_service_account_key.analytics_mcp.name), 5)
+    valid_before = google_service_account_key.analytics_mcp.valid_before
+  }
+}
+
 # The Developer Knowledge MCP server's API key, which Parker copies into the
 # Bitwarden item dotfiles reads: never printed here.
 output "developer_knowledge_api_key" {
