@@ -19,6 +19,7 @@ vars:
     - oracle
     - gonkputer
     - gcp
+    - ga4
     - azure
     - aws
     - tailscale
@@ -48,6 +49,7 @@ includes:
   oracle: {taskfile: tasks/tofu.yml, vars: {ROOT: oracle}}
   gonkputer: {taskfile: tasks/tofu.yml, vars: {ROOT: gonkputer}}
   gcp: {taskfile: tasks/tofu.yml, vars: {ROOT: gcp}}
+  ga4: {taskfile: tasks/tofu.yml, vars: {ROOT: ga4}}
   azure: {taskfile: tasks/tofu.yml, vars: {ROOT: azure}}
   aws: {taskfile: tasks/tofu.yml, vars: {ROOT: aws}}
   tailscale: {taskfile: tasks/tofu.yml, vars: {ROOT: tailscale}}

@@ -75,6 +75,13 @@ repos:
         files: ^tofu/(gcp|shared)/
         pass_filenames: false
 
+      - id: tofu-validate-ga4
+        name: tofu validate (ga4)
+        language: unsupported
+        entry: tofu -chdir=tofu/ga4 validate -no-color
+        files: ^tofu/(ga4|shared)/
+        pass_filenames: false
+
       - id: tofu-validate-cloudflare
         name: tofu validate (cloudflare)
         language: unsupported

@@ -1,0 +1,11 @@
+# OpenTofu CLI configuration for this root, selected by prepare.sh through TF_CLI_CONFIG_FILE.
+# himanoa/ga4 is on no registry: the mirror is its only source, so direct leaves it out.
+provider_installation {
+  direct {
+    exclude = ["registry.opentofu.org/himanoa/ga4"]
+  }
+  network_mirror {
+    url     = "https://opentofu.regulad.xyz/"
+    include = ["registry.opentofu.org/himanoa/ga4"]
+  }
+}

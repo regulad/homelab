@@ -5,6 +5,7 @@
     "tofu/azure": {},
     "tofu/backblaze": {},
     "tofu/cloudflare": {},
+    "tofu/ga4": {},
     "tofu/gcp": {},
     "tofu/github": {},
     "tofu/github-user": {},
