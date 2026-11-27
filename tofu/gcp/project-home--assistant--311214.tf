@@ -98,3 +98,18 @@ resource "google_firebase_hosting_site" "home_assistant" {
     prevent_destroy = true
   }
 }
+
+# Firebase's Admin SDK service agent, which Firebase made with the project.
+# Nothing uses it: the project has no Firebase apps, and Home Assistant
+# authenticates as home-assistant.
+resource "google_service_account" "home_assistant_firebase_adminsdk" {
+  project      = google_project.home_assistant.project_id
+  account_id   = "firebase-adminsdk-g6ta6"
+  display_name = "firebase-adminsdk"
+  description  = "Firebase Admin SDK Service Agent"
+
+  # The following exists as an artifact of import from the imperative setup.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
