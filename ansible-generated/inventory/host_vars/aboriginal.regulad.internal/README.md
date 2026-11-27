@@ -130,8 +130,9 @@ declared here, system-wide.
 
 - **bandcampsync**, a rootless Quadlet (see Moved).
 - **dce-backup**, a user timer running DiscordChatExporter's incremental
-  backup through regulad's rootless Podman; and `dcef`, which `archive` serves
-  (see Removed).
+  backup through regulad's rootless Podman, with `podman-docker`'s `docker`,
+  which its `backup.py` requires; and `dcef`, which `archive` serves (see
+  Removed).
 - **github2forgejo**, from regulad's crontab, every six hours: mirrors regulad's GitHub repositories to Forgejo, with Nushell's `nu`
   from upstream's release (`host_files_archives`).
 - **The YouTube Music and Videos downloads**, from regulad's crontab, daily,

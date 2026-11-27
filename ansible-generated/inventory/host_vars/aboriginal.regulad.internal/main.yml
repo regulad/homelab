@@ -84,9 +84,10 @@ kdump_sysctls_host:
 # Firmware for its passed-through hardware: no task needs it, but devices such
 # as the GPU initialize only with it. Then the mounts' FUSE filesystems,
 # podman-compose for the compose stacks, and pipx for hf; for regulad's own
-# jobs (README), Node.js, yt-dlp's JavaScript runtime, and FFmpeg, which it
-# merges and converts with.
-host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose, pipx, nodejs, ffmpeg]
+# jobs (README), Node.js, yt-dlp's JavaScript runtime, FFmpeg, which it
+# merges and converts with, and podman-docker, the docker command
+# dce-backup's backup.py looks for and runs DiscordChatExporter's image with.
+host_files_packages: [linux-firmware, fuse-overlayfs, bindfs, rclone, podman-compose, pipx, nodejs, ffmpeg, podman-docker]
 # hf, with which llama-server's unit downloads its model where it is missing;
 # yt-dlp and mangadex-dl, for regulad's own jobs (README). yt-dlp's default
 # extras carry its solver for YouTube's JavaScript challenges.
