@@ -65,3 +65,14 @@ resource "vercel_project_domain" "parkerwahle_www_regulad_xyz" {
     prevent_destroy = true
   }
 }
+
+# The site's Google Analytics tag, tofu/ga4's parkerwahle measurement ID, which
+# regulad/parkerwahle's layout reads at build time, defaulting to the same
+# value. Public, as every page serves it.
+resource "vercel_project_environment_variable" "parkerwahle_next_public_ga_tag" {
+  key        = "NEXT_PUBLIC_GA_TAG"
+  project_id = vercel_project.parkerwahle.id
+  sensitive  = false
+  target     = ["production", "preview"]
+  value      = data.terraform_remote_state.ga4.outputs.measurement_ids.parkerwahle
+}

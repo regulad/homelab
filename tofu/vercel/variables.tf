@@ -30,3 +30,11 @@ variable "sentry_auth_tokens" {
   sensitive = true
   nullable  = false
 }
+
+# tofu/ga4's own state passphrase, which prepare.sh reads from
+# tofu/ga4/secrets.sops.yaml, to decrypt the outputs ga4.tf reads.
+variable "ga4_state_encryption_passphrase" {
+  type      = string
+  sensitive = true
+  nullable  = false
+}

@@ -37,5 +37,21 @@ terraform {
       method   = method.aes_gcm.vercel
       enforced = true
     }
+
+    # tofu/ga4's state, for ga4.tf. The key provider keeps tofu/ga4's name,
+    # which its state's encryption metadata records.
+    key_provider "pbkdf2" "ga4" {
+      passphrase = var.ga4_state_encryption_passphrase
+    }
+
+    method "aes_gcm" "ga4" {
+      keys = key_provider.pbkdf2.ga4
+    }
+
+    remote_state_data_sources {
+      remote_state_data_source "ga4" {
+        method = method.aes_gcm.ga4
+      }
+    }
   }
 }
