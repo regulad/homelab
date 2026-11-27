@@ -126,7 +126,11 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-koala, koala-vcam, lime, ml4webedit, parkerwahle, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
+`tofu/vercel` reads it too, through `terraform_remote_state`, and sets parkerwahle's as its
+Vercel project's `NEXT_PUBLIC_SENTRY_DSN` and ml4webedit's as its `VITE_SENTRY_DSN`, which
+their builds read; their source keeps the same DSN as its default.
+
+koala, koala-vcam, lime, rosellaview, tinyxnb and Warlock's four programs build their DSNs into their source, so nothing here
 delivers them; a key replaced here reaches them only through a change to that source.
 
 ## Organization tokens

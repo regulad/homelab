@@ -8,7 +8,7 @@ project, its custom domains and its environment variables.
 |---|---|---|---|
 | `battleship-visualizer` | `regulad/battleship-visualizer` | | |
 | `github-readme-stats` | `regulad/github-readme-stats` | | `PAT_1` |
-| `ml4webedit` | `regulad/ml4webedit` | | `SENTRY_AUTH_TOKEN` |
+| `ml4webedit` | `regulad/ml4webedit` | | `SENTRY_AUTH_TOKEN`, `VITE_SENTRY_DSN` |
 | `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
 | `picture-triangulator` | `regulad/picture-triangulator` | | |
 

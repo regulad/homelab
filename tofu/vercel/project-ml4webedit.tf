@@ -57,3 +57,14 @@ resource "vercel_project_environment_variable" "ml4webedit_sentry_auth_token" {
   target     = ["production"]
   value      = var.sentry_auth_tokens["terraform-ml4webedit"]
 }
+
+# The site's Sentry DSN, tofu/sentry's ml4webedit project's, which
+# regulad/ml4webedit's Vite build writes in, defaulting to the same value.
+# Public, as every page ships it.
+resource "vercel_project_environment_variable" "ml4webedit_vite_sentry_dsn" {
+  key        = "VITE_SENTRY_DSN"
+  project_id = vercel_project.ml4webedit.id
+  sensitive  = false
+  target     = ["production", "preview"]
+  value      = data.terraform_remote_state.sentry.outputs.dsn.ml4webedit
+}
