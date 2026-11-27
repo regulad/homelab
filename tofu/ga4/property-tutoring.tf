@@ -1,5 +1,10 @@
 # tutoring: the property, its data retention settings, its web data stream
 # Tutoring Website and its key event purchase.
+#
+# The site is a Google Sites site, whose settings hold the tag; it is still up,
+# though its custom domain, tutoring.regulad.xyz, is retired:
+# - Published: https://sites.google.com/view/parkerwahle-tutoring/home
+# - Editor: https://sites.google.com/d/1hELredflCxuwG0ZwykDF47cnKV4iDvhg/p/12XjV6_BJm6sUqxw1gnpgXL9MXRhl0N_Y/edit
 resource "ga4_property" "tutoring" {
   display_name      = "tutoring"
   account           = ga4_account.regulad.id
