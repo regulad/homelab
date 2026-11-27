@@ -56,3 +56,11 @@ resource "ga4_key_event" "doppelganger_purchase" {
     prevent_destroy = true
   }
 }
+
+# A new account, which the web app sends as sign_up, GA4's recommended event,
+# with its method (email, or the provider of a first sign-in).
+resource "ga4_key_event" "doppelganger_sign_up" {
+  property        = ga4_property.doppelganger.id
+  event_name      = "sign_up"
+  counting_method = "ONCE_PER_EVENT"
+}
