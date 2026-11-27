@@ -123,3 +123,10 @@ resource "sentry_organization_repository" "ml4webedit" {
   integration_id   = data.sentry_organization_integration.github.id
   identifier       = "regulad/ml4webedit"
 }
+
+resource "sentry_organization_repository" "parkerwahle" {
+  organization     = local.organization
+  integration_type = data.sentry_organization_integration.github.provider_key
+  integration_id   = data.sentry_organization_integration.github.id
+  identifier       = "regulad/parkerwahle"
+}
