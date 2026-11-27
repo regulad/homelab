@@ -1,16 +1,16 @@
 # ga4 (Google Analytics)
 
-The `.tf` files are to be the source of truth for Parker's Google Analytics account,
+The `.tf` files are the source of truth for Parker's Google Analytics account,
 `accounts/183524752` (`regulad`), and the eleven GA4 properties in it. This is the first,
 descriptive pass: it mirrors what was made in Analytics' console, through the Admin API's
-v1beta. Every resource is imported by the blocks in `imports.tf`, which are to be removed after
-the adoption apply. Every adopted resource carries `prevent_destroy = true`.
+v1beta. Every resource was imported, and the import blocks were removed after the adoption
+apply, which changed nothing live; a plan is now a no-op. Every adopted resource carries
+`prevent_destroy = true`.
 
 | Location | Configuration |
 |---|---|
 | `account.tf` | The account |
 | `property-<name>.tf` | One file per property: the property, its data retention settings, its data stream, custom dimensions, key events and Firebase link |
-| `imports.tf` | The adoption's import blocks |
 | `gcp.tf` | `tofu/gcp`'s outputs, read from its state: `tofu-analytics`'s address and key ID |
 | `providers.tf`, `variables.tf`, `versions.tf`, `tofu.rc` | The credentials, the pinned version and where it is installed from |
 | `state.tf` | Enforced state encryption and its passphrase inputs |
