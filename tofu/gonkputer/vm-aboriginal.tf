@@ -136,10 +136,14 @@ EOT
   #   mapping = proxmox_hardware_mapping_usb.back_ups.name
   # }
 
-  # The CyberPower UPS, live as usb4.
-  usb {
-    mapping = proxmox_hardware_mapping_usb.cps.name
-  }
+  # The CyberPower UPS, usb4 while live. Its USB device left prodingus at the
+  # node's reset of 2026-11-27, and Proxmox starts no VM whose USB mapping
+  # matches no device; restore this block when it is back. NUT's [cps]
+  # section in aboriginal's /etc/nut/ups.conf stays, its driver failing until
+  # then.
+  # usb {
+  #   mapping = proxmox_hardware_mapping_usb.cps.name
+  # }
 
   # FIXME(#7): software-rendered virtio, as the host GPU that virtio-gl rendered on,
   # prodingus's Radeon Pro W5500, died on 2026-11-01. Revisit when it is replaced.
