@@ -1,5 +1,10 @@
 # regulad: the property, its data retention settings, its web data stream
 # regulad.xyz and its key event purchase.
+#
+# Its data now comes only from the old blog, which GitHub Pages still serves
+# from regulad/old-blog (archived), whose _config.yml holds the tag:
+# - Site: https://regulad.github.io/old-blog/
+# - Source: https://github.com/regulad/old-blog
 resource "ga4_property" "regulad" {
   display_name      = "regulad"
   account           = ga4_account.regulad.id
