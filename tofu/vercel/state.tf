@@ -48,9 +48,22 @@ terraform {
       keys = key_provider.pbkdf2.ga4
     }
 
+    # tofu/sentry's state, for sentry.tf, likewise.
+    key_provider "pbkdf2" "sentry" {
+      passphrase = var.sentry_state_encryption_passphrase
+    }
+
+    method "aes_gcm" "sentry" {
+      keys = key_provider.pbkdf2.sentry
+    }
+
     remote_state_data_sources {
       remote_state_data_source "ga4" {
         method = method.aes_gcm.ga4
+      }
+
+      remote_state_data_source "sentry" {
+        method = method.aes_gcm.sentry
       }
     }
   }

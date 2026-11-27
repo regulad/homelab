@@ -38,3 +38,11 @@ variable "ga4_state_encryption_passphrase" {
   sensitive = true
   nullable  = false
 }
+
+# tofu/sentry's own state passphrase, which prepare.sh reads from
+# tofu/sentry/secrets.sops.yaml, to decrypt the outputs sentry.tf reads.
+variable "sentry_state_encryption_passphrase" {
+  type      = string
+  sensitive = true
+  nullable  = false
+}

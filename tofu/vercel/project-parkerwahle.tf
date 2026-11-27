@@ -87,3 +87,14 @@ resource "vercel_project_environment_variable" "parkerwahle_sentry_auth_token" {
   target     = ["production"]
   value      = var.sentry_auth_tokens["terraform-parkerwahle"]
 }
+
+# The site's Sentry DSN, tofu/sentry's parkerwahle project's, which
+# regulad/parkerwahle reads at build time, defaulting to the same value.
+# Public, as every page ships it.
+resource "vercel_project_environment_variable" "parkerwahle_next_public_sentry_dsn" {
+  key        = "NEXT_PUBLIC_SENTRY_DSN"
+  project_id = vercel_project.parkerwahle.id
+  sensitive  = false
+  target     = ["production", "preview"]
+  value      = data.terraform_remote_state.sentry.outputs.dsn.parkerwahle
+}

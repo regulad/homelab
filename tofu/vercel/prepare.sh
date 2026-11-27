@@ -29,7 +29,7 @@ _homelab_sops() {
 _homelab_vercel_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext pats sentry ga4 provider backend name value
+    local root dir destination plaintext pats sentry ga4 sentry_state provider backend name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/vercel"
     destination="$dir/secrets.auto.tfvars.json"
@@ -71,11 +71,14 @@ _homelab_vercel_prepare() {
     # tofu/ga4's state passphrase, which ga4.tf needs to read its outputs, from
     # tofu/ga4's own encrypted file, its only copy.
     ga4=$(_homelab_sops decrypt --extract '["state_encryption_passphrase"]' "$root/tofu/ga4/secrets.sops.yaml") || return 1
+    # tofu/sentry's, which sentry.tf needs, likewise.
+    sentry_state=$(_homelab_sops decrypt --extract '["state_encryption_passphrase"]' "$root/tofu/sentry/secrets.sops.yaml") || return 1
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$pats" | jq '{github_pats: {pat, fine_grained}}'
         printf '%s' "$sentry" | jq '{sentry_auth_tokens: .}'
         printf '%s' "$ga4" | jq -R -s '{ga4_state_encryption_passphrase: .}'
+        printf '%s' "$sentry_state" | jq -R -s '{sentry_state_encryption_passphrase: .}'
     } | jq -s add) || return 1
     # An empty value is a slot scaffolded for a secret not yet issued
     # (AGENTS.md, Secrets to add by hand): it is left out of the input, so a

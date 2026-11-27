@@ -9,7 +9,7 @@ project, its custom domains and its environment variables.
 | `battleship-visualizer` | `regulad/battleship-visualizer` | | |
 | `github-readme-stats` | `regulad/github-readme-stats` | | `PAT_1` |
 | `ml4webedit` | `regulad/ml4webedit` | | `SENTRY_AUTH_TOKEN` |
-| `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG`, `SENTRY_AUTH_TOKEN` |
+| `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
 | `picture-triangulator` | `regulad/picture-triangulator` | | |
 
 | Location | Configuration |
@@ -17,8 +17,9 @@ project, its custom domains and its environment variables.
 | `project-<name>.tf` | One file per project: the project, then its custom domains and its environment variables |
 | `providers.tf`, `versions.tf` | Provider auth, the default team and the pinned version |
 | `state.tf` | Enforced state encryption |
-| `variables.tf` | The state passphrase, the GitHub personal access tokens, the Sentry organization tokens, and `tofu/ga4`'s state passphrase |
+| `variables.tf` | The state passphrase, the GitHub personal access tokens, the Sentry organization tokens, and `tofu/ga4`'s and `tofu/sentry`'s state passphrases |
 | `ga4.tf` | `tofu/ga4`'s outputs, read from its state: the properties' measurement IDs |
+| `sentry.tf` | `tofu/sentry`'s outputs, read from its state: the projects' DSNs |
 
 ## Provider
 
