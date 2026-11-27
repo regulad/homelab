@@ -81,6 +81,8 @@ doppelganger_web_env:
   STRIPE_PORTAL_CONFIGURATION: "{{ doppelganger_stripe_outputs.doppelganger_portal_configuration.value }}"
   # The doppelganger project's DSN, from tofu/sentry's output.
   NEXT_PUBLIC_SENTRY_DSN: "{{ sentry_dsns.doppelganger }}"
+  # The doppelganger property's Google Analytics tag, from tofu/ga4's output.
+  NEXT_PUBLIC_GA_TAG: "{{ ga4_measurement_ids.doppelganger }}"
 # tofu/stripe's outputs in its live workspace, each as {sensitive, type, value},
 # read on the operator's machine, which needs tofu/stripe/prepare.sh sourced.
 doppelganger_stripe_outputs: >-

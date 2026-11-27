@@ -31,3 +31,11 @@ sentry_dsns: >-
   {{ lookup('cloud.terraform.tf_output', 'dsn',
             project_path=inventory_dir ~ '/../../tofu/sentry',
             binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
+
+# Each Google Analytics property's measurement ID, by property name: tofu/ga4's
+# measurement_ids output, read the same way, which needs tofu/ga4/prepare.sh's
+# inputs.
+ga4_measurement_ids: >-
+  {{ lookup('cloud.terraform.tf_output', 'measurement_ids',
+            project_path=inventory_dir ~ '/../../tofu/ga4',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
