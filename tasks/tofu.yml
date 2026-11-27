@@ -33,11 +33,11 @@ tasks:
     desc: Record a digest of the step's outputs, which its dependents' upstream signals read.
     set: [pipefail]
     # Reading outputs needs the root initialised, and initialising installs its
-    # providers, which needs approval (AGENTS.md rule 3): say so rather than
-    # installing them here.
+    # providers, which this read-only step, run by every dependent's plan, must
+    # not do: say so rather than installing them here.
     preconditions:
       - sh: test -d tofu/{{.ROOT}}/.terraform
-        msg: 'tofu/{{.ROOT}} has no providers: run `go tool task {{.STEP}}:init`, which installs them, or symlink them from the main checkout.'
+        msg: 'tofu/{{.ROOT}} has no providers: run `bin/do_task {{.STEP}}:init`, which installs them from its lockfile, or symlink them from the main checkout.'
     cmds:
       - mkdir -p .task/signals
       - '{{.RUN}} output -json | cksum > .task/signals/{{.STEP}}.outputs'
