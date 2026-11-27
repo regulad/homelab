@@ -83,6 +83,15 @@ doppelganger_web_env:
   NEXT_PUBLIC_SENTRY_DSN: "{{ sentry_dsns.doppelganger }}"
   # The doppelganger property's Google Analytics tag, from tofu/ga4's output.
   NEXT_PUBLIC_GA_TAG: "{{ ga4_measurement_ids.doppelganger }}"
+  # The Measurement Protocol secret the Stripe webhook reports purchases to
+  # Google Analytics with, from tofu/ga4's output. Server-only.
+  GA_MEASUREMENT_PROTOCOL_SECRET: "{{ doppelganger_ga4_measurement_protocol_secret }}"
+# tofu/ga4's doppelganger_measurement_protocol_secret output, read on the
+# operator's machine, which needs tofu/ga4/prepare.sh's inputs.
+doppelganger_ga4_measurement_protocol_secret: >-
+  {{ lookup('cloud.terraform.tf_output', 'doppelganger_measurement_protocol_secret',
+            project_path=inventory_dir ~ '/../../tofu/ga4',
+            binary_path=lookup('ansible.builtin.pipe', 'command -v tofu')) }}
 # tofu/stripe's outputs in its live workspace, each as {sensitive, type, value},
 # read on the operator's machine, which needs tofu/stripe/prepare.sh sourced.
 doppelganger_stripe_outputs: >-
