@@ -36,10 +36,14 @@
             name: sudo
             state: present
 
+        # The sudo group's links, its slaves among them, and dpkg's record of it.
         - name: Classic sudo chosen
           community.general.alternatives:
             name: sudo
             path: /usr/bin/sudo.ws
+          vars:
+            # yamllint disable-line rule:line-length
+            aide_writes: [/etc/alternatives/sudo, /etc/alternatives/sudo.8.gz, /etc/alternatives/sudoedit, /etc/alternatives/sudoedit.8.gz, /etc/alternatives/sudoers.5.gz, /etc/alternatives/visudo, /var/lib/dpkg/alternatives/sudo]
           # A check run cannot choose a path the package is still to install.
           when: not ansible_check_mode or '/usr/bin/sudo.ws' in pam_rssh_sudo_alternative.stdout
 
