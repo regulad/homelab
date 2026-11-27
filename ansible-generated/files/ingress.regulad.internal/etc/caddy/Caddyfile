@@ -58,22 +58,24 @@
 	}
 }
 
-# Client certificates from arawi's regulad.internal CA alone, which issues the
-# client certificates (dotfiles, uptime): the system bundle would admit one
-# from any public CA, and the homelab's other roots sign server certificates.
-# Its anchor is the one the ca_trust role installs on Ubuntu.
+# Client certificates from the homelab's three issuing CAs: arawi's internal-ca
+# and regulad.internal, and wako's FreeIPA CA (freeipa-regulad.internal). The
+# system bundle would admit one from any public CA. Their anchors are the ones
+# the ca_trust role installs on Ubuntu.
 (mtls) {
 	tls {
 		client_auth {
 			mode require_and_verify
 			trust_pool file {
+				pem_file /usr/local/share/ca-certificates/internal-ca.crt
 				pem_file /usr/local/share/ca-certificates/regulad.internal.crt
+				pem_file /usr/local/share/ca-certificates/freeipa-regulad.internal.crt
 			}
 		}
 	}
 }
 
-# The same CA's client certificates, asked for but not required: a client may
+# The same CAs' client certificates, asked for but not required: a client may
 # present none, and one it presents must verify. The site decides what a
 # request without one may reach, from {http.request.tls.client.subject}, which
 # is empty then.
@@ -82,7 +84,9 @@
 		client_auth {
 			mode verify_if_given
 			trust_pool file {
+				pem_file /usr/local/share/ca-certificates/internal-ca.crt
 				pem_file /usr/local/share/ca-certificates/regulad.internal.crt
+				pem_file /usr/local/share/ca-certificates/freeipa-regulad.internal.crt
 			}
 		}
 	}
