@@ -14,7 +14,6 @@ adopted resource carries `prevent_destroy = true`. Fixes follow as separate, rev
 | `homelab-tofu.tf` | The service account this root works as, and its Owner grant on every project |
 | `outputs.tf` | The `oauth_client_ids` output: every project's OAuth client IDs, which each project's file lists, by project ID, then by slug; and the sensitive `developer_knowledge_api_key`, which Parker keeps in Bitwarden for dotfiles |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions: `hashicorp/google`, and `hashicorp/google-beta` for the beta-only resources |
-| `imports.tf` | The import blocks of `home-assistant-311214`'s Firebase project, Hosting site and browser key, to be removed after their adoption apply |
 | `state.tf` | Enforced state encryption and its passphrase input |
 | `service-account-tofu.crt` | The certificate of the service account's key, public |
 | `service-account-tofu-analytics.crt` | The certificate of `tofu-analytics`'s key, public, which `project-regulad.tf` uploads |
