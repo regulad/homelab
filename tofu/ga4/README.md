@@ -15,17 +15,19 @@ apply, which changed nothing live; a plan is now a no-op. Every adopted resource
 | `providers.tf`, `variables.tf`, `versions.tf`, `tofu.rc` | The credentials, the pinned version and where it is installed from |
 | `state.tf` | Enforced state encryption and its passphrase inputs |
 | `outputs.tf` | `measurement_ids`: each property's web stream's measurement ID, by property name, which `tofu/vercel` and `ansible-generated` deliver as `NEXT_PUBLIC_GA_TAG` |
+| | `doppelganger_measurement_protocol_secret` (sensitive): doppelganger's Measurement Protocol secret, which `ansible-generated` delivers to its server |
 
 ## Properties
 
 Every property has one web data stream, and with it the key event `purchase`, which Analytics
-creates with every web stream and refuses to delete. No property has custom dimensions,
-custom metrics, Google Ads links, Firebase links or Measurement Protocol secrets.
+creates with every web stream and refuses to delete; doppelganger's also counts `sign_up`, and
+its stream alone has a Measurement Protocol secret. No property has custom dimensions, custom
+metrics, Google Ads links or Firebase links.
 
 The user data collection acknowledgement that a property's `acknowledge_user_data_collection`
-gives is an action no API reads back. The provider records an imported property as not
-acknowledged, `false`, and every property sets `false`, which gives nothing, so the provider
-never makes it on Parker's behalf.
+gives is an action no API reads back and that can't be withdrawn. Parker gave it for every
+property on 2026-11-27, through `true` here, when the sites' privacy policies were updated;
+doppelganger's Measurement Protocol secret needs it.
 
 ## Provider
 

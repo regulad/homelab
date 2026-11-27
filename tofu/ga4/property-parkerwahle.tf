@@ -6,10 +6,10 @@ resource "ga4_property" "parkerwahle" {
   time_zone         = "America/Los_Angeles"
   currency_code     = "USD"
   industry_category = "TECHNOLOGY"
-  # The user data collection acknowledgement is an action that no API reads
-  # back. The provider records an imported property as not acknowledged,
-  # false; true would give it on Parker's behalf at the next apply.
-  acknowledge_user_data_collection = false
+  # Google's user data collection acknowledgement, given on Parker's behalf
+  # (2026-11-27), which a Measurement Protocol secret needs. No API reads it
+  # back, and it can't be withdrawn.
+  acknowledge_user_data_collection = true
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

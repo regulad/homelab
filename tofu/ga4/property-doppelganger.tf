@@ -10,10 +10,10 @@ resource "ga4_property" "doppelganger" {
   time_zone         = "America/Los_Angeles"
   currency_code     = "USD"
   industry_category = "TECHNOLOGY"
-  # The user data collection acknowledgement is an action that no API reads
-  # back. The provider records an imported property as not acknowledged,
-  # false; true would give it on Parker's behalf at the next apply.
-  acknowledge_user_data_collection = false
+  # Google's user data collection acknowledgement, given on Parker's behalf
+  # (2026-11-27), which a Measurement Protocol secret needs. No API reads it
+  # back, and it can't be withdrawn.
+  acknowledge_user_data_collection = true
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -63,4 +63,15 @@ resource "ga4_key_event" "doppelganger_sign_up" {
   property        = ga4_property.doppelganger.id
   event_name      = "sign_up"
   counting_method = "ONCE_PER_EVENT"
+}
+
+# The server's Measurement Protocol secret, with which doppelganger's Stripe
+# webhook reports each purchase. Delivered to doppelgangerhq.com's server
+# environment as GA_MEASUREMENT_PROTOCOL_SECRET by ansible-generated.
+resource "ga4_measurement_protocol_secret" "doppelganger" {
+  data_stream  = ga4_data_stream.doppelganger.id
+  display_name = "doppelgangerhq.com server"
+
+  # Analytics refuses a secret until the property's acknowledgement is given.
+  depends_on = [ga4_property.doppelganger]
 }
