@@ -9,7 +9,7 @@ project, its custom domains and its environment variables.
 | `battleship-visualizer` | `regulad/battleship-visualizer` | | |
 | `github-readme-stats` | `regulad/github-readme-stats` | | `PAT_1` |
 | `ml4webedit` | `regulad/ml4webedit` | | `SENTRY_AUTH_TOKEN` |
-| `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG` |
+| `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG`, `SENTRY_AUTH_TOKEN` |
 | `picture-triangulator` | `regulad/picture-triangulator` | | |
 
 | Location | Configuration |
@@ -42,7 +42,7 @@ returns them. A GitHub personal access token is not written here: `prepare.sh` r
 this root and `tofu/github` both use is rotated in one place and applied in each. A Sentry
 organization token likewise comes from `tofu/sentry/org-tokens.sops.yaml`, its only copy, as
 `sentry_auth_tokens`: ml4webedit's production build makes its Sentry release and uploads its
-source maps with `terraform-ml4webedit`.
+source maps with `terraform-ml4webedit`, and parkerwahle's with `terraform-parkerwahle`.
 
 ## Credentials
 

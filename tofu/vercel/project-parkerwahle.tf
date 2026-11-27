@@ -76,3 +76,14 @@ resource "vercel_project_environment_variable" "parkerwahle_next_public_ga_tag" 
   target     = ["production", "preview"]
   value      = data.terraform_remote_state.ga4.outputs.measurement_ids.parkerwahle
 }
+
+# The token the production build creates parkerwahle's Sentry release and
+# uploads its source maps with, read by @sentry/nextjs's build plugin. Preview
+# builds, which report nothing, upload nothing.
+resource "vercel_project_environment_variable" "parkerwahle_sentry_auth_token" {
+  key        = "SENTRY_AUTH_TOKEN"
+  project_id = vercel_project.parkerwahle.id
+  sensitive  = true
+  target     = ["production"]
+  value      = var.sentry_auth_tokens["terraform-parkerwahle"]
+}
