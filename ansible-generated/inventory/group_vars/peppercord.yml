@@ -20,7 +20,6 @@ peppercord_env:
   PEPPERCORD_TOKEN: "{{ peppercord_token }}"
   # Message commands' prefix; PepperCord's default is ?.
   PEPPERCORD_PREFIX: "{{ peppercord_prefix }}"
-  PEPPERCORD_WEB: https://regulad.github.io/PepperCord
   # The peppercord project's DSN, from tofu/sentry's output, in place of the
   # one built into the bot.
   PEPPERCORD_SENTRY_DSN: "{{ sentry_dsns.peppercord }}"
