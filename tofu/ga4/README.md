@@ -14,6 +14,7 @@ apply, which changed nothing live; a plan is now a no-op. Every adopted resource
 | `gcp.tf` | `tofu/gcp`'s outputs, read from its state: `tofu-analytics`'s address and key ID |
 | `providers.tf`, `variables.tf`, `versions.tf`, `tofu.rc` | The credentials, the pinned version and where it is installed from |
 | `state.tf` | Enforced state encryption and its passphrase inputs |
+| `outputs.tf` | `measurement_ids`: each property's web stream's measurement ID, by property name, which `tofu/vercel` and `ansible-generated` deliver as `NEXT_PUBLIC_GA_TAG` |
 
 ## Properties
 
