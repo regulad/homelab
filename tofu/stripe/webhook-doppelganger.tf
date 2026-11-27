@@ -1,5 +1,5 @@
-# doppelganger: the endpoint doppelgangerhq.com receives subscription events
-# at. Live only: production verifies events with the live endpoint's secret,
+# doppelganger: the endpoint doppelgangerhq.com receives subscription and
+# checkout events at. Live only: production verifies events with the live endpoint's secret,
 # so Test mode's would only fail there.
 resource "stripe_webhook_endpoint" "doppelganger" {
   count = terraform.workspace == "live" ? 1 : 0
@@ -10,6 +10,9 @@ resource "stripe_webhook_endpoint" "doppelganger" {
   # with a new signing secret.
   api_version = "2026-10-28.endive"
   enabled_events = [
+    # A completed checkout, which the webhook reports to Google Analytics as a
+    # purchase.
+    "checkout.session.completed",
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
