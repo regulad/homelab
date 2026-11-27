@@ -1,7 +1,7 @@
 # ga4 (Google Analytics)
 
 The `.tf` files are the source of truth for Parker's Google Analytics account,
-`accounts/183524752` (`regulad`), and the ten GA4 properties in it. This is the first,
+`accounts/183524752` (`regulad`), and the five GA4 properties in it. This is the first,
 descriptive pass: it mirrors what was made in Analytics' console, through the Admin API's
 v1beta. Every resource was imported, and the import blocks were removed after the adoption
 apply, which changed nothing live; a plan is now a no-op. Every adopted resource carries
@@ -18,9 +18,8 @@ apply, which changed nothing live; a plan is now a no-op. Every adopted resource
 ## Properties
 
 Every property has one web data stream, and with it the key event `purchase`, which Analytics
-creates with every web stream and refuses to delete. Custom dimensions are only
-`uulanding`'s; no property has custom metrics, Google Ads links, Firebase links or
-Measurement Protocol secrets.
+creates with every web stream and refuses to delete. No property has custom dimensions,
+custom metrics, Google Ads links, Firebase links or Measurement Protocol secrets.
 
 The user data collection acknowledgement that a property's `acknowledge_user_data_collection`
 gives is an action no API reads back. The provider records an imported property as not
