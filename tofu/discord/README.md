@@ -41,3 +41,17 @@ them creates an application or issues its credentials.
 Each bot token or client secret is copied from the Portal into the SOPS file of the host or root
 that uses it. To rotate one, reset it in the Portal, put the new value in that SOPS file, and
 deliver it to its service.
+
+## PepperCord's applications
+
+PepperCord (`839264035756310589`) and its mirror CordPepperer (`890394048228122715`) both run
+regulad/PepperCord (`ansible-generated/inventory/group_vars/peppercord.yml`), each with its bot
+token in its host's `secrets.sops.yml` (`peppercord_token`). Both are public, and both set their
+Terms of Service and Privacy Policy URLs, in the Portal, to the repository's own files:
+
+- `https://github.com/regulad/PepperCord/blob/main/TOS.md`
+- `https://github.com/regulad/PepperCord/blob/main/PRIVACY.md`
+
+The Portal accepts a policy URL only while its page loads: a page that doesn't exist yet is
+refused with "The Terms of Service URL provided is not allowed", whatever its domain. Publish a
+policy before setting its URL.
