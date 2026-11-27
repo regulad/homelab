@@ -13,7 +13,8 @@ adopted resource carries `prevent_destroy = true`. Fixes follow as separate, rev
 | `oauth-clients.sops.json` | OAuth clients' files, as the console downloads them, by project ID, then by slug. SOPS encrypts only each `client_secret` (`.sops.yaml`), so a project's file reads its clients' IDs from it without decrypting, and `tofu/supabase`'s `prepare.sh` decrypts the secrets it sets. Its MAC covers every value, so edit it only through `sops` |
 | `homelab-tofu.tf` | The service account this root works as, and its Owner grant on every project |
 | `outputs.tf` | The `oauth_client_ids` output: every project's OAuth client IDs, which each project's file lists, by project ID, then by slug; and the sensitive `developer_knowledge_api_key`, which Parker keeps in Bitwarden for dotfiles |
-| `providers.tf`, `versions.tf` | Provider settings and pinned versions |
+| `providers.tf`, `versions.tf` | Provider settings and pinned versions: `hashicorp/google`, and `hashicorp/google-beta` for the beta-only resources |
+| `imports.tf` | The import blocks of `home-assistant-311214`'s Firebase project, Hosting site and browser key, to be removed after their adoption apply |
 | `state.tf` | Enforced state encryption and its passphrase input |
 | `service-account-tofu.crt` | The certificate of the service account's key, public |
 | `service-account-tofu-analytics.crt` | The certificate of `tofu-analytics`'s key, public, which `project-regulad.tf` uploads |
@@ -87,7 +88,7 @@ OpenTofu manages only what it declares, so these need no configuration to be lef
 | OAuth 2.0 clients and the consent screen | No public API creates, lists or updates them, so the provider has no resource for them: IAP's OAuth Admin API, which only ever handled clients of internal brands, was shut down on 2026-03-19, and provider 8.0.0 removed `google_iap_brand` and `google_iap_client`. `google_iam_oauth_client` is Workforce Identity Federation's, not a sign-in client. The console's Google Auth Platform pages are their only home. Their IDs, which are public, are still this root's to give: each project's file lists its clients' IDs in a `locals` map, read from each client's file in `oauth-clients.sops.json` where one is kept, and `oauth_client_ids` exports them to every root and host that names one, such as `tofu/supabase`, so no client ID is written anywhere else. An ID begins with its project's number, which the output checks |
 | Service account keys | The provider cannot import them; Google keeps the secrets of its own keys |
 | Google's service accounts and agents, such as Compute Engine's default account and Firebase's `firebase-adminsdk-*` | The services that create them |
-| `home-assistant-311214`'s Firebase project, apps and browser key, and its `firebase=enabled` label | Firebase |
+| `home-assistant-311214`'s `firebase=enabled` label | Firebase. Its Firebase project, default Hosting site and Firebase's browser key are declared in its file; the first two only `hashicorp/google-beta` has, through the `home_assistant` alias, which bills `home-assistant-311214`, as `regulad` hasn't enabled the Firebase APIs |
 | Each project's `_Default` and `_Required` log buckets and sinks | Cloud Logging creates them with every project |
 | `regulad`'s default VPC, its subnets, routes and firewall rules | Compute Engine creates it with the project |
 | The billing account itself | Parker's Google account; only `regulad`'s link to it is here |
