@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Starts restic mount in the background, writes its PID, then polls until the
 # FUSE filesystem is actually mounted before exiting (Type=forking semantics).
+# It waits as long as restic lives, as mnt-restic.service's TimeoutStartSec=infinity
+# intends: restic retries until B2 answers, which at a boot waits on DNS and
+# arawi, and a start given up on fails every unit that requires the mount.
 set -euo pipefail
 
 MOUNT_POINT=/mnt/restic
 PID_FILE=/run/restic-mount.pid
-TIMEOUT_SECS=120
 
 /usr/bin/restic mount \
     --allow-other \
@@ -18,18 +20,11 @@ RESTIC_PID=$!
 echo "$RESTIC_PID" >"$PID_FILE"
 
 echo "restic-mount-helper: waiting for FUSE mount at $MOUNT_POINT (pid $RESTIC_PID)..." >&2
-for ((i = 0; i < TIMEOUT_SECS * 2; i++)); do
-    if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
-        echo "restic-mount-helper: mount ready." >&2
-        exit 0
-    fi
+while ! mountpoint -q "$MOUNT_POINT" 2>/dev/null; do
     if ! kill -0 "$RESTIC_PID" 2>/dev/null; then
         echo "restic-mount-helper: restic process died unexpectedly." >&2
         exit 1
     fi
     sleep 0.5
 done
-
-echo "restic-mount-helper: timed out after ${TIMEOUT_SECS}s." >&2
-kill "$RESTIC_PID" 2>/dev/null || true
-exit 1
+echo "restic-mount-helper: mount ready." >&2
