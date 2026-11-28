@@ -23,13 +23,13 @@ vars:
     - azure
     - aws
     - tailscale
-    - cloudflare
     - onesignal
     - supabase
     - sentry
     - stripe.live
     - stripe.sandbox
     - vercel
+    - cloudflare
     - github-user.personal
     - github-user.bot
     - github.personal
@@ -53,13 +53,13 @@ includes:
   azure: {taskfile: tasks/tofu.yml, vars: {ROOT: azure}}
   aws: {taskfile: tasks/tofu.yml, vars: {ROOT: aws}}
   tailscale: {taskfile: tasks/tofu.yml, vars: {ROOT: tailscale}}
-  cloudflare: {taskfile: tasks/tofu.yml, vars: {ROOT: cloudflare}}
   onesignal: {taskfile: tasks/tofu.yml, vars: {ROOT: onesignal}}
   supabase: {taskfile: tasks/tofu.yml, vars: {ROOT: supabase}}
   sentry: {taskfile: tasks/tofu.yml, vars: {ROOT: sentry}}
   stripe.live: {taskfile: tasks/tofu.yml, vars: {ROOT: stripe, WORKSPACE: live}}
   stripe.sandbox: {taskfile: tasks/tofu.yml, vars: {ROOT: stripe, WORKSPACE: sandbox}}
   vercel: {taskfile: tasks/tofu.yml, vars: {ROOT: vercel}}
+  cloudflare: {taskfile: tasks/tofu.yml, vars: {ROOT: cloudflare}}
   github-user.personal: {taskfile: tasks/tofu.yml, vars: {ROOT: github-user, WORKSPACE: personal}}
   github-user.bot: {taskfile: tasks/tofu.yml, vars: {ROOT: github-user, WORKSPACE: bot}}
   github.personal: {taskfile: tasks/tofu.yml, vars: {ROOT: github, WORKSPACE: personal}}
