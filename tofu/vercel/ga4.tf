@@ -1,4 +1,4 @@
-# tofu/ga4's outputs: each property's measurement ID, which parkerwahle's
+# tofu/ga4's outputs: each property's measurement ID, which landing's
 # project gets as NEXT_PUBLIC_GA_TAG. state.tf decrypts its state with
 # tofu/ga4's passphrase.
 

@@ -8,8 +8,8 @@ project, its custom domains and its environment variables.
 |---|---|---|---|
 | `battleship-visualizer` | `regulad/battleship-visualizer` | | |
 | `github-readme-stats` | `regulad/github-readme-stats` | | `PAT_1` |
+| `landing` | `regulad/parkerwahle` | `regulad.net`, `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
 | `ml4webedit` | `regulad/ml4webedit` | | `SENTRY_AUTH_TOKEN`, `VITE_SENTRY_DSN` |
-| `parkerwahle` | `regulad/parkerwahle` | `regulad.xyz`, `www.regulad.xyz` | `NEXT_PUBLIC_GA_TAG`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
 | `picture-triangulator` | `regulad/picture-triangulator` | | |
 
 | Location | Configuration |
@@ -20,6 +20,8 @@ project, its custom domains and its environment variables.
 | `variables.tf` | The state passphrase, the GitHub personal access tokens, the Sentry organization tokens, and `tofu/ga4`'s and `tofu/sentry`'s state passphrases |
 | `ga4.tf` | `tofu/ga4`'s outputs, read from its state: the properties' measurement IDs |
 | `sentry.tf` | `tofu/sentry`'s outputs, read from its state: the projects' DSNs |
+| `outputs.tf` | `recommended_ipv4s`: the IPv4 addresses Vercel recommends for each apex domain, which `tofu/cloudflare` writes as its A records |
+| `moved.tf` | Every past address move, so old states and backups still plan cleanly |
 
 ## Provider
 
@@ -43,7 +45,8 @@ returns them. A GitHub personal access token is not written here: `prepare.sh` r
 this root and `tofu/github` both use is rotated in one place and applied in each. A Sentry
 organization token likewise comes from `tofu/sentry/org-tokens.sops.yaml`, its only copy, as
 `sentry_auth_tokens`: ml4webedit's production build makes its Sentry release and uploads its
-source maps with `terraform-ml4webedit`, and parkerwahle's with `terraform-parkerwahle`.
+source maps with `terraform-ml4webedit`, and landing's with `terraform-parkerwahle`, which keeps its
+repository's earlier name.
 
 ## Credentials
 

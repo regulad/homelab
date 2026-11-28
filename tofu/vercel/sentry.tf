@@ -1,4 +1,4 @@
-# tofu/sentry's outputs: each project's DSN, which parkerwahle's project gets as
+# tofu/sentry's outputs: each project's DSN, which landing's project gets as
 # NEXT_PUBLIC_SENTRY_DSN and ml4webedit's as VITE_SENTRY_DSN. state.tf decrypts its state with tofu/sentry's
 # passphrase.
 

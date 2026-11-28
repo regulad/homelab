@@ -1,6 +1,7 @@
-# parkerwahle: the project, deployed from regulad/parkerwahle, and its domains regulad.xyz and www.regulad.xyz.
-resource "vercel_project" "parkerwahle" {
-  name                                              = "parkerwahle"
+# landing: the project, deployed from regulad/parkerwahle, its domains regulad.net, regulad.xyz and
+# www.regulad.xyz, and Vercel's recommended records for regulad.net.
+resource "vercel_project" "landing" {
+  name                                              = "landing"
   auto_assign_custom_domains                        = true
   automatically_expose_system_environment_variables = true
   customer_success_code_visibility                  = false
@@ -9,7 +10,7 @@ resource "vercel_project" "parkerwahle" {
   function_failover                                 = false
   git_fork_protection                               = true
   git_lfs                                           = false
-  node_version                                      = "24.x"
+  node_version                                      = "26.x"
   on_demand_concurrent_builds                       = false
   preview_deployments_disabled                      = false
   prioritise_production_builds                      = false
@@ -45,9 +46,9 @@ resource "vercel_project" "parkerwahle" {
   }
 }
 
-resource "vercel_project_domain" "parkerwahle_regulad_xyz" {
+resource "vercel_project_domain" "landing_regulad_xyz" {
   domain     = "regulad.xyz"
-  project_id = vercel_project.parkerwahle.id
+  project_id = vercel_project.landing.id
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -55,9 +56,9 @@ resource "vercel_project_domain" "parkerwahle_regulad_xyz" {
   }
 }
 
-resource "vercel_project_domain" "parkerwahle_www_regulad_xyz" {
+resource "vercel_project_domain" "landing_www_regulad_xyz" {
   domain               = "www.regulad.xyz"
-  project_id           = vercel_project.parkerwahle.id
+  project_id           = vercel_project.landing.id
   redirect_status_code = 308
 
   # The following exists as an artifact of import from the imperative setup.
@@ -66,35 +67,49 @@ resource "vercel_project_domain" "parkerwahle_www_regulad_xyz" {
   }
 }
 
-# The site's Google Analytics tag, tofu/ga4's parkerwahle measurement ID, which
-# regulad/parkerwahle's layout reads at build time, defaulting to the same
-# value. Public, as every page serves it.
-resource "vercel_project_environment_variable" "parkerwahle_next_public_ga_tag" {
-  key        = "NEXT_PUBLIC_GA_TAG"
-  project_id = vercel_project.parkerwahle.id
-  sensitive  = false
-  target     = ["production", "preview"]
-  value      = data.terraform_remote_state.ga4.outputs.measurement_ids.parkerwahle
+# The site's primary domain.
+resource "vercel_project_domain" "landing_regulad_net" {
+  domain     = "regulad.net"
+  project_id = vercel_project.landing.id
 }
 
-# The token the production build creates parkerwahle's Sentry release and
+# The records Vercel recommends for regulad.net, which outputs.tf gives
+# tofu/cloudflare for the apex's A records. Vercel recommends no IPv6 address:
+# it serves custom domains over IPv4 only.
+data "vercel_domain_config" "landing_regulad_net" {
+  domain             = vercel_project_domain.landing_regulad_net.domain
+  project_id_or_name = vercel_project.landing.id
+}
+
+# The site's Google Analytics tag, tofu/ga4's landing measurement ID, which
+# landing's layout reads at build time, defaulting to the same
+# value. Public, as every page serves it.
+resource "vercel_project_environment_variable" "landing_next_public_ga_tag" {
+  key        = "NEXT_PUBLIC_GA_TAG"
+  project_id = vercel_project.landing.id
+  sensitive  = false
+  target     = ["production", "preview"]
+  value      = data.terraform_remote_state.ga4.outputs.measurement_ids.landing
+}
+
+# The token the production build creates landing's Sentry release and
 # uploads its source maps with, read by @sentry/nextjs's build plugin. Preview
 # builds, which report nothing, upload nothing.
-resource "vercel_project_environment_variable" "parkerwahle_sentry_auth_token" {
+resource "vercel_project_environment_variable" "landing_sentry_auth_token" {
   key        = "SENTRY_AUTH_TOKEN"
-  project_id = vercel_project.parkerwahle.id
+  project_id = vercel_project.landing.id
   sensitive  = true
   target     = ["production"]
   value      = var.sentry_auth_tokens["terraform-parkerwahle"]
 }
 
-# The site's Sentry DSN, tofu/sentry's parkerwahle project's, which
-# regulad/parkerwahle reads at build time, defaulting to the same value.
+# The site's Sentry DSN, tofu/sentry's landing project's, which
+# landing reads at build time, defaulting to the same value.
 # Public, as every page ships it.
-resource "vercel_project_environment_variable" "parkerwahle_next_public_sentry_dsn" {
+resource "vercel_project_environment_variable" "landing_next_public_sentry_dsn" {
   key        = "NEXT_PUBLIC_SENTRY_DSN"
-  project_id = vercel_project.parkerwahle.id
+  project_id = vercel_project.landing.id
   sensitive  = false
   target     = ["production", "preview"]
-  value      = data.terraform_remote_state.sentry.outputs.dsn.parkerwahle
+  value      = data.terraform_remote_state.sentry.outputs.dsn.landing
 }
