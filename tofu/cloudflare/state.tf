@@ -20,6 +20,14 @@ variable "oracle_state_encryption_passphrase" {
   nullable  = false
 }
 
+# tofu/vercel's own state passphrase, which prepare.sh reads from
+# tofu/vercel/secrets.sops.yaml, to decrypt the outputs vercel.tf reads.
+variable "vercel_state_encryption_passphrase" {
+  type      = string
+  sensitive = true
+  nullable  = false
+}
+
 terraform {
   # Credentials and the endpoint, which names the tenancy, come from the
   # environment that sourcing prepare.sh exports from tofu/shared/backend.sops.env.
@@ -66,9 +74,22 @@ terraform {
       keys = key_provider.pbkdf2.oracle
     }
 
+    # tofu/vercel's state, for vercel.tf, likewise.
+    key_provider "pbkdf2" "vercel" {
+      passphrase = var.vercel_state_encryption_passphrase
+    }
+
+    method "aes_gcm" "vercel" {
+      keys = key_provider.pbkdf2.vercel
+    }
+
     remote_state_data_sources {
       remote_state_data_source "oracle" {
         method = method.aes_gcm.oracle
+      }
+
+      remote_state_data_source "vercel" {
+        method = method.aes_gcm.vercel
       }
     }
   }

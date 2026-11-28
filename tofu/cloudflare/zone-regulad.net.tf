@@ -1,4 +1,5 @@
 # regulad.net: the zone, its DNSSEC and its DNS records, on a new zone's settings.
+# Its apex serves landing's site, from Vercel.
 
 resource "cloudflare_zone" "regulad_net" {
   name    = "regulad.net"
@@ -14,6 +15,20 @@ resource "cloudflare_zone" "regulad_net" {
 resource "cloudflare_zone_dnssec" "regulad_net" {
   zone_id = cloudflare_zone.regulad_net.id
   status  = "active"
+}
+
+# The apex serves landing's site from Vercel, at the addresses Vercel
+# recommends for it (tofu/vercel's recommended_ipv4s), DNS-only so that Vercel
+# terminates TLS. Vercel serves custom domains over IPv4 only, so there is no
+# AAAA record.
+resource "cloudflare_dns_record" "regulad_net_a" {
+  for_each = toset(data.terraform_remote_state.vercel.outputs.recommended_ipv4s[cloudflare_zone.regulad_net.name])
+
+  name    = cloudflare_zone.regulad_net.name
+  zone_id = cloudflare_zone.regulad_net.id
+  type    = "A"
+  content = each.value
+  ttl     = 1 # Automatic
 }
 
 resource "cloudflare_dns_record" "regulad_net_mx" {

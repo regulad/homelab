@@ -1,8 +1,8 @@
 # shellcheck shell=sh
 # Prepare the calling shell to run OpenTofu in tofu/cloudflare: export the
 # account-owned API token and the state backend's credentials, and decrypt the
-# OpenTofu inputs, this root's state passphrase and tofu/oracle's, into the
-# gitignored secrets.auto.tfvars.json file.
+# OpenTofu inputs, this root's state passphrase and tofu/oracle's and
+# tofu/vercel's, into the gitignored secrets.auto.tfvars.json file.
 #
 # Source it from anywhere in the clone; do not execute it:
 #
@@ -27,7 +27,7 @@ _homelab_sops() {
 _homelab_cloudflare_prepare() {
     # dash, bash, zsh and macOS sh all support local.
     # shellcheck disable=SC3043
-    local root dir destination plaintext oracle provider backend name value
+    local root dir destination plaintext oracle vercel provider backend name value
     root=$(git rev-parse --show-toplevel) || return 1
     dir="$root/tofu/cloudflare"
     destination="$dir/secrets.auto.tfvars.json"
@@ -71,9 +71,16 @@ _homelab_cloudflare_prepare() {
         echo 'prepare.sh: tofu/oracle/secrets.sops.json has no state_encryption_passphrase.' >&2
         return 1
     fi
+    # tofu/vercel's, which vercel.tf needs, likewise, from tofu/vercel's own.
+    vercel=$(_homelab_sops decrypt --extract '["state_encryption_passphrase"]' "$root/tofu/vercel/secrets.sops.yaml") || return 1
+    if [ -z "$vercel" ]; then
+        echo 'prepare.sh: tofu/vercel/secrets.sops.yaml has no state_encryption_passphrase.' >&2
+        return 1
+    fi
     plaintext=$({
         printf '%s\n' "$plaintext"
         printf '%s' "$oracle" | jq -R -s '{oracle_state_encryption_passphrase: .}'
+        printf '%s' "$vercel" | jq -R -s '{vercel_state_encryption_passphrase: .}'
     } | jq -s add) || return 1
     if [ -e "$destination" ]; then
         # Compare data, not formatting. Preserve any differing local edits.

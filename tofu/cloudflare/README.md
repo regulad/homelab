@@ -3,7 +3,7 @@
 The `.tf` files are the source of truth for the Cloudflare account `regulad`: its five zones
 and their DNS records, the DNSSEC of `regulad.xyz`, `nefumllc.com` and `regulad.net`, the
 settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and its routes, the
-`mta-sts`, `autoconfig` and `redirect` Workers, and the account's API tokens.
+`mta-sts`, `autoconfig`, `redirect` and `well-known` Workers, and the account's API tokens.
 
 | Location | Configuration |
 |---|---|
@@ -11,13 +11,15 @@ settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and it
 | `tunnel-git.tf` | The `git` tunnel, which cloudflared on `git.regulad.internal` runs, and its routes |
 | `worker-mta--sts.tf` | The `mta-sts` Worker, which serves the MTA-STS policy at `mta-sts.` in each zone mail receives for |
 | `worker-autoconfig.tf` | The `autoconfig` Worker, which serves Mozilla's autoconfig file, mail's IMAP and SMTP settings, at `autoconfig.` in each zone mail receives for |
-| `worker-redirect.tf` | The `redirect` Worker, which sends the apex and `www` host of each parked zone, and `www.regulad.net`, to `regulad.xyz` |
+| `worker-redirect.tf` | The `redirect` Worker, which sends the apex and `www` host of each parked zone, `www.regulad.net`, and `regulad.xyz` and its `www` host to `regulad.net` |
+| `worker-well--known.tf` | The `well-known` Worker, which answers every path under `regulad.xyz`'s `/.well-known/`: Matrix's discovery files for the server name `regulad.xyz`, and a 400 for any other path |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
+| `vercel.tf` | `tofu/vercel`'s outputs, read from its state: the addresses Vercel recommends for `regulad.net`'s apex |
 | `moved.tf` | Every past address move, so old states and backups still plan cleanly |
 | `locals.tf` | The account ID, the zones mail receives for, the MTA-STS policy with its id, and the TLS-RPT reporting address |
 | `providers.tf`, `versions.tf` | Provider settings and pinned versions |
-| `state.tf` | Enforced state encryption with its passphrase input, and `tofu/oracle`'s passphrase for reading its state |
+| `state.tf` | Enforced state encryption with its passphrase input, and `tofu/oracle`'s and `tofu/vercel`'s passphrases for reading their states |
 
 ## DNS records
 
@@ -30,8 +32,10 @@ Cloudflare's automatic TTL.
 
 Names are built from their zone's name, and a record pointing at a host declared here
 references that record. The OCI instances' A and AAAA records and each zone's Email Delivery
-DKIM record read their values from `tofu/oracle`'s outputs, so no GUA is written here. After an
-apply to `tofu/oracle` changes one, apply this root for its records to follow.
+DKIM record read their values from `tofu/oracle`'s outputs, so no GUA is written here, and
+`regulad.net`'s apex A records read Vercel's recommendation from `tofu/vercel`'s. After an apply
+to either root changes one, apply this root for its records to follow; the pipeline plans it
+after both.
 
 `regulad.xyz` declares only the settings in which it differs from a new zone, as
 `regulad.net` showed on 2026-11-04; the other four zones use the new-zone settings, and none
@@ -58,12 +62,13 @@ tofu -chdir=tofu/cloudflare plan -input=false -detailed-exitcode
 `prepare.sh` must be sourced, not executed, so its exports reach the shell that runs `tofu`.
 It needs `sops`, `jq` and `git`. It decrypts `secrets.sops.yaml` into the ignored
 `secrets.auto.tfvars.json`, adding `tofu/oracle`'s state passphrase from
-`tofu/oracle/secrets.sops.json`, its only copy.
+`tofu/oracle/secrets.sops.json` and `tofu/vercel`'s from `tofu/vercel/secrets.sops.yaml`, their
+only copies.
 
 State and saved plans use enforced AES-GCM encryption. Never change or lose the passphrase.
 State is remote, in the `homelab-tofu-state` bucket that `tofu/oracle` manages, under the key
 `cloudflare/terraform.tfstate`, with S3-native locking. The backend's credentials come from
-`tofu/shared/backend.sops.env`, which `prepare.sh` exports; `oracle.tf` reads `tofu/oracle`'s
+`tofu/shared/backend.sops.env`, which `prepare.sh` exports; `oracle.tf` and `vercel.tf` read `tofu/oracle`'s and `tofu/vercel`'s
 state with them.
 
 ## Not managed here

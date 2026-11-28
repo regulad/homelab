@@ -1,5 +1,7 @@
-# redirect: the Worker that sends each parked zone's apex and www host, and
-# www.regulad.net, to the homepage at regulad.xyz.
+# redirect: the Worker that sends every request to the hosts it serves, for
+# good, to the homepage at regulad.net: each parked zone's apex and www host,
+# www.regulad.net, and regulad.xyz's apex and www host, the site's earlier
+# address. The well-known Worker answers regulad.xyz's /.well-known/ instead.
 
 locals {
   # The zones that serve no site of their own, by name.
@@ -9,8 +11,8 @@ locals {
   }
 
   # The hosts the Worker serves, by host name, with their zone's id: each
-  # parked zone's apex and www host, and the www host of regulad.net, whose
-  # apex serves the site.
+  # parked zone's apex and www host, the www host of regulad.net, whose apex
+  # serves the site, and regulad.xyz's apex and www host.
   redirect_hosts = merge(concat(
     [
       for zone, id in local.parked_zones : {
@@ -20,6 +22,8 @@ locals {
     ],
     [{
       ("www.${cloudflare_zone.regulad_net.name}") = cloudflare_zone.regulad_net.id
+      (cloudflare_zone.regulad_xyz.name)          = cloudflare_zone.regulad_xyz.id
+      ("www.${cloudflare_zone.regulad_xyz.name}") = cloudflare_zone.regulad_xyz.id
     }],
   )...)
 }
@@ -31,7 +35,7 @@ resource "cloudflare_workers_script" "redirect" {
   compatibility_date = "2026-11-24"
   content            = <<-EOT
     // Every request, whatever its path, goes to the homepage for good.
-    const target = ${jsonencode("https://${cloudflare_zone.regulad_xyz.name}/")};
+    const target = ${jsonencode("https://${cloudflare_zone.regulad_net.name}/")};
 
     export default {
       async fetch() {
