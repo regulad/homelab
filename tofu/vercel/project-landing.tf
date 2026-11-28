@@ -1,5 +1,5 @@
-# landing: the project, deployed from regulad/parkerwahle, its domains regulad.net, regulad.xyz and
-# www.regulad.xyz, and Vercel's recommended records for regulad.net.
+# landing: the project, deployed from regulad/parkerwahle, its domain regulad.net, and Vercel's
+# recommended records for it.
 resource "vercel_project" "landing" {
   name                                              = "landing"
   auto_assign_custom_domains                        = true
@@ -39,27 +39,6 @@ resource "vercel_project" "landing" {
   vercel_authentication = {
     deployment_type = "standard_protection"
   }
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "vercel_project_domain" "landing_regulad_xyz" {
-  domain     = "regulad.xyz"
-  project_id = vercel_project.landing.id
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "vercel_project_domain" "landing_www_regulad_xyz" {
-  domain               = "www.regulad.xyz"
-  project_id           = vercel_project.landing.id
-  redirect_status_code = 308
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
