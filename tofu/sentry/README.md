@@ -11,6 +11,7 @@ Fixes follow as separate, reviewed changes.
 | `team-regulad.tf` | The organization's one team, which holds every project |
 | `project-<slug>.tf` | One file per project: the project, its client key, its alert with the default monitor the alert watches, and its code mapping, each where it has one |
 | `integration-github.tf` | The GitHub integration `regulad`, read through a data source, and the repositories of it that the code mappings link to |
+| `moved.tf` | Every past address move, so old states and backups still plan cleanly |
 | `outputs.tf` | The `dsn` output: each project's DSN, from its Default key, by project slug |
 | `locals.tf` | The organization's slug |
 | `providers.tf`, `versions.tf` | Provider auth and pinned versions |
@@ -47,7 +48,7 @@ high-priority triggers have no native form in the provider, which passes them th
 
 A project created here, rather than adopted, sets `default_key` and `default_rules` to
 `false`, so that Sentry makes neither its own key named `Default` nor its own alert, and
-the key and alert declared for it are its only ones: koala, koala-vcam, lime, ml4webedit, parkerwahle, tinyxnb, warlock,
+the key and alert declared for it are its only ones: koala, koala-vcam, landing, lime, ml4webedit, tinyxnb, warlock,
 warlock-extcap, warlock-installer and warlockctl. Both take
 effect only while the provider creates the project, when it deletes every key named
 `Default`, before the declared key exists. Never set them on an adopted project, whose key
@@ -110,7 +111,7 @@ builds and the development clone for development builds, from `local.lime_checko
 
 ml4webedit's frames carry the paths its Vite source maps give each source, relative to the
 repository's root, so its one mapping maps from the root to `regulad/ml4webedit`'s `main`;
-parkerwahle's, from Next.js's, map the same way to `regulad/parkerwahle`'s `master`.
+landing's, from Next.js's, map the same way to `regulad/parkerwahle`'s `master`.
 
 ## DSNs
 
@@ -126,7 +127,7 @@ needs this root's `prepare.sh` sourced. It delivers:
 
 A key replaced here reaches them at the next `site.yml` run on those hosts.
 
-`tofu/vercel` reads it too, through `terraform_remote_state`, and sets parkerwahle's as its
+`tofu/vercel` reads it too, through `terraform_remote_state`, and sets landing's as its
 Vercel project's `NEXT_PUBLIC_SENTRY_DSN` and ml4webedit's as its `VITE_SENTRY_DSN`, which
 their builds read; their source keeps the same DSN as its default.
 
@@ -139,8 +140,9 @@ The organization auth tokens that repositories' workflows create releases and up
 files with are issued by hand under Settings → Organization Tokens and kept in
 `org-tokens.sops.yaml`, their only copy, under `org_tokens`, each under its name in Sentry,
 `terraform-<repository>`. This root never reads them: `tofu/github`'s `prepare.sh` does, and sets each
-as its repository's `SENTRY_AUTH_TOKEN`, as `tofu/vercel`'s does for a project Vercel builds, ml4webedit's or parkerwahle's,
-as that project's `SENTRY_AUTH_TOKEN` environment variable. To rotate one, issue a new token under the same
+as its repository's `SENTRY_AUTH_TOKEN`, as `tofu/vercel`'s does for a project Vercel builds, ml4webedit's or landing's,
+as that project's `SENTRY_AUTH_TOKEN` environment variable. landing's token keeps its repository's
+earlier name, `terraform-parkerwahle`. To rotate one, issue a new token under the same
 name, put it in the file with `sops edit`, apply the root that sets it, then revoke the old token in Sentry.
 
 ## Credentials

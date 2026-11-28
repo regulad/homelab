@@ -1,7 +1,7 @@
-# parkerwahle: the project, named parkerwahle, its client key, its alert, and its code mapping.
-resource "sentry_project" "parkerwahle" {
-  name         = "parkerwahle"
-  slug         = "parkerwahle"
+# landing: the project, named landing, its client key, its alert, and its code mapping.
+resource "sentry_project" "landing" {
+  name         = "landing"
+  slug         = "landing"
   organization = local.organization
   teams        = [sentry_team.regulad.slug]
   platform     = "javascript-nextjs"
@@ -13,23 +13,23 @@ resource "sentry_project" "parkerwahle" {
   default_rules = false
 }
 
-resource "sentry_key" "parkerwahle" {
+resource "sentry_key" "landing" {
   name         = "Default"
-  organization = sentry_project.parkerwahle.organization
-  project      = sentry_project.parkerwahle.slug
+  organization = sentry_project.landing.organization
+  project      = sentry_project.landing.slug
 }
 
 # The default monitor of the project's new issues, which Sentry created with
 # the project.
-data "sentry_project_issue_stream_monitor" "parkerwahle" {
-  organization = sentry_project.parkerwahle.organization
-  project      = sentry_project.parkerwahle.slug
+data "sentry_project_issue_stream_monitor" "landing" {
+  organization = sentry_project.landing.organization
+  project      = sentry_project.landing.slug
 }
 
-resource "sentry_alert" "parkerwahle" {
+resource "sentry_alert" "landing" {
   name              = "Send a notification for high priority issues"
-  organization      = sentry_project.parkerwahle.organization
-  monitor_ids       = [data.sentry_project_issue_stream_monitor.parkerwahle.id]
+  organization      = sentry_project.landing.organization
+  monitor_ids       = [data.sentry_project_issue_stream_monitor.landing.id]
   frequency_minutes = 0
 
   # Sentry's high-priority triggers, which the provider passes through
@@ -51,13 +51,13 @@ resource "sentry_alert" "parkerwahle" {
   ]
 }
 
-# The code mapping that links parkerwahle's stack frames to the repository, from
+# The code mapping that links landing's stack frames to the repository, from
 # its root: the source maps Next.js writes name each source by its path there.
-resource "sentry_organization_code_mapping" "parkerwahle" {
-  organization   = sentry_project.parkerwahle.organization
+resource "sentry_organization_code_mapping" "landing" {
+  organization   = sentry_project.landing.organization
   integration_id = data.sentry_organization_integration.github.id
-  repository_id  = sentry_organization_repository.parkerwahle.id
-  project_id     = sentry_project.parkerwahle.internal_id
+  repository_id  = sentry_organization_repository.landing.id
+  project_id     = sentry_project.landing.internal_id
   default_branch = "master"
   stack_root     = "./"
 }
