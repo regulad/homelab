@@ -111,7 +111,7 @@ builds and the development clone for development builds, from `local.lime_checko
 
 ml4webedit's frames carry the paths its Vite source maps give each source, relative to the
 repository's root, so its one mapping maps from the root to `regulad/ml4webedit`'s `main`;
-landing's, from Next.js's, map the same way to `regulad/parkerwahle`'s `master`.
+landing's, from Next.js's, map the same way to `regulad/landing`'s `master`.
 
 ## DSNs
 
