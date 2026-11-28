@@ -1,4 +1,4 @@
-# landing: the project, deployed from regulad/parkerwahle, its domain regulad.net, and Vercel's
+# landing: the project, deployed from regulad/landing, its domain regulad.net, and Vercel's
 # recommended records for it.
 resource "vercel_project" "landing" {
   name                                              = "landing"
@@ -18,7 +18,7 @@ resource "vercel_project" "landing" {
 
   git_repository = {
     production_branch = "master"
-    repo              = "regulad/parkerwahle"
+    repo              = "regulad/landing"
     type              = "github"
   }
 
