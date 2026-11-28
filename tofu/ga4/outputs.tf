@@ -4,7 +4,7 @@
 output "measurement_ids" {
   value = {
     doppelganger = ga4_data_stream.doppelganger.measurement_id
-    parkerwahle  = ga4_data_stream.parkerwahle.measurement_id
+    landing      = ga4_data_stream.landing.measurement_id
     regulad      = ga4_data_stream.regulad.measurement_id
     tutoring     = ga4_data_stream.tutoring.measurement_id
   }

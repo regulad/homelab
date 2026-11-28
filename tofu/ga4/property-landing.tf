@@ -1,7 +1,7 @@
-# parkerwahle: the property, its data retention settings, its web data stream
+# landing: the property, its data retention settings, its web data stream
 # Parker Wahle and its key event purchase.
-resource "ga4_property" "parkerwahle" {
-  display_name      = "parkerwahle"
+resource "ga4_property" "landing" {
+  display_name      = "landing"
   account           = ga4_account.regulad.id
   time_zone         = "America/Los_Angeles"
   currency_code     = "USD"
@@ -17,8 +17,8 @@ resource "ga4_property" "parkerwahle" {
   }
 }
 
-resource "ga4_data_retention_settings" "parkerwahle" {
-  property                        = ga4_property.parkerwahle.id
+resource "ga4_data_retention_settings" "landing" {
+  property                        = ga4_property.landing.id
   event_data_retention            = "TWO_MONTHS"
   user_data_retention             = "FOURTEEN_MONTHS"
   reset_user_data_on_new_activity = true
@@ -29,10 +29,10 @@ resource "ga4_data_retention_settings" "parkerwahle" {
   }
 }
 
-resource "ga4_data_stream" "parkerwahle" {
+resource "ga4_data_stream" "landing" {
   display_name = "Parker Wahle"
-  property     = ga4_property.parkerwahle.id
-  default_uri  = "https://www.regulad.xyz"
+  property     = ga4_property.landing.id
+  default_uri  = "https://regulad.net"
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {
@@ -42,8 +42,8 @@ resource "ga4_data_stream" "parkerwahle" {
 
 # Analytics creates purchase with every web data stream and lets no one
 # delete it.
-resource "ga4_key_event" "parkerwahle_purchase" {
-  property        = ga4_property.parkerwahle.id
+resource "ga4_key_event" "landing_purchase" {
+  property        = ga4_property.landing.id
   event_name      = "purchase"
   counting_method = "ONCE_PER_EVENT"
 
