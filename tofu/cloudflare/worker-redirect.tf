@@ -1,21 +1,27 @@
-# redirect: the Worker that sends each parked zone's apex and www host to the
-# homepage at regulad.xyz.
+# redirect: the Worker that sends each parked zone's apex and www host, and
+# www.regulad.net, to the homepage at regulad.xyz.
 
 locals {
   # The zones that serve no site of their own, by name.
   parked_zones = {
     (cloudflare_zone.aporia_blue.name)  = cloudflare_zone.aporia_blue.id
     (cloudflare_zone.nefumllc_com.name) = cloudflare_zone.nefumllc_com.id
-    (cloudflare_zone.regulad_net.name)  = cloudflare_zone.regulad_net.id
   }
 
-  # Each parked zone's apex and www host, by host name, with its zone's id.
-  redirect_hosts = merge([
-    for zone, id in local.parked_zones : {
-      (zone)          = id
-      ("www.${zone}") = id
-    }
-  ]...)
+  # The hosts the Worker serves, by host name, with their zone's id: each
+  # parked zone's apex and www host, and the www host of regulad.net, whose
+  # apex serves the site.
+  redirect_hosts = merge(concat(
+    [
+      for zone, id in local.parked_zones : {
+        (zone)          = id
+        ("www.${zone}") = id
+      }
+    ],
+    [{
+      ("www.${cloudflare_zone.regulad_net.name}") = cloudflare_zone.regulad_net.id
+    }],
+  )...)
 }
 
 resource "cloudflare_workers_script" "redirect" {

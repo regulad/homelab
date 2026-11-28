@@ -73,19 +73,6 @@ resource "cloudflare_zone_setting" "regulad_xyz_security_header" {
   }
 }
 
-resource "cloudflare_dns_record" "regulad_xyz_a" {
-  name    = cloudflare_zone.regulad_xyz.name
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "A"
-  content = "216.198.79.1"
-  ttl     = 600
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 resource "cloudflare_dns_record" "regulad_xyz_mx" {
   name     = cloudflare_zone.regulad_xyz.name
   zone_id  = cloudflare_zone.regulad_xyz.id
@@ -1052,21 +1039,6 @@ resource "cloudflare_dns_record" "regulad_xyz_submissions_tcp_srv" {
   }
 }
 
-resource "cloudflare_dns_record" "regulad_xyz_t_cname" {
-  name    = "t.${cloudflare_zone.regulad_xyz.name}"
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "CNAME"
-  content = cloudflare_dns_record.regulad_xyz_www_cname.name
-  ttl     = 1 # Automatic
-  proxied = true
-  comment = "Linktree stub"
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 resource "cloudflare_dns_record" "regulad_xyz_tvheadend_livingston_cname" {
   name    = "tvheadend-livingston.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id
@@ -1107,51 +1079,12 @@ resource "cloudflare_dns_record" "regulad_xyz_url1107_noreply_cname" {
   }
 }
 
-resource "cloudflare_dns_record" "regulad_xyz_vercel_txt_apex" {
-  name    = "_vercel.${cloudflare_zone.regulad_xyz.name}"
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "TXT"
-  content = "\"vc-domain-verify=regulad.xyz,65702f51afb12fb12e39,dc\""
-  ttl     = 600
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "cloudflare_dns_record" "regulad_xyz_vercel_txt_www" {
-  name    = "_vercel.${cloudflare_zone.regulad_xyz.name}"
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "TXT"
-  content = "\"vc-domain-verify=www.regulad.xyz,c1f44ce7f8e3ef42bffa,dc\""
-  ttl     = 600
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 resource "cloudflare_dns_record" "regulad_xyz_vw_cname" {
   name    = "vw.${cloudflare_zone.regulad_xyz.name}"
   zone_id = cloudflare_zone.regulad_xyz.id
   type    = "CNAME"
   content = local.regulad_xyz_ingress
   ttl     = 1 # Automatic
-
-  # The following exists as an artifact of import from the imperative setup.
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "cloudflare_dns_record" "regulad_xyz_www_cname" {
-  name    = "www.${cloudflare_zone.regulad_xyz.name}"
-  zone_id = cloudflare_zone.regulad_xyz.id
-  type    = "CNAME"
-  content = "aaea064265f63104.vercel-dns-017.com"
-  ttl     = 600
 
   # The following exists as an artifact of import from the imperative setup.
   lifecycle {

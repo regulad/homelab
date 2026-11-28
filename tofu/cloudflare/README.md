@@ -11,7 +11,7 @@ settings in which `regulad.xyz` differs from a new zone, the `git` tunnel and it
 | `tunnel-git.tf` | The `git` tunnel, which cloudflared on `git.regulad.internal` runs, and its routes |
 | `worker-mta--sts.tf` | The `mta-sts` Worker, which serves the MTA-STS policy at `mta-sts.` in each zone mail receives for |
 | `worker-autoconfig.tf` | The `autoconfig` Worker, which serves Mozilla's autoconfig file, mail's IMAP and SMTP settings, at `autoconfig.` in each zone mail receives for |
-| `worker-redirect.tf` | The `redirect` Worker, which sends the apex and `www` host of each parked zone to `regulad.xyz` |
+| `worker-redirect.tf` | The `redirect` Worker, which sends the apex and `www` host of each parked zone, and `www.regulad.net`, to `regulad.xyz` |
 | `tokens.tf` | The account's API tokens, other than this root's own |
 | `oracle.tf` | `tofu/oracle`'s outputs, read from its state |
 | `moved.tf` | Every past address move, so old states and backups still plan cleanly |
@@ -73,7 +73,6 @@ state with them.
 | `ingress.regulad.xyz` and `dodo.regulad.xyz`, A and AAAA | The `cloudflare-ddns` container on each host keeps them current; their home IPv6 prefix rotates |
 | `git.regulad.xyz`'s HTTPS record | Caddy on ingress publishes it with its ECH keys, which it rotates |
 | `_acme-challenge` TXT records | ACME clients create and delete them for DNS-01 challenges |
-| `regulad.xyz`'s three page rules | The Page Rules API refuses account-owned tokens, and Cloudflare deprecates Page Rules for Single Redirects. They send `regulad.xyz/*` to `https://www.regulad.xyz` (301), and `www.regulad.xyz/*` (302) and `t.regulad.xyz/*` (301) to Linktree. Only `t` is proxied, so only its rule takes effect |
 | `regulad.xyz`'s `http_config_settings` ruleset | It holds no rules |
 | The `homelab-tofu` API token | This root's own credential, in `provider.sops.env`, created by hand like `svc-tofu-state`'s key, so that no apply can change or revoke the access it runs with. It holds every permission group, on the account and on all its zones |
 | The user API token of `cloudflare-ddns` on dodo and ingress, and of certbot on dodo | It belongs to Parker's user, whose tokens an account-owned token cannot read |
